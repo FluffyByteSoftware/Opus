@@ -1,0 +1,26 @@
+# Compiled output
+Conductor/build/
+Ensemble/build/
+
+# Runtime data (configs, logs, saves) -- programs recreate these
+Conductor/content/
+Ensemble/content/
+
+# Rust, in case target/ ever lands in dev/
+**/target/
+
+# Unity caches
+Ensemble/dev/**/[Ll]ibrary/
+Ensemble/dev/**/[Tt]emp/
+Ensemble/dev/**/[Oo]bj/
+Ensemble/dev/**/[Ll]ogs/
+Ensemble/dev/**/[Uu]ser[Ss]ettings/
+
+# Godot cache
+**/.godot/
+
+# IDE and OS clutter
+.idea/
+.vscode/
+*.swp
+.DS_Store
