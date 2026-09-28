@@ -104,7 +104,7 @@ impl<T> Pending<T> {
         }
     }
 
-    /// Waits for the answer.  Fine at startup and in the admin's menu, but
+    /// Waits for the answer.  Fine at startup and for the web admin, but
     /// never in the game loop, because this is exactly the blocking the
     /// worker was made to avoid.
     pub fn wait(self) -> Result<T, ArchivistError> {

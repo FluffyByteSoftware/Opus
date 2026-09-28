@@ -10,12 +10,11 @@ Author:     Jacob Chacko
 
 Things that wait on a piece that doesn't exist yet.
 
-- The web admin: a web application Conductor hosts, to manage the server through.  Jacob's pick, over a
-  desktop GUI.  Modeled on how Jacob's work designs its TLP: critical service status at a glance (Scribe,
-  Constellations, Archivist and whatever comes after), and the launcher's console window becomes raw log
-  output.  It shows `archivist::status()`.  Needs a name (CLAUDE.md: ask before creating a third piece), and
-  almost certainly a crate for the web server, which needs an OK.  The launcher's menu items below would move
-  there.
+- Monitor on macOS: `proc_pidinfo` / `proc_pid_rusage` from libproc for memory, CPU, disk and per-thread
+  times.  Waits on a Mac to test it on.  Today macOS builds and runs and the page says "not measured".
+- Web admin: a login.  Anything on this machine can reach it today.  Wants Security (password hashing) first,
+  and matters most once the page has buttons that change things.
+- Web admin: HTTPS, once Security brings in TLS for the game.
 - Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
@@ -26,11 +25,12 @@ Things that wait on a piece that doesn't exist yet.
   is Jacob's call when each comes up.
 - Constellations writes `conductor_globals.cfg` straight to disk.  Once the disk manager exists it goes
   through that instead, so a crash mid-write can't leave half a config file.
-- Launcher: S) Start / stop the server.  Waits on networking and a game loop.
-- Launcher: account management (make, delete, list, finger, change password).  Waits on accounts.
-- Launcher: config management (show, change, reload).  Reload needs Constellations to stop being load-once.
-- Launcher: switch Ctrl-C off so Q is the only way out, once there is something to save on shutdown.  Today
-  there isn't, so Ctrl-C is harmless.
+- Web admin: start / stop the game.  Waits on networking and a game loop.  (Was the launcher's S.)
+- Web admin: account management (make, delete, list, finger, change password).  Waits on accounts.
+- Web admin: config management (show, change, reload).  Reload needs Constellations to stop being load-once.
+- Launcher: catch Ctrl-C and shut down cleanly (or ignore it) once there is something to save on shutdown.
+  Today there isn't, so Ctrl-C is harmless.  Catching it on both Linux and Windows without a crate means a
+  signal handler on one and a console handler on the other.
 - Ensemble has no way to find `Content/` yet.  Decide how once the engine is picked.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
@@ -57,3 +57,11 @@ Things we thought of along the way.  None of them are promised.
 - Archivist: more than one worker, if one ever can't keep up.  Tried and taken out on 2026-09-28: with two,
   jobs can finish out of order, so a SELECT could miss the UPDATE sent just before it.  If it comes back, it
   needs a way to keep one player's jobs in order (all of a player's jobs to the same worker, say).
+- Monitor: a SQL read / write split by rows (rows returned, rows changed), not just by jobs.
+- Monitor: Postgres's own view of things (`pg_stat_database`: cache hits, rows read), as an Archivist job
+  once a few seconds, so it never waits on the database.
+- Monitor: "last read / last write" by file.  Needs the disk manager, since today nothing sees every file
+  Conductor touches in one place.
+- Web admin: keep the CPU and memory history on the server, so a page opened late still sees the last few
+  minutes.
+- Web admin: a Debug on / off switch for the page's terminal, once Scribe has its Debug switch.

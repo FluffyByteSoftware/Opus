@@ -7,8 +7,8 @@ Author:     Jacob Chacko
 # conductor-tools
 
 A lib crate.  The pieces the rest of Conductor leans on but that know nothing about the game: the log, the
-config, the database, and the clock.  One dependency, `postgres` (the blocking Postgres client), for
-Archivist.  It pulls in tokio behind the scenes, but nothing of ours is async.
+config, the database, the clock, and the list of threads we started.  One dependency, `postgres` (the
+blocking Postgres client), for Archivist.  It pulls in tokio behind the scenes, but nothing of ours is async.
 
 ## Skeleton
 
@@ -16,7 +16,7 @@ Archivist.  It pulls in tokio behind the scenes, but nothing of ours is async.
 conductor-tools/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs             pub mod archivist; pub mod clock; pub mod constellations; pub mod scribe;
+    ├── lib.rs             pub mod archivist; clock; constellations; scribe; threads;
     ├── archivist.rs       the front door: start(), stop(), status(), config_path()
     │                        execute(sql, params) -> Pending<u64>, query(sql, params) -> Pending<Vec<Row>>
     │                        batch(sql) -> Pending<()>, transaction(name, |tx| ...) -> Pending<T>
@@ -25,17 +25,20 @@ conductor-tools/
     │   ├── settings.rs    postgres.cfg: struct DbSettings, load(), adds missing settings to the file
     │   ├── worker.rs      the one worker thread, its mailbox, struct Link (the connection, prepared statements)
     │   ├── schemas.rs     get_in_shape(): default schemas, then migrations
-    │   └── status.rs      struct Status, struct SlowJob, the running totals
+    │   └── status.rs      struct Status, struct SlowJob, enum JobKind (read, write, other), the totals
     ├── clock.rs           Utc { year, month, day, hour, minute, second }
     │                        Utc::now(), Utc::from_unix(seconds)
     │                        date(), file_stamp() -> "2026_09_28", line_stamp() -> "02:16:43 PM - 09-28-26 Z"
     ├── scribe.rs          enum Channel { System, Network, Security, Database, Game }
     │                      enum Priority { Debug, Info, Warn, Error }
     │                        start(dir), move_to(dir), current_file()
+    │                        recent_lines(after) -> Vec<RecentLine { number, priority, text }>
     │                        debug / info / warn / error (channel, message)
     │                        debug_with / info_with / warn_with / error_with (channel, err, message)
-    └── constellations.rs  struct Settings { scribe_log_dir }
-                             load(), settings(), log_dir(), content_dir(), config_path()
+    ├── constellations.rs  struct Settings { scribe_log_dir, wgui_port }
+    │                        load(), settings(), log_dir(), content_dir(), config_path()
+    └── threads.rs         spawn(name, work) -> io::Result<JoinHandle<T>>, list() -> Vec<ThreadRecord>
+                             ThreadRecord { name, started_by, started_at, os_id, running }
 ```
 
 ## Scribe
@@ -49,10 +52,11 @@ What we decided:
 - The caller comes from `#[track_caller]`, so nobody passes a file and line by hand.
 - An error value goes in front of the message (`error_with()`), the way `ex.Message` did in C#.  Rust has
   no exceptions, so it takes anything that prints.
-- **The file is the only place a line goes.**  The terminal belongs to the launcher's menu, and L is how the
-  log gets read.  The exception is a line with no file to go to (before `start()`, or a file that can't be
-  opened or written).  That one prints to the terminal, because a line nobody can see anywhere is worse than
-  one in the middle of the menu.
+- **Every line goes three places: the file, the terminal, and the last 200 in memory.**  The terminal is the
+  launcher's console, which is only Scribe's output since the menu went away.  The 200 in memory are what
+  the web admin shows, numbered from 1 so the page can ask for the ones after the last it saw.  (Until
+  2026-09-28 the file was the only place, because the terminal belonged to the L/Q menu.)
+- The terminal write ignores a failure instead of using `println!`, which panics when stdout is gone.
 - A lost file gets one note on stderr and is tried again at the next midnight or `move_to()`.
 - Scribe never panics and never hands an error back from a log call.  A log that takes the server down is
   worse than no log.
@@ -86,6 +90,7 @@ Settings today:
 | Key              | Default | What it is                                   |
 |------------------|---------|----------------------------------------------|
 | `scribe_log_dir` | `logs`  | The folder Scribe writes into, under Content |
+| `wgui_port`      | `9996`  | The web admin's port, on 127.0.0.1 only      |
 
 What's open:
 
@@ -126,7 +131,8 @@ What we decided:
   all.  Migrations skip the query time limit.
 - A job that runs at least `slow_job_ms` is a Warn with its time, its wait in the mailbox, and the first 80
   characters of its SQL (never the values).  `status()` keeps running, connected, waiting, jobs done, slow
-  jobs, the slowest, and the last 5 slow ones.  Nothing shows it yet.
+  jobs, the slowest, and the last 5 slow ones.  It also counts `query()` jobs as reads, `execute()` jobs as
+  writes, and `batch()` and `transaction()` as other.  The web admin shows all of it.
 - If Postgres is down, jobs come back `NotConnected`, the first failure is logged once, and it tries again
   on a later job, no more than once every 5 seconds.  Nothing in Archivist stops the server.
 
@@ -146,9 +152,24 @@ there are characters.
 
 What's open:
 
-- Nothing shows `status()` yet.  The web admin will.
 - Most of its log lines are Info today and should be Debug (see TODO).
 - A password with a space at either end loses it, since every value is trimmed.
+
+## Threads
+
+The list of threads our code started, in `threads.rs`.
+
+What we decided:
+
+- **Every thread goes through `threads::spawn(name, work)`**, never `std::thread::spawn`.  It records the
+  name, the file and line that called it (`#[track_caller]`, the same trick Scribe uses), and when.
+- The thread writes down the OS's own number for itself as its first act: `/proc/thread-self` on Linux,
+  `GetCurrentThreadId` on Windows, nothing elsewhere.  conductor-monitor matches that number to what the OS
+  reports, which is how a thread in the "in use" view gets our name and an "ours" mark.
+- A thread is marked finished when its closure ends, a panic included (a guard that's dropped either way).
+  Finished threads stay on the list.  There are a handful of them, not thousands.
+- Threads today: `archivist`, `monitor`, `wgui`.  The postgres crate starts some of its own, and those show
+  up as "not ours".
 
 ## The clock
 
