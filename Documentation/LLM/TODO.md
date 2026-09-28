@@ -49,3 +49,6 @@ Things we thought of along the way.  None of them are promised.
   could share one if a third config file shows up.
 - Archivist: a password that starts or ends with a space loses the space, because every value is trimmed.
   Quotes around the value would fix it, if it ever matters.
+- Archivist: more than one worker, if one ever can't keep up.  Tried and taken out on 2026-09-28: with two,
+  jobs can finish out of order, so a SELECT could miss the UPDATE sent just before it.  If it comes back, it
+  needs a way to keep one player's jobs in order (all of a player's jobs to the same worker, say).

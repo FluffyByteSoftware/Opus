@@ -3,12 +3,12 @@
 //! Author:     Jacob Chacko
 //!
 //! The running totals: how many jobs, how many were slow, the last few
-//! slow ones.  The workers add to them, and `archivist::status()` hands a
+//! slow ones.  The worker adds to them, and `archivist::status()` hands a
 //! copy to whoever asks, which for now means whatever shows the admin how
 //! the database is doing.
 
 use std::sync::Mutex;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use crate::clock::Utc;
@@ -30,18 +30,18 @@ pub struct SlowJob {
     pub label: String,
     /// How long it ran.
     pub ran_for: Duration,
-    /// How long it sat in the mailbox before a worker picked it up.
+    /// How long it sat in the mailbox before the worker picked it up.
     pub waited: Duration,
 }
 
 /// A copy of how Archivist is doing, right now.
 #[derive(Debug, Clone)]
 pub struct Status {
-    /// How many workers are running.
-    pub workers: usize,
-    /// How many of them have a connection to Postgres.
-    pub connected: usize,
-    /// How many jobs are in the mailbox waiting for a worker.
+    /// Whether the worker thread is running.
+    pub running: bool,
+    /// Whether it has a connection to Postgres.
+    pub connected: bool,
+    /// How many jobs are in the mailbox waiting for the worker.
     pub waiting: usize,
     /// Jobs finished since Conductor started.
     pub jobs_done: u64,
@@ -68,13 +68,16 @@ static TOTALS: Mutex<Totals> = Mutex::new(Totals {
     recent_slow: Vec::new(),
 });
 
-// Rust note: an atomic is a number that threads can change without a
-// lock.  `fetch_add` adds one and nobody else's add can get lost in the
-// middle of it.
-/// How many workers have a connection right now.
-pub(super) static CONNECTED: AtomicUsize = AtomicUsize::new(0);
+// Rust note: an atomic is a value that threads can read and change without
+// a lock.  An AtomicBool is a bool that way.
+static CONNECTED: AtomicBool = AtomicBool::new(false);
 
-/// A worker calls this after every job.  A slow one goes in the log too.
+/// The worker calls this when it connects and when it lets go.
+pub(super) fn set_connected(connected: bool) {
+    CONNECTED.store(connected, Ordering::SeqCst);
+}
+
+/// The worker calls this after every job.  A slow one goes in the log too.
 pub(super) fn record(label: &str, waited: Duration, ran_for: Duration, slow_limit: Duration) {
     let slow = ran_for >= slow_limit;
     let label = short_label(label);
@@ -100,13 +103,13 @@ pub(super) fn record(label: &str, waited: Duration, ran_for: Duration, slow_limi
     }
 }
 
-/// Everything but `workers` and `waiting`, which the worker pool knows and
+/// Everything but `running` and `waiting`, which the worker side knows and
 /// fills in.
-pub(super) fn snapshot(workers: usize, waiting: usize) -> Status {
+pub(super) fn snapshot(running: bool, waiting: usize) -> Status {
     let guard = TOTALS.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     Status {
-        workers,
+        running,
         connected: CONNECTED.load(Ordering::SeqCst),
         waiting,
         jobs_done: guard.jobs_done,

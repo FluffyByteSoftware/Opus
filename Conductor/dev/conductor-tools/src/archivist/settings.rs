@@ -3,7 +3,7 @@
 //! Author:     Jacob Chacko
 //!
 //! `Content/cfg/postgres.cfg`: where Postgres is, how to log in, and the
-//! knobs for Archivist's workers.  Same rules as `conductor_globals.cfg`.
+//! knobs for how Archivist runs.  Same rules as `conductor_globals.cfg`.
 //!
 //! A missing file gets written with everything but the password.  A file
 //! that is missing some settings (because Archivist learned new ones since
@@ -30,10 +30,6 @@ const CONFIG_FILE: &str = "cfg/postgres.cfg";
 /// to.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
 
-/// The most workers `max_workers` may ask for.  Every worker is its own
-/// connection, and Postgres only allows 100 by default.
-const WORKER_CEILING: usize = 16;
-
 /// Everything `postgres.cfg` can hold.  The field names are the keys in the
 /// file.
 // Rust note: no `#[derive(Debug)]` here.  A derived Debug prints every
@@ -52,14 +48,6 @@ pub(super) struct DbSettings {
     /// A job that takes at least this long is a Warn in the log and counts
     /// as slow in `status()`.
     pub(super) slow_job_ms: u64,
-    /// The most workers Archivist runs at once, the first one included.
-    pub(super) max_workers: usize,
-    /// How many jobs have to be waiting before Archivist starts another
-    /// worker.
-    pub(super) busy_queue: usize,
-    /// How long an extra worker sits with nothing to do before it closes.
-    /// The first worker never does.
-    pub(super) idle_worker_seconds: u64,
 }
 
 /// The built-in values.  Everything but the password, which only the admin
@@ -73,9 +61,6 @@ pub(super) fn default_settings() -> DbSettings {
         password: String::new(),
         query_time_limit_seconds: 10,
         slow_job_ms: 250,
-        max_workers: 4,
-        busy_queue: 10,
-        idle_worker_seconds: 60,
     }
 }
 
@@ -208,9 +193,6 @@ fn apply_setting(settings: &mut DbSettings, key: &str, value: &str) -> Result<()
         "password" => settings.password = value.to_string(),
         "query_time_limit_seconds" => settings.query_time_limit_seconds = parse_number(key, value, 0, 3600)?,
         "slow_job_ms" => settings.slow_job_ms = parse_number(key, value, 1, 600_000)?,
-        "max_workers" => settings.max_workers = parse_number(key, value, 1, WORKER_CEILING as u64)? as usize,
-        "busy_queue" => settings.busy_queue = parse_number(key, value, 1, 100_000)? as usize,
-        "idle_worker_seconds" => settings.idle_worker_seconds = parse_number(key, value, 1, 86_400)?,
         _ => return Err(format!("There is no setting called {key}.")),
     }
     Ok(())
@@ -238,7 +220,7 @@ fn parse_number(key: &str, value: &str, low: u64, high: u64) -> Result<u64, Stri
 
 /// The top of a fresh file.
 const FILE_HEADER: &str = "\
-# Where Archivist finds Postgres, and how it runs its workers.  One
+# Where Archivist finds Postgres, and how it runs.  One
 # \"key = value\" a line, and \"#\" starts a comment.  Conductor wrote this
 # file because there wasn't one.  Stop the server before editing it; it is
 # only read at startup.
@@ -278,20 +260,6 @@ query_time_limit_seconds = {}
 # A job that takes at least this many milliseconds is logged as slow.
 slow_job_ms = {}
 ", settings.slow_job_ms)),
-        ("max_workers", format!("\
-# The most workers Archivist runs at once, each with its own connection.
-# 1 means one worker, and every job runs in the order it was sent.
-max_workers = {}
-", settings.max_workers)),
-        ("busy_queue", format!("\
-# How many jobs have to be waiting before Archivist starts another worker.
-busy_queue = {}
-", settings.busy_queue)),
-        ("idle_worker_seconds", format!("\
-# How long an extra worker sits with nothing to do before it closes.  The
-# first worker never closes.
-idle_worker_seconds = {}
-", settings.idle_worker_seconds)),
     ]
 }
 
@@ -374,9 +342,6 @@ mod tests {
             password: "p@ss = word".to_string(),
             query_time_limit_seconds: 0,
             slow_job_ms: 1000,
-            max_workers: 1,
-            busy_queue: 3,
-            idle_worker_seconds: 5,
         }
     }
 
@@ -400,12 +365,12 @@ mod tests {
 
     #[test]
     fn missing_settings_get_added_and_read_back() {
-        // An older file, from before the worker settings existed.
+        // An older file, from before the time limit and slow jobs existed.
         let old = "address = localhost\nport = 5432\ndatabase = opusdb\nusername = opus_game\npassword = x\n";
         let mut settings = default_settings();
         let (_, seen) = parse_text(old, &mut settings);
 
-        let added = missing_text(&seen).expect("the worker settings are missing");
+        let added = missing_text(&seen).expect("the newer settings are missing");
         assert!(added.contains("query_time_limit_seconds = 10"));
         assert!(!added.contains("address"));
 
@@ -418,8 +383,8 @@ mod tests {
 
     #[test]
     fn a_bad_number_keeps_the_default() {
-        for line in ["port = 0", "port = 65536", "port = five", "max_workers = 0", "max_workers = 17",
-                     "slow_job_ms = 0", "query_time_limit_seconds = -1"] {
+        for line in ["port = 0", "port = 65536", "port = five", "slow_job_ms = 0", "query_time_limit_seconds = -1",
+                     "query_time_limit_seconds = 3601"] {
             let mut settings = default_settings();
             let (problems, _) = parse_text(line, &mut settings);
 

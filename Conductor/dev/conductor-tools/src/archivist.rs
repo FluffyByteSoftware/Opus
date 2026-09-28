@@ -2,23 +2,24 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! Archivist, the database.  Its workers own the connections to Postgres
-//! and run on threads of their own, so a slow query or a database that has
-//! gone away never holds up the rest of the server.
+//! Archivist, the database.  Its worker owns the connection to Postgres and
+//! runs on a thread of its own, so a slow query or a database that has gone
+//! away never holds up the rest of the server.
 //!
 //! The idea is a mailbox.  `execute()`, `query()`, `batch()` and
 //! `transaction()` drop a job in Archivist's mailbox and hand back a
 //! `Pending` straight away.  The caller carries on with its work and checks
 //! the `Pending` when it wants the answer: `check()` never waits, `wait()`
-//! does.
+//! does.  The worker takes the jobs one at a time, in the order they were
+//! sent.
 //!
 //! This file is the front door.  The rest is in `archivist/`:
-//! `settings.rs` reads `postgres.cfg`, `worker.rs` runs the workers and
-//! their connections, `schemas.rs` gets the database into shape when a
-//! worker connects, and `status.rs` keeps the running totals.
+//! `settings.rs` reads `postgres.cfg`, `worker.rs` runs the worker and its
+//! connection, `schemas.rs` gets the database into shape when it connects,
+//! and `status.rs` keeps the running totals.
 //!
 //! Nothing in here can stop the server either.  If Postgres isn't there,
-//! the jobs come back as errors, and the workers try again on the next job.
+//! the jobs come back as errors, and the worker tries again on the next job.
 
 mod schemas;
 mod settings;
@@ -40,7 +41,7 @@ pub use settings::config_path;
 pub use status::{SlowJob, Status};
 
 /// One value for a `$1`, `$2` placeholder in the SQL.  Boxed, because the
-/// values have to travel over to a worker's thread with the job.
+/// values have to travel over to the worker's thread with the job.
 ///
 /// ```text
 /// let params: Vec<Param> = vec![Box::new(name.to_string()), Box::new(42_i32)];
@@ -58,7 +59,7 @@ pub type Param = Box<dyn ToSql + Send + Sync>;
 #[derive(Debug)]
 pub enum ArchivistError {
     /// Archivist isn't running: `start()` hasn't happened, `stop()` already
-    /// has, or its workers died.
+    /// has, or its worker died.
     NotRunning,
     /// There's no connection to Postgres, and the reason why.
     NotConnected(String),
@@ -81,8 +82,8 @@ impl fmt::Display for ArchivistError {
 impl std::error::Error for ArchivistError {}
 
 /// An answer that is on its way.  Every job hands one of these back
-/// straight away, and the answer turns up in it once a worker gets to the
-/// job.
+/// straight away, and the answer turns up in it once the worker gets to
+/// the job.
 ///
 /// Once `check()` has handed back an answer, the `Pending` is used up.
 /// Ask it again and it says `NotRunning`, because there is nobody left on
@@ -92,7 +93,7 @@ pub struct Pending<T> {
 }
 
 impl<T> Pending<T> {
-    /// The answer if it's here, `None` if no worker has got to the job
+    /// The answer if it's here, `None` if the worker hasn't got to the job
     /// yet.  Never waits, so this is the one the game loop uses.
     pub fn check(&self) -> Option<Result<T, ArchivistError>> {
         match self.reply.try_recv() {
@@ -104,10 +105,10 @@ impl<T> Pending<T> {
 
     /// Waits for the answer.  Fine at startup and in the admin's menu, but
     /// never in the game loop, because this is exactly the blocking the
-    /// workers were made to avoid.
+    /// worker was made to avoid.
     pub fn wait(self) -> Result<T, ArchivistError> {
         // Rust note: `recv()` fails only when the other end is gone
-        // without answering, which means no worker is going to answer.
+        // without answering, which means the worker isn't there.
         self.reply.recv().unwrap_or(Err(ArchivistError::NotRunning))
     }
 }
@@ -116,23 +117,22 @@ impl<T> Pending<T> {
 // Starting and stopping
 // ---------------------------------------------------------------------------
 
-/// Reads `postgres.cfg` and starts the first worker.  It comes back right
-/// away.  The first connect happens on the worker's thread, and the log
-/// says how it went.  main calls this once, after Constellations has
-/// loaded.
+/// Reads `postgres.cfg` and starts the worker.  It comes back right away.
+/// The first connect happens on the worker's thread, and the log says how
+/// it went.  main calls this once, after Constellations has loaded.
 pub fn start() {
     worker::start(settings::load(&config_path()));
 }
 
 /// Stops taking jobs, finishes the ones already in the mailbox, closes
-/// the connections, and waits for every worker to end.  main calls this on
+/// the connection, and waits for the worker to end.  main calls this on
 /// the way out.  A long query holds up shutdown until it's done, or until
 /// the time limit in `postgres.cfg` cancels it.
 pub fn stop() {
     worker::stop();
 }
 
-/// How Archivist is doing right now: workers, connections, jobs waiting,
+/// How Archivist is doing right now: running, connected, jobs waiting,
 /// and the slow ones.
 pub fn status() -> Status {
     worker::status()
@@ -175,15 +175,16 @@ pub fn batch(sql: &str) -> Pending<()> {
     post(sql, move |link| link.batch(&owned))
 }
 
-/// Runs `work` inside a transaction, on a worker's thread.  Everything it
+/// Runs `work` inside a transaction, on the worker's thread.  Everything it
 /// does to the database happens, or none of it does: if `work` hands back
 /// an error, or anything in it fails, it all gets rolled back.  `name` is
 /// what the slow-job log calls it.
 ///
 /// Inside, `work` can query, look at what came back, and use it in the
 /// next statement.  The one rule: never wait on anything else in there
-/// (another `Pending`, a lock the game holds), because that worker is stuck
-/// until `work` is done.
+/// (another `Pending`, a lock the game holds), because the worker is stuck
+/// until `work` is done, and a `Pending` sent from inside would be waiting
+/// on the very worker that's waiting on it.
 ///
 /// ```text
 /// let pending = archivist::transaction("make account", move |tx| {

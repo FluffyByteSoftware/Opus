@@ -2,26 +2,28 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! Archivist's workers.  Each one is a thread with its own connection to
-//! Postgres, and they all take jobs from the one mailbox.
+//! Archivist's worker: one thread with one connection to Postgres, taking
+//! jobs out of the mailbox one at a time, in the order they were sent.
 //!
-//! There is always one.  When more than `busy_queue` jobs are waiting,
-//! another one starts, up to `max_workers`.  An extra one that has had
-//! nothing to do for `idle_worker_seconds` closes its connection and ends.
-//! So a quiet server holds one connection, and a busy one holds a few.
+//! One worker is on purpose.  Nobody waits on it anyway: sending a job
+//! comes straight back with a `Pending`, and the game carries on while the
+//! worker gets to it.  With two workers, two jobs could run at once and the
+//! second one sent could finish first, so a SELECT could miss the UPDATE
+//! sent just before it.  One worker means that can't happen.
 //!
-//! The catch with more than one worker: two jobs can run at the same time,
-//! so the second one sent can finish first.  When the order matters, put
-//! the steps in one transaction, or wait for the first answer before
-//! sending the next job.  `max_workers = 1` puts everything back in order.
+//! What we do for speed instead is keep every statement the worker has
+//! prepared.  Postgres works out how to run a piece of SQL the first time
+//! it sees it, and after that the worker hands it the prepared version, so
+//! the same query sent 10,000 times gets planned once.
 
-use std::collections::VecDeque;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Condvar, Mutex, MutexGuard, OnceLock};
+use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::{Mutex, OnceLock};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use postgres::{Client, NoTls};
+use postgres::{Client, NoTls, Statement};
 
 use super::schemas;
 use super::settings::DbSettings;
@@ -29,15 +31,16 @@ use super::status::{self, Status};
 use super::{ArchivistError, Param, ToSql};
 use crate::scribe::{self, Channel};
 
-/// After a failed connect, this worker's jobs fail straight away for this
-/// long instead of each one trying again.  Otherwise a queue of 100 jobs
-/// with the database down could mean 100 connect timeouts back to back.
+/// After a failed connect, jobs fail straight away for this long instead
+/// of each one trying again.  Otherwise a queue of 100 jobs with the
+/// database down could mean 100 connect timeouts back to back.
 const RETRY_WAIT: Duration = Duration::from_secs(5);
 
-/// The least time between starting one extra worker and the next.  A new
-/// worker needs a moment to connect, and the jobs keep piling up while it
-/// does, so without this one busy second could start every worker there is.
-const GROW_WAIT: Duration = Duration::from_secs(2);
+/// The most prepared statements the worker keeps.  The game sends the
+/// same few dozen queries over and over, so this is plenty.  If something
+/// ever builds SQL on the fly and fills it, the list is emptied and starts
+/// again, which costs a little planning and nothing else.
+const MOST_PREPARED: usize = 500;
 
 /// One job in the mailbox.  `work` is the job itself, packed up with the
 /// channel its answer goes back on, so the worker doesn't need to know
@@ -53,217 +56,125 @@ pub(super) struct Job {
     pub(super) work: Box<dyn FnOnce(&mut Link) + Send>,
 }
 
-/// The mailbox.
-struct Mailbox {
-    jobs: VecDeque<Job>,
-    /// Set by `stop()`.  No new jobs get in, and the workers end once the
-    /// mailbox is empty.  It starts out true, so jobs sent before `start()`
-    /// are turned away.
-    stopping: bool,
-}
+// Rust note: a channel is a queue between threads.  The `Sender` end can
+// be used from anywhere; the `Receiver` end belongs to the worker.  When
+// `stop()` drops the Sender, the worker gets the jobs still queued and
+// then hears that nothing more is coming.
+static MAILBOX: Mutex<Option<Sender<Job>>> = Mutex::new(None);
+static WORKER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
-static MAILBOX: Mutex<Mailbox> = Mutex::new(Mailbox { jobs: VecDeque::new(), stopping: true });
-
-// Rust note: a `Condvar` lets a thread sleep until another one says
-// something changed.  The workers sleep on it while the mailbox is empty,
-// and `send()` wakes one up.
-static JOB_POSTED: Condvar = Condvar::new();
-
-/// The settings, set once by `start()`.  Every worker reads them.
+/// The settings, set once by `start()`.
 static SETTINGS: OnceLock<DbSettings> = OnceLock::new();
 
-/// Every worker thread, so `stop()` can wait for them all.
-static HANDLES: Mutex<Vec<JoinHandle<()>>> = Mutex::new(Vec::new());
+/// How many jobs are in the mailbox that the worker hasn't picked up yet.
+static WAITING: AtomicUsize = AtomicUsize::new(0);
 
-/// How many workers are running, counting ones still starting up.
-static WORKERS: AtomicUsize = AtomicUsize::new(0);
-
-/// Gives every worker its own number for the log.
-static NEXT_NUMBER: AtomicUsize = AtomicUsize::new(1);
-
-/// When the last extra worker was started.
-static LAST_GROWTH: Mutex<Option<Instant>> = Mutex::new(None);
-
-fn mailbox() -> MutexGuard<'static, Mailbox> {
-    MAILBOX.lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner())
-}
-
-/// Opens the mailbox and starts the first worker.
+/// Opens the mailbox and starts the worker.
 pub(super) fn start(settings: DbSettings) {
     if SETTINGS.set(settings).is_err() {
         scribe::warn(Channel::Database, "Archivist was asked to start twice.  The first one stands.");
         return;
     }
 
-    mailbox().stopping = false;
-    if take_worker_slot(1) {
-        spawn_worker(false);
-    }
-}
-
-/// Closes the mailbox, lets the workers finish what's already in it, and
-/// waits for every one of them to end.
-pub(super) fn stop() {
-    mailbox().stopping = true;
-    JOB_POSTED.notify_all();
-
-    let handles: Vec<JoinHandle<()>> = {
-        let mut guard = HANDLES.lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        guard.drain(..).collect()
-    };
-    for handle in handles {
-        if handle.join().is_err() {
-            scribe::error(Channel::Database, "An Archivist worker had already died.");
-        }
-    }
-}
-
-/// Puts a job in the mailbox and wakes a worker.  If the mailbox is
-/// closed, the job is dropped, and the answer channel with it, so whoever
-/// sent it hears `NotRunning`.  Starts another worker if it's getting busy.
-pub(super) fn send(job: Job) {
-    let waiting = {
-        let mut mailbox = mailbox();
-        if mailbox.stopping {
-            return;
-        }
-        mailbox.jobs.push_back(job);
-        mailbox.jobs.len()
-    };
-    JOB_POSTED.notify_one();
-
-    if let Some(settings) = SETTINGS.get() {
-        if waiting > settings.busy_queue {
-            grow(settings, waiting);
-        }
-    }
-}
-
-/// How the workers and the mailbox are doing, with the totals.
-pub(super) fn status() -> Status {
-    let waiting = mailbox().jobs.len();
-    status::snapshot(WORKERS.load(Ordering::SeqCst), waiting)
-}
-
-/// Starts one more worker, unless there are already `max_workers` or one
-/// was started a moment ago.
-fn grow(settings: &DbSettings, waiting: usize) {
-    {
-        let mut last = LAST_GROWTH.lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        if last.is_some_and(|when| when.elapsed() < GROW_WAIT) {
-            return;
-        }
-        if !take_worker_slot(settings.max_workers) {
-            return;
-        }
-        *last = Some(Instant::now());
-    }
-
-    scribe::info(Channel::Database, &format!("Archivist has {waiting} jobs waiting, so it's starting \
-        another worker."));
-    spawn_worker(true);
-}
-
-/// Counts one more worker if there's room under `max`.  Checking and
-/// counting happen in one step, so two threads can't both take the last
-/// slot.
-fn take_worker_slot(max: usize) -> bool {
-    WORKERS
-        .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |count| if count < max { Some(count + 1) } else { None })
-        .is_ok()
-}
-
-/// Starts a worker thread.  Its slot has already been taken.  `extra`
-/// workers end when they've been idle a while; the first one never does.
-fn spawn_worker(extra: bool) {
-    let number = NEXT_NUMBER.fetch_add(1, Ordering::SeqCst);
+    let (sender, receiver) = mpsc::channel();
     let spawned = thread::Builder::new()
-        .name(format!("archivist-{number}"))
-        .spawn(move || run(number, extra));
+        .name("archivist".to_string())
+        .spawn(move || run(receiver));
 
     match spawned {
         Ok(handle) => {
-            let mut guard = HANDLES.lock()
-                .unwrap_or_else(|poisoned| poisoned.into_inner());
-            // Workers that have already ended don't need waiting for.
-            guard.retain(|handle| !handle.is_finished());
-            guard.push(handle);
+            *lock(&MAILBOX) = Some(sender);
+            *lock(&WORKER) = Some(handle);
         }
-        Err(e) => {
-            WORKERS.fetch_sub(1, Ordering::SeqCst);
-            scribe::error_with(Channel::Database, &e, "Archivist couldn't start a worker thread.");
+        // Every job from here on comes back NotRunning.  The server keeps
+        // going, it just has no database.
+        Err(e) => scribe::error_with(Channel::Database, &e, "Archivist couldn't start its thread.  \
+            There is no database this run."),
+    }
+}
+
+/// Closes the mailbox, lets the worker finish what's already in it, and
+/// waits for it to end.
+pub(super) fn stop() {
+    // Dropping the Sender is what closes the mailbox.
+    lock(&MAILBOX).take();
+
+    let handle = lock(&WORKER).take();
+    if let Some(handle) = handle {
+        if handle.join().is_err() {
+            scribe::error(Channel::Database, "Archivist's thread had already died.");
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// A worker's thread
-// ---------------------------------------------------------------------------
-
-/// Everything from here down runs on a worker's own thread.
-fn run(number: usize, extra: bool) {
-    let Some(settings) = SETTINGS.get() else {
-        WORKERS.fetch_sub(1, Ordering::SeqCst);
+/// Puts a job in the mailbox.  If the mailbox is closed, the job is
+/// dropped, and the answer channel with it, so whoever sent it hears
+/// `NotRunning`.
+pub(super) fn send(job: Job) {
+    let mailbox = lock(&MAILBOX);
+    let Some(sender) = mailbox.as_ref() else {
         return;
     };
-    let idle_limit = Duration::from_secs(settings.idle_worker_seconds);
+    WAITING.fetch_add(1, Ordering::SeqCst);
+    if sender.send(job).is_err() {
+        WAITING.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+/// How the worker and the mailbox are doing, with the totals.
+pub(super) fn status() -> Status {
+    let running = lock(&WORKER).as_ref().is_some_and(|handle| !handle.is_finished());
+    status::snapshot(running, WAITING.load(Ordering::SeqCst))
+}
+
+/// The lock idiom, for the statics above.
+fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
+    mutex.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+// ---------------------------------------------------------------------------
+// The worker's thread
+// ---------------------------------------------------------------------------
+
+/// Everything from here down runs on the worker's own thread.
+fn run(mailbox: Receiver<Job>) {
+    let Some(settings) = SETTINGS.get() else {
+        return;
+    };
     let slow_limit = Duration::from_millis(settings.slow_job_ms);
-    let mut link = Link { settings, number, client: None, failed_at: None };
+    let mut link = Link { settings, client: None, failed_at: None, prepared: HashMap::new() };
 
     // Connect right away, so the log says at startup whether Postgres is
     // there instead of waiting for the first job to find out.  Whatever
     // went wrong is already in the log.
     let _ = link.client();
 
-    while let Some(job) = next_job(extra, idle_limit) {
+    // Rust note: `for job in mailbox` waits for the next job each time
+    // around, and ends once the Sender is gone and the queue is empty.
+    for job in mailbox {
+        WAITING.fetch_sub(1, Ordering::SeqCst);
         let waited = job.posted_at.elapsed();
         let started = Instant::now();
         (job.work)(&mut link);
         status::record(&job.label, waited, started.elapsed(), slow_limit);
     }
 
-    link.disconnect();
-    WORKERS.fetch_sub(1, Ordering::SeqCst);
-    if extra {
-        scribe::info(Channel::Database, &format!("Archivist worker {number} had nothing to do, so it closed."));
+    if link.client.is_some() {
+        link.disconnect();
+        scribe::info(Channel::Database, "Archivist closed its connection to Postgres.");
     }
 }
 
-/// Waits for the next job.  `None` means this worker is done: the mailbox
-/// is closed and empty, or this is an extra worker that sat idle too long.
-fn next_job(extra: bool, idle_limit: Duration) -> Option<Job> {
-    let mut mailbox = mailbox();
-    loop {
-        if let Some(job) = mailbox.jobs.pop_front() {
-            return Some(job);
-        }
-        if mailbox.stopping {
-            return None;
-        }
-
-        // Rust note: `wait_timeout` lets go of the mailbox while it sleeps
-        // and takes it back when it wakes, so the other workers and
-        // `send()` can get in meanwhile.
-        let (guard, timeout) = JOB_POSTED.wait_timeout(mailbox, idle_limit)
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        mailbox = guard;
-
-        if timeout.timed_out() && extra && mailbox.jobs.is_empty() {
-            return None;
-        }
-    }
-}
-
-/// One worker's connection, and what we need to make it again.
+/// The connection, and what we need to make it again.
 pub(super) struct Link {
     settings: &'static DbSettings,
-    number: usize,
     client: Option<Client>,
     /// When the last connect failed.  `None` while things are fine.
     failed_at: Option<Instant>,
+    /// Every statement prepared on this connection, by its SQL.  They
+    /// belong to the connection, so a new connection starts with none.
+    prepared: HashMap<String, Statement>,
 }
 
 impl Link {
@@ -272,8 +183,8 @@ impl Link {
     pub(super) fn client(&mut self) -> Result<&mut Client, ArchivistError> {
         if self.client.as_ref().is_some_and(|client| client.is_closed()) {
             self.disconnect();
-            scribe::warn(Channel::Database, &format!("Archivist worker {} lost its connection to Postgres.  \
-                It will reconnect on the next job.", self.number));
+            scribe::warn(Channel::Database, "Archivist lost its connection to Postgres.  \
+                It will reconnect on the next job.");
         }
         if self.client.is_none() {
             self.connect()?;
@@ -302,22 +213,20 @@ impl Link {
                     Ok(row) => row.try_get(0).unwrap_or_default(),
                     Err(_) => String::new(),
                 };
-                scribe::info(Channel::Database, &format!("Archivist worker {} connected to {where_to}.  {version}",
-                                                         self.number));
+                scribe::info(Channel::Database, &format!("Archivist connected to {where_to}.  {version}"));
                 schemas::get_in_shape(&mut client);
 
                 self.client = Some(client);
                 self.failed_at = None;
-                status::CONNECTED.fetch_add(1, Ordering::SeqCst);
+                status::set_connected(true);
                 Ok(())
             }
             Err(e) => {
                 // Log the first failure only.  With the database down,
                 // every job would add the same line otherwise.
                 if self.failed_at.is_none() {
-                    scribe::error_with(Channel::Database, &e, &format!("Archivist worker {} can't connect to \
-                        {where_to}.  Its jobs will fail until it can.  It tries again on the next job.",
-                        self.number));
+                    scribe::error_with(Channel::Database, &e, &format!("Archivist can't connect to {where_to}.  \
+                        Jobs will fail until it can.  It tries again on the next job."));
                 }
                 self.failed_at = Some(Instant::now());
                 Err(ArchivistError::NotConnected(e.to_string()))
@@ -325,26 +234,52 @@ impl Link {
         }
     }
 
-    /// Lets go of the connection, if there is one.  Dropping a Client is
-    /// what closes it.
+    /// Lets go of the connection, and the statements prepared on it.
+    /// Dropping a Client is what closes it.
     fn disconnect(&mut self) {
-        if self.client.take().is_some() {
-            status::CONNECTED.fetch_sub(1, Ordering::SeqCst);
+        self.client = None;
+        self.prepared.clear();
+        status::set_connected(false);
+    }
+
+    /// The prepared version of `sql`, preparing it first if this is the
+    /// first time we've seen it on this connection.
+    fn prepare(&mut self, sql: &str) -> Result<Statement, ArchivistError> {
+        // Rust note: cloning a Statement is cheap.  It's a shared handle
+        // to the one Postgres holds, not a copy of it.
+        if let Some(statement) = self.prepared.get(sql) {
+            return Ok(statement.clone());
         }
+
+        let statement = self.client()?.prepare(sql).map_err(ArchivistError::Postgres)?;
+        if self.prepared.len() >= MOST_PREPARED {
+            self.prepared.clear();
+        }
+        self.prepared.insert(sql.to_string(), statement.clone());
+        Ok(statement)
     }
 
     pub(super) fn execute(&mut self, sql: &str, params: &[Param]) -> Result<u64, ArchivistError> {
+        let statement = self.prepare(sql)?;
         let params = borrow_params(params);
-        self.client()?.execute(sql, &params).map_err(ArchivistError::Postgres)
+        self.client()?.execute(&statement, &params).map_err(ArchivistError::Postgres)
     }
 
     pub(super) fn query(&mut self, sql: &str, params: &[Param]) -> Result<Vec<postgres::Row>, ArchivistError> {
+        let statement = self.prepare(sql)?;
         let params = borrow_params(params);
-        self.client()?.query(sql, &params).map_err(ArchivistError::Postgres)
+        self.client()?.query(&statement, &params).map_err(ArchivistError::Postgres)
     }
 
+    /// Batches aren't prepared, since there can be several statements in
+    /// one.  A batch is also how the game would change a table, and a
+    /// prepared statement made before a table changed can refuse to run
+    /// after.  So the list is emptied, and the next query gets prepared
+    /// fresh.
     pub(super) fn batch(&mut self, sql: &str) -> Result<(), ArchivistError> {
-        self.client()?.batch_execute(sql).map_err(ArchivistError::Postgres)
+        let answer = self.client()?.batch_execute(sql).map_err(ArchivistError::Postgres);
+        self.prepared.clear();
+        answer
     }
 }
 

@@ -2,7 +2,7 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! Getting the database into shape, every time a worker connects.  First
+//! Getting the database into shape, every time Archivist connects.  First
 //! the schemas, then the migrations.
 //!
 //! The schemas in `Content/psql/defaults/schemas/` are the tables as they
@@ -20,7 +20,6 @@
 use std::collections::HashSet;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
 
 use postgres::Client;
 
@@ -52,17 +51,9 @@ CREATE TABLE IF NOT EXISTS archivist_migrations (
     ran_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 )";
 
-/// Only one worker gets the database into shape at a time.  Without this,
-/// two workers connecting together could both see a migration hasn't run
-/// and both try to run it.
-static SHAPING: Mutex<()> = Mutex::new(());
-
-/// Runs the schemas and then the migrations.  A worker calls this each
-/// time it connects.
+/// Runs the schemas and then the migrations.  The worker calls this each
+/// time it connects, before it takes any jobs.
 pub(super) fn get_in_shape(client: &mut Client) {
-    let _only_us = SHAPING.lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
-
     run_schemas(client);
     run_migrations(client);
 }

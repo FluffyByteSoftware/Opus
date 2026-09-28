@@ -1,7 +1,7 @@
 # Migrations
 
 Every change to a table after it was first made goes here, one `.sql` file per change.  Archivist runs the ones
-that haven't run yet every time a worker connects, right after the schemas in `../defaults/schemas/`.
+that haven't run yet every time it connects, right after the schemas in `../defaults/schemas/`.
 
 - Name each file with a number and an `_`: `0001_add_last_played_character.sql`.  They run lowest number first,
   and each one runs exactly once.  Postgres keeps the list of which ones have run in `archivist_migrations`.
