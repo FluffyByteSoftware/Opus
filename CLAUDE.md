@@ -48,7 +48,7 @@ Opus/
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
-│   │   ├── conductor-tools/    # lib: Scribe, Constellations, Archivist, the clock, threads, services
+│   │   ├── conductor-tools/    # lib: DiskMan, Scribe, Constellations, Archivist, notices, the clock, threads, services
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── conductor-launcher/ # bin: the program -- starts everything, then waits on the web admin
@@ -224,7 +224,18 @@ When I say we're wrapping up:
 - **Every service reports to `services.rs`** in `conductor-tools`: it's named
   in `EXPECTED` up front, says starting / running / trouble / stopped with a
   note, and checks in with `seen()` if it has a loop. That is what puts it on
-  the web admin's Services tab. The disk manager joins when it's built.
+  the web admin's Services tab.
+- **Every file read and write goes through DiskMan** (`diskman.rs` in
+  `conductor-tools`), never `std::fs` directly: `write()` for a whole file
+  (temp file and rename), `append()`, `read()`, and `stream()` for big ones.
+  Only folders (making one, listing one) stay with `std::fs`. DiskMan starts
+  first and stops last.
+- **DiskMan never logs routine work.** A log line is itself a DiskMan write, so
+  a "wrote a file" line would loop forever. It logs failures only, and never
+  while holding its own lock.
+- **Every Warn and Error becomes a notice** on the web admin's bell, and stays
+  there until I ACK it. So a Warn is for something actually wrong, never
+  chatter. Code can raise one on purpose with `notices::publish()`.
 - **The admin works through the web admin** (`conductor-wgui`). The console is
   only Scribe's output and takes no input. Anything an admin can do (shut down,
   and later accounts and config) is a page or a button there. It listens on
@@ -262,12 +273,12 @@ When I say we're wrapping up:
   is added, make sure the CSS for it exists.
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
-- The page is five tabs down the left sidebar, under the OP logo: System,
-  Conductor, Services, Storage, Log. Anything new goes on one of them, or is a
-  new tab I agree to.
+- The page is six tabs down the left sidebar, under the OP logo: System,
+  Conductor, Services, Storage, Notifications History, Log. Anything new goes
+  on one of them, or is a new tab I agree to.
 - While the database isn't connected, the page is blurred and locked with SHUT
   DOWN the only thing that works. Anything new on the page sits under that
-  lock; only the header stays above it.
+  lock; only the header stays above it (the bell and its tray included).
 - When talking about the page, name the panel or tab ("the Log tab"), not the
   tool behind it. "Where does Scribe go?" read as moving the crate.
 - [FILL IN the tick rate once there is a game loop]
