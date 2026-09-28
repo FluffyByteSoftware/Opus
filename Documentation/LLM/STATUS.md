@@ -37,6 +37,8 @@ What we did:
 - `archivist::status()`: running, connected, jobs waiting, jobs done, slow jobs.  Nothing shows it yet.
 - Split Archivist into `archivist.rs` and `archivist/` (settings, worker, schemas, status).
 - `Content/` is committed now, except `Content/Assets/` and `Content/logs/`.
+- Merged into `main` as pull request #3, then cleaned up: the stray empty `Content/conductor_globals.cfg`
+  removed, and every branch but `main` deleted from GitHub.
 
 What fought back:
 
@@ -62,14 +64,16 @@ What Jacob decided:
 - The admin interface outgrows a console.  Jacob wants a web application Conductor hosts to manage the
   server through, modeled on how the TLP at his work is designed: critical service status at a glance, and
   the console window becomes raw log output.  He plans to work on it before anything else.
+- How we work from here: Jacob steers, the sessions clarify what he means and then write it, in small steps
+  so the history reads well.  He's hands-off on files; the sessions edit everything, CLAUDE.md included,
+  and merge when he says so.
 - Most log messages should be Debug, with a switch in the config to turn Debug off, so a finished server's
   log isn't chatty.  The rule is in CLAUDE.md; the switch and the pass over existing lines are in TODO.
 
 ## What's waiting
 
-- Merging `claude/jolly-faraday-ywhu9g` into `main`.  Commit `Cargo.lock` and `Content/cfg/` from Jacob's
-  machine first, since the session couldn't.
-- The web admin.  Open before it starts: its name (CLAUDE.md says to ask before creating a third piece), what
+- The web admin, and the launcher's console going back to being raw output for Scribe.  Jacob picked this
+  for the next conversation.  Open before it starts: its name (CLAUDE.md says to ask before creating a third piece), what
   "the TLP at work" looks like (Jacob to describe it), which web server crate (needs an OK), whether it lives
   in a new lib crate the launcher starts, and how it's kept to this machine or logged into.
 - The Debug switch in `conductor_globals.cfg`, and moving the routine log lines to Debug.

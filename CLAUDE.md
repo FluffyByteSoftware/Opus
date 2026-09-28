@@ -94,6 +94,14 @@ a `Content/` folder, or by creating `./Content` when neither works.
 
 ## During a session
 
+- **How we work.** I steer: I say what I want Opus to do. Your job is to make
+  sure you understand what I mean, then write it out. When something I ask for
+  could mean more than one thing, ask before building, and say what each
+  reading would mean in practice. Don't fill gaps with guesses.
+- **Small increments.** Each conversation takes one small step, so the branch,
+  the commits and STATUS.md read as a running history of what happened and why.
+  If a step grows, stop at a sensible point and leave the rest for another
+  conversation.
 - **One feature per session.** If a new feature comes up mid-session, add it to
   `Documentation/LLM/TODO.md` and keep going on the current one. It gets its own session later.
 - **Plan before building** anything bigger than a small fix: tell me the files
@@ -251,6 +259,8 @@ When I say we're wrapping up:
   `main`, and never merge without me saying so.
 - If I've pushed to the session branch from my machine, fetch and merge it
   before pushing. Never rebase or force-push over my commits.
+- After a merge, delete the session branch on GitHub, so `main` is the only
+  branch that lingers. Then tell me the commands to bring my machine in line.
 - The whole `Opus/` folder is one **private** repo: code, docs, and assets.
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
@@ -261,4 +271,4 @@ When I say we're wrapping up:
 - Large binary assets (models, textures, audio, `.blend`, `.unitypackage`) go
   through Git LFS. If you see one about to be committed without LFS, flag it.
 - The hand-off ends with the work committed and pushed to the session branch,
-  so I can pull it and merge it.
+  ready to merge when I say so.
