@@ -261,7 +261,10 @@ fn write(priority: Priority, channel: Channel, message: &str, caller: &Location<
     let mut guard = SCRIBE.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
-    println!("{line}");
+    // Rust note: println! panics if the terminal is gone (a closed pipe,
+    // say), and Scribe never panics.  Writing to stdout ourselves hands
+    // back the error instead, and we let it go.
+    let _ = writeln!(std::io::stdout(), "{line}");
     remember(priority, &line);
 
     // Rust note: `let ... else` runs the else block when the pattern doesn't

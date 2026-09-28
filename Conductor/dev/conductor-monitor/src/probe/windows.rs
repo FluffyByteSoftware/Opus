@@ -28,7 +28,6 @@
 //! compiler that's on purpose.
 
 use std::ffi::c_void;
-use std::mem::size_of;
 use std::time::Duration;
 
 use super::{DiskTotals, Reading, ThreadReading};
