@@ -13,6 +13,8 @@
 //! ```text
 //! { "monitor": { "taken_at": "...Z", "uptime_seconds": 61, "os": "...", "process_id": 4092,
 //!                "cores": 16, "measured": true, "cpu_percent": 1.25, "memory_bytes": 9437184,
+//!                "core_percents": [ 3.00, 12.50, ... ],
+//!                "machine_memory": { "total_bytes", "available_bytes" },
 //!                "disk": { "read_bytes", "written_bytes", "read_per_second", "written_per_second" },
 //!                "threads_in_use": [ { "os_id", "name", "ours", "core_percent", "cpu_ms" } ],
 //!                "threads_asked_for": [ { "name", "started_by", "started_at", "os_id", "running" } ],
@@ -26,6 +28,7 @@
 
 use std::path::Path;
 
+use conductor_monitor::probe::MachineMemory;
 use conductor_monitor::{Disk, Snapshot, ThreadInUse};
 use conductor_tools::archivist::{SlowJob, Status};
 use conductor_tools::scribe::RecentLine;
@@ -54,10 +57,19 @@ fn monitor(snapshot: &Snapshot) -> String {
         .flag("measured", snapshot.measured)
         .raw("cpu_percent", decimal(snapshot.cpu_percent))
         .raw("memory_bytes", snapshot.memory_bytes.map_or_else(null, |bytes| bytes.to_string()))
+        .raw("core_percents", array(snapshot.core_percents.iter().map(|&percent| decimal(Some(percent)))))
+        .raw("machine_memory", snapshot.machine_memory.as_ref().map_or_else(null, machine_memory))
         .raw("disk", snapshot.disk.as_ref().map_or_else(null, disk))
         .raw("threads_in_use", array(snapshot.threads_in_use.iter().map(thread_in_use)))
         .raw("threads_asked_for", array(snapshot.threads_asked_for.iter().map(thread_asked_for)))
         .raw("database", database(&snapshot.database))
+        .done()
+}
+
+fn machine_memory(memory: &MachineMemory) -> String {
+    Object::new()
+        .whole("total_bytes", memory.total_bytes)
+        .whole("available_bytes", memory.available_bytes)
         .done()
 }
 

@@ -16,10 +16,14 @@
 //!   which we cut down to ours.  Then `GetThreadTimes` for each one.  It's
 //!   a few thousand entries a second, which Windows does in well under a
 //!   millisecond.
+//! - `GlobalMemoryStatusEx`: the whole machine's RAM, total and available.
 //!
-//! The version comes from ntdll's `RtlGetVersion`, because the kernel32
-//! one lies to programs that don't declare which Windows they were built
-//! for.
+//! Two come from ntdll, a layer under kernel32: `NtQuerySystemInformation`
+//! for how busy each core has been, which kernel32 has no call for, and
+//! `RtlGetVersion` for the version, because the kernel32 one lies to
+//! programs that don't declare which Windows they were built for.
+//! Microsoft says `NtQuerySystemInformation` may change, but it has been
+//! there for over twenty years and plenty of tools lean on it.
 //!
 //! The structs below copy Windows' own, field for field in the same order,
 //! which is what `#[repr(C)]` makes Rust keep.  Their fields are renamed in
@@ -30,7 +34,7 @@
 use std::ffi::c_void;
 use std::time::Duration;
 
-use super::{DiskTotals, Reading, ThreadReading};
+use super::{CoreTimes, DiskTotals, MachineMemory, Reading, ThreadReading};
 
 /// Windows' HANDLE: a number standing for something the OS has open.
 type Handle = *mut c_void;
@@ -43,6 +47,13 @@ const TH32CS_SNAPTHREAD: u32 = 0x0000_0004;
 
 /// Ask OpenThread for just enough to read its times.
 const THREAD_QUERY_LIMITED_INFORMATION: u32 = 0x0000_0800;
+
+/// Ask NtQuerySystemInformation for each core's times.
+const SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION: u32 = 8;
+
+/// Room for this many cores' times.  Windows hands out 64 at most per
+/// "processor group", so 256 is plenty.
+const MOST_CORES: usize = 256;
 
 /// Windows' FILETIME: a count of 100-nanosecond steps, split in two
 /// halves.
@@ -101,6 +112,33 @@ struct ThreadEntry {
     _flags: u32,
 }
 
+/// Windows' MEMORYSTATUSEX.
+#[repr(C)]
+struct MemoryStatus {
+    _size: u32,
+    _load: u32,
+    total_physical: u64,
+    available_physical: u64,
+    _total_page_file: u64,
+    _available_page_file: u64,
+    _total_virtual: u64,
+    _available_virtual: u64,
+    _available_extended_virtual: u64,
+}
+
+/// Windows' SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION, in 100 ns steps.
+/// Kernel time includes the idle time.
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+struct ProcessorTimes {
+    idle: i64,
+    kernel: i64,
+    user: i64,
+    _dpc: i64,
+    _interrupt: i64,
+    _interrupt_count: u32,
+}
+
 /// Windows' RTL_OSVERSIONINFOW.
 #[repr(C)]
 struct VersionInfo {
@@ -137,11 +175,13 @@ unsafe extern "system" {
                       kernel: *mut FileTime,
                       user: *mut FileTime) -> i32;
     fn CloseHandle(handle: Handle) -> i32;
+    fn GlobalMemoryStatusEx(status: *mut MemoryStatus) -> i32;
 }
 
 #[link(name = "ntdll")]
 unsafe extern "system" {
     fn RtlGetVersion(info: *mut VersionInfo) -> i32;
+    fn NtQuerySystemInformation(class: u32, buffer: *mut c_void, length: u32, returned: *mut u32) -> i32;
 }
 
 // Every `unsafe` block below is the same deal: we hand Windows pointers to
@@ -179,6 +219,8 @@ pub fn read() -> Option<Reading> {
         memory_bytes: memory.working_set as u64,
         disk,
         threads: read_threads(),
+        cores: read_cores(),
+        machine_memory: read_machine_memory(),
     })
 }
 
@@ -232,6 +274,46 @@ fn read_threads() -> Vec<ThreadReading> {
     threads
 }
 
+/// Each core's busy and total time.  Empty if Windows won't say.
+fn read_cores() -> Vec<CoreTimes> {
+    let mut times = vec![ProcessorTimes::default(); MOST_CORES];
+    let mut returned: u32 = 0;
+    let status = unsafe {
+        NtQuerySystemInformation(SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION,
+                                 times.as_mut_ptr().cast(),
+                                 (times.len() * size_of::<ProcessorTimes>()) as u32,
+                                 &mut returned)
+    };
+    if status != 0 {
+        return Vec::new();
+    }
+
+    let count = returned as usize / size_of::<ProcessorTimes>();
+    times.iter().take(count).map(|core| {
+        let total = (core.kernel + core.user).max(0) as u64;
+        CoreTimes { busy: total.saturating_sub(core.idle.max(0) as u64), total }
+    }).collect()
+}
+
+/// The machine's RAM.  `None` if Windows won't say.
+fn read_machine_memory() -> Option<MachineMemory> {
+    let mut status = MemoryStatus {
+        _size: size_of::<MemoryStatus>() as u32,
+        _load: 0,
+        total_physical: 0,
+        available_physical: 0,
+        _total_page_file: 0,
+        _available_page_file: 0,
+        _total_virtual: 0,
+        _available_virtual: 0,
+        _available_extended_virtual: 0,
+    };
+    match unsafe { GlobalMemoryStatusEx(&mut status) } {
+        0 => None,
+        _ => Some(MachineMemory { total_bytes: status.total_physical, available_bytes: status.available_physical }),
+    }
+}
+
 fn thread_cpu_time(thread_id: u32) -> Option<Duration> {
     let thread = unsafe { OpenThread(THREAD_QUERY_LIMITED_INFORMATION, 0, thread_id) };
     if thread.is_null() {
@@ -263,5 +345,7 @@ mod tests {
         let reading = read().expect("Windows should tell us about our own process");
         assert!(reading.memory_bytes > 0);
         assert!(!reading.threads.is_empty());
+        assert!(!reading.cores.is_empty());
+        assert!(reading.machine_memory.is_some());
     }
 }

@@ -14,7 +14,7 @@ use conductor_tools::archivist::{self, Status};
 use conductor_tools::clock::Utc;
 use conductor_tools::threads::{self, ThreadRecord};
 
-use crate::probe::Reading;
+use crate::probe::{MachineMemory, Reading};
 
 /// One look at Conductor.
 #[derive(Debug, Clone)]
@@ -39,6 +39,11 @@ pub struct Snapshot {
     pub cpu_percent: Option<f64>,
     /// Memory actually in RAM.
     pub memory_bytes: Option<u64>,
+    /// How busy each core of the whole machine was over the last second, 0
+    /// to 100, whatever was keeping it busy.  Empty on the first look.
+    pub core_percents: Vec<f64>,
+    /// The whole machine's RAM, for the page to put Conductor's use against.
+    pub machine_memory: Option<MachineMemory>,
     pub disk: Option<Disk>,
     /// Every thread the OS says Conductor has, whoever started it.
     pub threads_in_use: Vec<ThreadInUse>,
@@ -117,6 +122,11 @@ pub(crate) fn build(fixed: &Fixed, previous: Option<&Previous>, now: Instant, re
         }
     });
 
+    let core_percents = match (previous, reading) {
+        (Some(previous), Some(reading)) => core_percents(&previous.reading, reading),
+        _ => Vec::new(),
+    };
+
     let threads_in_use = match reading {
         Some(reading) => threads_in_use(reading, previous.map(|previous| &previous.reading), since, &ours),
         None => Vec::new(),
@@ -131,11 +141,22 @@ pub(crate) fn build(fixed: &Fixed, previous: Option<&Previous>, now: Instant, re
         measured: reading.is_some(),
         cpu_percent,
         memory_bytes: reading.map(|reading| reading.memory_bytes),
+        core_percents,
+        machine_memory: reading.and_then(|reading| reading.machine_memory),
         disk,
         threads_in_use,
         threads_asked_for: ours,
         database: archivist::status(),
     }
+}
+
+/// Each core's busy time over its total time since the last reading.
+fn core_percents(before: &Reading, now: &Reading) -> Vec<f64> {
+    before.cores.iter().zip(&now.cores).map(|(before, now)| {
+        let busy = now.busy.saturating_sub(before.busy);
+        let total = now.total.saturating_sub(before.total);
+        if total == 0 { 0.0 } else { busy as f64 / total as f64 * 100.0 }
+    }).collect()
 }
 
 /// Every thread in the reading, matched up to our list by the OS's
@@ -186,7 +207,7 @@ fn per_second(now_total: u64, before_total: u64, over: Duration) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::probe::{DiskTotals, ThreadReading};
+    use crate::probe::{CoreTimes, DiskTotals, ThreadReading};
 
     fn reading(cpu_ms: u64, read: u64, threads: &[(u64, u64)]) -> Reading {
         Reading {
@@ -200,6 +221,8 @@ mod tests {
                     cpu_time: Duration::from_millis(cpu_ms),
                 })
                 .collect(),
+            cores: vec![CoreTimes { busy: cpu_ms, total: cpu_ms * 2 }, CoreTimes { busy: 0, total: cpu_ms * 2 }],
+            machine_memory: None,
         }
     }
 
@@ -219,6 +242,7 @@ mod tests {
         let snapshot = build(&fixed, None, at, Some(&first));
         assert!(snapshot.measured);
         assert_eq!(snapshot.cpu_percent, None);
+        assert!(snapshot.core_percents.is_empty());
         assert_eq!(snapshot.threads_in_use.len(), 2);
         assert_eq!(snapshot.threads_in_use[0].core_percent, None);
 
@@ -229,6 +253,8 @@ mod tests {
         let snapshot = build(&fixed, Some(&previous), at + Duration::from_secs(1), Some(&second));
 
         assert_eq!(snapshot.cpu_percent, Some(50.0));
+        // Core 0 was busy 2000 of 4000 ticks, core 1 none of them.
+        assert_eq!(snapshot.core_percents, vec![50.0, 0.0]);
         assert_eq!(snapshot.disk.and_then(|disk| disk.read_per_second), Some(4_096.0));
         assert_eq!(snapshot.threads_in_use[0].core_percent, Some(100.0));
         assert_eq!(snapshot.threads_in_use[1].core_percent, Some(0.0));

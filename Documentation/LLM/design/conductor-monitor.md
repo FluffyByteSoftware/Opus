@@ -23,7 +23,8 @@ conductor-monitor/
     └── probe/
         ├── linux.rs   /proc/self/stat, status, io, task/*/stat; os_name() from /etc/os-release
         ├── windows.rs kernel32: GetProcessTimes, K32GetProcessMemoryInfo, GetProcessIoCounters,
-        │                Toolhelp32 + GetThreadTimes; ntdll RtlGetVersion for the version
+        │                Toolhelp32 + GetThreadTimes, GlobalMemoryStatusEx; ntdll: NtQuerySystemInformation
+        │                for each core, RtlGetVersion for the version
         └── other.rs   everything else (macOS, for now): read() is None
 ```
 
@@ -31,8 +32,11 @@ conductor-monitor/
 
 - When it was taken (with the `Z`), uptime, the OS name ("Nobara Linux 42 (KDE Plasma), kernel 6.14.5",
   "Windows 11 (10.0, build 22631)"), the process id, the core count.
-- CPU: Conductor's share of the whole machine over the last second, 0 to 100.
-- Memory: what's actually in RAM, for the whole process.
+- CPU: Conductor's share of the whole machine over the last second, 0 to 100.  And every core's load over
+  the last second, for the whole machine (`/proc/stat` on Linux, ntdll's `NtQuerySystemInformation` on
+  Windows).
+- Memory: what's actually in RAM, for the whole process.  And the machine's RAM, total and available
+  (`/proc/meminfo`, `GlobalMemoryStatusEx`), so the page can put Conductor's use against it.
 - Disk: bytes read and written so far, and per second over the last second.
 - **Threads in use**: every thread the OS says Conductor has, with its share of one core over the last second
   and its CPU time so far.  A thread started through `threads::spawn()` shows our name and counts as ours;

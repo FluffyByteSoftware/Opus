@@ -11,6 +11,8 @@
 //!   A read the OS answered from its cache doesn't count.
 //! - `/proc/self/task/<id>/stat`: the same as the first, one per thread,
 //!   with the thread's name.
+//! - `/proc/stat`: the whole machine's time, one `cpuN` line per core.
+//! - `/proc/meminfo`: the whole machine's RAM, total and available.
 //!
 //! Written with Nobara and Fedora in mind, but any Linux kernel from the
 //! last ten years lays these files out the same way.
@@ -19,7 +21,7 @@ use std::ffi::{c_int, c_long};
 use std::fs;
 use std::time::Duration;
 
-use super::{DiskTotals, Reading, ThreadReading};
+use super::{CoreTimes, DiskTotals, MachineMemory, Reading, ThreadReading};
 
 // Rust note: `sysconf` is a C function every Linux program already has
 // linked in.  Calling one is normally `unsafe`, since Rust can't check what
@@ -42,7 +44,10 @@ pub fn read() -> Option<Reading> {
     // just means no disk numbers.
     let disk = fs::read_to_string("/proc/self/io").ok().and_then(|text| disk_from_io(&text));
 
-    Some(Reading { cpu_time, memory_bytes, disk, threads: read_threads(ticks) })
+    let cores = fs::read_to_string("/proc/stat").map(|text| cores_from_stat(&text)).unwrap_or_default();
+    let machine_memory = fs::read_to_string("/proc/meminfo").ok().and_then(|text| machine_from_meminfo(&text));
+
+    Some(Reading { cpu_time, memory_bytes, disk, threads: read_threads(ticks), cores, machine_memory })
 }
 
 /// Something like "Nobara Linux 42 (KDE Plasma), kernel 6.14.5".
@@ -121,6 +126,35 @@ fn disk_from_io(io: &str) -> Option<DiskTotals> {
     Some(DiskTotals { read: value("read_bytes:")?, written: value("write_bytes:")? })
 }
 
+/// One `CoreTimes` per `cpuN` line in `/proc/stat` (the plain `cpu` line is
+/// all of them added up, and gets skipped).  The numbers after the name are
+/// ticks spent on user, nice, system, idle, iowait, irq, softirq and steal,
+/// and idle plus iowait is the time it wasn't doing anything.
+fn cores_from_stat(stat: &str) -> Vec<CoreTimes> {
+    stat.lines()
+        .filter(|line| line.starts_with("cpu") && line.as_bytes().get(3).is_some_and(u8::is_ascii_digit))
+        .filter_map(|line| {
+            let numbers: Vec<u64> = line.split_whitespace()
+                .skip(1)
+                .take(8)
+                .map(|field| field.parse().ok())
+                .collect::<Option<Vec<u64>>>()?;
+            let idle = numbers.get(3)? + numbers.get(4).copied().unwrap_or(0);
+            let total: u64 = numbers.iter().sum();
+            Some(CoreTimes { busy: total.saturating_sub(idle), total })
+        })
+        .collect()
+}
+
+/// `MemTotal` and `MemAvailable` from `/proc/meminfo`, in bytes.
+fn machine_from_meminfo(meminfo: &str) -> Option<MachineMemory> {
+    let kb = |key: &str| -> Option<u64> {
+        let line = meminfo.lines().find(|line| line.starts_with(key))?;
+        line.split_whitespace().nth(1)?.parse().ok()
+    };
+    Some(MachineMemory { total_bytes: kb("MemTotal:")? * 1024, available_bytes: kb("MemAvailable:")? * 1024 })
+}
+
 /// `PRETTY_NAME="Nobara Linux 42"` from `/etc/os-release`, without the
 /// quotes.
 fn pretty_name(os_release: &str) -> Option<String> {
@@ -169,9 +203,31 @@ mod tests {
     }
 
     #[test]
+    fn each_core_gets_its_own_line() {
+        let stat = "cpu  400 0 100 1500 0 0 0 0 0 0\n\
+            cpu0 100 0 50 800 50 0 0 0 0 0\n\
+            cpu1 300 0 50 700 0 0 0 0 0 0\n\
+            intr 12345\n";
+        let cores = cores_from_stat(stat);
+        assert_eq!(cores.len(), 2);
+        assert_eq!((cores[0].busy, cores[0].total), (150, 1000));
+        assert_eq!((cores[1].busy, cores[1].total), (350, 1050));
+    }
+
+    #[test]
+    fn machine_memory_comes_from_meminfo() {
+        let meminfo = "MemTotal:       65536000 kB\nMemFree:  1000 kB\nMemAvailable:   32768000 kB\n";
+        let memory = machine_from_meminfo(meminfo).expect("both numbers are there");
+        assert_eq!(memory.total_bytes, 65_536_000 * 1024);
+        assert_eq!(memory.available_bytes, 32_768_000 * 1024);
+    }
+
+    #[test]
     fn this_process_can_be_read() {
         let reading = read().expect("/proc should be there on Linux");
         assert!(reading.memory_bytes > 0);
         assert!(!reading.threads.is_empty());
+        assert!(!reading.cores.is_empty());
+        assert!(reading.machine_memory.is_some());
     }
 }

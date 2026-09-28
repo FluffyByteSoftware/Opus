@@ -59,9 +59,19 @@ The JSON's shape is written out at the top of `json.rs`.  The page's script is t
 ## The page
 
 Header: the name, a status line (NOMINAL when Archivist is connected, DATABASE NOT CONNECTED otherwise),
-uptime as DD:HH:MM:SS, and SHUT DOWN (asks first).  Then CPU and memory, each with a number and bars for the
-last 30 seconds (memory's are scaled to twice its highest, so steady memory sits at half height instead of
-looking maxed out); disk read and written per second with totals; the machine (OS, process id, cores, last look).
+uptime as DD:HH:MM:SS, and SHUT DOWN (asks first).
+
+**CPU**: Conductor's share of the whole machine as the big number, and a chart of the last 60 seconds with one
+line per core, each showing how busy that core was (whatever was using it), always on a 0 to 100% scale.  All
+the lines are one colour, since which core is which doesn't matter much; hovering one names it, and a readout
+under the chart lists every core's percent now.  Per core is the whole machine's view on purpose: no OS says
+which core each of Conductor's threads ran on.
+
+**Memory**: Conductor's use as the big number, and a bar the width of the machine's RAM (64 GB on Jacob's
+machine): Conductor in green, everything else in use in blue, and the empty track is what's free.  Conductor's
+part is a sliver at 5 MB out of 64 GB, so it always gets at least 3 pixels.  A legend under it has the numbers.
+
+Then disk read and written per second with totals; the machine (OS, process id, cores, last look).
 Archivist: connected or not, jobs waiting, jobs done split into read / written / other, slow jobs and the
 slowest, the last slow job.  Threads, with two tabs: **In use** (every OS thread, name, OS id, core %, CPU
 time; ones we didn't start are greyed and marked) and **Asked for** (our threads, running or finished, when,

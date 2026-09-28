@@ -83,11 +83,11 @@ of that answer is written down at the top of json.rs.
   .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
   .span-3 { grid-column: span 3; }
   .span-4 { grid-column: span 4; }
-  .span-5 { grid-column: span 5; }
-  .span-7 { grid-column: span 7; }
+  .span-6 { grid-column: span 6; }
+  .span-8 { grid-column: span 8; }
   .span-12 { grid-column: span 12; }
   @media (max-width: 1100px) {
-    .span-3, .span-4, .span-5, .span-7 { grid-column: span 12; }
+    .span-3, .span-4, .span-6, .span-8 { grid-column: span 12; }
   }
 
   .panel {
@@ -102,8 +102,40 @@ of that answer is written down at the top of json.rs.
   .small { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
   .row { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
 
-  .bars { height: 56px; width: 150px; display: flex; align-items: flex-end; gap: 2px; flex-shrink: 0; }
-  .bars div { flex: 1; background: rgba(16, 185, 129, 0.8); border-radius: 2px 2px 0 0; min-height: 2px; }
+  /* The CPU chart: one line per core, always 0 to 100%. */
+  .chart { display: flex; gap: 8px; height: 140px; margin-top: 16px; }
+  .axis {
+    display: flex; flex-direction: column; justify-content: space-between;
+    font-family: var(--mono); font-size: 10px; color: var(--ink-faint); text-align: right;
+    margin: -6px 0;
+  }
+  .chart svg { flex: 1; min-width: 0; height: 100%; overflow: visible; }
+  .grid-line { stroke: var(--line); stroke-width: 1; vector-effect: non-scaling-stroke; }
+  .core-line {
+    fill: none; stroke: var(--green-deep); stroke-opacity: 0.55; stroke-width: 1.5;
+    stroke-linejoin: round; vector-effect: non-scaling-stroke;
+  }
+  .core-line:hover { stroke: var(--green); stroke-opacity: 1; stroke-width: 3; }
+  .readout {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 4px 12px;
+    margin-top: 12px; font-family: var(--mono); font-size: 11px; color: var(--ink-soft);
+  }
+
+  /* The memory meter: Conductor, then everything else in use, and the
+     empty track behind them is what's free. */
+  .meter {
+    display: flex; gap: 2px; height: 14px; margin-top: 16px;
+    background: #1e293b; border-radius: 4px; overflow: hidden;
+  }
+  .meter .ours { background: var(--green-deep); min-width: 3px; }
+  .meter .others { background: var(--blue); opacity: 0.7; }
+  .legend { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; font-size: 12px; }
+  .legend div { display: flex; justify-content: space-between; gap: 12px; color: var(--ink-soft); }
+  .legend .mono { color: var(--ink); }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 8px; }
+  .swatch.ours { background: var(--green-deep); }
+  .swatch.others { background: var(--blue); opacity: 0.7; }
+  .swatch.free { background: #1e293b; border: 1px solid var(--line); }
 
   .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .tile { background: var(--panel-dark); border: 1px solid rgba(51, 65, 85, 0.5); border-radius: 4px; padding: 12px; }
@@ -172,25 +204,48 @@ of that answer is written down at the top of json.rs.
   </header>
 
   <div class="grid">
-    <div class="panel span-3">
+    <div class="panel span-8">
       <h3>CPU</h3>
       <div class="row">
         <div>
           <div class="big" id="cpu">--</div>
-          <div class="small" id="cpu-note">of the whole machine</div>
+          <div class="small" id="cpu-note">Conductor's share of the whole machine</div>
         </div>
-        <div class="bars" id="cpu-bars"></div>
+        <div class="small mono" id="machine-cpu"></div>
       </div>
+      <div class="chart">
+        <div class="axis"><span>100%</span><span>50%</span><span>0%</span></div>
+        <svg id="core-chart" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Each core's load">
+          <line class="grid-line" x1="0" y1="0" x2="100" y2="0"></line>
+          <line class="grid-line" x1="0" y1="50" x2="100" y2="50"></line>
+          <line class="grid-line" x1="0" y1="100" x2="100" y2="100"></line>
+        </svg>
+      </div>
+      <div class="readout" id="core-readout"></div>
     </div>
 
-    <div class="panel span-3">
+    <div class="panel span-4">
       <h3>Memory</h3>
-      <div class="row">
+      <div class="big" id="memory">--</div>
+      <div class="small">Conductor, in RAM</div>
+      <div class="meter">
+        <div class="ours" id="memory-ours"></div>
+        <div class="others" id="memory-others"></div>
+      </div>
+      <div class="legend">
         <div>
-          <div class="big" id="memory">--</div>
-          <div class="small">in RAM, the whole process</div>
+          <span><span class="swatch ours"></span>Conductor</span>
+          <span class="mono" id="memory-ours-text">--</span>
         </div>
-        <div class="bars" id="memory-bars"></div>
+        <div>
+          <span><span class="swatch others"></span>Everything else</span>
+          <span class="mono" id="memory-others-text">--</span>
+        </div>
+        <div>
+          <span><span class="swatch free"></span>Free</span>
+          <span class="mono" id="memory-free-text">--</span>
+        </div>
+        <div><span>In the machine</span><span class="mono" id="memory-total-text">--</span></div>
       </div>
     </div>
 
@@ -217,7 +272,7 @@ of that answer is written down at the top of json.rs.
       <div class="small mono" id="taken-at">--</div>
     </div>
 
-    <div class="panel span-5">
+    <div class="panel span-6">
       <h3><span class="dot idle" id="db-dot"></span>Archivist</h3>
       <div class="pair">
         <div class="tile">
@@ -242,7 +297,7 @@ of that answer is written down at the top of json.rs.
       </div>
     </div>
 
-    <div class="panel span-7 boxed">
+    <div class="panel span-12 boxed">
       <div class="tall-head">
         <h3>Threads</h3>
         <div>
@@ -285,13 +340,15 @@ of that answer is written down at the top of json.rs.
 <script>
 "use strict";
 
-// How many samples the little bar charts keep, and how many log lines the
+// How many seconds the CPU chart shows, and how many log lines the
 // terminal keeps before dropping the oldest.
-const BARS = 30;
+const CHART_SECONDS = 60;
 const MOST_LINES = 500;
 
-const cpuHistory = [];
-const memoryHistory = [];
+const SVG = "http://www.w3.org/2000/svg";
+
+// One list of recent percents per core.
+const coreHistory = [];
 let lastLine = 0;
 let stopped = false;
 
@@ -333,21 +390,68 @@ function cell(row, text, className) {
   row.appendChild(td);
 }
 
-function drawBars(id, history, top, format) {
-  const box = $(id);
-  box.textContent = "";
-  for (const value of history) {
-    const bar = document.createElement("div");
-    const height = top > 0 && value !== null ? Math.max(2, value / top * 100) : 2;
-    bar.style.height = Math.min(100, height) + "%";
-    bar.title = value === null ? "not measured" : format(value);
-    box.appendChild(bar);
-  }
+// One line per core across the last CHART_SECONDS, always on a 0 to 100%
+// scale.  The chart is 100 wide and 100 tall inside, stretched to fit, so a
+// point is just (second, 100 - percent).
+function drawCores(percents) {
+  if (percents.length === 0) return;
+  while (coreHistory.length < percents.length) coreHistory.push([]);
+  percents.forEach((percent, core) => {
+    coreHistory[core].push(Math.min(100, Math.max(0, percent)));
+    while (coreHistory[core].length > CHART_SECONDS) coreHistory[core].shift();
+  });
+
+  const chart = $("core-chart");
+  chart.querySelectorAll("polyline").forEach(line => line.remove());
+  const step = 100 / (CHART_SECONDS - 1);
+  coreHistory.forEach((history, core) => {
+    // The newest second is always at the right edge.
+    const start = CHART_SECONDS - history.length;
+    const points = history.map((percent, i) => ((start + i) * step) + "," + (100 - percent)).join(" ");
+    const line = document.createElementNS(SVG, "polyline");
+    line.setAttribute("class", "core-line");
+    line.setAttribute("points", points);
+    const title = document.createElementNS(SVG, "title");
+    title.textContent = "Core " + core + ": " + pct(history[history.length - 1]);
+    line.appendChild(title);
+    chart.appendChild(line);
+  });
+
+  const readout = $("core-readout");
+  readout.textContent = "";
+  percents.forEach((percent, core) => {
+    const item = document.createElement("div");
+    item.textContent = "core " + core + "  " + percent.toFixed(0) + "%";
+    readout.appendChild(item);
+  });
+
+  const average = percents.reduce((sum, percent) => sum + percent, 0) / percents.length;
+  $("machine-cpu").textContent = "Whole machine " + pct(average) + ", one line per core";
 }
 
-function remember(history, value) {
-  history.push(value);
-  while (history.length > BARS) history.shift();
+// Conductor's memory against the machine's.  At 5 MB out of 64 GB,
+// Conductor's part is a sliver, so it always gets at least 3 pixels.
+function drawMemory(m) {
+  $("memory").textContent = bytes(m.memory_bytes);
+  const machine = m.machine_memory;
+  if (!machine || machine.total_bytes === 0) {
+    $("memory-total-text").textContent = "not known here";
+    return;
+  }
+
+  const total = machine.total_bytes;
+  const ours = Math.min(m.memory_bytes || 0, total);
+  const inUse = Math.max(0, total - machine.available_bytes);
+  const others = Math.max(0, inUse - ours);
+
+  $("memory-ours").style.width = (ours / total * 100) + "%";
+  $("memory-ours").title = "Conductor: " + bytes(ours);
+  $("memory-others").style.width = (others / total * 100) + "%";
+  $("memory-others").title = "Everything else: " + bytes(others);
+  $("memory-ours-text").textContent = bytes(ours);
+  $("memory-others-text").textContent = bytes(others);
+  $("memory-free-text").textContent = bytes(machine.available_bytes);
+  $("memory-total-text").textContent = bytes(total);
 }
 
 function drawMonitor(m) {
@@ -371,17 +475,8 @@ function drawMonitor(m) {
     $("cpu-note").textContent = "not measured on this OS yet";
   }
   $("cpu").textContent = pct(m.cpu_percent);
-  remember(cpuHistory, m.cpu_percent);
-  drawBars("cpu-bars", cpuHistory, 100, pct);
-
-  $("memory").textContent = bytes(m.memory_bytes);
-  remember(memoryHistory, m.memory_bytes);
-  // Memory hardly moves second to second, so scaled to its own highest
-  // value every bar was full height and it looked maxed out.  Scaled to
-  // twice the highest, a steady server sits at half height, and a climb
-  // shows as bars getting taller.
-  const memoryTop = 2 * Math.max(...memoryHistory.map(v => v || 0));
-  drawBars("memory-bars", memoryHistory, memoryTop, bytes);
+  drawCores(m.core_percents);
+  drawMemory(m);
 
   if (m.disk) {
     $("disk-read-speed").textContent = speed(m.disk.read_per_second);

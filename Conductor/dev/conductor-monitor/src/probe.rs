@@ -4,8 +4,10 @@
 //!
 //! One raw look at the process, straight from the OS: CPU time used so
 //! far, memory, bytes read and written, and every thread with its own CPU
-//! time.  Totals only.  Turning two looks a second apart into a percent or
-//! a speed is `snapshot.rs`'s job.
+//! time.  Plus two things about the whole machine: how busy each core has
+//! been, and how much RAM it has and how much of that is free.  Totals
+//! only.  Turning two looks a second apart into a percent or a speed is
+//! `snapshot.rs`'s job.
 //!
 //! Every OS keeps these numbers somewhere different, so there is a file
 //! for each: `probe/linux.rs` reads `/proc`, `probe/windows.rs` asks
@@ -46,6 +48,28 @@ pub struct Reading {
     pub disk: Option<DiskTotals>,
     /// Every thread the OS says the process has right now.
     pub threads: Vec<ThreadReading>,
+    /// Every core on the machine, in order.  Empty when the OS won't say.
+    pub cores: Vec<CoreTimes>,
+    /// The machine's RAM.  `None` when the OS won't say.
+    pub machine_memory: Option<MachineMemory>,
+}
+
+/// One core's running totals: time spent busy, and time in all.  The unit
+/// is different on each OS (ticks on Linux, 100 ns steps on Windows), and
+/// it doesn't matter, since all we ever do is divide one by the other.
+#[derive(Debug, Clone, Copy)]
+pub struct CoreTimes {
+    pub busy: u64,
+    pub total: u64,
+}
+
+/// The whole machine's RAM.
+#[derive(Debug, Clone, Copy)]
+pub struct MachineMemory {
+    pub total_bytes: u64,
+    /// What could be handed to a program right now without swapping.  Free
+    /// memory plus the cache the OS would give up.
+    pub available_bytes: u64,
 }
 
 /// Bytes read and written since the process started.

@@ -15,9 +15,10 @@ web admin at `http://127.0.0.1:9996/Opus`, and the only way to shut the server d
 been started.
 
 Jacob ran it on Nobara Linux 44 (kernel 7.2.6) and the page worked: CPU, memory, disk, the machine, Archivist
-connected, and all four threads with their CPU time.  Two things on the page were off and got fixed after
-(below), and that fix hasn't been run yet.  The build and test output wasn't pasted, so "no warnings" and the
-test count (about 47 on Linux) are unconfirmed.  The Windows code has never been built.
+connected, and all four threads with their CPU time.  After that the CPU and memory panels were redone (below)
+and merged into `main` at Jacob's call without being run, so they're the first thing to look at.  The build
+and test output wasn't pasted, so "no warnings" and the test count (about 50 on Linux) are unconfirmed.  The
+Windows code has never been built.
 
 ## Last session -- 2026-09-28
 
@@ -41,6 +42,11 @@ What we did:
   page.  It writes to stdout without `println!`, which would panic on a closed pipe.
 - **Archivist** counts `query()` jobs as reads and `execute()` as writes.
 - `wgui_port = 9996` in `conductor_globals.cfg`.
+- After Jacob's first look: CPU became a 0 to 100% chart with one line per core (the whole machine's cores,
+  since no OS says which core Conductor's threads ran on), and memory became a bar of the machine's RAM with
+  Conductor, everything else, and free.  The monitor reads each core and the machine's RAM for that:
+  `/proc/stat` and `/proc/meminfo` on Linux, `NtQuerySystemInformation` and `GlobalMemoryStatusEx` on
+  Windows.  Checked by rendering the page with made-up numbers; not run against a real Conductor yet.
 - The launcher's L/Q menu and its 7 tests are gone.
 - CLAUDE.md: the new crates, the threads rule, the web admin as the only way in, and a "Linux, Windows, macOS"
   section.
@@ -50,7 +56,8 @@ What fought back:
 - Scribe's panel on the page came out one column wide.  It wasn't the log, it was the page asking for a
   `span-12` CSS class that was never written.  Added.
 - The memory bars were all full height, which read as "maxed out".  They were scaled to their own highest
-  value, so steady memory filled every bar.  Now scaled to twice that, so steady sits at half height.
+  value, so steady memory filled every bar.  A quick fix (twice the highest) went in, and then Jacob asked
+  for the real thing: memory against the machine's 64 GB, and CPU on a fixed 0 to 100% scale per core.
 
 What Jacob decided:
 
@@ -77,7 +84,7 @@ What Jacob decided:
   few seconds flashes red on the page, and NOMINAL turns red.  What "healthy" means for each is the table in
   `design/conductor-wgui.md`.  Open: how long "hasn't checked in" is, whether a missing disk manager shows as
   "not built yet" or not at all, and whether the main thread gets named "main" while we're in there.
-- Run the page fix: Scribe's panel full width, memory bars at half height.
+- Run the new page: the per-core CPU chart and the memory bar.  Merged without a run.
 - Paste back `cargo build` and `cargo test`, to confirm no warnings and the test count.
 - The Windows build, when getting to that machine is less of a hassle.
 - The Debug switch in `conductor_globals.cfg`, and moving the routine log lines to Debug.
