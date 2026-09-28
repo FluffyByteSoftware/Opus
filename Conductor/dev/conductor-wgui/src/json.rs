@@ -2,8 +2,8 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! Turns the monitor's snapshot and Scribe's recent lines into the JSON the
-//! page asks for once a second.  Written by hand rather than with a crate:
+//! Turns the monitor's snapshot, DiskMan's numbers, the open notices and
+//! Scribe's recent lines into the JSON the page asks for once a second.  Written by hand rather than with a crate:
 //! it's one shape, it only ever goes out, and JSON is simple enough to
 //! write as long as the text is escaped properly.
 //!
@@ -23,6 +23,12 @@
 //!                "processes": [ { "pid", "name", "ours", "cpu_percent", "memory_bytes", "threads" } ] },
 //!   "services": [ { "name": "Archivist", "state": "running", "note": "...", "since": "...Z",
 //!                   "seen_seconds_ago": 0.42, "healthy": true } ],
+//!   "diskman": { "running", "stopping", "files_waiting", "bytes_waiting", "files_loaded", "bytes_loaded",
+//!                "files_failing", "reads_waiting", "streams_open",
+//!                "big_write": { "file", "done_bytes", "total_bytes" },
+//!                "writes_done", "appends_done", "reads_done", "cache_hits", "bytes_written", "bytes_read",
+//!                "failures", "given_up", "last_failure": { "when", "what" }, "slowest_write_ms" },
+//!   "notices": { "open": 12, "newest": [ { "id", "when", "level", "source", "text" } ] },
 //!   "log": { "file": "...", "lines": [ { "number": 12, "priority": "Info", "text": "..." } ] } }
 //! ```
 //!
@@ -33,7 +39,19 @@
 //! trouble or stopped; `since` is `null` while a service is still expected,
 //! and `seen_seconds_ago` is `null` for one that doesn't check in.
 //! `processes` is busiest first, and a process the OS won't let us read
-//! has `null` for its numbers.
+//! has `null` for its numbers.  `diskman` also comes straight from DiskMan;
+//! its `big_write` is `null` when there isn't one under way, and so is
+//! `last_failure` when nothing has failed.
+//!
+//! `notices.newest` is the newest five open notices, newest first, for the
+//! bell.  `level` is Notice, Warn or Error.
+//!
+//! `/Opus/notices` has an answer of its own, every open notice for the
+//! Notifications History tab, newest first:
+//!
+//! ```text
+//! { "open": [ { "id", "when", "level", "source", "text" } ] }
+//! ```
 //!
 //! `/Opus/threads?pid=N` has an answer of its own, one process's threads:
 //!
@@ -50,6 +68,8 @@ use std::path::Path;
 use conductor_monitor::probe::{MachineMemory, ThreadReading};
 use conductor_monitor::{Disk, ProcessInUse, Snapshot, ThreadInUse};
 use conductor_tools::archivist::{SlowJob, Status};
+use conductor_tools::diskman::Status as DiskStatus;
+use conductor_tools::notices::Notice;
 use conductor_tools::scribe::RecentLine;
 use conductor_tools::services::Service;
 use conductor_tools::threads::ThreadRecord;
@@ -57,6 +77,9 @@ use conductor_tools::threads::ThreadRecord;
 /// The whole answer to `/Opus/status`.
 pub(crate) fn status(snapshot: Option<&Snapshot>,
                      services: &[Service],
+                     disk: &DiskStatus,
+                     open_notices: usize,
+                     newest_notices: &[Notice],
                      lines: &[RecentLine],
                      log_file: Option<&Path>) -> String {
     let log = Object::new()
@@ -67,6 +90,11 @@ pub(crate) fn status(snapshot: Option<&Snapshot>,
     Object::new()
         .raw("monitor", snapshot.map_or_else(null, monitor))
         .raw("services", array(services.iter().map(service)))
+        .raw("diskman", diskman(disk))
+        .raw("notices", Object::new()
+            .whole("open", open_notices as u64)
+            .raw("newest", array(newest_notices.iter().map(notice)))
+            .done())
         .raw("log", log)
         .done()
 }
@@ -88,6 +116,23 @@ fn monitor(snapshot: &Snapshot) -> String {
         .raw("threads_asked_for", array(snapshot.threads_asked_for.iter().map(thread_asked_for)))
         .raw("database", database(&snapshot.database))
         .raw("processes", array(snapshot.processes.iter().map(process)))
+        .done()
+}
+
+/// The whole answer to `/Opus/notices`.
+pub(crate) fn notices(open: &[Notice]) -> String {
+    Object::new()
+        .raw("open", array(open.iter().map(notice)))
+        .done()
+}
+
+fn notice(notice: &Notice) -> String {
+    Object::new()
+        .whole("id", notice.id)
+        .text("when", &notice.when.line_stamp())
+        .text("level", &notice.level.to_string())
+        .text("source", &notice.source)
+        .text("text", &notice.text)
         .done()
 }
 
@@ -188,6 +233,42 @@ fn service(service: &Service) -> String {
         .raw("since", service.since.map_or_else(null, |since| text(&since.line_stamp())))
         .raw("seen_seconds_ago", decimal(service.seen_ago.map(|ago| ago.as_secs_f64())))
         .flag("healthy", service.healthy())
+        .done()
+}
+
+fn diskman(status: &DiskStatus) -> String {
+    let big_write = status.big_write.as_ref().map_or_else(null, |(file, done, total)| {
+        Object::new()
+            .text("file", &file.display().to_string())
+            .whole("done_bytes", *done)
+            .whole("total_bytes", *total)
+            .done()
+    });
+    let last_failure = status.last_failure.as_ref().map_or_else(null, |(when, what)| {
+        Object::new().text("when", &when.line_stamp()).text("what", what).done()
+    });
+
+    Object::new()
+        .flag("running", status.running)
+        .flag("stopping", status.stopping)
+        .whole("files_waiting", status.files_waiting as u64)
+        .whole("bytes_waiting", status.bytes_waiting)
+        .whole("files_loaded", status.files_loaded as u64)
+        .whole("bytes_loaded", status.bytes_loaded)
+        .whole("files_failing", status.files_failing as u64)
+        .whole("reads_waiting", status.reads_waiting as u64)
+        .whole("streams_open", status.streams_open as u64)
+        .raw("big_write", big_write)
+        .whole("writes_done", status.writes_done)
+        .whole("appends_done", status.appends_done)
+        .whole("reads_done", status.reads_done)
+        .whole("cache_hits", status.cache_hits)
+        .whole("bytes_written", status.bytes_written)
+        .whole("bytes_read", status.bytes_read)
+        .whole("failures", status.failures)
+        .whole("given_up", status.given_up)
+        .raw("last_failure", last_failure)
+        .whole("slowest_write_ms", status.slowest_write.as_millis() as u64)
         .done()
 }
 
@@ -312,7 +393,15 @@ mod tests {
 
     #[test]
     fn before_the_first_look_the_monitor_is_null() {
-        assert_eq!(status(None, &[], &[], None),
-                   "{\"monitor\":null,\"services\":[],\"log\":{\"file\":null,\"lines\":[]}}");
+        let answer = status(None, &[], &conductor_tools::diskman::status(), 0, &[], &[], None);
+        assert!(answer.starts_with("{\"monitor\":null,\"services\":[],\"diskman\":{\"running\":false,"));
+        assert!(answer.ends_with("\"notices\":{\"open\":0,\"newest\":[]},\"log\":{\"file\":null,\"lines\":[]}}"));
+    }
+
+    #[test]
+    fn diskman_with_nothing_going_on_has_nulls() {
+        let answer = diskman(&conductor_tools::diskman::status());
+        assert!(answer.contains("\"big_write\":null"));
+        assert!(answer.contains("\"last_failure\":null"));
     }
 }

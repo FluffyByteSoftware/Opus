@@ -7,9 +7,11 @@ Author:     Jacob Chacko
 The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
-of that answer is written down at the top of json.rs.  Five tabs down the
-left side, the last one Scribe's log.  While the database isn't connected
-they're all locked and the page under the header is blurred.
+of that answer is written down at the top of json.rs.  Six tabs down the
+left side: System, Conductor, Services, Storage, Notifications History and
+Scribe's log.  While the database isn't connected they're all locked and
+the page under the header is blurred.  The bell in the header's corner
+stays above the lock, and so does the tray it pulls out.
 -->
 <html lang="en">
 <head>
@@ -157,7 +159,6 @@ they're all locked and the page under the header is blurred.
   @keyframes blink { 50% { opacity: 0.15; } }
   tr.down td { color: var(--red); }
   tr.down td.note-cell { color: var(--ink); }
-  tr.later td { color: var(--ink-faint); }
   #services-note { margin-top: 12px; }
 
   /* The System tab's process list.  Conductor's row is green with a bar
@@ -181,6 +182,9 @@ they're all locked and the page under the header is blurred.
   .maintab .dot { margin: 0 0 0 8px; vertical-align: middle; }
   .dot[hidden] { display: none; }
   .good-ink { color: var(--green); }
+  .wrap-text { word-break: break-all; }
+  .disk-big { margin-top: 12px; }
+  .disk-big .meter .ours { min-width: 0; }
   .bad-ink { color: var(--red); }
   .warn-ink { color: var(--yellow); }
 
@@ -201,6 +205,7 @@ they're all locked and the page under the header is blurred.
   td { padding: 6px; border-bottom: 1px solid rgba(51, 65, 85, 0.4); font-family: var(--mono); vertical-align: top; }
   td.num, th.num { text-align: right; }
   td.wrap { word-break: break-all; }
+  td.nowrap { white-space: nowrap; }
   tr.theirs td { color: var(--ink-soft); }
 
   .terminal { background: rgba(0, 0, 0, 0.8); font-family: var(--mono); font-size: 12px; color: #cbd5e1; }
@@ -263,6 +268,46 @@ they're all locked and the page under the header is blurred.
      header and the tabs. */
   .full { height: calc(100vh - 150px); min-height: 320px; }
 
+  /* The bell, its count, and the tray of notices it pulls out.  The tray
+     sits over whatever tab is open, and above the database lock. */
+  .bell {
+    position: relative; display: flex; align-items: center; padding: 6px 10px;
+    background: var(--panel-dark); color: var(--ink-soft); border: 1px solid var(--line);
+  }
+  .bell:hover { background: var(--panel); color: var(--ink); }
+  .bell.open { color: var(--green); border-color: rgba(16, 185, 129, 0.5); }
+  .bell svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .bell-count {
+    position: absolute; top: -8px; right: -8px; min-width: 18px; height: 18px; padding: 0 5px;
+    border-radius: 9px; background: var(--red); color: var(--ink-bright);
+    font-family: var(--mono); font-size: 10px; line-height: 18px; text-align: center;
+  }
+  .bell-count[hidden] { display: none; }
+  .tray {
+    position: fixed; top: 80px; right: 24px; width: 380px; max-width: calc(100vw - 48px); z-index: 8;
+    display: none; flex-direction: column; gap: 8px;
+  }
+  .tray.open { display: flex; }
+  .tray-head { display: flex; justify-content: flex-end; }
+  .card {
+    background: rgba(15, 23, 42, 0.97); border: 1px solid var(--line); border-left: 3px solid var(--blue);
+    border-radius: 6px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    transition: opacity 1s;
+  }
+  .card.fading { opacity: 0; }
+  .card.lvl-Warn { border-left-color: var(--yellow); }
+  .card.lvl-Error { border-left-color: var(--red); }
+  .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .card-text { margin-top: 6px; font-size: 12px; color: var(--ink); word-break: break-word; }
+  button.ack {
+    padding: 3px 10px; font-size: 11px; letter-spacing: 0.08em;
+    background: rgba(16, 185, 129, 0.1); color: var(--green); border-color: rgba(16, 185, 129, 0.5);
+  }
+  button.ack:hover { background: rgba(16, 185, 129, 0.2); }
+  .l-Notice { color: var(--blue); }
+  .l-Warn { color: var(--yellow); }
+  .l-Error { color: var(--red); }
+
   .gone {
     position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(0, 0, 0, 0.75); z-index: 10;
@@ -280,6 +325,7 @@ they're all locked and the page under the header is blurred.
     <button class="maintab" role="tab" data-tab="services">Services<span class="dot bad flash" id="services-badge"
       hidden></span></button>
     <button class="maintab" role="tab" data-tab="storage">Storage</button>
+    <button class="maintab" role="tab" data-tab="notices">Notifications History</button>
     <button class="maintab" role="tab" data-tab="log">Log</button>
   </nav>
 </aside>
@@ -299,6 +345,13 @@ they're all locked and the page under the header is blurred.
         <div class="mono good-ink" id="uptime">--:--:--:--</div>
       </div>
       <button id="shut-down">SHUT DOWN</button>
+      <button class="bell" id="bell" aria-label="Notifications">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
+          <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
+        </svg>
+        <span class="bell-count" id="bell-count" hidden></span>
+      </button>
     </div>
   </header>
 
@@ -502,10 +555,69 @@ they're all locked and the page under the header is blurred.
     </div>
 
     <div class="panel span-6">
-      <h3>Disk manager</h3>
-      <div class="small">Not built yet.  Its numbers will show here once it exists.</div>
+      <h3><span class="dot idle" id="disk-dot"></span>DiskMan</h3>
+      <div class="pair">
+        <div class="tile">
+          <div class="label">Waiting to write</div>
+          <div class="value" id="disk-waiting">--</div>
+          <div class="small" id="disk-waiting-bytes">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Held in memory</div>
+          <div class="value" id="disk-loaded">--</div>
+          <div class="small" id="disk-loaded-bytes">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Written</div>
+          <div class="value" id="disk-written">--</div>
+          <div class="small" id="disk-written-note">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Read</div>
+          <div class="value" id="disk-read">--</div>
+          <div class="small" id="disk-read-note">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Failures</div>
+          <div class="value" id="disk-failures">--</div>
+          <div class="small" id="disk-failures-note">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Last failure</div>
+          <div class="small mono wrap-text" id="disk-last-failure">None yet.</div>
+        </div>
+      </div>
+      <div class="tile disk-big">
+        <div class="label">Big write</div>
+        <div class="small mono wrap-text" id="disk-big-text">None under way.</div>
+        <div class="meter"><div class="ours" id="disk-big-bar" style="width: 0%"></div></div>
+        <div class="small" id="disk-streams">--</div>
+      </div>
     </div>
   </div>
+  </section>
+
+  <section class="tabpage" id="page-notices">
+    <div class="panel boxed tall">
+      <div class="tall-head">
+        <h3>Notifications History</h3>
+        <div class="head-right">
+          <div class="note mono" id="notices-count"></div>
+          <button class="ack" id="send-test">TEST NOTIFICATION</button>
+          <button class="ack" id="history-ack-all">ACK ALL</button>
+        </div>
+      </div>
+      <div class="tall-body">
+        <table id="notices">
+          <thead><tr>
+            <th>When</th><th>Level</th><th>From</th><th>What happened</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note">Every Warn and Error since Conductor started, and anything raised on purpose.  Each stays
+          here until it's ACKed, and then it's gone.  A restart clears them all.</div>
+      </div>
+    </div>
   </section>
 
   <section class="tabpage" id="page-log">
@@ -528,6 +640,10 @@ they're all locked and the page under the header is blurred.
   </div>
 </main>
 
+<div class="tray" id="tray">
+  <div class="tray-head"><button class="ack" id="tray-ack-all">ACK ALL</button></div>
+</div>
+
 <div class="gone" id="gone">
   <div class="panel">
     <h3 id="gone-title">Conductor has shut down</h3>
@@ -545,7 +661,7 @@ const MOST_LINES = 500;
 
 // The tabs, and the one that opens first when the browser hasn't remembered
 // one.
-const MAIN_TABS = ["system", "conductor", "services", "storage", "log"];
+const MAIN_TABS = ["system", "conductor", "services", "storage", "notices", "log"];
 const DEFAULT_TAB = "conductor";
 
 // Conductor is "connecting" to the database, not "offline", for this many
@@ -967,6 +1083,7 @@ function showMainTab(name) {
   // line when its tab is opened.
   if (name === "log") $("terminal").scrollTop = $("terminal").scrollHeight;
   if (name === "system" && lastMonitor) drawPicked(lastMonitor);
+  if (name === "notices") askNotices();
   try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
 }
 
@@ -1024,23 +1141,155 @@ function drawServices(services) {
     cell(row, quiet === null ? "--" : quiet.toFixed(1) + " s ago", "num");
   }
 
-  // Not a service yet, so it's never red.  It gets a real row once it's built.
-  const later = body.insertRow();
-  later.className = "later";
-  const name = document.createElement("td");
-  const dot = document.createElement("span");
-  dot.className = "dot idle";
-  name.append(dot, "Disk manager");
-  later.appendChild(name);
-  cell(later, "NOT BUILT YET");
-  cell(later, "Its numbers go on the Storage tab once it exists.", "wrap");
-  cell(later, "--");
-  cell(later, "--", "num");
-
   const down = services.filter(isDown).length;
   const healthy = services.filter(service => service.healthy).length;
   $("services-count").textContent = healthy + " of " + services.length + " healthy";
   $("services-badge").hidden = down === 0;
+}
+
+// DiskMan's panel on the Storage tab.
+function drawDisk(d) {
+  if (!d) return;
+  const trouble = !d.running || d.files_failing > 0;
+  $("disk-dot").className = "dot " + (trouble ? "bad flash" : d.stopping ? "warn" : "good");
+
+  $("disk-waiting").textContent = d.files_waiting + " file(s)";
+  $("disk-waiting").className = "value " + (d.files_failing > 0 ? "bad-ink" : "");
+  $("disk-waiting-bytes").textContent = bytes(d.bytes_waiting) + ", " + d.reads_waiting + " read(s) waiting";
+  $("disk-loaded").textContent = d.files_loaded + " file(s)";
+  $("disk-loaded-bytes").textContent = bytes(d.bytes_loaded);
+  $("disk-written").textContent = bytes(d.bytes_written);
+  $("disk-written-note").textContent = d.writes_done + " whole, " + d.appends_done + " appended, slowest "
+    + duration(d.slowest_write_ms);
+  $("disk-read").textContent = bytes(d.bytes_read);
+  $("disk-read-note").textContent = d.reads_done + " from disk, " + d.cache_hits + " from memory";
+  $("disk-failures").textContent = d.failures;
+  $("disk-failures").className = "value " + (d.failures > 0 ? "warn-ink" : "");
+  $("disk-failures-note").textContent = d.files_failing + " failing now, " + d.given_up + " given up on";
+  $("disk-last-failure").textContent = d.last_failure
+    ? d.last_failure.when + ": " + d.last_failure.what
+    : "None yet.";
+
+  const big = d.big_write;
+  $("disk-big-text").textContent = big
+    ? big.file + ": " + bytes(big.done_bytes) + " of " + bytes(big.total_bytes)
+    : "None under way.";
+  const share = big && big.total_bytes > 0 ? big.done_bytes / big.total_bytes * 100 : 0;
+  $("disk-big-bar").style.width = share.toFixed(1) + "%";
+  $("disk-streams").textContent = d.streams_open + " stream(s) open";
+}
+
+// ---------------------------------------------------------------------------
+// Notices: the bell, its tray, and the Notifications History tab
+// ---------------------------------------------------------------------------
+
+// A card in the tray fades this long after the tray opens.  The notice
+// itself stays open until it's ACKed.
+const CARD_SECONDS = 30;
+
+// The newest five open notices, from the last status.
+let newestNotices = [];
+
+function drawBell(notices) {
+  if (!notices) return;
+  newestNotices = notices.newest;
+  const count = $("bell-count");
+  count.hidden = notices.open === 0;
+  count.textContent = notices.open > 5 ? "5+" : String(notices.open);
+}
+
+// Both ACKs carry the X-Opus header, like Shut Down.  See lib.rs.
+async function ack(id) {
+  const answer = await fetch("/Opus/notices/ack?id=" + id, { method: "POST", headers: { "X-Opus": "ack" } });
+  if (!answer.ok) throw new Error(answer.status);
+}
+
+async function ackAll() {
+  const answer = await fetch("/Opus/notices/ack-all", { method: "POST", headers: { "X-Opus": "ack" } });
+  if (!answer.ok) throw new Error(answer.status);
+}
+
+// An ACK button that takes `gone` away once the server has cleared it.
+function ackButton(id, gone) {
+  const button = document.createElement("button");
+  button.className = "ack";
+  button.textContent = "ACK";
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try { await ack(id); } catch (e) { button.disabled = false; return; }
+    gone();
+  });
+  return button;
+}
+
+function noticeCard(notice) {
+  const card = document.createElement("div");
+  card.className = "card lvl-" + notice.level;
+
+  const head = document.createElement("div");
+  head.className = "card-head";
+  const label = document.createElement("span");
+  label.className = "small mono l-" + notice.level;
+  label.textContent = notice.level.toUpperCase() + " / " + notice.source + " / " + notice.when;
+  head.append(label, ackButton(notice.id, () => { card.remove(); closeTrayIfEmpty(); }));
+
+  const text = document.createElement("div");
+  text.className = "card-text";
+  text.textContent = notice.text;
+  card.append(head, text);
+  return card;
+}
+
+function openTray() {
+  const tray = $("tray");
+  for (const card of tray.querySelectorAll(".card")) card.remove();
+  if (newestNotices.length === 0) return;
+  for (const notice of newestNotices) {
+    const card = noticeCard(notice);
+    tray.appendChild(card);
+    // Fades from the tray, and is then taken out of it.  Still open on
+    // the server: only an ACK clears it.
+    setTimeout(() => {
+      card.classList.add("fading");
+      setTimeout(() => { card.remove(); closeTrayIfEmpty(); }, 1000);
+    }, CARD_SECONDS * 1000);
+  }
+  tray.classList.add("open");
+  $("bell").classList.add("open");
+}
+
+function closeTray() {
+  $("tray").classList.remove("open");
+  $("bell").classList.remove("open");
+  for (const card of $("tray").querySelectorAll(".card")) card.remove();
+}
+
+function closeTrayIfEmpty() {
+  if (!$("tray").querySelector(".card")) closeTray();
+}
+
+async function askNotices() {
+  try {
+    const answer = await fetch("/Opus/notices", { cache: "no-store" });
+    drawHistory((await answer.json()).open);
+  } catch (e) { /* the status ask says when Conductor is gone */ }
+}
+
+function drawHistory(open) {
+  const body = $("notices").tBodies[0];
+  body.textContent = "";
+  for (const notice of open) {
+    const row = body.insertRow();
+    cell(row, notice.when, "nowrap");
+    cell(row, notice.level.toUpperCase(), "l-" + notice.level);
+    cell(row, notice.source);
+    cell(row, notice.text, "wrap");
+    const last = document.createElement("td");
+    last.className = "num";
+    last.appendChild(ackButton(notice.id, () => row.remove()));
+    row.appendChild(last);
+  }
+  $("notices-count").textContent = open.length + " open";
 }
 
 async function ask() {
@@ -1050,6 +1299,10 @@ async function ask() {
     const status = await answer.json();
     drawMonitor(status.monitor);
     drawServices(status.services);
+    drawDisk(status.diskman);
+    drawBell(status.notices);
+    // The whole history is only asked for while its tab is showing.
+    if (currentTab === "notices") askNotices();
     drawSummary(status.monitor, status.services);
     drawLog(status.log);
   } catch (e) {
@@ -1079,11 +1332,34 @@ $("shut-down").addEventListener("click", async () => {
     // from this page.  See lib.rs.
     const answer = await fetch("/Opus/shutdown", { method: "POST", headers: { "X-Opus": "shut-down" } });
     if (!answer.ok) throw new Error(answer.status);
-    showGone("Conductor has shut down", "Everything was put away properly, and the console has ended too.");
+    showGone("Conductor is shutting down", "DiskMan writes out what it's holding last.  The console counts "
+      + "down if that takes more than a second, and ends once it's done.");
   } catch (e) {
     $("shut-down").disabled = false;
     alert("The shut down didn't go through: " + e);
   }
+});
+
+$("bell").addEventListener("click", () => {
+  if ($("tray").classList.contains("open")) closeTray(); else openTray();
+});
+$("tray-ack-all").addEventListener("click", async () => {
+  if (!confirm("ACK every open notice?")) return;
+  try { await ackAll(); } catch (e) { return; }
+  closeTray();
+});
+// Raises a Notice on the server, the same as code calling publish().
+$("send-test").addEventListener("click", async () => {
+  try {
+    const answer = await fetch("/Opus/notices/test", { method: "POST", headers: { "X-Opus": "ack" } });
+    if (!answer.ok) throw new Error(answer.status);
+  } catch (e) { return; }
+  askNotices();
+});
+$("history-ack-all").addEventListener("click", async () => {
+  if (!confirm("ACK every open notice?")) return;
+  try { await ackAll(); } catch (e) { return; }
+  drawHistory([]);
 });
 
 for (const tab of document.querySelectorAll(".maintab")) {

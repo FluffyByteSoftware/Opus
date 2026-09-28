@@ -12,14 +12,13 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use postgres::Config;
 
 use crate::constellations;
+use crate::diskman;
 use crate::scribe::{self, Channel};
 
 /// Where Archivist's settings live, under the Content folder.
@@ -109,11 +108,12 @@ pub fn config_path() -> PathBuf {
 
 /// Reads `postgres.cfg`, writes one if it's missing, and adds any setting
 /// the file doesn't have yet.  Complaints go to the log, and anything we
-/// couldn't read keeps its default.
+/// couldn't read keeps its default.  The file comes through DiskMan, and
+/// this waits on it, which is fine at startup.
 pub(super) fn load(path: &Path) -> DbSettings {
     let mut settings = default_settings();
 
-    match fs::read_to_string(path) {
+    match diskman::read(path).wait().and_then(|bytes| diskman::as_text(&bytes)) {
         Ok(text) => {
             let (problems, seen) = parse_text(&text, &mut settings);
             for problem in problems {
@@ -121,7 +121,7 @@ pub(super) fn load(path: &Path) -> DbSettings {
             }
             add_missing(path, &seen);
         }
-        Err(e) if e.kind() == io::ErrorKind::NotFound => write_default_file(path),
+        Err(e) if e.is_not_found() => write_default_file(path),
         Err(e) => {
             scribe::error_with(Channel::Database, &e, &format!("Archivist can't read {}.", path.display()));
         }
@@ -301,12 +301,7 @@ fn add_missing(path: &Path, seen: &HashSet<String>) {
         return;
     };
 
-    let added = OpenOptions::new()
-        .append(true)
-        .open(path)
-        .and_then(|mut file| file.write_all(text.as_bytes()));
-
-    match added {
+    match diskman::append(path, text.as_bytes()).wait() {
         Ok(()) => scribe::info(Channel::Database, &format!("Archivist added the settings missing from {}, \
             with their defaults.", path.display())),
         Err(e) => scribe::warn_with(Channel::Database, &e, &format!("Archivist couldn't add the missing \
@@ -315,13 +310,10 @@ fn add_missing(path: &Path, seen: &HashSet<String>) {
 }
 
 /// There was no `postgres.cfg`, so we write one with the defaults and an
-/// empty password for the admin to fill in.
+/// empty password for the admin to fill in.  DiskMan makes the folder if
+/// it has to.
 fn write_default_file(path: &Path) {
-    if let Some(folder) = path.parent() {
-        let _ = fs::create_dir_all(folder);
-    }
-
-    match fs::write(path, file_text(&default_settings())) {
+    match diskman::write(path, file_text(&default_settings()).into_bytes()).wait() {
         Ok(()) => scribe::info(Channel::Database, &format!("No postgres.cfg, so Archivist wrote one: {}",
                                                           path.display())),
         Err(e) => scribe::error_with(Channel::Database, &e, &format!("No postgres.cfg, and Archivist \

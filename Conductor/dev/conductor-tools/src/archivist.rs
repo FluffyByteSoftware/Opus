@@ -27,8 +27,9 @@ mod status;
 mod worker;
 
 use std::fmt;
-use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::Instant;
+
+use crate::pending::NotRunning;
 
 use status::JobKind;
 use worker::{Job, Link};
@@ -82,37 +83,16 @@ impl fmt::Display for ArchivistError {
 
 impl std::error::Error for ArchivistError {}
 
+impl NotRunning for ArchivistError {
+    fn not_running() -> ArchivistError {
+        ArchivistError::NotRunning
+    }
+}
+
 /// An answer that is on its way.  Every job hands one of these back
-/// straight away, and the answer turns up in it once the worker gets to
-/// the job.
-///
-/// Once `check()` has handed back an answer, the `Pending` is used up.
-/// Ask it again and it says `NotRunning`, because there is nobody left on
-/// the other end.
-pub struct Pending<T> {
-    reply: Receiver<Result<T, ArchivistError>>,
-}
-
-impl<T> Pending<T> {
-    /// The answer if it's here, `None` if the worker hasn't got to the job
-    /// yet.  Never waits, so this is the one the game loop uses.
-    pub fn check(&self) -> Option<Result<T, ArchivistError>> {
-        match self.reply.try_recv() {
-            Ok(answer) => Some(answer),
-            Err(TryRecvError::Empty) => None,
-            Err(TryRecvError::Disconnected) => Some(Err(ArchivistError::NotRunning)),
-        }
-    }
-
-    /// Waits for the answer.  Fine at startup and for the web admin, but
-    /// never in the game loop, because this is exactly the blocking the
-    /// worker was made to avoid.
-    pub fn wait(self) -> Result<T, ArchivistError> {
-        // Rust note: `recv()` fails only when the other end is gone
-        // without answering, which means the worker isn't there.
-        self.reply.recv().unwrap_or(Err(ArchivistError::NotRunning))
-    }
-}
+/// straight away: `check()` never waits, `wait()` does.  The workings are
+/// in `pending.rs`, shared with DiskMan.
+pub type Pending<T> = crate::pending::Pending<T, ArchivistError>;
 
 // ---------------------------------------------------------------------------
 // Starting and stopping
@@ -222,7 +202,7 @@ where
     T: Send + 'static,
     W: FnOnce(&mut Link) -> Result<T, ArchivistError> + Send + 'static,
 {
-    let (reply, answer) = mpsc::channel();
+    let (reply, pending) = Pending::new();
     worker::send(Job {
         label: label.to_string(),
         kind,
@@ -233,7 +213,7 @@ where
             let _ = reply.send(work(link));
         }),
     });
-    Pending { reply: answer }
+    pending
 }
 
 #[cfg(test)]

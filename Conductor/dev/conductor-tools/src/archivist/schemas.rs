@@ -24,6 +24,7 @@ use std::path::{Path, PathBuf};
 use postgres::Client;
 
 use crate::constellations;
+use crate::diskman;
 use crate::scribe::{self, Channel};
 
 /// Where the default schemas live, under the Content folder.  One `.sql`
@@ -81,7 +82,7 @@ fn run_schemas(client: &mut Client) {
 
     let mut ran = 0;
     for file in &files {
-        let sql = match fs::read_to_string(file) {
+        let sql = match diskman::read(file).wait().and_then(|bytes| diskman::as_text(&bytes)) {
             Ok(sql) => sql,
             Err(e) => {
                 scribe::error_with(Channel::Database, &e, &format!("Archivist can't read {}.", file.display()));
@@ -101,17 +102,16 @@ fn run_schemas(client: &mut Client) {
 }
 
 /// Writes out any default schema that isn't on disk.  One that is already
-/// there is never touched.
+/// there is never touched.  DiskMan makes the folder if it has to, and
+/// this waits on it (on Archivist's thread, not the game's), since the
+/// files are read straight after.
 fn write_missing_schemas(folder: &Path) {
-    // If the folder can't be made, the writes below fail and say why.
-    let _ = fs::create_dir_all(folder);
-
     for (name, text) in DEFAULT_SCHEMAS {
         let path = folder.join(name);
         if path.exists() {
             continue;
         }
-        match fs::write(&path, text) {
+        match diskman::write(&path, text.as_bytes().to_vec()).wait() {
             Ok(()) => scribe::info(Channel::Database, &format!("Archivist wrote the default {}", path.display())),
             Err(e) => scribe::error_with(Channel::Database, &e, &format!("Archivist can't write the default {}.",
                                                                          path.display())),
@@ -143,6 +143,8 @@ fn sql_files(folder: &Path) -> std::io::Result<Vec<PathBuf>> {
 /// first one that fails stops the rest, because a later one may lean on it.
 fn run_migrations(client: &mut Client) {
     let folder = constellations::content_dir().join(MIGRATION_DIR);
+    // DiskMan does files, not folders.  Making an empty folder and listing
+    // what's in one stay out here.
     let _ = fs::create_dir_all(&folder);
 
     let paths = match sql_files(&folder) {
@@ -187,7 +189,7 @@ fn run_migrations(client: &mut Client) {
             continue;
         }
         let path = folder.join(&name);
-        let sql = match fs::read_to_string(&path) {
+        let sql = match diskman::read(&path).wait().and_then(|bytes| diskman::as_text(&bytes)) {
             Ok(sql) => sql,
             Err(e) => {
                 scribe::error_with(Channel::Database, &e, &format!("MIGRATION NOT RUN, FIX IT BY HAND: {}.  \

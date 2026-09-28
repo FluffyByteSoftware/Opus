@@ -22,13 +22,9 @@ Things that wait on a piece that doesn't exist yet.
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
 - Accounts: making, checking and logging in.  Waits on Security for the Argon2 hashing.
-- The rest of Conductor's tools, each its own session: the disk manager (temp-file-and-rename writes, the
-  one place whole files get replaced; it reports to `services.rs` under a new name and fills the Storage
-  tab's empty panel and the Services tab's grey row), and Security (TLS for the welcome TCP connection,
-  password hashing).  Stratum had a DiskMan, a Fingerprinter (UUIDs) and a Security worker; whether Opus
-  wants the same shapes is Jacob's call when each comes up.
-- Constellations writes `conductor_globals.cfg` straight to disk.  Once the disk manager exists it goes
-  through that instead, so a crash mid-write can't leave half a config file.
+- The rest of Conductor's tools, each its own session: the Fingerprinter (Jacob's pick for the next
+  session) and Security (TLS for the welcome TCP connection, password hashing).  Stratum had a Fingerprinter
+  (UUIDs) and a Security worker; whether Opus wants the same shapes is Jacob's call when each comes up.
 - Web admin: start / stop the game.  Waits on networking and a game loop.  (Was the launcher's S.)
 - Web admin: account management (make, delete, list, finger, change password).  Waits on accounts.
 - Web admin: the settings, shown and changed live (Jacob asked on 2026-09-28).  Showing them is small: a
@@ -40,12 +36,12 @@ Things that wait on a piece that doesn't exist yet.
   - Each setting saying what happens when it changes.  `scribe_log_dir` can switch on the spot
     (`scribe::move_to()`); `wgui_port` means restarting the web admin on the new port, so the page has to
     follow it there, or it waits for the next start.  Every setting added later says which kind it is.
-  - The file written back safely.  Until the disk manager exists, a crash mid-write could leave half a
-    config file, so this may want to wait for it.
+  - The file written back safely, through `diskman::write()`, which is ready for it.  It also needs
+    DiskMan to see hand edits (see Ideas), or a changed file on disk won't match what's loaded.
   - Maybe `postgres.cfg` too, but it holds the password, and showing that on a page is Jacob's call.
   - Once there is a login, only an admin can change them.
-- Launcher: catch Ctrl-C and shut down cleanly (or ignore it) once there is something to save on shutdown.
-  Today there isn't, so Ctrl-C is harmless.  Catching it on both Linux and Windows without a crate means a
+- Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
+  on shutdown: Ctrl-C loses whatever it hasn't written yet.  Catching it on both Linux and Windows without a crate means a
   signal handler on one and a console handler on the other.
 - Ensemble has no way to find `Content/` yet.  Decide how once the engine is picked.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
@@ -76,8 +72,14 @@ Things we thought of along the way.  None of them are promised.
 - Monitor: a SQL read / write split by rows (rows returned, rows changed), not just by jobs.
 - Monitor: Postgres's own view of things (`pg_stat_database`: cache hits, rows read), as an Archivist job
   once a few seconds, so it never waits on the database.
-- Monitor: "last read / last write" by file.  Needs the disk manager, since today nothing sees every file
-  Conductor touches in one place.
+- Monitor or the Storage tab: "last read / last write" by file.  DiskMan sees every file now, so this is
+  ready whenever it's wanted.
+- DiskMan: notice hand edits.  A file it already holds is served from memory even if somebody edited it on
+  disk since.  Checking the modified time before trusting the copy would fix it.  Only configs today, and
+  they're read once at startup.
+- DiskMan: the Windows build.  It leans on `fs::rename` replacing a file there, and skips flushing the folder.
+- Notices: no cap.  They're kept since boot until ACKed, so a flood of Warns left alone for days keeps
+  growing in memory.  A cap (the oldest dropped) if it ever matters.
 - Web admin: keep the CPU and memory history on the server, so a page opened late still sees the last few
   minutes.
 - Web admin: a Debug on / off switch for the Log tab, once Scribe has its Debug switch.

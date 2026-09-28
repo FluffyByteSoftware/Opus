@@ -6,8 +6,9 @@ Author:     Jacob Chacko
 
 # conductor-tools
 
-A lib crate.  The pieces the rest of Conductor leans on but that know nothing about the game: the log, the
-config, the database, the clock, the list of threads we started, and the list of services we expect.  One
+A lib crate.  The pieces the rest of Conductor leans on but that know nothing about the game: the disk, the
+log, the config, the database, the clock, the list of threads we started, the list of services we expect,
+and the notices the admin has to acknowledge.  One
 dependency, `postgres` (the blocking Postgres client), for Archivist.  It pulls in tokio behind the scenes,
 but nothing of ours is async.
 
@@ -17,11 +18,12 @@ but nothing of ours is async.
 conductor-tools/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs             pub mod archivist; clock; constellations; scribe; services; threads;
+    ├── lib.rs             pub mod archivist; clock; constellations; diskman; notices; pending; scribe;
+    │                        services; threads;
     ├── archivist.rs       the front door: start(), stop(), status(), config_path()
     │                        execute(sql, params) -> Pending<u64>, query(sql, params) -> Pending<Vec<Row>>
     │                        batch(sql) -> Pending<()>, transaction(name, |tx| ...) -> Pending<T>
-    │                        Pending<T> { check() never waits, wait() does }, enum ArchivistError, type Param
+    │                        type Pending<T> (from pending.rs), enum ArchivistError, type Param
     ├── archivist/
     │   ├── settings.rs    postgres.cfg: struct DbSettings, load(), adds missing settings to the file
     │   ├── worker.rs      the one worker thread, its mailbox, struct Link (the connection, prepared statements)
@@ -36,6 +38,16 @@ conductor-tools/
     │                        recent_lines(after) -> Vec<RecentLine { number, priority, text }>
     │                        debug / info / warn / error (channel, message)
     │                        debug_with / info_with / warn_with / error_with (channel, err, message)
+    ├── diskman.rs         the front door: start(), stop(), finished(), status(), waiting_files()
+    │                        write(path, bytes) -> Pending<()>, append(path, bytes) -> Pending<()>
+    │                        read(path) -> Pending<Contents>, stream(path) -> Stream, as_text(bytes)
+    │                        type Contents = Arc<Vec<u8>>, enum DiskError, enum Piece, struct Status
+    ├── diskman/
+    │   ├── cache.rs       struct State, struct Entry (whole file, dirty, tail), the rules; Limits
+    │   └── worker.rs      the one worker thread: reads, writes, the big write, streams; the disk calls
+    ├── notices.rs         enum Level { Notice, Warn, Error }, struct Notice { id, when, level, source, text }
+    │                        publish(level, source, text) -> id, newest(n), all(), ack(id), ack_all()
+    ├── pending.rs         Pending<T, E> { check() never waits, wait() does }, trait NotRunning
     ├── constellations.rs  struct Settings { scribe_log_dir, wgui_port }
     │                        load(), settings(), log_dir(), content_dir(), config_path()
     ├── services.rs        enum State { Expected, Starting, Running, Trouble, Stopped }
@@ -45,6 +57,71 @@ conductor-tools/
                              name_this_thread(name), for main
                              ThreadRecord { name, started_by, started_at, os_id, running }
 ```
+
+## DiskMan
+
+The disk manager.  Built 2026-09-28.  Named by Jacob.  Every file Conductor reads or writes goes through it.
+
+Jacob's idea, nearly in his words: DiskMan is a layer between the server and the disk.  It buffers what's
+written and uses a single background thread to keep streaming it to disk.  The disk can only go so fast, so
+while it's writing, whatever comes in is edited in memory and marked dirty, and DiskMan knows to flush it.
+Anything that isn't dirty can just be unloaded.
+
+What we decided:
+
+- **One worker thread**, `diskman`, and nobody else waits on the disk.  `write()`, `append()` and `read()`
+  hand back a `Pending` straight away, the same one Archivist uses (`pending.rs`).
+- **An entry per file**, in `cache.rs`.  It holds the whole file when we know it (after a read or a
+  `write()`), marked dirty until it's on disk, and a tail of appends for a file we don't hold whole (Scribe's
+  log).  A second `write()` before the first goes out just replaces it in memory: only the newest reaches
+  the disk, and everyone who was waiting hears back when it lands.
+- **Reads are cached.**  A file that's been read stays loaded, and the next read comes from memory.  A read
+  of a file with appends still waiting gets the disk plus the appends.
+- **Clean files unload past 256 MB**, the one used longest ago first.  Dirty files don't count and are never
+  unloaded, whatever their size: a few GB of world terrain is held until it's on disk.
+- **Whole writes never leave half a file**: temp file (`name.diskman-tmp`, same folder), flushed, renamed over
+  the old one, and on Linux the folder flushed too.  Appends are flushed but not all-at-once; a crash can cut
+  off the last line.
+- **The chunker**: a whole write over 8 MB goes into its temp file 1 MB at a time, and other files get their
+  turn in between, so terrain never holds up a config or a log line.  One big write at a time.  A newer
+  `write()` of the same file drops the big one part way and starts over with the newer.
+- **`stream()`** reads a file back 1 MB at a time, 4 chunks ahead of the reader at most, without caching it.
+- **A failed write is tried 3 times, 5 seconds apart, then given up** with a capitals Error naming the file.
+  Jacob's call: a folder that can't be written would otherwise hang shutdown forever.  The `Pending` hears the
+  first failure; DiskMan keeps trying behind it.
+- **Nothing routine is logged.**  Every log line is itself a write, so a "wrote a file" line would be another
+  write, forever.  Only failures and recoveries get a line.  Problems with Scribe's own file go to the
+  console and the Services tab only.
+- **The lock is never held while touching the disk or logging.**  That keeps callers free while it writes,
+  and it's what stops a deadlock with Scribe, who hands DiskMan every line while holding Scribe's lock.
+- **First to start, last to stop.**  Shutdown waits on it after Archivist.  If it takes more than a second,
+  the console counts down from 60; at zero it says `SHOULD BE CLOSED, IF STILL RUNNING PLEASE FORCE QUIT` and
+  lists what would be lost, again every 30 seconds, while it keeps waiting.  Jacob's wording.
+- Folders aren't DiskMan's: making the empty migrations folder and listing a folder stay with `std::fs`.
+- Paths go in full (from `content_dir()`); the same file under two spellings would be two files to it.
+
+What's open:
+
+- **Hand edits while running aren't seen** if DiskMan already holds the file.  Today only configs, read once
+  at startup.  Checking the file's modified time before trusting the copy would fix it.
+- The Windows side (renaming over a file, no folder flush) hasn't been built there.
+- Nothing uses the big write or `stream()` for real yet: there's no terrain.  The tests cover them with tiny
+  sizes.
+
+## Notices
+
+What the admin has to see and acknowledge, in `notices.rs`.  Built 2026-09-28, the same session as DiskMan.
+
+What we decided:
+
+- **Every Warn and Error Scribe logs becomes one**, and code can raise one on purpose with
+  `notices::publish(Level::Notice, source, text)`.
+- **A notice stays until it's ACKed**, one at a time or ACK ALL, and then it's gone completely.  Looking at
+  it doesn't count.
+- **Memory only, since Conductor started.**  Jacob picked this over a journal file or a Postgres table: a
+  restart wipes them.  (A table couldn't hold "the database dropped" anyway.)  No cap.
+- Nothing in here writes to Scribe; Scribe calls in here before taking its own lock.
+- The bell, its tray and the Notifications History tab are in `conductor-wgui.md`.
 
 ## Scribe
 
@@ -57,12 +134,15 @@ What we decided:
 - The caller comes from `#[track_caller]`, so nobody passes a file and line by hand.
 - An error value goes in front of the message (`error_with()`), the way `ex.Message` did in C#.  Rust has
   no exceptions, so it takes anything that prints.
+- **Scribe doesn't touch the disk.**  Since 2026-09-28 each line is handed to DiskMan as an append, still
+  under Scribe's lock so the order holds, and DiskMan decides when it goes out.  DiskMan starts first.
+- **A Warn or an Error also becomes a notice** for the web admin's bell.
 - **Every line goes three places: the file, the terminal, and the last 200 in memory.**  The terminal is the
   launcher's console, which is only Scribe's output since the menu went away.  The 200 in memory are what
   the web admin shows, numbered from 1 so the page can ask for the ones after the last it saw.  (Until
   2026-09-28 the file was the only place, because the terminal belonged to the L/Q menu.)
 - The terminal write ignores a failure instead of using `println!`, which panics when stdout is gone.
-- A lost file gets one note on stderr and is tried again at the next midnight or `move_to()`.
+- A file that won't write is DiskMan's to report: one note on stderr, the Services tab, and its usual retries.
 - Scribe never panics and never hands an error back from a log call.  A log that takes the server down is
   worse than no log.
 - Scribe starts before Constellations, on the default folder, so the config's complaints have somewhere to
@@ -84,7 +164,7 @@ What we decided:
 - A checked struct: every key has a type and a check.  A bad line is a Warn with its line number, and that
   setting keeps its default.  An unknown key is a complaint too, so a typo doesn't go silent.  If a key
   shows up twice the later one wins, with a complaint.
-- **Nothing in here stops the server.**  A missing file gets written with the defaults.  A file that can't
+- **Nothing in here stops the server.**  A missing file gets written with the defaults, through DiskMan.  A file that can't
   be read is an Error and we run on the defaults, without writing over it.
 - Loaded once, at startup.  A relative path in the file is taken from `Content/`.
 - A new setting touches four places, all in `constellations.rs`: the struct, `default_settings()`,
@@ -100,7 +180,6 @@ Settings today:
 What's open:
 
 - No reload.  The launcher's config menu will need one, which means Constellations stops being load-once.
-- The file is written straight to disk.  It goes through the disk manager once that exists.
 
 ## Archivist
 
@@ -125,7 +204,8 @@ What we decided:
   `query_time_limit_seconds` (10, handed to Postgres as `statement_timeout`; 0 is no limit) and
   `slow_job_ms` (250).  A missing file is written with an empty password and a capitals Error.  A setting
   the file doesn't have is added to the end with its default.  The file is committed on purpose: the
-  password is a placeholder and Postgres only listens on localhost.
+  password is a placeholder and Postgres only listens on localhost.  It, the schemas and the migrations are
+  read and written through DiskMan.
 - The password never reaches the log: `DbSettings` has a hand-written Debug, and a broken line isn't echoed.
 - On every connect, before any job: the schemas in `Content/psql/defaults/schemas/` (only `CREATE ... IF NOT
   EXISTS`, baked in with `include_str!` and written back out if missing), then the migrations in
@@ -173,7 +253,7 @@ What we decided:
   reports, which is how a thread in the "in use" view gets our name and an "ours" mark.
 - A thread is marked finished when its closure ends, a panic included (a guard that's dropped either way).
   Finished threads stay on the list.  There are a handful of them, not thousands.
-- Threads today: `main`, `archivist`, `monitor`, `wgui`.  The postgres crate starts some of its own, and
+- Threads today: `main`, `diskman`, `archivist`, `monitor`, `wgui`.  The postgres crate starts some of its own, and
   those show up as "not ours".
 - main can't be started by `spawn()`, so it puts itself on the list with `name_this_thread("main")` as the
   first line of `main()`.  It stays "running" for good, since main ending ends Conductor.
@@ -189,11 +269,12 @@ What we decided:
   itself**: `services::set(name, state, note)`, with a note that says what it's doing or what went wrong.
 - **Every expected service is on the list from the start**, as "expected", so one that never started shows
   as missing.  The list is `EXPECTED` in `services.rs`: Scribe, Constellations, Archivist, Monitor, Web
-  admin, each with the name of its thread if it has one.  Adding a service means adding it there.
+  admin, each with the name of its thread if it has one; DiskMan (thread `diskman`) went in first on
+  2026-09-28.  Adding a service means adding it there.
 - A service with a thread is **stopped once that thread has ended**, whatever it last said.  A thread that
   panics says nothing on the way out.  This is worked out when the list is read, from `threads::list()`.
 - A service can **check in** with `seen(name)`.  One that has checked in and then goes quiet for more than
-  `QUIET_LIMIT` (5 seconds) isn't healthy.  Only the monitor does today; the others have no loop to check in
+  `QUIET_LIMIT` (5 seconds) isn't healthy.  The monitor and DiskMan do; the others have no loop to check in
   from.
 - Healthy means running and not gone quiet.  The page shows starting as yellow, not down.
 - **Nothing in `services.rs` writes to Scribe.**  Scribe reports to the list, so a call the other way could

@@ -8,90 +8,74 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor is four crates.  `conductor-tools` (lib) holds Scribe, Constellations, Archivist, the clock, the
-thread list and now the services list.  `conductor-monitor` (lib) looks at the process, and now every process
-on the machine, once a second.  `conductor-wgui` (lib) is the web admin at `http://127.0.0.1:9996/Opus`, and
-the only way to shut the server down.  `conductor-launcher` (bin) starts all of it and waits on the web
-admin.  Ensemble hasn't been started.
+Conductor is four crates.  `conductor-tools` (lib) holds DiskMan, Scribe, Constellations, Archivist, the
+notices, the clock, the thread list and the services list.  `conductor-monitor` (lib) looks at the process
+and every process on the machine once a second.  `conductor-wgui` (lib) is the web admin at
+`http://127.0.0.1:9996/Opus`, and the only way to shut the server down.  `conductor-launcher` (bin) starts
+all of it and waits on the web admin.  Ensemble hasn't been started.
 
-**Nothing from this session has been built or run.**  Jacob builds and tests; the page was only checked by
-rendering it in a browser with made-up numbers.  The previous session's CPU chart and memory bar were never
-run either, and no `cargo build` / `cargo test` output has been pasted back for either session.  The
-Windows code has never been built, and this session added more of it.
+**Built and tested on Linux (Nobara 44), 2026-09-28.**  `cargo clean && cargo build` was clean with no
+warnings, and `cargo test` passed 77 tests (15 monitor, 47 tools, 15 web admin).  A run connected to
+Postgres, read the config and the schema through DiskMan, wrote the log through it, and shut down in about a
+second.  Jacob looked at the page, the bell and the test notification.  The Windows code has never been
+built.
 
-## Last session -- 2026-09-28 (the second that day)
+## Last session -- 2026-09-28 (the third that day)
 
-The web admin's layout: tabs, a database lock, services, and every process on the machine.
+DiskMan, the disk manager, and the web admin's notifications.
 
 What we did:
 
-- **Tabs down the left sidebar**, under the OP logo: System, Conductor, Services, Storage, Log.  Conductor
-  opens first; the browser remembers the last one picked (`localStorage`, nothing on the server).
-  - **System**: the whole machine's CPU and memory, and every process Conductor can see, busiest first, with
-    Conductor's row in green with a CONDUCTOR tag and a filter box.  Click a process to see its threads with
-    their core % (Conductor's own threads carry our names).
-  - **Conductor**: CPU chart, memory bar, disk, machine, and Conductor's threads (in use / asked for).
-  - **Services**: Scribe, Constellations, Archivist, the monitor and the web admin, each with its state, what
-    it last said, since when, and "last seen" for the monitor.  A flashing red dot for any that isn't healthy,
-    on the row and on the sidebar tab.  The disk manager is a grey "not built yet" row.
-  - **Storage**: Archivist's numbers, and a "not built yet" panel for the disk manager.
-  - **Log**: Scribe's terminal, the full height of the window.
-- **The database lock.**  A DB pill in the header on every tab (ONLINE / CONNECTING / OFFLINE).  Until
-  Archivist is connected, everything under the header is blurred and locked, the tabs too, with a flashing
-  red "DATABASE OFFLINE -- the game can't run right now" card.  SHUT DOWN is the only thing that works.  The
-  page keeps asking underneath and unlocks itself when Archivist connects.  The first 10 seconds after
-  Conductor starts count as "connecting", not offline.
-- **The status line** reads NOMINAL, or everything that's wrong: `DATABASE NOT CONNECTED, 1 SERVICE DOWN`.
-- **`services.rs`** in conductor-tools: every expected service is listed from the start as "expected", and
-  each reports starting / running / trouble (with why) / stopped.  One whose thread has ended shows as
-  stopped whatever it last said, and the monitor checks in every second so a stuck one goes red after 5.
-  The status JSON carries `services` straight from the list, not through the monitor, so it's still right
-  if the monitor dies.
-- **Every process on the machine**: `probe/linux.rs` reads `/proc/<pid>/stat` (kernel threads left out);
-  `probe/windows.rs` uses the toolhelp process list plus `OpenProcess`, and processes Windows won't open
-  come back with no numbers.  One new read-only route, `GET /Opus/threads?pid=N`, gives one process's
-  threads; the page asks once a second, only while that process is picked on the System tab.
-- The main thread is on the thread list as "main" (`threads::name_this_thread`).
-- TODO: running with no console window, and showing and changing the settings live from the page.
+- **DiskMan** (`diskman.rs`, `diskman/cache.rs`, `diskman/worker.rs`): every file Conductor reads or writes
+  goes through one worker thread.  `write()`, `append()`, `read()` hand back a `Pending`; `stream()` reads
+  big files back 1 MB at a time.  What comes in while the disk is busy is held in memory, dirty until it's
+  written, and a second write replaces the first before it goes out.  Reads stay loaded.  Clean files unload
+  past 256 MB; dirty ones never do.  Whole writes go through a temp file and a rename.  Writes over 8 MB go
+  out 1 MB at a time with other files in between.  A failed write gets 3 tries, then a capitals Error.
+- **Everything moved onto it**: Scribe hands it each line as an append; Constellations and Archivist
+  (`postgres.cfg`, schemas, migrations) read and write through it.  DiskMan starts first and stops last.
+- **Shutdown waits on DiskMan.**  Over a second, the console counts down from 60; at zero it says
+  `SHOULD BE CLOSED, IF STILL RUNNING PLEASE FORCE QUIT` with the files that would be lost, and keeps
+  waiting.
+- **`Pending` moved to `pending.rs`**, shared by Archivist and DiskMan.
+- **Notices** (`notices.rs`): every Warn and Error, and anything raised with `notices::publish()`, stays
+  until it's ACKed.  Memory only, since boot.
+- **The web admin**: a bell in the header's corner with a badge (up to `5+`) that pulls out a tray of the
+  newest five, each fading after 30 seconds; a sixth tab, Notifications History, with ACK, ACK ALL and TEST
+  NOTIFICATION; DiskMan's row on the Services tab and its panel on the Storage tab.  Four new routes:
+  `GET /Opus/notices`, and `POST /Opus/notices/ack?id=N`, `/ack-all` and `/test`, all needing `X-Opus: ack`.
 
 What fought back:
 
-- The layout took four passes of talking before any code.  Jacob first asked for IDE-style docking, then
-  looked at the page again and dropped it for tabs: "docking won't fix this, I was over engineering".  A
-  saved-settings file (`Content/web/wgui_settings.json.cfg`) was planned and dropped with it.
-- "Scribe lives in tools" -- asking where "Scribe" should go meant the log panel on the page, and read as
-  moving the crate.  Say "the log panel" for the page's piece.
-- "Tabs" meant the left sidebar where OP is, not a row across the top.  Fixed after the first build.
-- Archivist only reconnects when a job comes in, and nothing sends jobs yet.  So once the database drops,
-  the page's lock stays up until Conductor restarts, even after Postgres is back.  Found, not fixed: it
-  changes how Archivist behaves, and Jacob hasn't said yes to it.
+- Notifications came up in the middle of DiskMan and grew into their own feature.  "Viewed" clearing them was
+  dropped for a manual ACK, and a journal file was dropped for memory only.  Worth it, but it was two
+  features in one session.
+- A log line is itself a write, so DiskMan can't log routine work, and Scribe's own file failing has to go to
+  the console.  Otherwise it loops forever.
 
 What Jacob decided:
 
-- Tabs, not docking.  Five of them, down the left side, Conductor first.
-- While the database is offline, the admin sees that and nothing else: blurred, locked, SHUT DOWN only.
-  "The whole point is to draw attention to the user that the DB is offline and the game can't run."
-- The log gets a tab of its own.
-- No settings file for the page.
-- **Next: the disk manager.**  Jacob's pick for the next conversation.
+- DiskMan does every file read and write, appends and whole writes both, with streaming reads and the
+  chunker, all this session.
+- Replace, don't queue, a second write to the same file.  Dirty data held until it's on disk, clean data
+  unloaded.  "A crash is the worst possible scenario... That's why we do atomic writes and best measures."
+- Shutdown waits a minute, then tells the admin to force quit.  Conductor never quits on its own.
+- Notices: every Warn and Error, plus ones raised on purpose; cleared only by ACK, and gone after it; kept in
+  memory since boot.
+- **Next: the Fingerprinter.**  Jacob's pick for the next conversation.  Stratum had one (UUIDs); Opus doesn't
+  take its code, and its shape is Jacob's call.
 
 ## What's waiting
 
-- **The disk manager.**  Jacob's pick for the next conversation.  What's known so far is in TODO.md: the
-  one place whole files get written, through a temp file and a rename, so a crash can't leave half a file.
-  Constellations' config writes and the settings-from-the-page idea both wait on it.  Once it exists it
-  reports to the services list (the name is already on the page as "not built yet") and fills the Storage
-  tab's empty panel.  Stratum had a DiskMan; Opus doesn't take its code, and its shape is Jacob's call.
-- **Archivist retrying on its own**, every 5 seconds while it's disconnected, so the page's lock lifts when
-  Postgres comes back.  Asked, not answered.
-- Build and test everything from this session and the last, and paste back `cargo build` and `cargo test`.
-  This session added tests in `services.rs`, `probe/linux.rs`, `snapshot.rs`, `json.rs` and the wgui's
-  `lib.rs`.
-- Run the page: each tab, the DB lock (stop Postgres or break the password in `postgres.cfg`), the Services
-  tab going red, and the System tab with Conductor in green.
-- The Windows build, whenever getting to that machine is less of a hassle.  The process list and the
-  threads route are new Windows code on top of the untried probe.
-- The Debug switch in `conductor_globals.cfg`, and moving the routine log lines to Debug.
+- **The Fingerprinter.**  Jacob's pick for the next conversation.
+- Archivist retrying on its own every 5 seconds while disconnected, so the page's lock lifts when Postgres
+  comes back.  Asked, not answered.
+- DiskMan: seeing hand edits to a file it already holds.  In TODO.
+- The Windows build, whenever getting to that machine is less of a hassle.  The probe, the process list,
+  the threads route and DiskMan's rename are all untried there.
+- The Debug switch in `conductor_globals.cfg`, and moving the routine log lines to Debug.  It matters more
+  now: every Warn is a notice, so a Warn that isn't really wrong is one more thing to ACK.
+- Catching Ctrl-C, now that it can lose what DiskMan holds.
 - `\dt` in psql to confirm `archivist_migrations` exists.
 - Accounts, which wait on Security for Argon2.  Security itself.
 - Picking Ensemble's engine.

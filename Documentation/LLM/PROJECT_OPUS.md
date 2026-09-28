@@ -22,7 +22,7 @@ Opus/
 │       │   ├── Cargo.toml             # one dependency: postgres
 │       │   └── src/
 │       │       ├── lib.rs             # lists the tools
-│       │       ├── archivist.rs       # the database: the job functions, Pending, start and stop
+│       │       ├── archivist.rs       # the database: the job functions, start and stop
 │       │       ├── archivist/
 │       │       │   ├── settings.rs    # reads postgres.cfg, adds settings it's missing
 │       │       │   ├── worker.rs      # the one worker thread, its mailbox and connection
@@ -30,7 +30,13 @@ Opus/
 │       │       │   └── status.rs      # running totals and slow jobs
 │       │       ├── clock.rs           # UTC date and time, calendar math by hand
 │       │       ├── constellations.rs  # the config: finds Content/, reads and checks conductor_globals.cfg
-│       │       ├── scribe.rs          # the log: one file per UTC day, the console, the last 200 in memory
+│       │       ├── diskman.rs     # DiskMan: every file read and write goes through it
+│       │       ├── diskman/
+│       │       │   ├── cache.rs   # the files held in memory: dirty, clean, appends waiting; the rules
+│       │       │   └── worker.rs  # its one thread: temp-and-rename writes, chunks, streams
+│       │       ├── notices.rs     # what the admin has to ACK: every Warn and Error, and more
+│       │       ├── pending.rs     # Pending, the answer on its way, shared by Archivist and DiskMan
+│       │       ├── scribe.rs          # the log: a file per UTC day (via DiskMan), the console, the last 200
 │       │       ├── services.rs        # the services we expect, each reporting how it's doing
 │       │       └── threads.rs         # threads::spawn(): every thread we start, who asked and when
 │       ├── conductor-monitor/         # lib
@@ -46,14 +52,14 @@ Opus/
 │       ├── conductor-wgui/            # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools and conductor-monitor
 │       │   └── src/
-│       │       ├── lib.rs             # the web admin's thread and its four routes, on 127.0.0.1
+│       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
 │       │       ├── http.rs            # just enough HTTP
 │       │       ├── json.rs            # the status answer, written by hand
-│       │       └── page.html          # the page, baked in: five tabs and the database lock
+│       │       └── page.html          # the page, baked in: six tabs, the bell, and the database lock
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml
 │           └── src/
-│               └── main.rs            # starts everything in order, waits on the web admin, shuts down
+│               └── main.rs            # starts it all, waits on the web admin, shuts down
 ├── Ensemble/                          # the client -- not started
 ├── Content/                           # committed, except Assets/ and logs/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
@@ -86,13 +92,14 @@ Where each one lives is in the tree above.
 | Conductor          | The server.  It owns the game state.          | Tools, monitor, web admin    |
 | Ensemble           | The client players run.                       | Not started, engine unpicked |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
-| conductor-monitor  | Lib crate: looks at the process once a second.| Linux; new parts not run yet |
-| conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Linux; the tabs not run yet  |
+| conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |
+| conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
 | conductor-launcher | Bin crate: the program.  Starts everything.   | Runs on Linux                |
 | Scribe             | The log.                                      | Built and tested             |
 | Constellations     | The config file and the settings it holds.    | Built and tested             |
 | Archivist          | The database: PostgreSQL on its own thread.   | Built and tested             |
 | The clock          | UTC date and time.                            | Built and tested             |
 | Threads            | The list of threads we started.               | Runs on Linux                |
-| Services           | The services we expect, and how each is doing.| Written, not built yet       |
-| Disk manager       | Whole-file writes, temp file and rename.      | Not started                  |
+| Services           | The services we expect, and how each is doing.| Built and tested             |
+| DiskMan            | Every file read and write, one worker thread. | Built and tested on Linux    |
+| Notices            | What the admin has to ACK, on the bell.       | Built and tested             |
