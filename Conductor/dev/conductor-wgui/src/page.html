@@ -85,6 +85,7 @@ of that answer is written down at the top of json.rs.
   .span-4 { grid-column: span 4; }
   .span-5 { grid-column: span 5; }
   .span-7 { grid-column: span 7; }
+  .span-12 { grid-column: span 12; }
   @media (max-width: 1100px) {
     .span-3, .span-4, .span-5, .span-7 { grid-column: span 12; }
   }
@@ -375,7 +376,11 @@ function drawMonitor(m) {
 
   $("memory").textContent = bytes(m.memory_bytes);
   remember(memoryHistory, m.memory_bytes);
-  const memoryTop = Math.max(...memoryHistory.map(v => v || 0));
+  // Memory hardly moves second to second, so scaled to its own highest
+  // value every bar was full height and it looked maxed out.  Scaled to
+  // twice the highest, a steady server sits at half height, and a climb
+  // shows as bars getting taller.
+  const memoryTop = 2 * Math.max(...memoryHistory.map(v => v || 0));
   drawBars("memory-bars", memoryHistory, memoryTop, bytes);
 
   if (m.disk) {
