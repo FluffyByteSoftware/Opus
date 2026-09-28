@@ -72,3 +72,8 @@ Things we thought of along the way.  None of them are promised.
 - Web admin: keep the CPU and memory history on the server, so a page opened late still sees the last few
   minutes.
 - Web admin: a Debug on / off switch for the page's terminal, once Scribe has its Debug switch.
+- Running Conductor with no console window.  The page's Log tab shows everything the console does, but
+  closing the console kills Conductor today (Linux sends the terminal's hang-up signal, Windows ends the
+  process), so it goes down without a clean shutdown.  Ways to fix it: start it detached (`setsid` or
+  `nohup` on Linux), run it as a systemd service / Windows service, or build a Windows version with no
+  console at all.  Jacob's pick when it matters.

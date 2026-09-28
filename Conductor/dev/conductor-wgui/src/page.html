@@ -8,7 +8,8 @@ The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
 of that answer is written down at the top of json.rs.  Four tabs under the
-header; while the database isn't connected they're blurred and locked.
+header, then Scribe's log on a fifth.  While the database isn't connected
+they're all blurred and locked.
 -->
 <html lang="en">
 <head>
@@ -222,7 +223,9 @@ header; while the database isn't connected they're blurred and locked.
   .veil-card.bad h2 { color: var(--red); }
   .veil-card p { margin: 8px 0 0 0; font-size: 13px; color: var(--ink-soft); }
 
-  .short { min-height: 240px; max-height: 40vh; }
+  /* The log tab: the terminal fills what's left of the window under the
+     header and the tabs. */
+  .full { height: calc(100vh - 200px); min-height: 320px; }
 
   .gone {
     position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
@@ -260,6 +263,7 @@ header; while the database isn't connected they're blurred and locked.
     <button class="maintab" role="tab" data-tab="conductor">Conductor</button>
     <button class="maintab" role="tab" data-tab="services">Services</button>
     <button class="maintab" role="tab" data-tab="storage">Storage</button>
+    <button class="maintab" role="tab" data-tab="log">Log</button>
   </nav>
 
   <section class="tabpage" id="page-conductor">
@@ -412,13 +416,15 @@ header; while the database isn't connected they're blurred and locked.
   </div>
   </section>
 
-    <div class="panel boxed tall short">
+  <section class="tabpage" id="page-log">
+    <div class="panel boxed full">
       <div class="tall-head">
         <h3>Scribe</h3>
         <div class="note mono" id="log-file"></div>
       </div>
       <div class="tall-body terminal" id="terminal"></div>
     </div>
+  </section>
   </div>
 
   <div class="veil" id="veil">
@@ -447,7 +453,7 @@ const MOST_LINES = 500;
 
 // The tabs, and the one that opens first when the browser hasn't remembered
 // one.
-const MAIN_TABS = ["system", "conductor", "services", "storage"];
+const MAIN_TABS = ["system", "conductor", "services", "storage", "log"];
 const DEFAULT_TAB = "conductor";
 
 // Conductor is "connecting" to the database, not "offline", for this many
@@ -721,6 +727,9 @@ function showMainTab(name) {
   for (const page of document.querySelectorAll(".tabpage")) {
     page.classList.toggle("on", page.id === "page-" + name);
   }
+  // A hidden terminal can't be scrolled, so the log lands at its newest
+  // line when its tab is opened.
+  if (name === "log") $("terminal").scrollTop = $("terminal").scrollHeight;
   try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
 }
 
