@@ -47,6 +47,7 @@ Opus Conductor
 
 ## What's open
 
-- S) Start / stop the server, account management and config management come as their pieces exist.
+- The menu is on its way out.  Jacob wants a web admin that Conductor hosts (see TODO), and the console
+  window becomes raw log output.  S) start / stop, accounts and config management go there, not here.
 - Ctrl-C isn't switched off.  Nothing needs saving on the way out yet.
 - L only shows today's file.

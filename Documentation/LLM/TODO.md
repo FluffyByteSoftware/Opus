@@ -10,9 +10,15 @@ Author:     Jacob Chacko
 
 Things that wait on a piece that doesn't exist yet.
 
-- A graphical admin console, instead of the launcher's text menu.  It would show `archivist::status()`
-  (workers, connections, jobs waiting, slow jobs) among other things.  Needs a name, a toolkit and a way to
-  talk to Conductor, all Jacob's call.  Until then nothing shows the status, though slow jobs are in the log.
+- The web admin: a web application Conductor hosts, to manage the server through.  Jacob's pick, over a
+  desktop GUI.  Modeled on how Jacob's work designs its TLP: critical service status at a glance (Scribe,
+  Constellations, Archivist and whatever comes after), and the launcher's console window becomes raw log
+  output.  It shows `archivist::status()`.  Needs a name (CLAUDE.md: ask before creating a third piece), and
+  almost certainly a crate for the web server, which needs an OK.  The launcher's menu items below would move
+  there.
+- Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
+  through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
+  connect, schema and settings lines are the obvious first ones.
 - Accounts: making, checking and logging in.  Waits on Security for the Argon2 hashing.
 - The rest of Conductor's tools, each its own session: the disk manager (temp-file-and-rename writes, the
   one place whole files get replaced), and Security (TLS for the welcome TCP connection, password hashing).
@@ -33,7 +39,6 @@ Things that wait on a piece that doesn't exist yet.
 
 Things we thought of along the way.  None of them are promised.
 
-- Scribe: a minimum priority in `conductor_globals.cfg` so Debug lines can be turned off outside development.
 - Scribe: a size limit that starts a second file for the day (`2026_09_28.1.scribe.log`) on top of the
   midnight rollover.  Stratum had one.  Not picked for now.
 - Scribe: the handful of lines logged before `move_to()` stay in the default folder if the config points

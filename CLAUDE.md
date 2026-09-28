@@ -45,7 +45,7 @@ Opus/
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
-│   │   ├── conductor-tools/    # lib: Scribe, Constellations, the clock
+│   │   ├── conductor-tools/    # lib: Scribe, Constellations, Archivist, the clock
 │   │   └── conductor-launcher/ # bin: the program -- starts the tools, runs the admin menu
 │   └── build/             # compiled output -- never committed
 ├── Ensemble/              # client
@@ -142,6 +142,12 @@ When I say we're wrapping up:
 - Simple and readable over clever. If there's a clever way and a plain way, use
   the plain way.
 - **All time is UTC.** Any time shown to a person ends with `Z`.
+- **Most log lines are Debug.** Routine things (loaded a file, connected, ran
+  the schemas, a job finished) go to Scribe as Debug. Info is for the few
+  milestones an admin cares about (starting, shutting down, a service coming up
+  or going down). Warn and Error are for things that are actually wrong. A
+  switch in the config turns Debug lines off, so a finished server's log reads
+  clean instead of chatty.
 - Ask before adding any new dependency (crate, package, plugin). Minimal
   dependencies is the default.
 - No references to AI, Claude, or assistants anywhere in source code, comments,

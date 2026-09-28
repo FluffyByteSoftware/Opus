@@ -188,6 +188,8 @@ Same order, same turn ("It wasn't X, it was Y"), same closer.  Only the spelling
 
 Three kinds of reader, three registers.
 
+- **Most log lines are Debug.**  Info is for the few milestones an admin cares about; the routine lines
+  (loaded, connected, ran) are Debug, and a switch in the config hides them.  See CLAUDE.md.
 - **Log lines** use Jacob's layout, `[ 02:16:43 PM - 09-28-26 Z ] - [ System / Info ] - [ message ] [ Caller:
   file, Line: n ]`, and the message inside is plain sentences, one fact each, with numbers and their case in the same sentence ("Generated a new world: 256 chunk(s), seed N, in 5 ms.").  An error the admin has to fix by hand opens in capitals so it can't be missed in a scroll of lines: "DAMAGED ACCOUNT FILE, FIX IT BY HAND: /path/to/jacob.act.  NOBODY CAN LOG IN AS jacob UNTIL IT IS FIXED.  What's wrong: ..."  Paths and names keep their own case -- a path cares about case, and a `grep` for the name should still find the line.  Capitals are for "the admin must do something", not for anything that is merely bad.  Account names are lowercase in the log; characters are shown capitalized.
 - **Admin messages, menus and prompts** are flat and plain, one fact a line ("That isn't one of the choices.", "Stop the server first.").  A prompt says what Enter does, because that is the one thing the admin can't guess.  When a log line already says it, the menu doesn't repeat it.
