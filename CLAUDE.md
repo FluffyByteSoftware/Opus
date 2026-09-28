@@ -1,3 +1,9 @@
+<!--
+File:       Opus/CLAUDE.md
+Component:  Opus
+Author:     Jacob Chacko
+-->
+
 # Opus
 
 Opus is the codename for this project: a multiplayer game made of a server and a
@@ -130,8 +136,39 @@ When I say we're wrapping up:
   only exceptions. (The repo is private today, but keep the code clean in case any of
   it is ever shared.)
 - Comments and public docs are written in my voice per `Documentation/LLM/WRITINGSTYLE.md`.
-- Line width: [FILL IN -- column number] characters.
-- Source file headers include `Jacob Chacko` as the author.
+- Line width: 120 columns; comments wrap at 78. Details in `Documentation/LLM/WRITINGSTYLE.md`.
+- **Every file starts with a header** saying where it lives, as a path from the
+  repo root beginning with `Opus/` (never the full drive path), which component
+  it belongs to, and who wrote it, then a line or three on what the file is for.
+  When a file moves or is renamed, its `File:` line changes with it.
+
+  Rust (`//!` so it shows up in `cargo doc`):
+  ```rust
+  //! File:       Opus/Conductor/dev/src/main.rs
+  //! Component:  Conductor
+  //! Author:     Jacob Chacko
+  //!
+  //! What this file is for, in a sentence or three.
+  ```
+  C#:
+  ```csharp
+  // File:       Opus/Ensemble/dev/Assets/Scripts/Net/Connection.cs
+  // Component:  Ensemble
+  // Author:     Jacob Chacko
+  // What this file is for (only if the name doesn't already say it).
+  ```
+  TOML, `.gitignore`, shell scripts and `.conf` files use the same lines with `#`.
+  Markdown uses an HTML comment at the very top, so it doesn't show when rendered:
+  ```markdown
+  <!--
+  File:       Opus/Documentation/LLM/STATUS.md
+  Component:  Documentation
+  Author:     Jacob Chacko
+  -->
+  ```
+  The only files without a header are ones that can't hold comments or that a
+  tool generates and rewrites: JSON, Unity's `.meta` / `.unity` / `.asset` /
+  `.prefab` files, lock files, and anything under `build/` or `content/`.
 
 ## Rust rules (Conductor)
 
