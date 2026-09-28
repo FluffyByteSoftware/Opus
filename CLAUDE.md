@@ -44,7 +44,9 @@ Opus/
 ├── CLAUDE.md              # this file
 ├── .gitignore
 ├── Conductor/             # server
-│   ├── dev/               # source code (the Cargo project lives here)
+│   ├── dev/               # source code -- a Cargo workspace
+│   │   ├── conductor-tools/    # lib: Scribe, Constellations, the clock
+│   │   └── conductor-launcher/ # bin: the program -- starts the tools, runs the admin menu
 │   └── build/             # compiled output -- never committed
 ├── Ensemble/              # client
 │   ├── dev/               # source code (the engine project lives here)

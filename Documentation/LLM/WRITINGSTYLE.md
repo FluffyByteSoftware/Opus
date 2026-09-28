@@ -188,7 +188,8 @@ Same order, same turn ("It wasn't X, it was Y"), same closer.  Only the spelling
 
 Three kinds of reader, three registers.
 
-- **Log lines** are plain sentences, one fact each, with numbers and their case in the same sentence ("Generated a new world: 256 chunk(s), seed N, in 5 ms.").  An error the admin has to fix by hand opens in capitals so it can't be missed in a scroll of lines: "DAMAGED ACCOUNT FILE, FIX IT BY HAND: /path/to/jacob.act.  NOBODY CAN LOG IN AS jacob UNTIL IT IS FIXED.  What's wrong: ..."  Paths and names keep their own case -- a path cares about case, and a `grep` for the name should still find the line.  Capitals are for "the admin must do something", not for anything that is merely bad.  Account names are lowercase in the log; characters are shown capitalized.
+- **Log lines** use Jacob's layout, `[ 02:16:43 PM - 09-28-26 Z ] - [ System / Info ] - [ message ] [ Caller:
+  file, Line: n ]`, and the message inside is plain sentences, one fact each, with numbers and their case in the same sentence ("Generated a new world: 256 chunk(s), seed N, in 5 ms.").  An error the admin has to fix by hand opens in capitals so it can't be missed in a scroll of lines: "DAMAGED ACCOUNT FILE, FIX IT BY HAND: /path/to/jacob.act.  NOBODY CAN LOG IN AS jacob UNTIL IT IS FIXED.  What's wrong: ..."  Paths and names keep their own case -- a path cares about case, and a `grep` for the name should still find the line.  Capitals are for "the admin must do something", not for anything that is merely bad.  Account names are lowercase in the log; characters are shown capitalized.
 - **Admin messages, menus and prompts** are flat and plain, one fact a line ("That isn't one of the choices.", "Stop the server first.").  A prompt says what Enter does, because that is the one thing the admin can't guess.  When a log line already says it, the menu doesn't repeat it.
 - **Player messages** are flatter still, with one space after a period.  A player isn't Jacob's friend across the workbench.  A failure the player can act on is a sentence ("The server is full.", no "Sorry").  A failure they can't do anything about is a short label in title case, no period, like Jacob's own "Outdated Client Failure" and "Invalid Credentials".  When Jacob gives a label or a message, keep it as he wrote it.
 
@@ -215,7 +216,17 @@ Not about the voice, but about understanding what he means, learned over Stratum
 - **A question can get answered about the wrong thing.**  Asked *how*, he may answer *when*.  If the answer doesn't fit the question, the question is still open.
 - **His design can turn mid-answer.**  When it does, write both down as an open question rather than picking one for him.
 - **When a comment has gone stale, he cuts rather than rewrites.**  Follow that lead.
+- **Offered a list, he may answer with his own design instead.**  Asked which of Stratum's Scribe features to
+  keep, he described how reading the log should work.  That is the answer.  Ask only about what it leaves
+  open.
+- **He names pieces as he goes.**  `conductor-launcher` arrived inside an answer about something else.  Use a
+  name as he gives it.
+- **An uploaded Stratum file is a model, not a port.**  "Model after" means take the shape and write it fresh
+  for Opus.
 
 ## Refinement log
 
 - 2026-09-28 -- First Opus version, carried over from Stratum's writing style after 24 Stratum sessions and a Mantle session.  What changed from Stratum: the `File:` line starts with `Opus/` and every file gets a header, Markdown included; `Project:` became `Component:`; the C# header follows Jacob's own cut from Probe; player-facing text uses one space after a period (from Mantle); the per-document notes follow the Opus layout; and the lessons about reading Jacob moved out of the old log into their own section so they don't get lost in the history.
+- 2026-09-28 -- After the first Conductor session.  Log lines now name Jacob's bracket layout.  Reading Jacob
+  gained three lines: a list answered with his own design, names that arrive mid-answer, and uploaded Stratum
+  files as models rather than ports.

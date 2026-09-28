@@ -3,5 +3,12 @@
 version = 4
 
 [[package]]
-name = "conductor"
+name = "conductor-launcher"
+version = "0.1.0"
+dependencies = [
+ "conductor-tools",
+]
+
+[[package]]
+name = "conductor-tools"
 version = "0.1.0"

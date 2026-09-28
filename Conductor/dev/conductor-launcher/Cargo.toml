@@ -1,0 +1,14 @@
+# File:       Opus/Conductor/dev/conductor-launcher/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# The program.  It starts the tools, hands the terminal to the admin's menu,
+# and shuts down when the menu returns.  A bin crate.
+
+[package]
+name = "conductor-launcher"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-tools = { path = "../conductor-tools" }

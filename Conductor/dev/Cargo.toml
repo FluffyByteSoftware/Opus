@@ -2,11 +2,9 @@
 # Component:  Conductor
 # Author:     Jacob Chacko
 #
-# The server.  One bin crate for now, no dependencies yet.
+# The server, as a Cargo workspace.  conductor-tools is the lib everything
+# else leans on, and conductor-launcher is the program.
 
-[package]
-name = "conductor"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
+[workspace]
+members = ["conductor-tools", "conductor-launcher"]
+resolver = "3"
