@@ -89,6 +89,24 @@ where
     spawned
 }
 
+/// Puts the thread we're already on onto the list under `name`, for the
+/// one thread `spawn()` can't start: main's own.  main calls this first
+/// thing, so the page shows it as "main" instead of a thread that isn't
+/// ours.  It stays "running" for good, since main ending ends Conductor.
+#[track_caller]
+pub fn name_this_thread(name: &str) {
+    let caller = Location::caller();
+    let mut guard = THREADS.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.push(ThreadRecord {
+        name: name.to_string(),
+        started_by: format!("{}, Line: {}", caller.file(), caller.line()),
+        started_at: Utc::now(),
+        os_id: current_os_id(),
+        running: true,
+    });
+}
+
 /// A copy of the list, oldest first.
 pub fn list() -> Vec<ThreadRecord> {
     let guard = THREADS.lock()

@@ -23,6 +23,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use crate::scribe::{self, Channel};
+use crate::services::{self, State};
 
 /// Where the config lives, under the Content folder.
 const CONFIG_FILE: &str = "cfg/conductor_globals.cfg";
@@ -69,10 +70,18 @@ pub fn load() {
 
     match fs::read_to_string(&path) {
         Ok(text) => {
-            for problem in parse_text(&text, &mut settings) {
+            let problems = parse_text(&text, &mut settings);
+            for problem in &problems {
                 scribe::warn(Channel::System, &format!("{}, {problem}", path.display()));
             }
             scribe::info(Channel::System, &format!("Constellations loaded {}", path.display()));
+            // A line it couldn't use is a Warn in the log, not trouble:
+            // that one setting runs on its default and the rest are fine.
+            let note = match problems.len() {
+                0 => format!("Loaded {}", path.display()),
+                count => format!("Loaded {}, with {count} line(s) it couldn't use (see the log)", path.display()),
+            };
+            services::set(services::CONSTELLATIONS, State::Running, &note);
         }
         Err(e) if e.kind() == io::ErrorKind::NotFound => write_default_file(&path),
         Err(e) => {
@@ -80,6 +89,8 @@ pub fn load() {
             // likely, or it isn't text).  We don't write over it either.
             // Somebody's settings are in there.
             scribe::error_with(Channel::System, &e, &format!("Constellations can't read {}.  \
+                Running on the built-in defaults.", path.display()));
+            services::set(services::CONSTELLATIONS, State::Trouble, &format!("Can't read {}: {e}.  \
                 Running on the built-in defaults.", path.display()));
         }
     }
@@ -256,10 +267,18 @@ fn write_default_file(path: &Path) {
     }
 
     match fs::write(path, file_text(&default_settings())) {
-        Ok(()) => scribe::info(Channel::System, &format!("No config file, so Constellations wrote one with the \
-            defaults: {}", path.display())),
-        Err(e) => scribe::error_with(Channel::System, &e, &format!("No config file, and Constellations \
-            can't write one at {}.  Running on the built-in defaults.", path.display())),
+        Ok(()) => {
+            scribe::info(Channel::System, &format!("No config file, so Constellations wrote one with the \
+                defaults: {}", path.display()));
+            services::set(services::CONSTELLATIONS, State::Running, &format!("Wrote {} with the defaults",
+                                                                             path.display()));
+        }
+        Err(e) => {
+            scribe::error_with(Channel::System, &e, &format!("No config file, and Constellations \
+                can't write one at {}.  Running on the built-in defaults.", path.display()));
+            services::set(services::CONSTELLATIONS, State::Trouble, &format!("Can't write {}: {e}.  \
+                Running on the built-in defaults.", path.display()));
+        }
     }
 }
 

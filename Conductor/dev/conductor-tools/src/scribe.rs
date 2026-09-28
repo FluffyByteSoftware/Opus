@@ -40,6 +40,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::clock::Utc;
+use crate::services::{self, State};
 
 /// Which part of the server a line came from.  Add to this as the server
 /// grows; the names are what shows up in the log.
@@ -292,6 +293,8 @@ fn write(priority: Priority, channel: Channel, message: &str, caller: &Location<
     if let Some(Err(e)) = result {
         eprintln!("Scribe can't write to {}: {e}.  Log lines only print here until midnight UTC.",
                   scribe.path.display());
+        services::set(services::SCRIBE, State::Trouble, &format!("Can't write to {}: {e}.  Lines only reach \
+            the console until midnight UTC.", scribe.path.display()));
         scribe.file = None;
     }
 }
@@ -316,12 +319,19 @@ fn reopen(scribe: &mut Scribe) {
     if let Err(e) = fs::create_dir_all(&scribe.dir) {
         eprintln!("Scribe can't make the log folder {}: {e}.  Log lines only print here.",
                   scribe.dir.display());
+        services::set(services::SCRIBE, State::Trouble, &format!("Can't make the log folder {}: {e}.  \
+            Lines only reach the console.", scribe.dir.display()));
         return;
     }
     match OpenOptions::new().append(true).create(true).open(&scribe.path) {
-        Ok(file) => scribe.file = Some(file),
+        Ok(file) => {
+            scribe.file = Some(file);
+            services::set(services::SCRIBE, State::Running, &format!("Writing to {}", scribe.path.display()));
+        }
         Err(e) => {
             eprintln!("Scribe can't open {}: {e}.  Log lines only print here.", scribe.path.display());
+            services::set(services::SCRIBE, State::Trouble, &format!("Can't open {}: {e}.  Lines only reach \
+                the console.", scribe.path.display()));
         }
     }
 }

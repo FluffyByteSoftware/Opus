@@ -150,6 +150,16 @@ they're all locked and the page under the header is blurred.
   .dot.good { background: var(--green-deep); box-shadow: 0 0 8px rgba(16, 185, 129, 0.8); }
   .dot.bad { background: var(--red); box-shadow: 0 0 8px rgba(248, 113, 113, 0.8); }
   .dot.idle { background: var(--ink-faint); }
+  .dot.warn { background: var(--yellow); }
+  .dot.flash { animation: blink 1s steps(2, jump-none) infinite; }
+  @keyframes blink { 50% { opacity: 0.15; } }
+  tr.down td { color: var(--red); }
+  tr.down td.note-cell { color: var(--ink); }
+  tr.later td { color: var(--ink-faint); }
+  #services-note { margin-top: 12px; }
+  /* A red dot on a sidebar tab when something on it needs looking at. */
+  .maintab .dot { margin: 0 0 0 8px; vertical-align: middle; }
+  .dot[hidden] { display: none; }
   .good-ink { color: var(--green); }
   .bad-ink { color: var(--red); }
   .warn-ink { color: var(--yellow); }
@@ -197,7 +207,7 @@ they're all locked and the page under the header is blurred.
     0%, 100% { box-shadow: 0 0 18px rgba(248, 113, 113, 0.7); }
     50% { box-shadow: 0 0 4px rgba(248, 113, 113, 0.1); }
   }
-  @media (prefers-reduced-motion: reduce) { .pill.bad, .veil-card.bad { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .pill.bad, .veil-card.bad, .dot.flash { animation: none; } }
 
   /* The tabs, down the sidebar.  They and everything under the header (the
      .content) get locked while the database isn't connected. */
@@ -247,7 +257,8 @@ they're all locked and the page under the header is blurred.
   <nav class="tabs locked" id="tabs" inert aria-orientation="vertical" role="tablist">
     <button class="maintab" role="tab" data-tab="system">System</button>
     <button class="maintab" role="tab" data-tab="conductor">Conductor</button>
-    <button class="maintab" role="tab" data-tab="services">Services</button>
+    <button class="maintab" role="tab" data-tab="services">Services<span class="dot bad flash" id="services-badge"
+      hidden></span></button>
     <button class="maintab" role="tab" data-tab="storage">Storage</button>
     <button class="maintab" role="tab" data-tab="log">Log</button>
   </nav>
@@ -382,10 +393,21 @@ they're all locked and the page under the header is blurred.
 
   <section class="tabpage" id="page-services">
   <div class="grid">
-    <div class="panel span-12">
-      <h3>Services</h3>
-      <div class="small">Not built yet.  This tab will show whether each of Conductor's own services (Scribe,
-        Constellations, Archivist, the monitor, the web admin) is up.</div>
+    <div class="panel span-12 boxed">
+      <div class="tall-head">
+        <h3>Services</h3>
+        <div class="note mono" id="services-count"></div>
+      </div>
+      <div class="tall-body">
+        <table id="services">
+          <thead><tr>
+            <th>Service</th><th>State</th><th>What it says</th><th>Since</th><th class="num">Last seen</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note" id="services-note">Red means it never started, stopped, is in trouble, or has gone
+          quiet.  Last seen is only for services that check in.</div>
+      </div>
     </div>
   </div>
   </section>
@@ -587,11 +609,6 @@ function drawMonitor(m) {
 
   const db = m.database;
   const dbState = db.connected ? "connected" : (db.running ? "NOT CONNECTED" : "NOT RUNNING");
-  $("summary").textContent = "system.status == ";
-  const state = document.createElement("span");
-  state.className = db.connected ? "good-ink" : "bad-ink";
-  state.textContent = db.connected ? "NOMINAL" : "DATABASE " + dbState;
-  $("summary").append(state);
   applyDbMode(dbMode(m), dbState, m.taken_at);
 
   if (!m.measured) {
@@ -754,12 +771,76 @@ function showGone(title, text) {
   $("gone").style.display = "flex";
 }
 
+// The line under the title: NOMINAL, or everything that's wrong.
+function drawSummary(m, services) {
+  if (!m) return;
+  const wrong = [];
+  if (!m.database.connected) {
+    wrong.push("DATABASE " + (m.database.running ? "NOT CONNECTED" : "NOT RUNNING"));
+  }
+  const down = services.filter(isDown).length;
+  if (down > 0) wrong.push(down + (down === 1 ? " SERVICE DOWN" : " SERVICES DOWN"));
+
+  $("summary").textContent = "system.status == ";
+  const state = document.createElement("span");
+  state.className = wrong.length === 0 ? "good-ink" : "bad-ink";
+  state.textContent = wrong.length === 0 ? "NOMINAL" : wrong.join(", ");
+  $("summary").append(state);
+}
+
+// Starting is on its way up, so it's yellow, not down.
+function isDown(service) {
+  return !service.healthy && service.state !== "starting";
+}
+
+function drawServices(services) {
+  const body = $("services").tBodies[0];
+  body.textContent = "";
+  for (const service of services) {
+    const row = body.insertRow();
+    const down = isDown(service);
+    if (down) row.className = "down";
+
+    const name = document.createElement("td");
+    const dot = document.createElement("span");
+    dot.className = "dot " + (service.healthy ? "good" : service.state === "starting" ? "warn" : "bad flash");
+    name.append(dot, service.name);
+    row.appendChild(name);
+
+    cell(row, service.state.toUpperCase());
+    cell(row, service.note || "--", "wrap note-cell");
+    cell(row, service.since || "--");
+    const quiet = service.seen_seconds_ago;
+    cell(row, quiet === null ? "--" : quiet.toFixed(1) + " s ago", "num");
+  }
+
+  // Not a service yet, so it's never red.  It gets a real row once it's built.
+  const later = body.insertRow();
+  later.className = "later";
+  const name = document.createElement("td");
+  const dot = document.createElement("span");
+  dot.className = "dot idle";
+  name.append(dot, "Disk manager");
+  later.appendChild(name);
+  cell(later, "NOT BUILT YET");
+  cell(later, "Its numbers go on the Storage tab once it exists.", "wrap");
+  cell(later, "--");
+  cell(later, "--", "num");
+
+  const down = services.filter(isDown).length;
+  const healthy = services.filter(service => service.healthy).length;
+  $("services-count").textContent = healthy + " of " + services.length + " healthy";
+  $("services-badge").hidden = down === 0;
+}
+
 async function ask() {
   if (stopped) return;
   try {
     const answer = await fetch("/Opus/status?after=" + lastLine, { cache: "no-store" });
     const status = await answer.json();
     drawMonitor(status.monitor);
+    drawServices(status.services);
+    drawSummary(status.monitor, status.services);
     drawLog(status.log);
   } catch (e) {
     showGone("Conductor isn't answering", "It has shut down, or it crashed.  Reload the page once it's back.");

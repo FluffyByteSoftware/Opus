@@ -20,11 +20,17 @@
 //!                "threads_asked_for": [ { "name", "started_by", "started_at", "os_id", "running" } ],
 //!                "database": { "running", "connected", "waiting", "jobs_done", "reads", "writes",
 //!                              "other", "slow_jobs", "slowest_ms", "recent_slow": [ ... ] } },
+//!   "services": [ { "name": "Archivist", "state": "running", "note": "...", "since": "...Z",
+//!                   "seen_seconds_ago": 0.42, "healthy": true } ],
 //!   "log": { "file": "...", "lines": [ { "number": 12, "priority": "Info", "text": "..." } ] } }
 //! ```
 //!
 //! Anything that couldn't be measured is `null`, and `monitor` itself is
-//! `null` for the second before its first look.
+//! `null` for the second before its first look.  `services` comes straight
+//! from the services list, not from the monitor, so it still tells the
+//! truth if the monitor has died.  `state` is expected, starting, running,
+//! trouble or stopped; `since` is `null` while a service is still expected,
+//! and `seen_seconds_ago` is `null` for one that doesn't check in.
 
 use std::path::Path;
 
@@ -32,10 +38,14 @@ use conductor_monitor::probe::MachineMemory;
 use conductor_monitor::{Disk, Snapshot, ThreadInUse};
 use conductor_tools::archivist::{SlowJob, Status};
 use conductor_tools::scribe::RecentLine;
+use conductor_tools::services::Service;
 use conductor_tools::threads::ThreadRecord;
 
 /// The whole answer to `/Opus/status`.
-pub(crate) fn status(snapshot: Option<&Snapshot>, lines: &[RecentLine], log_file: Option<&Path>) -> String {
+pub(crate) fn status(snapshot: Option<&Snapshot>,
+                     services: &[Service],
+                     lines: &[RecentLine],
+                     log_file: Option<&Path>) -> String {
     let log = Object::new()
         .raw("file", log_file.map_or_else(null, |path| text(&path.display().to_string())))
         .raw("lines", array(lines.iter().map(line)))
@@ -43,6 +53,7 @@ pub(crate) fn status(snapshot: Option<&Snapshot>, lines: &[RecentLine], log_file
 
     Object::new()
         .raw("monitor", snapshot.map_or_else(null, monitor))
+        .raw("services", array(services.iter().map(service)))
         .raw("log", log)
         .done()
 }
@@ -123,6 +134,17 @@ fn slow_job(job: &SlowJob) -> String {
         .text("label", &job.label)
         .whole("ran_ms", job.ran_for.as_millis() as u64)
         .whole("waited_ms", job.waited.as_millis() as u64)
+        .done()
+}
+
+fn service(service: &Service) -> String {
+    Object::new()
+        .text("name", service.name)
+        .text("state", &service.state.to_string())
+        .text("note", &service.note)
+        .raw("since", service.since.map_or_else(null, |since| text(&since.line_stamp())))
+        .raw("seen_seconds_ago", decimal(service.seen_ago.map(|ago| ago.as_secs_f64())))
+        .flag("healthy", service.healthy())
         .done()
 }
 
@@ -242,6 +264,7 @@ mod tests {
 
     #[test]
     fn before_the_first_look_the_monitor_is_null() {
-        assert_eq!(status(None, &[], None), "{\"monitor\":null,\"log\":{\"file\":null,\"lines\":[]}}");
+        assert_eq!(status(None, &[], &[], None),
+                   "{\"monitor\":null,\"services\":[],\"log\":{\"file\":null,\"lines\":[]}}");
     }
 }
