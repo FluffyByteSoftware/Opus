@@ -60,7 +60,8 @@ The JSON's shape is written out at the top of `json.rs`.  The page's script is t
 
 Header: the name, a status line (NOMINAL when Archivist is connected, DATABASE NOT CONNECTED otherwise),
 uptime as DD:HH:MM:SS, and SHUT DOWN (asks first).  Then CPU and memory, each with a number and bars for the
-last 30 seconds; disk read and written per second with totals; the machine (OS, process id, cores, last look).
+last 30 seconds (memory's are scaled to twice its highest, so steady memory sits at half height instead of
+looking maxed out); disk read and written per second with totals; the machine (OS, process id, cores, last look).
 Archivist: connected or not, jobs waiting, jobs done split into read / written / other, slow jobs and the
 slowest, the last slow job.  Threads, with two tabs: **In use** (every OS thread, name, OS id, core %, CPU
 time; ones we didn't start are greyed and marked) and **Asked for** (our threads, running or finished, when,
@@ -68,6 +69,23 @@ and the file and line that started it).  Scribe's terminal at the bottom, colour
 last 500 lines, and staying at the bottom unless the admin has scrolled up.
 
 If the server stops answering, the page covers itself with a note and stops asking.
+
+## Expected services (planned, not built)
+
+Jacob wants a section like Zabbix or the TLP at his work: every service Conductor is supposed to have,
+expected to start and keep running, and anything that isn't flashes red.  Nothing can look into a service
+from outside and see whether it's alive, so the idea is that each one reports on itself to a small list in
+`conductor-tools`: starting, running, trouble (with a reason), stopped, and a "last seen" time for the ones
+with a thread.  Not agreed yet.  What "healthy" would mean for each:
+
+| Service        | Healthy when                                                                           |
+|----------------|----------------------------------------------------------------------------------------|
+| Scribe         | It has today's log file open.  No file means lines only reach the console.             |
+| Constellations | The config loaded.  An unreadable config means it's running on the built-in defaults.  |
+| Archivist      | Its thread is alive and it's connected to Postgres.                                    |
+| Monitor        | Its last look was a few seconds ago at most.                                           |
+| Web admin      | If the page loads at all, it's up.                                                     |
+| Disk manager   | Doesn't exist yet.                                                                     |
 
 ## What's open
 

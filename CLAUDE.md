@@ -242,7 +242,20 @@ When I say we're wrapping up:
   Ask before reaching for a crate like `sysinfo` or `windows-sys`.
 - Paths are built with `Path::join`, never by gluing strings with `/` or `\`.
 - Anything that can only be tested on the other OS gets said so in the reply,
-  with the commands to run it there.
+  with the commands to run it there. Getting a build onto my Windows machine
+  is a hassle, so Windows code can sit untested for a while. STATUS.md says
+  so for as long as it does.
+
+### The web admin's page
+
+- `page.html` and `json.rs` are two halves of one contract: the JSON's shape is
+  written at the top of `json.rs`, and a change to one needs the other.
+- No made-up numbers on the page. If there's nothing behind a panel yet, the
+  panel waits.
+- The page pulls nothing from the internet, and puts our data in with
+  `textContent`, never `innerHTML`.
+- I look at the page myself and send screenshots. When a layout class or style
+  is added, make sure the CSS for it exists.
 - [FILL IN the tick rate once there is a game loop]
 
 ## Database (Conductor)

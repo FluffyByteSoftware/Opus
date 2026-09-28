@@ -85,11 +85,11 @@ Where each one lives is in the tree above.
 | Conductor          | The server.  It owns the game state.          | Tools, monitor, web admin    |
 | Ensemble           | The client players run.                       | Not started, engine unpicked |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
-| conductor-monitor  | Lib crate: looks at the process once a second.| Written, not built yet       |
-| conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Written, not built yet       |
-| conductor-launcher | Bin crate: the program.  Starts everything.   | Rewritten, not built yet     |
+| conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux, Windows untried |
+| conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
+| conductor-launcher | Bin crate: the program.  Starts everything.   | Runs on Linux                |
 | Scribe             | The log.                                      | Built and tested             |
 | Constellations     | The config file and the settings it holds.    | Built and tested             |
 | Archivist          | The database: PostgreSQL on its own thread.   | Built and tested             |
 | The clock          | UTC date and time.                            | Built and tested             |
-| Threads            | The list of threads we started.               | Written, not built yet       |
+| Threads            | The list of threads we started.               | Runs on Linux                |
