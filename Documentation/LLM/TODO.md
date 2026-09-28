@@ -22,3 +22,6 @@ Author:     Jacob Chacko
   gets noisy.
 - Constellations: log a warning at startup for a config key that is missing and fell back to its default, the
   way unknown keys are warned about today.
+- Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/` is ignored as a
+  whole for now, so anything put under `Content/Assets/` stays out of git.  Jacob's call when the client needs
+  it.
