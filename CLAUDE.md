@@ -87,9 +87,9 @@ a `Content/` folder, or by creating `./Content` when neither works.
 
 1. Read `Documentation/LLM/STATUS.md`, `Documentation/LLM/PROJECT_OPUS.md`, and `Documentation/LLM/TODO.md` to get
    your bearings. Read anything in `Documentation/LLM/design/` that touches today's work.
-2. Re-read any source file before editing it. I hand-edit files between sessions,
-   and my edits are the master copy. Never overwrite my changes with an older
-   version from memory.
+2. Re-read any source file before editing it. I sometimes hand-edit files
+   between sessions, and my edits are the master copy. Never overwrite my
+   changes with an older version from memory.
 3. Tell me in a couple of lines where things stand, then ask what I want to work on.
 
 ## During a session
@@ -101,11 +101,13 @@ a `Content/` folder, or by creating `./Content` when neither works.
 - **Things that can't be done yet** (because a dependency isn't built) go in
   `Documentation/LLM/TODO.md`, not half-implemented in code.
 - **Future ideas** that come up in conversation also go in `Documentation/LLM/TODO.md`.
+- **I'm hands-off on the files in `Opus/`.** You make every edit, CLAUDE.md
+  included. Don't hand me a list of changes to make by hand; make them and tell
+  me what changed.
 - **I build, run, and test everything myself** and paste back the output.
   Do not run `cargo check`, `cargo build`, `cargo test`, the server, or the
   client. Stick to writing the code. When it's written, put your questions at
-  the top of the reply, then tell me what I need to modify by hand (if
-  anything) and exactly which commands to run. I paste back what happens and
+  the top of the reply, then tell me exactly which commands to run. I paste back what happens and
   we go from there.
 - Do not predict or number future sessions ("next session is X, then Y").
   I pick what to open next and I'm free to change my mind.
@@ -120,7 +122,8 @@ When I say we're wrapping up:
 2. Update `Documentation/LLM/TODO.md`, `Documentation/LLM/PROJECT_OPUS.md`, and any `Documentation/LLM/design/`
    files the session changed, so they match reality.
 3. Update `README.md` if anything about the project's overview changed.
-4. Suggest any additions to this CLAUDE.md based on how the session went.
+4. Update this CLAUDE.md with anything the session taught us, and tell me what
+   changed.
 5. Make no code changes during hand-off unless there's a glaring bug, and if so,
    tell me first.
 
@@ -199,7 +202,10 @@ When I say we're wrapping up:
 - Prefer clear ownership and simple types over heavy generics or macros.
 - `conductor-launcher` is the program. New server pieces (networking, the game)
   are lib crates that the launcher starts, not programs of their own.
-- [FILL IN any tick rate / threading rules, e.g. "fixed 50 ms tick"]
+- Anything that can be slow (database, disk, network) runs on its own thread,
+  and callers get the answer back later (Archivist's `Pending`). The game loop
+  never waits on it. No async runtime.
+- [FILL IN the tick rate once there is a game loop]
 
 ## Database (Conductor)
 
@@ -240,8 +246,11 @@ When I say we're wrapping up:
 ## Git rules
 
 - **Each session's work goes on its own branch** and reaches `main` through a
-  pull request that I open and merge. You may commit and push to that session
-  branch. Never push to `main`, and never merge a pull request yourself.
+  pull request. You may commit and push to that session branch. When I say to
+  merge, open the pull request and merge it yourself. Never push straight to
+  `main`, and never merge without me saying so.
+- If I've pushed to the session branch from my machine, fetch and merge it
+  before pushing. Never rebase or force-push over my commits.
 - The whole `Opus/` folder is one **private** repo: code, docs, and assets.
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
