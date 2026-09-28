@@ -190,6 +190,24 @@ When I say we're wrapping up:
   are lib crates that the launcher starts, not programs of their own.
 - [FILL IN any tick rate / threading rules, e.g. "fixed 50 ms tick"]
 
+## Database (Conductor)
+
+- PostgreSQL 18, running locally on my dev machine. It listens on `localhost`
+  only. Keep it that way: never suggest opening it to the network.
+- Database: `opusdb`. Tables live in the `public` schema.
+- Conductor connects as the role `opus_game` over TCP to `localhost:5432`
+  with password auth (`scram-sha-256`).
+- **Tables are created as `opus_game`**, so the server owns them. `seliris`
+  owns the database itself but should not own game tables.
+- Never hardcode the password in source. Ask me how Conductor should get its
+  connection string before wiring it up.
+- No Postgres crate is chosen yet. Ask before adding one.
+- Do not run `psql`, migrations, or anything that touches the live database,
+  and never edit Postgres's own config (`pg_hba.conf`, `postgresql.conf`).
+  Write the SQL; I run it and paste back the output.
+- Ask me where schema/migration SQL files should live before creating a
+  folder for them.
+
 ## Client rules (Ensemble)
 
 - [FILL IN engine-specific conventions once Ensemble is set up]
