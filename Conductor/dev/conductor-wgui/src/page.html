@@ -603,6 +603,7 @@ stays above the lock, and so does the tray it pulls out.
         <h3>Notifications History</h3>
         <div class="head-right">
           <div class="note mono" id="notices-count"></div>
+          <button class="ack" id="send-test">TEST NOTIFICATION</button>
           <button class="ack" id="history-ack-all">ACK ALL</button>
         </div>
       </div>
@@ -1346,6 +1347,14 @@ $("tray-ack-all").addEventListener("click", async () => {
   if (!confirm("ACK every open notice?")) return;
   try { await ackAll(); } catch (e) { return; }
   closeTray();
+});
+// Raises a Notice on the server, the same as code calling publish().
+$("send-test").addEventListener("click", async () => {
+  try {
+    const answer = await fetch("/Opus/notices/test", { method: "POST", headers: { "X-Opus": "ack" } });
+    if (!answer.ok) throw new Error(answer.status);
+  } catch (e) { return; }
+  askNotices();
 });
 $("history-ack-all").addEventListener("click", async () => {
   if (!confirm("ACK every open notice?")) return;

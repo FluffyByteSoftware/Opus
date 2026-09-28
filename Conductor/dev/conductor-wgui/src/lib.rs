@@ -23,6 +23,8 @@
 //!   History tab.  It only reads.
 //! - `POST /Opus/notices/ack?id=N` -- clears one notice.
 //! - `POST /Opus/notices/ack-all` -- clears every notice.
+//! - `POST /Opus/notices/test` -- raises a test notice, to see the bell
+//!   work.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -43,8 +45,9 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use conductor_tools::diskman;
+use conductor_tools::notices::{self, Level};
 use conductor_tools::scribe::{self, Channel};
-use conductor_tools::{diskman, notices};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
@@ -238,6 +241,13 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             scribe::debug(Channel::System, &format!("All {cleared} notice(s) ACKed from the web admin."));
             (Answer::new("200 OK", "application/json", format!("{{\"cleared\":{cleared}}}")), Next::KeepGoing)
         }
+        ("POST", "/Opus/notices/test") => {
+            if request.header("x-opus") != Some("ack") {
+                return (Answer::plain("403 Forbidden", "Test from the page."), Next::KeepGoing);
+            }
+            let id = notices::publish(Level::Notice, "Web admin", "Test notification from the web admin.");
+            (Answer::new("200 OK", "application/json", format!("{{\"id\":{id}}}")), Next::KeepGoing)
+        }
         ("POST", "/Opus/shutdown") => {
             if request.header("x-opus") != Some("shut-down") {
                 scribe::warn(Channel::System, "The web admin turned away a shutdown that didn't come from its \
@@ -248,7 +258,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             (Answer::new("200 OK", "application/json", "{\"shutting_down\":true}"), Next::ShutDown)
         }
         (_, "/") | (_, "/Opus") | (_, "/Opus/") | (_, "/Opus/status") | (_, "/Opus/threads")
-        | (_, "/Opus/notices") | (_, "/Opus/notices/ack") | (_, "/Opus/notices/ack-all")
+        | (_, "/Opus/notices") | (_, "/Opus/notices/ack") | (_, "/Opus/notices/ack-all") | (_, "/Opus/notices/test")
         | (_, "/Opus/shutdown") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
@@ -327,7 +337,7 @@ mod tests {
 
     #[test]
     fn an_ack_needs_the_page_header_and_clears_the_notice() {
-        let id = notices::publish(notices::Level::Notice, "Test", "ack me");
+        let id = notices::publish(Level::Notice, "Test", "ack me");
 
         let mut asking = request("POST", "/Opus/notices/ack", &[HOST]);
         asking.query = format!("id={id}");
@@ -340,6 +350,21 @@ mod tests {
         let (answer, _) = route(&asking, 9996);
         assert_eq!(answer.status, "200 OK");
         assert!(!notices::all().iter().any(|notice| notice.id == id));
+    }
+
+    #[test]
+    fn the_test_button_raises_a_notice() {
+        let (answer, _) = route(&request("POST", "/Opus/notices/test", &[HOST]), 9996);
+        assert_eq!(answer.status, "403 Forbidden");
+
+        let (answer, _) = route(&request("POST", "/Opus/notices/test", &[HOST, ("x-opus", "ack")]), 9996);
+        assert_eq!(answer.status, "200 OK");
+        let id: u64 = String::from_utf8_lossy(&answer.body)
+            .trim_start_matches("{\"id\":")
+            .trim_end_matches('}')
+            .parse()
+            .expect("the answer should carry the new notice's id");
+        assert!(notices::ack(id));
     }
 
     #[test]
