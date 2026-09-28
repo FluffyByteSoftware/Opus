@@ -44,7 +44,9 @@ Opus/
 ├── CLAUDE.md              # this file
 ├── .gitignore
 ├── Conductor/             # server
-│   ├── dev/               # source code (the Cargo project lives here)
+│   ├── dev/               # source code -- a Cargo workspace
+│   │   ├── conductor-tools/    # lib: Scribe, Constellations, the clock
+│   │   └── conductor-launcher/ # bin: the program -- starts the tools, runs the admin menu
 │   └── build/             # compiled output -- never committed
 ├── Ensemble/              # client
 │   ├── dev/               # source code (the engine project lives here)
@@ -184,6 +186,8 @@ When I say we're wrapping up:
 - Whenever you create a new crate, say explicitly whether it is a **bin** or a
   **lib**.
 - Prefer clear ownership and simple types over heavy generics or macros.
+- `conductor-launcher` is the program. New server pieces (networking, the game)
+  are lib crates that the launcher starts, not programs of their own.
 - [FILL IN any tick rate / threading rules, e.g. "fixed 50 ms tick"]
 
 ## Client rules (Ensemble)
@@ -194,7 +198,9 @@ When I say we're wrapping up:
 
 ## Git rules
 
-- **I commit and push. You don't** -- unless I ask you to in that session.
+- **Each session's work goes on its own branch** and reaches `main` through a
+  pull request that I open and merge. You may commit and push to that session
+  branch. Never push to `main`, and never merge a pull request yourself.
 - The whole `Opus/` folder is one **private** repo: code, docs, and assets.
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
@@ -204,4 +210,5 @@ When I say we're wrapping up:
   shows up in `git status`, tell me and suggest a `.gitignore` line.
 - Large binary assets (models, textures, audio, `.blend`, `.unitypackage`) go
   through Git LFS. If you see one about to be committed without LFS, flag it.
-- Committing is part of my hand-off routine.
+- The hand-off ends with the work committed and pushed to the session branch,
+  so I can pull it and merge it.

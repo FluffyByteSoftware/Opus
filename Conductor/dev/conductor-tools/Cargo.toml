@@ -1,0 +1,12 @@
+# File:       Opus/Conductor/dev/conductor-tools/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# The tools: Scribe, Constellations and the clock.  A lib crate.
+
+[package]
+name = "conductor-tools"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
