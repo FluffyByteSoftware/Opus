@@ -3,8 +3,8 @@
 //! Author:     Jacob Chacko
 //!
 //! Scribe is the log.  Every line is appended to a file named for the UTC
-//! date (`2026_09_28.scribe.log`), and at midnight UTC Scribe closes that
-//! file and opens the next one.  A line looks like this (it is one line in
+//! date (`2026_09_28.scribe.log`), and at midnight UTC Scribe moves on to
+//! the next one.  A line looks like this (it is one line in
 //! the file, wrapped here to fit):
 //!
 //! ```text
@@ -18,8 +18,15 @@
 //! launcher's console, which is nothing but Scribe's output now that the
 //! admin works through the web page.  The list in memory is what the web
 //! page shows, so it doesn't have to read the file back.  A line with no
-//! file to go to (before `start()`, or when the file can't be opened or
-//! written) still reaches the other two.
+//! file to go to (before `start()`, or when the file can't be written)
+//! still reaches the other two.
+//!
+//! Scribe doesn't touch the disk itself.  Each line is handed to DiskMan
+//! as an append, and DiskMan decides when it goes out, so a slow disk
+//! never holds up whoever is logging.  That's why DiskMan starts before
+//! Scribe.  When DiskMan can't write the log file, it says so on the
+//! console and on the Services tab, not in the log, since that line would
+//! be headed for the same broken file.
 //!
 //! Scribe never panics and never returns an error from a log call.  A log
 //! that takes the server down is worse than no log.
@@ -33,13 +40,13 @@
 
 use std::collections::VecDeque;
 use std::fmt;
-use std::fs::{self, File, OpenOptions};
 use std::io::Write;
 use std::panic::Location;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::clock::Utc;
+use crate::diskman;
 use crate::services::{self, State};
 
 /// Which part of the server a line came from.  Add to this as the server
@@ -85,12 +92,8 @@ impl fmt::Display for Priority {
 struct Scribe {
     /// The folder the log files go in.
     dir: PathBuf,
-    /// Today's log file, whether or not we managed to open it.
+    /// Today's log file.
     path: PathBuf,
-    /// The open file.  `None` when it couldn't be opened or written, and
-    /// then lines go to the terminal until the next day or `move_to()`
-    /// gives it another try.
-    file: Option<File>,
     /// The UTC date the file belongs to.  When today's date is different,
     /// it is time for a new file.
     day: (i64, u32, u32),
@@ -123,9 +126,9 @@ static SCRIBE: Mutex<Option<Scribe>> = Mutex::new(None);
 // take off the other, which is all a rolling window of lines needs.
 static RECENT: Mutex<Recent> = Mutex::new(Recent { next: 1, lines: VecDeque::new() });
 
-/// Opens today's log file in `dir`, making the folder if it has to.  main
-/// calls this first thing, before Constellations, on the default folder.
-/// Until it runs, log lines print to the terminal.
+/// Starts on today's log file in `dir`.  main calls this right after
+/// DiskMan, before Constellations, on the default folder.  Until it runs,
+/// log lines print to the terminal.
 pub fn start(dir: &Path) {
     open_in(dir);
 }
@@ -138,7 +141,7 @@ pub fn move_to(dir: &Path) {
         let guard = SCRIBE.lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         if let Some(scribe) = guard.as_ref() {
-            if scribe.dir == dir && scribe.file.is_some() {
+            if scribe.dir == dir {
                 return;
             }
         }
@@ -147,14 +150,11 @@ pub fn move_to(dir: &Path) {
 }
 
 /// The file Scribe is writing to right now, for the web page.  `None`
-/// before `start()`, or when the file couldn't be opened.
+/// before `start()`.
 pub fn current_file() -> Option<PathBuf> {
     let guard = SCRIBE.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    match guard.as_ref() {
-        Some(scribe) if scribe.file.is_some() => Some(scribe.path.clone()),
-        _ => None,
-    }
+    guard.as_ref().map(|scribe| scribe.path.clone())
 }
 
 /// The lines in memory numbered after `after`, oldest first.  Pass 0 for
@@ -166,23 +166,19 @@ pub fn recent_lines(after: u64) -> Vec<RecentLine> {
     guard.lines.iter().filter(|line| line.number > after).cloned().collect()
 }
 
-/// Opens (or makes) today's file in `dir` and makes it the one Scribe
-/// writes to.  If it won't open, we say so once on stderr and carry on
-/// without a file.
+/// Makes today's file in `dir` the one Scribe writes to.  DiskMan makes
+/// the folder and the file with the first line.
 fn open_in(dir: &Path) {
     let now = Utc::now();
-    let mut scribe = Scribe {
+    let scribe = Scribe {
         dir: dir.to_path_buf(),
         path: file_path(dir, &now),
-        file: None,
         day: now.date(),
     };
-    reopen(&mut scribe);
+    services::set(services::SCRIBE, State::Running, &format!("Writing to {}", scribe.path.display()));
 
     let mut guard = SCRIBE.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    // Rust note: there is no close call.  Replacing the old Scribe throws
-    // its File away, and Rust closes a file when it is thrown away.
     *guard = Some(scribe);
 }
 
@@ -248,9 +244,9 @@ pub fn error_with(channel: Channel, err: &dyn fmt::Display, message: &str) {
     write(Priority::Error, channel, &format!("{err} - {message}"), Location::caller());
 }
 
-/// Builds the line, prints it, adds it to the list in memory, and appends
-/// it to the file, rolling to a new file first if the UTC date has changed
-/// since the last write.
+/// Builds the line, prints it, adds it to the list in memory, and hands it
+/// to DiskMan for the file, rolling to a new file first if the UTC date has
+/// changed since the last line.
 ///
 /// The lock is held for the whole call, so two threads can't interleave
 /// their lines, and the terminal, the list and the file all have them in
@@ -275,28 +271,17 @@ fn write(priority: Priority, channel: Channel, message: &str, caller: &Location<
         return;
     };
 
-    // Midnight UTC has come and gone.  This is also the retry for a file we
-    // lost, since a new day means a fresh try.
+    // Midnight UTC has come and gone.
     if scribe.day != now.date() {
         scribe.day = now.date();
         scribe.path = file_path(&scribe.dir, &now);
-        reopen(scribe);
+        services::set(services::SCRIBE, State::Running, &format!("Writing to {}", scribe.path.display()));
     }
 
-    // The write happens first and its answer is kept, so the file is no
-    // longer in use when we let go of it below.
-    let result = match scribe.file.as_mut() {
-        Some(file) => Some(writeln!(file, "{line}")),
-        None => None,
-    };
-
-    if let Some(Err(e)) = result {
-        eprintln!("Scribe can't write to {}: {e}.  Log lines only print here until midnight UTC.",
-                  scribe.path.display());
-        services::set(services::SCRIBE, State::Trouble, &format!("Can't write to {}: {e}.  Lines only reach \
-            the console until midnight UTC.", scribe.path.display()));
-        scribe.file = None;
-    }
+    // Still under Scribe's lock, so the lines reach DiskMan in the same
+    // order they reached the terminal.  DiskMan never logs while holding
+    // its own lock, so the two can't end up waiting on each other.
+    diskman::append_for_scribe(&scribe.path, format!("{line}\n").as_bytes());
 }
 
 /// Adds a line to the list in memory, dropping the oldest once there are
@@ -309,30 +294,6 @@ fn remember(priority: Priority, line: &str) {
     guard.lines.push_back(RecentLine { number, priority, text: line.to_string() });
     if guard.lines.len() > RECENT_LINES {
         guard.lines.pop_front();
-    }
-}
-
-/// Opens `scribe.path` for appending, making its folder first.  On failure
-/// the file stays `None` and stderr gets one line saying why.
-fn reopen(scribe: &mut Scribe) {
-    scribe.file = None;
-    if let Err(e) = fs::create_dir_all(&scribe.dir) {
-        eprintln!("Scribe can't make the log folder {}: {e}.  Log lines only print here.",
-                  scribe.dir.display());
-        services::set(services::SCRIBE, State::Trouble, &format!("Can't make the log folder {}: {e}.  \
-            Lines only reach the console.", scribe.dir.display()));
-        return;
-    }
-    match OpenOptions::new().append(true).create(true).open(&scribe.path) {
-        Ok(file) => {
-            scribe.file = Some(file);
-            services::set(services::SCRIBE, State::Running, &format!("Writing to {}", scribe.path.display()));
-        }
-        Err(e) => {
-            eprintln!("Scribe can't open {}: {e}.  Log lines only print here.", scribe.path.display());
-            services::set(services::SCRIBE, State::Trouble, &format!("Can't open {}: {e}.  Lines only reach \
-                the console.", scribe.path.display()));
-        }
     }
 }
 

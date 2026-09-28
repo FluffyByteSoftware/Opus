@@ -15,7 +15,8 @@
 //!
 //! - `GET /Opus` -- the page (`page.html`, baked in).  `/` sends you there.
 //! - `GET /Opus/status?after=N` -- the monitor's latest look, the services,
-//!   and Scribe's lines after line N, as JSON.  The page asks once a second.
+//!   DiskMan's numbers, and Scribe's lines after line N, as JSON.  The page
+//!   asks once a second.
 //! - `GET /Opus/threads?pid=N` -- one process's threads, for when the admin
 //!   clicks it on the System tab.  It only reads, like the status.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
@@ -38,6 +39,7 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
+use conductor_tools::diskman;
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
@@ -190,6 +192,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             let log_file = scribe::current_file();
             let body = json::status(conductor_monitor::latest().as_ref(),
                                     &services::list(),
+                                    &diskman::status(),
                                     &scribe::recent_lines(after),
                                     log_file.as_deref());
             (Answer::new("200 OK", "application/json", body), Next::KeepGoing)

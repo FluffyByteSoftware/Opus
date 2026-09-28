@@ -29,6 +29,7 @@ use crate::clock::Utc;
 use crate::threads;
 
 // The names, so the places that report don't each spell them their own way.
+pub const DISKMAN: &str = "DiskMan";
 pub const SCRIBE: &str = "Scribe";
 pub const CONSTELLATIONS: &str = "Constellations";
 pub const ARCHIVIST: &str = "Archivist";
@@ -38,7 +39,8 @@ pub const WEB_ADMIN: &str = "Web admin";
 /// Every service Conductor expects, in the order the page lists them, and
 /// the thread each runs on, if it has one.  The thread names are the ones
 /// given to `threads::spawn()`.
-const EXPECTED: [(&str, Option<&str>); 5] = [
+const EXPECTED: [(&str, Option<&str>); 6] = [
+    (DISKMAN, Some("diskman")),
     (SCRIBE, None),
     (CONSTELLATIONS, None),
     (ARCHIVIST, Some("archivist")),
@@ -47,7 +49,8 @@ const EXPECTED: [(&str, Option<&str>); 5] = [
 ];
 
 /// How long a service that checks in can go quiet before it counts as
-/// stuck.  The monitor checks in once a second, so this is five missed.
+/// stuck.  The monitor and DiskMan check in at least once a second, so
+/// this is five missed.
 pub const QUIET_LIMIT: Duration = Duration::from_secs(5);
 
 /// Where a service is at.
@@ -190,7 +193,7 @@ mod tests {
     #[test]
     fn every_expected_service_is_there_from_the_start() {
         let names: Vec<&str> = list().iter().map(|service| service.name).collect();
-        assert_eq!(names, vec![SCRIBE, CONSTELLATIONS, ARCHIVIST, MONITOR, WEB_ADMIN]);
+        assert_eq!(names, vec![DISKMAN, SCRIBE, CONSTELLATIONS, ARCHIVIST, MONITOR, WEB_ADMIN]);
     }
 
     #[test]

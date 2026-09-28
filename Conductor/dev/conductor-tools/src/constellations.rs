@@ -17,11 +17,10 @@
 //! Settings struct, default_settings(), apply_setting() and file_text().
 
 use std::collections::HashMap;
-use std::fs;
-use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+use crate::diskman;
 use crate::scribe::{self, Channel};
 use crate::services::{self, State};
 
@@ -64,11 +63,13 @@ static SETTINGS: OnceLock<Settings> = OnceLock::new();
 /// Reads the config file, or writes one with the defaults if there isn't
 /// one, and keeps the settings for `settings()`.  main calls this once,
 /// right after Scribe has started, so the complaints have somewhere to go.
+/// The file comes through DiskMan, and this waits on it, which is fine at
+/// startup.
 pub fn load() {
     let path = config_path();
     let mut settings = default_settings();
 
-    match fs::read_to_string(&path) {
+    match diskman::read(&path).wait().and_then(|bytes| diskman::as_text(&bytes)) {
         Ok(text) => {
             let problems = parse_text(&text, &mut settings);
             for problem in &problems {
@@ -83,7 +84,7 @@ pub fn load() {
             };
             services::set(services::CONSTELLATIONS, State::Running, &note);
         }
-        Err(e) if e.kind() == io::ErrorKind::NotFound => write_default_file(&path),
+        Err(e) if e.is_not_found() => write_default_file(&path),
         Err(e) => {
             // The file is there and we can't read it (permissions, most
             // likely, or it isn't text).  We don't write over it either.
@@ -258,15 +259,10 @@ wgui_port = {}
 
 /// There was no config file, so we write one with the defaults.  If that
 /// fails too we say so and move on.  The server runs on the same defaults
-/// either way, it just doesn't have a file to show for it.
+/// either way, it just doesn't have a file to show for it.  DiskMan makes
+/// the folder if it has to.
 fn write_default_file(path: &Path) {
-    // If the folder can't be made, the write below fails and says why, so
-    // this one's own error can go.
-    if let Some(folder) = path.parent() {
-        let _ = fs::create_dir_all(folder);
-    }
-
-    match fs::write(path, file_text(&default_settings())) {
+    match diskman::write(path, file_text(&default_settings()).into_bytes()).wait() {
         Ok(()) => {
             scribe::info(Channel::System, &format!("No config file, so Constellations wrote one with the \
                 defaults: {}", path.display()));

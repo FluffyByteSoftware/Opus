@@ -157,7 +157,6 @@ they're all locked and the page under the header is blurred.
   @keyframes blink { 50% { opacity: 0.15; } }
   tr.down td { color: var(--red); }
   tr.down td.note-cell { color: var(--ink); }
-  tr.later td { color: var(--ink-faint); }
   #services-note { margin-top: 12px; }
 
   /* The System tab's process list.  Conductor's row is green with a bar
@@ -181,6 +180,9 @@ they're all locked and the page under the header is blurred.
   .maintab .dot { margin: 0 0 0 8px; vertical-align: middle; }
   .dot[hidden] { display: none; }
   .good-ink { color: var(--green); }
+  .wrap-text { word-break: break-all; }
+  .disk-big { margin-top: 12px; }
+  .disk-big .meter .ours { min-width: 0; }
   .bad-ink { color: var(--red); }
   .warn-ink { color: var(--yellow); }
 
@@ -502,8 +504,44 @@ they're all locked and the page under the header is blurred.
     </div>
 
     <div class="panel span-6">
-      <h3>Disk manager</h3>
-      <div class="small">Not built yet.  Its numbers will show here once it exists.</div>
+      <h3><span class="dot idle" id="disk-dot"></span>DiskMan</h3>
+      <div class="pair">
+        <div class="tile">
+          <div class="label">Waiting to write</div>
+          <div class="value" id="disk-waiting">--</div>
+          <div class="small" id="disk-waiting-bytes">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Held in memory</div>
+          <div class="value" id="disk-loaded">--</div>
+          <div class="small" id="disk-loaded-bytes">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Written</div>
+          <div class="value" id="disk-written">--</div>
+          <div class="small" id="disk-written-note">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Read</div>
+          <div class="value" id="disk-read">--</div>
+          <div class="small" id="disk-read-note">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Failures</div>
+          <div class="value" id="disk-failures">--</div>
+          <div class="small" id="disk-failures-note">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Last failure</div>
+          <div class="small mono wrap-text" id="disk-last-failure">None yet.</div>
+        </div>
+      </div>
+      <div class="tile disk-big">
+        <div class="label">Big write</div>
+        <div class="small mono wrap-text" id="disk-big-text">None under way.</div>
+        <div class="meter"><div class="ours" id="disk-big-bar" style="width: 0%"></div></div>
+        <div class="small" id="disk-streams">--</div>
+      </div>
     </div>
   </div>
   </section>
@@ -1024,23 +1062,42 @@ function drawServices(services) {
     cell(row, quiet === null ? "--" : quiet.toFixed(1) + " s ago", "num");
   }
 
-  // Not a service yet, so it's never red.  It gets a real row once it's built.
-  const later = body.insertRow();
-  later.className = "later";
-  const name = document.createElement("td");
-  const dot = document.createElement("span");
-  dot.className = "dot idle";
-  name.append(dot, "Disk manager");
-  later.appendChild(name);
-  cell(later, "NOT BUILT YET");
-  cell(later, "Its numbers go on the Storage tab once it exists.", "wrap");
-  cell(later, "--");
-  cell(later, "--", "num");
-
   const down = services.filter(isDown).length;
   const healthy = services.filter(service => service.healthy).length;
   $("services-count").textContent = healthy + " of " + services.length + " healthy";
   $("services-badge").hidden = down === 0;
+}
+
+// DiskMan's panel on the Storage tab.
+function drawDisk(d) {
+  if (!d) return;
+  const trouble = !d.running || d.files_failing > 0;
+  $("disk-dot").className = "dot " + (trouble ? "bad flash" : d.stopping ? "warn" : "good");
+
+  $("disk-waiting").textContent = d.files_waiting + " file(s)";
+  $("disk-waiting").className = "value " + (d.files_failing > 0 ? "bad-ink" : "");
+  $("disk-waiting-bytes").textContent = bytes(d.bytes_waiting) + ", " + d.reads_waiting + " read(s) waiting";
+  $("disk-loaded").textContent = d.files_loaded + " file(s)";
+  $("disk-loaded-bytes").textContent = bytes(d.bytes_loaded);
+  $("disk-written").textContent = bytes(d.bytes_written);
+  $("disk-written-note").textContent = d.writes_done + " whole, " + d.appends_done + " appended, slowest "
+    + duration(d.slowest_write_ms);
+  $("disk-read").textContent = bytes(d.bytes_read);
+  $("disk-read-note").textContent = d.reads_done + " from disk, " + d.cache_hits + " from memory";
+  $("disk-failures").textContent = d.failures;
+  $("disk-failures").className = "value " + (d.failures > 0 ? "warn-ink" : "");
+  $("disk-failures-note").textContent = d.files_failing + " failing now, " + d.given_up + " given up on";
+  $("disk-last-failure").textContent = d.last_failure
+    ? d.last_failure.when + ": " + d.last_failure.what
+    : "None yet.";
+
+  const big = d.big_write;
+  $("disk-big-text").textContent = big
+    ? big.file + ": " + bytes(big.done_bytes) + " of " + bytes(big.total_bytes)
+    : "None under way.";
+  const share = big && big.total_bytes > 0 ? big.done_bytes / big.total_bytes * 100 : 0;
+  $("disk-big-bar").style.width = share.toFixed(1) + "%";
+  $("disk-streams").textContent = d.streams_open + " stream(s) open";
 }
 
 async function ask() {
@@ -1050,6 +1107,7 @@ async function ask() {
     const status = await answer.json();
     drawMonitor(status.monitor);
     drawServices(status.services);
+    drawDisk(status.diskman);
     drawSummary(status.monitor, status.services);
     drawLog(status.log);
   } catch (e) {
@@ -1079,7 +1137,8 @@ $("shut-down").addEventListener("click", async () => {
     // from this page.  See lib.rs.
     const answer = await fetch("/Opus/shutdown", { method: "POST", headers: { "X-Opus": "shut-down" } });
     if (!answer.ok) throw new Error(answer.status);
-    showGone("Conductor has shut down", "Everything was put away properly, and the console has ended too.");
+    showGone("Conductor is shutting down", "DiskMan writes out what it's holding last.  The console counts "
+      + "down if that takes more than a second, and ends once it's done.");
   } catch (e) {
     $("shut-down").disabled = false;
     alert("The shut down didn't go through: " + e);

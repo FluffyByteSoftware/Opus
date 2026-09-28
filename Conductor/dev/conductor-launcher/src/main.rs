@@ -2,24 +2,39 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! Entry point.  Brings everything up in order -- Scribe, Constellations,
-//! Archivist, the monitor, then the web admin -- and waits.  The console
-//! is only Scribe's output from here on, and typing in it does nothing.
-//! The admin works through the web page, and when they press Shut Down
-//! there, the web admin stops, main wakes up, and Conductor shuts down.
+//! Entry point.  Brings everything up in order -- DiskMan, Scribe,
+//! Constellations, Archivist, the monitor, then the web admin -- and
+//! waits.  The console is only Scribe's output from here on, and typing in
+//! it does nothing.  The admin works through the web page, and when they
+//! press Shut Down there, the web admin stops, main wakes up, and
+//! Conductor shuts down.  DiskMan goes last, and shutdown waits on it to
+//! write out everything it's holding.
 
 // Rust note: the tools, the monitor and the web admin live in their own
 // crates, and the `use` lines reach into them.  The crates are called
 // conductor-tools and so on in Cargo.toml, and Rust spells them with an
 // underscore in code, since a `-` would read as a minus sign.
-use conductor_tools::{archivist, constellations, threads};
+use std::thread;
+use std::time::{Duration, Instant};
+
+use conductor_tools::{archivist, constellations, diskman, threads};
 use conductor_tools::scribe::{self, Channel};
+
+/// How long shutdown gives DiskMan before telling the admin it's safe to
+/// give up on it.  It keeps waiting after that; it just stops counting.
+const DISKMAN_GRACE: Duration = Duration::from_secs(60);
+
+/// How often the countdown says where it's at.
+const COUNTDOWN_EVERY: Duration = Duration::from_secs(5);
 
 fn main() {
     // On the thread list as "main", like every thread we start.
     threads::name_this_thread("main");
 
-    // Scribe first, so everything after it has somewhere to complain.  The
+    // DiskMan first.  Every file goes through it, Scribe's log included.
+    diskman::start();
+
+    // Then Scribe, so everything after it has somewhere to complain.  The
     // config isn't loaded yet, so it starts on the default log folder.
     scribe::start(&constellations::log_dir());
 
@@ -53,8 +68,59 @@ fn main() {
     scribe::info(Channel::System, "Conductor is shutting down.");
 
     conductor_monitor::stop();
-    // Last, so the jobs already in Archivist's mailbox get done first.
+    // After the rest, so the jobs already in Archivist's mailbox get done
+    // first.
     archivist::stop();
 
+    // DiskMan is last, since Archivist and everything before it may have
+    // handed it files on the way out.
+    scribe::info(Channel::System, "Everything else has stopped.  DiskMan is writing out what it holds.");
+    wait_on_diskman();
+
+    // DiskMan has finished, so this one only reaches the console.
     scribe::info(Channel::System, "Conductor has shut down.");
+}
+
+/// Tells DiskMan to finish up and waits until it has.  If it takes more
+/// than a second, the console counts down from a minute.  After the minute
+/// Conductor still waits, and says it's safe to force quit, with what would
+/// be lost.  The countdown lines go through DiskMan too, like every line.
+fn wait_on_diskman() {
+    diskman::stop();
+    let started = Instant::now();
+    let mut next_note = Duration::from_secs(1);
+    let mut past_grace = false;
+
+    while !diskman::finished() {
+        thread::sleep(Duration::from_millis(50));
+        let waited = started.elapsed();
+        if waited < next_note {
+            continue;
+        }
+
+        let status = diskman::status();
+        let holding = format!("{} file(s), {}", status.files_waiting, megabytes(status.bytes_waiting));
+        if waited < DISKMAN_GRACE {
+            let left = (DISKMAN_GRACE - waited).as_secs();
+            scribe::info(Channel::System, &format!("Waiting on DiskMan to write {holding}.  {left} s left."));
+            next_note += COUNTDOWN_EVERY;
+        } else if !past_grace {
+            past_grace = true;
+            scribe::error(Channel::System, &format!("DISKMAN IS STILL WRITING AFTER A MINUTE: {holding}.  \
+                Conductor keeps waiting.  To force quit, press Ctrl-C or close this window, and what's \
+                listed next is lost."));
+            for path in diskman::waiting_files() {
+                scribe::error(Channel::System, &format!("Not written yet: {}", path.display()));
+            }
+            next_note = waited + DISKMAN_GRACE / 2;
+        } else {
+            scribe::warn(Channel::System, &format!("DiskMan is still writing {holding}."));
+            next_note = waited + DISKMAN_GRACE / 2;
+        }
+    }
+}
+
+/// Bytes as megabytes, one place after the point.
+fn megabytes(bytes: u64) -> String {
+    format!("{:.1} MB", bytes as f64 / (1024.0 * 1024.0))
 }
