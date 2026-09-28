@@ -10,7 +10,8 @@ Author:     Jacob Chacko
 
 Things that wait on a piece that doesn't exist yet.
 
-- PostgreSQL for Conductor.  Needs a crate (`tokio-postgres` or `sqlx`), which needs an OK first.
+- Archivist: the account table, and making the tables when the database doesn't have them yet.  The schema
+  SQL gets baked into Conductor; where the files live is Jacob's call.
 - The rest of Conductor's tools, each its own session: the disk manager (temp-file-and-rename writes, the
   one place whole files get replaced), and Security (TLS for the welcome TCP connection, password hashing).
   Stratum had a DiskMan, a Fingerprinter (UUIDs) and a Security worker; whether Opus wants the same shapes
@@ -43,3 +44,8 @@ Things we thought of along the way.  None of them are promised.
   name if that gets noisy.
 - Constellations: log a warning at startup for a key that is missing from the file and fell back to its
   default, the way unknown keys are warned about today.
+- Archivist: write `postgres.cfg` readable by its owner only (0600 on Linux), since it holds the password.
+- Archivist and Constellations each have their own `key = value` reader.  They're nearly the same code, and
+  could share one if a third config file shows up.
+- Archivist: a password that starts or ends with a space loses the space, because every value is trimmed.
+  Quotes around the value would fix it, if it ever matters.
