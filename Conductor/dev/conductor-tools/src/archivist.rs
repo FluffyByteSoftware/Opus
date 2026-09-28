@@ -17,6 +17,11 @@
 //! with everything but the password filled in, and Archivist won't try to
 //! connect until somebody puts one in.
 //!
+//! Every time it connects, Archivist runs the schema files in
+//! `Content/psql/defaults/schemas/`.  They only ever say CREATE ... IF NOT
+//! EXISTS, so a fresh database gets its tables and one that has them is
+//! left alone.
+//!
 //! Nothing in here can stop the server either.  If Postgres isn't there,
 //! the jobs come back as errors, and Archivist tries again on the next job.
 
@@ -43,6 +48,21 @@ pub use postgres::types::ToSql;
 
 /// Where Archivist's settings live, under the Content folder.
 const CONFIG_FILE: &str = "cfg/postgres.cfg";
+
+/// Where the default schemas live, under the Content folder.  One `.sql`
+/// file per table, run in name order.
+const SCHEMA_DIR: &str = "psql/defaults/schemas";
+
+/// The default schemas, baked into Conductor when it's built.  If one of
+/// the files goes missing from `Content/`, Archivist writes it back out
+/// from here.  The file on disk is the one that gets run, so a hand edit
+/// there wins until the file is deleted.
+// Rust note: `include_str!` reads the file when the program is compiled
+// and pastes its text in as a string.  The path is taken from this file's
+// folder, so four `..` climb from src/ up to Opus/.
+const DEFAULT_SCHEMAS: &[(&str, &str)] = &[
+    ("accounts.sql", include_str!("../../../../Content/psql/defaults/schemas/accounts.sql")),
+];
 
 /// How long a connect gets before we call it a failure.  Postgres is on
 /// the same machine, so if it hasn't answered in 5 seconds it isn't going
@@ -384,6 +404,7 @@ impl Link {
                     Err(_) => String::new(),
                 };
                 scribe::info(Channel::Database, &format!("Archivist connected to {where_to}.  {version}"));
+                run_schemas(&mut client);
                 self.client = Some(client);
                 self.failed_at = None;
                 Ok(())
@@ -413,6 +434,68 @@ impl Link {
 
     fn batch(&mut self, sql: &str) -> Result<(), ArchivistError> {
         self.client()?.batch_execute(sql).map_err(ArchivistError::Postgres)
+    }
+}
+
+/// Puts back any default schema file that's missing, then runs every
+/// `.sql` file in the schema folder, in name order.  A file that fails is
+/// an Error in the log, and the rest still run.  Every file is only
+/// CREATE ... IF NOT EXISTS, so doing this on every connect is safe.
+fn run_schemas(client: &mut Client) {
+    let folder = constellations::content_dir().join(SCHEMA_DIR);
+    write_missing_schemas(&folder);
+
+    let mut files: Vec<PathBuf> = match fs::read_dir(&folder) {
+        Ok(entries) => entries
+            .filter_map(|entry| entry.ok())
+            .map(|entry| entry.path())
+            .filter(|path| path.extension().is_some_and(|ext| ext == "sql"))
+            .collect(),
+        Err(e) => {
+            scribe::error_with(Channel::Database, &e, &format!("Archivist can't read the schema folder {}.  \
+                No tables were checked.", folder.display()));
+            return;
+        }
+    };
+    files.sort();
+
+    let mut ran = 0;
+    for file in &files {
+        let sql = match fs::read_to_string(file) {
+            Ok(sql) => sql,
+            Err(e) => {
+                scribe::error_with(Channel::Database, &e, &format!("Archivist can't read {}.", file.display()));
+                continue;
+            }
+        };
+        match client.batch_execute(&sql) {
+            Ok(()) => ran += 1,
+            Err(e) => scribe::error_with(Channel::Database, &e, &format!("SCHEMA FILE FAILED, FIX IT BY HAND: \
+                {}.  ITS TABLES MAY BE MISSING.", file.display())),
+        }
+    }
+
+    scribe::info(Channel::Database, &format!("Archivist ran {ran} of {} schema file(s) from {}.",
+                                             files.len(),
+                                             folder.display()));
+}
+
+/// Writes out any default schema that isn't on disk.  One that is already
+/// there is never touched, since it may have been edited by hand.
+fn write_missing_schemas(folder: &Path) {
+    // If the folder can't be made, the writes below fail and say why.
+    let _ = fs::create_dir_all(folder);
+
+    for (name, text) in DEFAULT_SCHEMAS {
+        let path = folder.join(name);
+        if path.exists() {
+            continue;
+        }
+        match fs::write(&path, text) {
+            Ok(()) => scribe::info(Channel::Database, &format!("Archivist wrote the default {}", path.display())),
+            Err(e) => scribe::error_with(Channel::Database, &e, &format!("Archivist can't write the default {}.",
+                                                                         path.display())),
+        }
     }
 }
 
@@ -632,6 +715,19 @@ mod tests {
         let shown = format!("{:?}", filled_in());
         assert!(!shown.contains("p@ss"));
         assert!(shown.contains("(hidden)"));
+    }
+
+    #[test]
+    fn every_default_schema_is_a_sql_file_that_only_creates() {
+        for (name, text) in DEFAULT_SCHEMAS {
+            assert!(name.ends_with(".sql"), "{name}");
+            // Anything that drops or changes a table would run on every
+            // connect.  That's a migration, and it doesn't belong here.
+            let upper = text.to_ascii_uppercase();
+            for word in ["DROP ", "ALTER ", "DELETE ", "TRUNCATE "] {
+                assert!(!upper.contains(word), "{name} has {word}");
+            }
+        }
     }
 
     #[test]

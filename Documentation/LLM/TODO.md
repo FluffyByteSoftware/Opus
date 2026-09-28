@@ -10,8 +10,9 @@ Author:     Jacob Chacko
 
 Things that wait on a piece that doesn't exist yet.
 
-- Archivist: the account table, and making the tables when the database doesn't have them yet.  The schema
-  SQL gets baked into Conductor; where the files live is Jacob's call.
+- Archivist: migrations.  The schema files only CREATE ... IF NOT EXISTS, so a column added later (like
+  the last played character, once there are characters) never reaches a table that already exists.
+- Accounts: making, checking and logging in.  Waits on Security for the Argon2 hashing.
 - The rest of Conductor's tools, each its own session: the disk manager (temp-file-and-rename writes, the
   one place whole files get replaced), and Security (TLS for the welcome TCP connection, password hashing).
   Stratum had a DiskMan, a Fingerprinter (UUIDs) and a Security worker; whether Opus wants the same shapes
@@ -24,9 +25,8 @@ Things that wait on a piece that doesn't exist yet.
 - Launcher: switch Ctrl-C off so Q is the only way out, once there is something to save on shutdown.  Today
   there isn't, so Ctrl-C is harmless.
 - Ensemble has no way to find `Content/` yet.  Decide how once the engine is picked.
-- Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/` is ignored as a
-  whole for now, so anything put under `Content/Assets/` stays out of git.  Jacob's call when the client
-  needs it.
+- Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
+  for now, so it stays out of git.  Jacob's call when the client needs it.
 
 ## Ideas
 
@@ -44,7 +44,6 @@ Things we thought of along the way.  None of them are promised.
   name if that gets noisy.
 - Constellations: log a warning at startup for a key that is missing from the file and fell back to its
   default, the way unknown keys are warned about today.
-- Archivist: write `postgres.cfg` readable by its owner only (0600 on Linux), since it holds the password.
 - Archivist and Constellations each have their own `key = value` reader.  They're nearly the same code, and
   could share one if a third config file shows up.
 - Archivist: a password that starts or ends with a space loses the space, because every value is trimmed.

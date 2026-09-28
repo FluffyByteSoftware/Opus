@@ -9,12 +9,12 @@
 Conductor/build/
 Ensemble/build/
 
-# Content/ itself is committed, since the default schemas live there.  What
-# the programs write at runtime isn't: the configs (postgres.cfg holds the
-# database password), the logs, and later the saves.  Content/Assets/ is
-# the purchased art, which stays out for now.
+# Content/ is committed: the configs and the default schemas live there.
+# The configs hold a placeholder database password, and Postgres only
+# listens on this machine, so that's fine.  The logs stay out, since they
+# change every run.  Content/Assets/ is the purchased art, which stays out
+# for now.
 Content/Assets/
-Content/cfg/
 Content/logs/
 
 # Rust, in case target/ ever lands in dev/
