@@ -7,9 +7,9 @@ Author:     Jacob Chacko
 The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
-of that answer is written down at the top of json.rs.  Four tabs under the
-header, then Scribe's log on a fifth.  While the database isn't connected
-they're all blurred and locked.
+of that answer is written down at the top of json.rs.  Five tabs down the
+left side, the last one Scribe's log.  While the database isn't connected
+they're all locked and the page under the header is blurred.
 -->
 <html lang="en">
 <head>
@@ -44,16 +44,18 @@ they're all blurred and locked.
   ::selection { background: var(--green-deep); color: var(--ink-bright); }
   .mono { font-family: var(--mono); }
 
+  /* The sidebar: the logo, and the tabs under it. */
   aside {
-    width: 64px; flex-shrink: 0; padding-top: 24px;
+    width: 168px; flex-shrink: 0; padding: 24px 12px;
     border-right: 1px solid var(--line); background: var(--page);
-    display: flex; justify-content: center;
+    display: flex; flex-direction: column; align-items: stretch; gap: 24px;
   }
   .logo {
     width: 40px; height: 40px; border-radius: 4px;
     background: var(--green-deep); color: var(--page);
     display: flex; align-items: center; justify-content: center;
     font-weight: 700; box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+    align-self: center;
   }
 
   main {
@@ -197,16 +199,20 @@ they're all blurred and locked.
   }
   @media (prefers-reduced-motion: reduce) { .pill.bad, .veil-card.bad { animation: none; } }
 
-  /* The tabs.  Everything under the header is the .content, which gets
-     blurred and made unclickable while the database isn't connected. */
-  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+  /* The tabs, down the sidebar.  They and everything under the header (the
+     .content) get locked while the database isn't connected. */
+  .tabs { display: flex; flex-direction: column; gap: 4px; transition: opacity 0.3s; }
+  .tabs.locked { opacity: 0.35; filter: grayscale(1); pointer-events: none; }
   .maintab {
-    padding: 10px 18px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 10px 12px; font-size: 12px; text-align: left; text-transform: uppercase; letter-spacing: 0.08em;
     background: transparent; color: var(--ink-soft);
-    border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0;
+    border: 1px solid transparent; border-left: 3px solid transparent; border-radius: 4px;
   }
   .maintab:hover { background: var(--panel-dark); }
-  .maintab.on { color: var(--green); border-color: var(--line); background: var(--panel); }
+  .maintab.on {
+    color: var(--green); background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.3); border-left-color: var(--green-deep);
+  }
   .tabpage { display: none; }
   .tabpage.on { display: block; }
 
@@ -225,7 +231,7 @@ they're all blurred and locked.
 
   /* The log tab: the terminal fills what's left of the window under the
      header and the tabs. */
-  .full { height: calc(100vh - 200px); min-height: 320px; }
+  .full { height: calc(100vh - 150px); min-height: 320px; }
 
   .gone {
     position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
@@ -236,7 +242,16 @@ they're all blurred and locked.
 </head>
 <body>
 
-<aside><div class="logo">OP</div></aside>
+<aside>
+  <div class="logo">OP</div>
+  <nav class="tabs locked" id="tabs" inert aria-orientation="vertical" role="tablist">
+    <button class="maintab" role="tab" data-tab="system">System</button>
+    <button class="maintab" role="tab" data-tab="conductor">Conductor</button>
+    <button class="maintab" role="tab" data-tab="services">Services</button>
+    <button class="maintab" role="tab" data-tab="storage">Storage</button>
+    <button class="maintab" role="tab" data-tab="log">Log</button>
+  </nav>
+</aside>
 
 <main>
   <header>
@@ -258,13 +273,6 @@ they're all blurred and locked.
 
   <div class="stage">
   <div class="content locked" id="content" inert>
-  <nav class="tabs" role="tablist">
-    <button class="maintab" role="tab" data-tab="system">System</button>
-    <button class="maintab" role="tab" data-tab="conductor">Conductor</button>
-    <button class="maintab" role="tab" data-tab="services">Services</button>
-    <button class="maintab" role="tab" data-tab="storage">Storage</button>
-    <button class="maintab" role="tab" data-tab="log">Log</button>
-  </nav>
 
   <section class="tabpage" id="page-conductor">
   <div class="grid">
@@ -700,6 +708,8 @@ function applyDbMode(mode, dbState, takenAt) {
   content.classList.toggle("locked", mode !== "online");
   // `inert` keeps the keyboard out of it too, not just the mouse.
   content.inert = mode !== "online";
+  $("tabs").classList.toggle("locked", mode !== "online");
+  $("tabs").inert = mode !== "online";
   $("veil").style.display = mode === "online" ? "none" : "block";
   $("veil-card").className = "veil-card" + (mode === "offline" ? " bad" : "");
 
