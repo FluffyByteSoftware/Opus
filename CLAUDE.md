@@ -217,7 +217,7 @@ When I say we're wrapping up:
 - Default schemas live in `Content/psql/defaults/schemas/`, one `.sql` file
   per table. They only `CREATE ... IF NOT EXISTS`, and Archivist runs them on
   every connect. Each one is also baked into Conductor with `include_str!`
-  (listed in `DEFAULT_SCHEMAS` in `archivist.rs`) so a missing file gets
+  (listed in `DEFAULT_SCHEMAS` in `archivist/schemas.rs`) so a missing file gets
   written back out.
 - **A schema file is frozen once its table exists.** Every change after that
   is a migration in `Content/psql/migrations/`, named `0001_what_it_does.sql`.
