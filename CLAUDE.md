@@ -51,9 +51,11 @@ Opus/
 ├── Ensemble/              # client
 │   ├── dev/               # source code (the engine project lives here)
 │   └── build/             # compiled output -- never committed
-├── Content/               # runtime data both programs read and write -- never committed
-│   ├── cfg/               # config files (conductor_globals.cfg lives here)
-│   └── logs/              # log files
+├── Content/               # data both programs read and write -- committed, except Assets/ and logs/
+│   ├── Assets/            # purchased art -- never committed
+│   ├── cfg/               # config files (conductor_globals.cfg, postgres.cfg)
+│   ├── logs/              # log files -- never committed
+│   └── psql/defaults/schemas/ # default database schemas, one .sql file per table
 └── Documentation/
     └── LLM/               # working docs
         ├── STATUS.md      # bridge between sessions
@@ -70,12 +72,12 @@ what the compiler makes. Runtime data for both components lives in one shared
 named so it's clear who owns them (`conductor_globals.cfg`, `*.scribe.log`).
 Don't create new top-level folders without asking me.
 
-Because `Content/` is never committed, a fresh checkout has no `Content/` folder
-at all. Programs must create it and any file they need there (config, logs,
-saves) with sensible defaults when it's missing, and never crash because it's
-absent. Conductor finds it through the `OPUS_CONTENT` environment variable, or
-by walking up from the working directory until it sees a `Content/` folder, or
-by creating `./Content` when neither works.
+`Content/` is committed, except `Content/Assets/` (the purchased art) and
+`Content/logs/`. Even so, programs must create it and any file they need there
+(config, logs, saves, schemas) with sensible defaults when it's missing, and
+never crash because it's absent. Conductor finds it through the `OPUS_CONTENT`
+environment variable, or by walking up from the working directory until it sees
+a `Content/` folder, or by creating `./Content` when neither works.
 
 ---
 
@@ -177,7 +179,8 @@ When I say we're wrapping up:
   ```
   The only files without a header are ones that can't hold comments or that a
   tool generates and rewrites: JSON, Unity's `.meta` / `.unity` / `.asset` /
-  `.prefab` files, lock files, and anything under `build/` or `Content/`.
+  `.prefab` files, lock files, and anything under `build/` or `Content/` (the
+  schema files and configs in `Content/` included).
 
 ## Rust rules (Conductor)
 
@@ -199,14 +202,23 @@ When I say we're wrapping up:
   with password auth (`scram-sha-256`).
 - **Tables are created as `opus_game`**, so the server owns them. `seliris`
   owns the database itself but should not own game tables.
-- Never hardcode the password in source. Ask me how Conductor should get its
-  connection string before wiring it up.
-- No Postgres crate is chosen yet. Ask before adding one.
+- Never hardcode the password in source. Archivist (in `conductor-tools`)
+  reads the address, port, database, username and password from
+  `Content/cfg/postgres.cfg`. That file is committed on purpose: the password
+  is a placeholder and Postgres only listens on this machine.
+- The Postgres crate is `postgres` (the blocking client). Archivist runs it on
+  its own thread so it never blocks the rest of the server. Ask before adding
+  any other database crate.
 - Do not run `psql`, migrations, or anything that touches the live database,
   and never edit Postgres's own config (`pg_hba.conf`, `postgresql.conf`).
   Write the SQL; I run it and paste back the output.
-- Ask me where schema/migration SQL files should live before creating a
-  folder for them.
+- Default schemas live in `Content/psql/defaults/schemas/`, one `.sql` file
+  per table. They only `CREATE ... IF NOT EXISTS`, and Archivist runs them on
+  every connect. Each one is also baked into Conductor with `include_str!`
+  (listed in `DEFAULT_SCHEMAS` in `archivist.rs`) so a missing file gets
+  written back out.
+- Changing a table that already exists takes a migration. There is no
+  migration system yet; ask me where migrations should live before making one.
 
 ## Client rules (Ensemble)
 
@@ -222,8 +234,8 @@ When I say we're wrapping up:
 - The whole `Opus/` folder is one **private** repo: code, docs, and assets.
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
-- Never commit build output, runtime data, or engine caches: both `build/`
-  folders, `Content/`, Rust `target/`, Unity `Library/` `Temp/`
+- Never commit build output, logs, purchased art, or engine caches: both
+  `build/` folders, `Content/Assets/`, `Content/logs/`, Rust `target/`, Unity `Library/` `Temp/`
   `Obj/` `Logs/`, Godot `.godot/`. If something like that
   shows up in `git status`, tell me and suggest a `.gitignore` line.
 - Large binary assets (models, textures, audio, `.blend`, `.unitypackage`) go
