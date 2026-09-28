@@ -4,10 +4,13 @@
 //!
 //! Scribe is the log.  Every line is appended to a file named for the UTC
 //! date (`2026_09_28.scribe.log`), and at midnight UTC Scribe closes that
-//! file and opens the next one.  A line looks like:
+//! file and opens the next one.  A line looks like this (it is one line in
+//! the file, wrapped here to fit):
 //!
 //! ```text
-//! [ 12:08:45 PM - 09-28-26 Z ] - [ System / Info ] - [ Conductor is starting. ] [ Caller: conductor-launcher/src/main.rs, Line: 27 ]
+//! [ 12:08:45 PM - 09-28-26 Z ] - [ System / Info ]
+//!     - [ Conductor is starting. ]
+//!     [ Caller: conductor-launcher/src/main.rs, Line: 27 ]
 //! ```
 //!
 //! The file is the only place a line goes.  Nothing prints to the terminal,

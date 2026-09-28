@@ -48,12 +48,14 @@ Opus/
 
 ## The named pieces
 
-| Name               | What it is                                           | Where                       | State                     |
-|--------------------|------------------------------------------------------|-----------------------------|---------------------------|
-| Conductor          | The server.  Authoritative: it owns the game state.  | `Conductor/`                | Tools and launcher only   |
-| Ensemble           | The client players run.                              | `Ensemble/`                 | Not started, engine unpicked |
-| conductor-tools    | Lib crate: the tools the rest of the server uses.    | `Conductor/dev/conductor-tools/`    | Built and tested |
-| conductor-launcher | Bin crate: the program and the admin's menu.         | `Conductor/dev/conductor-launcher/` | Built and tested   |
-| Scribe             | The log.                                             | `conductor-tools/src/scribe.rs`         | Built and tested |
-| Constellations     | The config file and the settings it holds.           | `conductor-tools/src/constellations.rs` | Built and tested |
-| The clock          | UTC date and time.                                   | `conductor-tools/src/clock.rs`          | Built and tested    |
+Where each one lives is in the tree above.
+
+| Name               | What it is                                    | State                        |
+|--------------------|-----------------------------------------------|------------------------------|
+| Conductor          | The server.  It owns the game state.          | Tools and launcher only      |
+| Ensemble           | The client players run.                       | Not started, engine unpicked |
+| conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
+| conductor-launcher | Bin crate: the program and the admin's menu.  | Built and tested             |
+| Scribe             | The log.                                      | Built and tested             |
+| Constellations     | The config file and the settings it holds.    | Built and tested             |
+| The clock          | UTC date and time.                            | Built and tested             |

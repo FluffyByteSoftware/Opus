@@ -139,7 +139,7 @@ scribe::error(Channel::Security, "Error on the Security channel.  \
     Nothing is actually wrong.");
 ```
 
-- If a line can't be made to fit without making it harder to read (a long path in a string, a function signature), leave it and move on.  The width is there for reading, not for its own sake.
+- The width is a hard edge, because Jacob reads code in a window narrower than the full screen.  If a line doesn't fit, wrap it.  A sample in a comment (a log line, a command) gets wrapped too, with a note that it is one line for real.
 - No trailing spaces in anything Claude writes.
 - Before handing work back, check the width:
 
@@ -229,4 +229,5 @@ Not about the voice, but about understanding what he means, learned over Stratum
 - 2026-09-28 -- First Opus version, carried over from Stratum's writing style after 24 Stratum sessions and a Mantle session.  What changed from Stratum: the `File:` line starts with `Opus/` and every file gets a header, Markdown included; `Project:` became `Component:`; the C# header follows Jacob's own cut from Probe; player-facing text uses one space after a period (from Mantle); the per-document notes follow the Opus layout; and the lessons about reading Jacob moved out of the old log into their own section so they don't get lost in the history.
 - 2026-09-28 -- After the first Conductor session.  Log lines now name Jacob's bracket layout.  Reading Jacob
   gained three lines: a list answered with his own design, names that arrive mid-answer, and uploaded Stratum
-  files as models rather than ports.
+  files as models rather than ports.  And the width became a hard edge: a sample log line in a comment is
+  wrapped with a note, not left long, because the window Jacob reads code in is narrower than 120.
