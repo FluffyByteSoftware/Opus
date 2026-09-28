@@ -48,7 +48,7 @@ Opus/
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
-│   │   ├── conductor-tools/    # lib: Scribe, Constellations, Archivist, the clock, threads
+│   │   ├── conductor-tools/    # lib: Scribe, Constellations, Archivist, the clock, threads, services
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── conductor-launcher/ # bin: the program -- starts everything, then waits on the web admin
@@ -221,6 +221,10 @@ When I say we're wrapping up:
 - **Every thread goes through `threads::spawn(name, ...)`** in `conductor-tools`,
   never `std::thread::spawn` directly. That is what puts it on the web admin's
   "asked for" list with who started it and when.
+- **Every service reports to `services.rs`** in `conductor-tools`: it's named
+  in `EXPECTED` up front, says starting / running / trouble / stopped with a
+  note, and checks in with `seen()` if it has a loop. That is what puts it on
+  the web admin's Services tab. The disk manager joins when it's built.
 - **The admin works through the web admin** (`conductor-wgui`). The console is
   only Scribe's output and takes no input. Anything an admin can do (shut down,
   and later accounts and config) is a page or a button there. It listens on
@@ -256,6 +260,16 @@ When I say we're wrapping up:
   `textContent`, never `innerHTML`.
 - I look at the page myself and send screenshots. When a layout class or style
   is added, make sure the CSS for it exists.
+- Checking `page.html` by rendering it in a headless browser with made-up
+  numbers is fine (it isn't running Conductor). Say that's all it was.
+- The page is five tabs down the left sidebar, under the OP logo: System,
+  Conductor, Services, Storage, Log. Anything new goes on one of them, or is a
+  new tab I agree to.
+- While the database isn't connected, the page is blurred and locked with SHUT
+  DOWN the only thing that works. Anything new on the page sits under that
+  lock; only the header stays above it.
+- When talking about the page, name the panel or tab ("the Log tab"), not the
+  tool behind it. "Where does Scribe go?" read as moving the crate.
 - [FILL IN the tick rate once there is a game loop]
 
 ## Database (Conductor)

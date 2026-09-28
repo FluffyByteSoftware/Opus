@@ -8,94 +8,90 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor is four crates now.  `conductor-tools` (lib) holds Scribe, Constellations, Archivist, the clock and
-the thread list.  `conductor-monitor` (lib) looks at the process once a second.  `conductor-wgui` (lib) is the
-web admin at `http://127.0.0.1:9996/Opus`, and the only way to shut the server down.  `conductor-launcher`
-(bin) starts all of it and waits on the web admin; its console is only Scribe's output.  Ensemble hasn't
-been started.
+Conductor is four crates.  `conductor-tools` (lib) holds Scribe, Constellations, Archivist, the clock, the
+thread list and now the services list.  `conductor-monitor` (lib) looks at the process, and now every process
+on the machine, once a second.  `conductor-wgui` (lib) is the web admin at `http://127.0.0.1:9996/Opus`, and
+the only way to shut the server down.  `conductor-launcher` (bin) starts all of it and waits on the web
+admin.  Ensemble hasn't been started.
 
-Jacob ran it on Nobara Linux 44 (kernel 7.2.6) and the page worked: CPU, memory, disk, the machine, Archivist
-connected, and all four threads with their CPU time.  After that the CPU and memory panels were redone (below)
-and merged into `main` at Jacob's call without being run, so they're the first thing to look at.  The build
-and test output wasn't pasted, so "no warnings" and the test count (about 50 on Linux) are unconfirmed.  The
-Windows code has never been built.
+**Nothing from this session has been built or run.**  Jacob builds and tests; the page was only checked by
+rendering it in a browser with made-up numbers.  The previous session's CPU chart and memory bar were never
+run either, and no `cargo build` / `cargo test` output has been pasted back for either session.  The
+Windows code has never been built, and this session added more of it.
 
-## Last session -- 2026-09-28
+## Last session -- 2026-09-28 (the second that day)
 
-The web admin and the monitor.
+The web admin's layout: tabs, a database lock, services, and every process on the machine.
 
 What we did:
 
-- **conductor-monitor** (lib, named by Jacob as the "probe into the system").  Once a second it reads memory,
-  CPU, disk reads and writes, every OS thread with its share of a core, our own thread list, and Archivist's
-  status.  Linux reads `/proc`.  Windows asks kernel32 (and ntdll for the version).  macOS builds and runs but
-  measures nothing yet.  No crate for any of it.
-- **conductor-wgui** (lib, named by Jacob).  A web server on 127.0.0.1 on the standard library's
-  `TcpListener`: `/Opus` is the page, `/Opus/status` the JSON it asks for once a second, and a POST to
-  `/Opus/shutdown` shuts down.  The page follows Gemini's mockup colours in plain CSS and pulls nothing from
-  the web.  Threads show two ways: **in use** (every OS thread and its CPU) and **asked for** (ours, who
-  started each and when).  Another site in the same browser can't shut it down: the Host header has to be
-  ours, and the shutdown needs an `X-Opus` header.
-- **threads::spawn()** in the tools.  Every thread we start goes through it, which is how the page knows
-  who asked for what.
-- **Scribe** prints every line to the console as well as the file, and keeps the last 200 in memory for the
-  page.  It writes to stdout without `println!`, which would panic on a closed pipe.
-- **Archivist** counts `query()` jobs as reads and `execute()` as writes.
-- `wgui_port = 9996` in `conductor_globals.cfg`.
-- After Jacob's first look: CPU became a 0 to 100% chart with one line per core (the whole machine's cores,
-  since no OS says which core Conductor's threads ran on), and memory became a bar of the machine's RAM with
-  Conductor, everything else, and free.  The monitor reads each core and the machine's RAM for that:
-  `/proc/stat` and `/proc/meminfo` on Linux, `NtQuerySystemInformation` and `GlobalMemoryStatusEx` on
-  Windows.  Checked by rendering the page with made-up numbers; not run against a real Conductor yet.
-- The launcher's L/Q menu and its 7 tests are gone.
-- CLAUDE.md: the new crates, the threads rule, the web admin as the only way in, and a "Linux, Windows, macOS"
-  section.
+- **Tabs down the left sidebar**, under the OP logo: System, Conductor, Services, Storage, Log.  Conductor
+  opens first; the browser remembers the last one picked (`localStorage`, nothing on the server).
+  - **System**: the whole machine's CPU and memory, and every process Conductor can see, busiest first, with
+    Conductor's row in green with a CONDUCTOR tag and a filter box.  Click a process to see its threads with
+    their core % (Conductor's own threads carry our names).
+  - **Conductor**: CPU chart, memory bar, disk, machine, and Conductor's threads (in use / asked for).
+  - **Services**: Scribe, Constellations, Archivist, the monitor and the web admin, each with its state, what
+    it last said, since when, and "last seen" for the monitor.  A flashing red dot for any that isn't healthy,
+    on the row and on the sidebar tab.  The disk manager is a grey "not built yet" row.
+  - **Storage**: Archivist's numbers, and a "not built yet" panel for the disk manager.
+  - **Log**: Scribe's terminal, the full height of the window.
+- **The database lock.**  A DB pill in the header on every tab (ONLINE / CONNECTING / OFFLINE).  Until
+  Archivist is connected, everything under the header is blurred and locked, the tabs too, with a flashing
+  red "DATABASE OFFLINE -- the game can't run right now" card.  SHUT DOWN is the only thing that works.  The
+  page keeps asking underneath and unlocks itself when Archivist connects.  The first 10 seconds after
+  Conductor starts count as "connecting", not offline.
+- **The status line** reads NOMINAL, or everything that's wrong: `DATABASE NOT CONNECTED, 1 SERVICE DOWN`.
+- **`services.rs`** in conductor-tools: every expected service is listed from the start as "expected", and
+  each reports starting / running / trouble (with why) / stopped.  One whose thread has ended shows as
+  stopped whatever it last said, and the monitor checks in every second so a stuck one goes red after 5.
+  The status JSON carries `services` straight from the list, not through the monitor, so it's still right
+  if the monitor dies.
+- **Every process on the machine**: `probe/linux.rs` reads `/proc/<pid>/stat` (kernel threads left out);
+  `probe/windows.rs` uses the toolhelp process list plus `OpenProcess`, and processes Windows won't open
+  come back with no numbers.  One new read-only route, `GET /Opus/threads?pid=N`, gives one process's
+  threads; the page asks once a second, only while that process is picked on the System tab.
+- The main thread is on the thread list as "main" (`threads::name_this_thread`).
+- TODO: running with no console window, and showing and changing the settings live from the page.
 
 What fought back:
 
-- Scribe's panel on the page came out one column wide.  It wasn't the log, it was the page asking for a
-  `span-12` CSS class that was never written.  Added.
-- The memory bars were all full height, which read as "maxed out".  They were scaled to their own highest
-  value, so steady memory filled every bar.  A quick fix (twice the highest) went in, and then Jacob asked
-  for the real thing: memory against the machine's 64 GB, and CPU on a fixed 0 to 100% scale per core.
+- The layout took four passes of talking before any code.  Jacob first asked for IDE-style docking, then
+  looked at the page again and dropped it for tabs: "docking won't fix this, I was over engineering".  A
+  saved-settings file (`Content/web/wgui_settings.json.cfg`) was planned and dropped with it.
+- "Scribe lives in tools" -- asking where "Scribe" should go meant the log panel on the page, and read as
+  moving the crate.  Say "the log panel" for the page's piece.
+- "Tabs" meant the left sidebar where OP is, not a row across the top.  Fixed after the first build.
+- Archivist only reconnects when a job comes in, and nothing sends jobs yet.  So once the database drops,
+  the page's lock stays up until Conductor restarts, even after Postgres is back.  Found, not fixed: it
+  changes how Archivist behaves, and Jacob hasn't said yes to it.
 
 What Jacob decided:
 
-- The names: conductor-monitor measures, conductor-wgui shows.  Kept apart on purpose.
-- Plain HTTP on 127.0.0.1.  He asked for HTTPS with a self-signed certificate first, then picked HTTP: nothing
-  leaves the machine, and TLS comes with Security for the game anyway.
-- The console takes no input once the web admin is up.  Shut Down on the page ends the program, and the
-  console with it.
-- Linux and Windows both, Linux preferred, macOS if it can be done.  No OS setting in the config, since the
-  compiler already knows.
-- Windows testing waits.  His Windows machine means a thumb drive and a lot of getting up.
-- Memory per thread can't be shown (no OS tracks it), so memory is per process and CPU is per thread.
-- **Next: services, the way Zabbix or the TLP at work does it.**  An "expected services" section on the page:
-  Scribe, Constellations, Archivist, the monitor, the web admin, and the disk manager once it exists.  Each is
-  expected to start and keep running, and anything that isn't gets a flashing red mark.
-- **Then changed his mind: the next conversation is docking.**  He wants to talk through the web admin's
-  layout and make it more flexible by docking the panels.  Services wait until after.
+- Tabs, not docking.  Five of them, down the left side, Conductor first.
+- While the database is offline, the admin sees that and nothing else: blurred, locked, SHUT DOWN only.
+  "The whole point is to draw attention to the user that the DB is offline and the game can't run."
+- The log gets a tab of its own.
+- No settings file for the page.
+- **Next: the disk manager.**  Jacob's pick for the next conversation.
 
 ## What's waiting
 
-- **Docking the web admin's panels.**  Jacob's pick for the next conversation, and it starts as a talk, not
-  code.  Nothing is decided.  Things to pin down with him before building: what "docking" means to him
-  (dragging panels to rearrange the grid, resizing them, hiding and showing them, popping one out into its
-  own window, or tabs like an IDE), whether a layout is remembered, and where (the browser only, or
-  Conductor saving it to `Content/`), and whether it can be done in plain JavaScript with no library, since
-  the page pulls nothing from the web.
-- **The expected services.**  The idea so far (not agreed yet, so talk it through first): a small services
-  list in `conductor-tools` next to the thread list.  Every expected service is named up front as "expected,
-  not started".  Each one reports on itself: starting, running, trouble with a reason, stopped, plus a "last
-  seen" time for the ones with a thread.  A service that never started, stopped, or hasn't checked in for a
-  few seconds flashes red on the page, and NOMINAL turns red.  What "healthy" means for each is the table in
-  `design/conductor-wgui.md`.  Open: how long "hasn't checked in" is, whether a missing disk manager shows as
-  "not built yet" or not at all, and whether the main thread gets named "main" while we're in there.
-- Run the new page: the per-core CPU chart and the memory bar.  Merged without a run.
-- Paste back `cargo build` and `cargo test`, to confirm no warnings and the test count.
-- The Windows build, when getting to that machine is less of a hassle.
+- **The disk manager.**  Jacob's pick for the next conversation.  What's known so far is in TODO.md: the
+  one place whole files get written, through a temp file and a rename, so a crash can't leave half a file.
+  Constellations' config writes and the settings-from-the-page idea both wait on it.  Once it exists it
+  reports to the services list (the name is already on the page as "not built yet") and fills the Storage
+  tab's empty panel.  Stratum had a DiskMan; Opus doesn't take its code, and its shape is Jacob's call.
+- **Archivist retrying on its own**, every 5 seconds while it's disconnected, so the page's lock lifts when
+  Postgres comes back.  Asked, not answered.
+- Build and test everything from this session and the last, and paste back `cargo build` and `cargo test`.
+  This session added tests in `services.rs`, `probe/linux.rs`, `snapshot.rs`, `json.rs` and the wgui's
+  `lib.rs`.
+- Run the page: each tab, the DB lock (stop Postgres or break the password in `postgres.cfg`), the Services
+  tab going red, and the System tab with Conductor in green.
+- The Windows build, whenever getting to that machine is less of a hassle.  The process list and the
+  threads route are new Windows code on top of the untried probe.
 - The Debug switch in `conductor_globals.cfg`, and moving the routine log lines to Debug.
 - `\dt` in psql to confirm `archivist_migrations` exists.
-- Accounts (make, check, log in), which waits on Security for Argon2.
-- The rest of Conductor's tools: the disk manager and Security.
+- Accounts, which wait on Security for Argon2.  Security itself.
 - Picking Ensemble's engine.

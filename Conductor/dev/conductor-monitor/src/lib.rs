@@ -27,13 +27,14 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use conductor_tools::scribe::{self, Channel};
+use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
 use snapshot::{Fixed, Previous};
 
 // Rust note: `pub use` hands these on, so whoever uses the monitor can
 // name a Snapshot without knowing it lives in snapshot.rs.
-pub use snapshot::{Disk, Snapshot, ThreadInUse};
+pub use snapshot::{Disk, ProcessInUse, Snapshot, ThreadInUse};
 
 /// How often the monitor looks.  Once a second is often enough for a
 /// person watching a page, and reading a few small files that often
@@ -57,8 +58,11 @@ pub fn start() {
             *lock(&MONITOR) = Some(handle);
             scribe::info(Channel::System, "The monitor is up, looking once a second.");
         }
-        Err(e) => scribe::error_with(Channel::System, &e, "The monitor couldn't start its thread.  \
-            The web admin has no numbers this run."),
+        Err(e) => {
+            scribe::error_with(Channel::System, &e, "The monitor couldn't start its thread.  \
+                The web admin has no numbers this run.");
+            services::set(services::MONITOR, State::Stopped, &format!("Couldn't start its thread: {e}"));
+        }
     }
 }
 
@@ -95,6 +99,9 @@ fn run(stopped: Receiver<()>) {
         started: Instant::now(),
     };
     scribe::debug(Channel::System, &format!("The monitor is on {}, with {} core(s).", fixed.os, fixed.cores));
+    // Said from here, not from start(), so it can't land after the "can't
+    // measure" note below and hide it.
+    services::set(services::MONITOR, State::Running, "Looking once a second.");
 
     let mut previous: Option<Previous> = None;
     let mut said_it_cant = false;
@@ -106,10 +113,15 @@ fn run(stopped: Receiver<()>) {
             scribe::info(Channel::System, &format!("The monitor can't measure anything on {} yet.  \
                 The web admin shows the database and the threads, and nothing else.", fixed.os));
             said_it_cant = true;
+            services::set(services::MONITOR, State::Running, &format!("Can't measure anything on {} yet.",
+                                                                      fixed.os));
         }
 
         let snapshot = snapshot::build(&fixed, previous.as_ref(), now, reading.as_ref());
         *lock(&LATEST) = Some(snapshot);
+        // "Still here."  If this stops for a few seconds, the page shows
+        // the monitor as stuck.
+        services::seen(services::MONITOR);
         previous = reading.map(|reading| Previous { at: now, reading });
 
         // Rust note: `recv_timeout` waits up to a second for a message.
@@ -122,4 +134,5 @@ fn run(stopped: Receiver<()>) {
     }
 
     scribe::info(Channel::System, "The monitor has stopped.");
+    services::set(services::MONITOR, State::Stopped, "Shut down.");
 }

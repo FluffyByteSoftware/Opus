@@ -15,7 +15,8 @@ down when the web admin stops.
 conductor-launcher/
 ├── Cargo.toml         depends on conductor-tools, conductor-monitor, conductor-wgui
 └── src/
-    └── main.rs        scribe::start -> constellations::load -> scribe::move_to -> archivist::start
+    └── main.rs        threads::name_this_thread("main")
+                       -> scribe::start -> constellations::load -> scribe::move_to -> archivist::start
                        -> monitor::start -> wgui::start + wgui::wait
                        -> monitor::stop -> archivist::stop
 ```

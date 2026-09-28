@@ -30,6 +30,7 @@ use super::settings::DbSettings;
 use super::status::{self, JobKind, Status};
 use super::{ArchivistError, Param, ToSql};
 use crate::scribe::{self, Channel};
+use crate::services::{self, State};
 use crate::threads;
 
 /// After a failed connect, jobs fail straight away for this long instead
@@ -78,6 +79,7 @@ pub(super) fn start(settings: DbSettings) {
         return;
     }
 
+    services::set(services::ARCHIVIST, State::Starting, "Connecting to Postgres.");
     let (sender, receiver) = mpsc::channel();
     let spawned = threads::spawn("archivist", move || run(receiver));
 
@@ -88,8 +90,11 @@ pub(super) fn start(settings: DbSettings) {
         }
         // Every job from here on comes back NotRunning.  The server keeps
         // going, it just has no database.
-        Err(e) => scribe::error_with(Channel::Database, &e, "Archivist couldn't start its thread.  \
-            There is no database this run."),
+        Err(e) => {
+            scribe::error_with(Channel::Database, &e, "Archivist couldn't start its thread.  \
+                There is no database this run.");
+            services::set(services::ARCHIVIST, State::Stopped, &format!("Couldn't start its thread: {e}"));
+        }
     }
 }
 
@@ -164,6 +169,7 @@ fn run(mailbox: Receiver<Job>) {
         link.disconnect();
         scribe::info(Channel::Database, "Archivist closed its connection to Postgres.");
     }
+    services::set(services::ARCHIVIST, State::Stopped, "Shut down.");
 }
 
 /// The connection, and what we need to make it again.
@@ -185,6 +191,8 @@ impl Link {
             self.disconnect();
             scribe::warn(Channel::Database, "Archivist lost its connection to Postgres.  \
                 It will reconnect on the next job.");
+            services::set(services::ARCHIVIST, State::Trouble, "Lost its connection to Postgres.  \
+                It reconnects on the next job.");
         }
         if self.client.is_none() {
             self.connect()?;
@@ -197,8 +205,9 @@ impl Link {
     fn connect(&mut self) -> Result<(), ArchivistError> {
         // Already in the log once, from settings::load().
         if self.settings.password.is_empty() {
-            return Err(ArchivistError::NotConnected(format!("there's no password in {}",
-                                                            super::config_path().display())));
+            let why = format!("there's no password in {}", super::config_path().display());
+            services::set(services::ARCHIVIST, State::Trouble, &format!("Can't connect: {why}."));
+            return Err(ArchivistError::NotConnected(why));
         }
         if self.failed_at.is_some_and(|failed_at| failed_at.elapsed() < RETRY_WAIT) {
             return Err(ArchivistError::NotConnected("the last try failed a moment ago".to_string()));
@@ -219,6 +228,7 @@ impl Link {
                 self.client = Some(client);
                 self.failed_at = None;
                 status::set_connected(true);
+                services::set(services::ARCHIVIST, State::Running, &format!("Connected to {where_to}"));
                 Ok(())
             }
             Err(e) => {
@@ -229,6 +239,7 @@ impl Link {
                         Jobs will fail until it can.  It tries again on the next job."));
                 }
                 self.failed_at = Some(Instant::now());
+                services::set(services::ARCHIVIST, State::Trouble, &format!("Can't connect to {where_to}: {e}"));
                 Err(ArchivistError::NotConnected(e.to_string()))
             }
         }

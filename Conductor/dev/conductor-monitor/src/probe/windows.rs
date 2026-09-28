@@ -17,6 +17,11 @@
 //!   a few thousand entries a second, which Windows does in well under a
 //!   millisecond.
 //! - `GlobalMemoryStatusEx`: the whole machine's RAM, total and available.
+//! - `CreateToolhelp32Snapshot` again, for every process on the machine
+//!   with its thread count.  Then `OpenProcess` on each for the same CPU
+//!   and memory calls as above.  Windows won't open some (its own, and
+//!   other users' when Conductor isn't an administrator), and those come
+//!   back with no numbers.
 //!
 //! Two come from ntdll, a layer under kernel32: `NtQuerySystemInformation`
 //! for how busy each core has been, which kernel32 has no call for, and
@@ -34,7 +39,7 @@
 use std::ffi::c_void;
 use std::time::Duration;
 
-use super::{CoreTimes, DiskTotals, MachineMemory, Reading, ThreadReading};
+use super::{CoreTimes, DiskTotals, MachineMemory, ProcessReading, Reading, ThreadReading};
 
 /// Windows' HANDLE: a number standing for something the OS has open.
 type Handle = *mut c_void;
@@ -42,8 +47,15 @@ type Handle = *mut c_void;
 /// What CreateToolhelp32Snapshot hands back when it fails.
 const INVALID_HANDLE: Handle = -1_isize as Handle;
 
-/// Ask CreateToolhelp32Snapshot for threads.
+/// Ask CreateToolhelp32Snapshot for processes, or for threads.
+const TH32CS_SNAPPROCESS: u32 = 0x0000_0002;
 const TH32CS_SNAPTHREAD: u32 = 0x0000_0004;
+
+/// Ask OpenProcess for just enough to read its times and memory.
+const PROCESS_QUERY_LIMITED_INFORMATION: u32 = 0x0000_1000;
+
+/// The longest path Windows' older calls hold, in UTF-16 characters.
+const MAX_PATH: usize = 260;
 
 /// Ask OpenThread for just enough to read its times.
 const THREAD_QUERY_LIMITED_INFORMATION: u32 = 0x0000_0800;
@@ -112,6 +124,44 @@ struct ThreadEntry {
     _flags: u32,
 }
 
+/// Windows' PROCESSENTRY32W.
+#[repr(C)]
+struct ProcessEntry {
+    _size: u32,
+    _usage: u32,
+    process_id: u32,
+    _default_heap_id: usize,
+    _module_id: u32,
+    thread_count: u32,
+    _parent_process_id: u32,
+    _base_priority: i32,
+    _flags: u32,
+    exe_file: [u16; MAX_PATH],
+}
+
+impl ProcessEntry {
+    fn new() -> ProcessEntry {
+        ProcessEntry {
+            _size: size_of::<ProcessEntry>() as u32,
+            _usage: 0,
+            process_id: 0,
+            _default_heap_id: 0,
+            _module_id: 0,
+            thread_count: 0,
+            _parent_process_id: 0,
+            _base_priority: 0,
+            _flags: 0,
+            exe_file: [0; MAX_PATH],
+        }
+    }
+
+    /// The program's file name, "notepad.exe".  Windows ends it with a 0.
+    fn name(&self) -> String {
+        let end = self.exe_file.iter().position(|&c| c == 0).unwrap_or(MAX_PATH);
+        String::from_utf16_lossy(&self.exe_file[..end])
+    }
+}
+
 /// Windows' MEMORYSTATUSEX.
 #[repr(C)]
 struct MemoryStatus {
@@ -166,6 +216,9 @@ unsafe extern "system" {
     fn K32GetProcessMemoryInfo(process: Handle, counters: *mut MemoryCounters, size: u32) -> i32;
     fn GetProcessIoCounters(process: Handle, counters: *mut IoCounters) -> i32;
     fn CreateToolhelp32Snapshot(flags: u32, process_id: u32) -> Handle;
+    fn Process32FirstW(snapshot: Handle, entry: *mut ProcessEntry) -> i32;
+    fn Process32NextW(snapshot: Handle, entry: *mut ProcessEntry) -> i32;
+    fn OpenProcess(access: u32, inherit: i32, process_id: u32) -> Handle;
     fn Thread32First(snapshot: Handle, entry: *mut ThreadEntry) -> i32;
     fn Thread32Next(snapshot: Handle, entry: *mut ThreadEntry) -> i32;
     fn OpenThread(access: u32, inherit: i32, thread_id: u32) -> Handle;
@@ -192,21 +245,8 @@ unsafe extern "system" {
 /// memory, which shouldn't happen for our own process.
 pub fn read() -> Option<Reading> {
     let process = GetCurrentProcess();
-
-    let mut creation = FileTime::default();
-    let mut exit = FileTime::default();
-    let mut kernel = FileTime::default();
-    let mut user = FileTime::default();
-    let ok = unsafe { GetProcessTimes(process, &mut creation, &mut exit, &mut kernel, &mut user) };
-    if ok == 0 {
-        return None;
-    }
-
-    let mut memory = MemoryCounters { _size: size_of::<MemoryCounters>() as u32, ..Default::default() };
-    let ok = unsafe { K32GetProcessMemoryInfo(process, &mut memory, size_of::<MemoryCounters>() as u32) };
-    if ok == 0 {
-        return None;
-    }
+    let cpu_time = process_cpu_time(process)?;
+    let memory_bytes = process_memory(process)?;
 
     let mut io = IoCounters::default();
     let disk = match unsafe { GetProcessIoCounters(process, &mut io) } {
@@ -215,13 +255,22 @@ pub fn read() -> Option<Reading> {
     };
 
     Some(Reading {
-        cpu_time: kernel.duration() + user.duration(),
-        memory_bytes: memory.working_set as u64,
+        cpu_time,
+        memory_bytes,
         disk,
-        threads: read_threads(),
+        threads: threads_for(GetCurrentProcessId()),
         cores: read_cores(),
         machine_memory: read_machine_memory(),
+        processes: read_processes(),
     })
+}
+
+/// The threads of process `pid`.  `None` if it's gone, or none of its
+/// threads would open.  One that won't open is left out, so this can be
+/// fewer than the process's thread count.
+pub fn threads_of(pid: u32) -> Option<Vec<ThreadReading>> {
+    let threads = threads_for(pid);
+    (!threads.is_empty()).then_some(threads)
 }
 
 /// Something like "Windows 11 (10.0, build 22631)".
@@ -248,20 +297,19 @@ pub fn os_name() -> String {
     format!("{name} ({}.{}, build {})", info.major, info.minor, info.build)
 }
 
-/// Our threads, each with its CPU time.  A thread that ends or won't open
-/// between the list and the asking is skipped.
-fn read_threads() -> Vec<ThreadReading> {
+/// Process `pid`'s threads, each with its CPU time.  A thread that ends or
+/// won't open between the list and the asking is skipped.
+fn threads_for(pid: u32) -> Vec<ThreadReading> {
     let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0) };
     if snapshot == INVALID_HANDLE || snapshot.is_null() {
         return Vec::new();
     }
 
-    let our_id = GetCurrentProcessId();
     let mut threads = Vec::new();
     let mut entry = ThreadEntry { _size: size_of::<ThreadEntry>() as u32, ..Default::default() };
     let mut more = unsafe { Thread32First(snapshot, &mut entry) } != 0;
     while more {
-        if entry.owner_process_id == our_id {
+        if entry.owner_process_id == pid {
             if let Some(cpu_time) = thread_cpu_time(entry.thread_id) {
                 threads.push(ThreadReading { os_id: u64::from(entry.thread_id), name: None, cpu_time });
             }
@@ -272,6 +320,63 @@ fn read_threads() -> Vec<ThreadReading> {
 
     threads.sort_by_key(|thread| thread.os_id);
     threads
+}
+
+/// Every process on the machine, with the numbers Windows lets us read.
+fn read_processes() -> Vec<ProcessReading> {
+    let snapshot = unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) };
+    if snapshot == INVALID_HANDLE || snapshot.is_null() {
+        return Vec::new();
+    }
+
+    let mut processes = Vec::new();
+    let mut entry = ProcessEntry::new();
+    let mut more = unsafe { Process32FirstW(snapshot, &mut entry) } != 0;
+    while more {
+        // Process 0 is the "System Idle Process": the time nothing was
+        // running, not a program.
+        if entry.process_id != 0 {
+            let (cpu_time, memory_bytes) = process_numbers(entry.process_id);
+            processes.push(ProcessReading {
+                pid: entry.process_id,
+                name: entry.name(),
+                cpu_time,
+                memory_bytes,
+                threads: Some(entry.thread_count),
+            });
+        }
+        more = unsafe { Process32NextW(snapshot, &mut entry) } != 0;
+    }
+    unsafe { CloseHandle(snapshot) };
+    processes
+}
+
+/// Another process's CPU time and memory, if Windows lets us open it.
+fn process_numbers(pid: u32) -> (Option<Duration>, Option<u64>) {
+    let process = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid) };
+    if process.is_null() {
+        return (None, None);
+    }
+    let numbers = (process_cpu_time(process), process_memory(process));
+    unsafe { CloseHandle(process) };
+    numbers
+}
+
+/// CPU time used by every thread of an open process.
+fn process_cpu_time(process: Handle) -> Option<Duration> {
+    let mut creation = FileTime::default();
+    let mut exit = FileTime::default();
+    let mut kernel = FileTime::default();
+    let mut user = FileTime::default();
+    let ok = unsafe { GetProcessTimes(process, &mut creation, &mut exit, &mut kernel, &mut user) };
+    (ok != 0).then(|| kernel.duration() + user.duration())
+}
+
+/// The working set of an open process: its memory actually in RAM.
+fn process_memory(process: Handle) -> Option<u64> {
+    let mut memory = MemoryCounters { _size: size_of::<MemoryCounters>() as u32, ..Default::default() };
+    let ok = unsafe { K32GetProcessMemoryInfo(process, &mut memory, size_of::<MemoryCounters>() as u32) };
+    (ok != 0).then_some(memory.working_set as u64)
 }
 
 /// Each core's busy and total time.  Empty if Windows won't say.
@@ -347,5 +452,11 @@ mod tests {
         assert!(!reading.threads.is_empty());
         assert!(!reading.cores.is_empty());
         assert!(reading.machine_memory.is_some());
+        assert!(reading.processes.iter().any(|process| process.pid == GetCurrentProcessId()));
+    }
+
+    #[test]
+    fn another_process_can_be_asked_for_its_threads() {
+        assert!(threads_of(GetCurrentProcessId()).is_some_and(|threads| !threads.is_empty()));
     }
 }

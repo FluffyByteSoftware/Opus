@@ -4,9 +4,9 @@
 //!
 //! One raw look at the process, straight from the OS: CPU time used so
 //! far, memory, bytes read and written, and every thread with its own CPU
-//! time.  Plus two things about the whole machine: how busy each core has
-//! been, and how much RAM it has and how much of that is free.  Totals
-//! only.  Turning two looks a second apart into a percent or a speed is
+//! time.  Plus three things about the whole machine: how busy each core has
+//! been, how much RAM it has and how much of that is free, and every
+//! process running on it.  Totals only.  Turning two looks a second apart into a percent or a speed is
 //! `snapshot.rs`'s job.
 //!
 //! Every OS keeps these numbers somewhere different, so there is a file
@@ -14,6 +14,11 @@
 //! kernel32, and `probe/other.rs` is for anything else (macOS, for now),
 //! where `read()` says it can't.  Only the one for the OS being built for
 //! is compiled, and all three hand back the same `Reading`.
+//!
+//! `threads_of(pid)` is the one thing asked for on its own: the threads of
+//! one other process, for when the admin clicks it on the page.  Every
+//! process's threads every second would be thousands of them, for a list
+//! nobody is looking at.
 
 use std::time::Duration;
 
@@ -23,17 +28,17 @@ use std::time::Duration;
 #[cfg(target_os = "linux")]
 mod linux;
 #[cfg(target_os = "linux")]
-pub use linux::{os_name, read};
+pub use linux::{os_name, read, threads_of};
 
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use windows::{os_name, read};
+pub use windows::{os_name, read, threads_of};
 
 #[cfg(not(any(target_os = "linux", windows)))]
 mod other;
 #[cfg(not(any(target_os = "linux", windows)))]
-pub use other::{os_name, read};
+pub use other::{os_name, read, threads_of};
 
 /// One look at the process.  Everything is a running total since the
 /// process started.
@@ -52,6 +57,25 @@ pub struct Reading {
     pub cores: Vec<CoreTimes>,
     /// The machine's RAM.  `None` when the OS won't say.
     pub machine_memory: Option<MachineMemory>,
+    /// Every process on the machine we're allowed to see, Conductor
+    /// included.  Empty when the OS won't list them.
+    pub processes: Vec<ProcessReading>,
+}
+
+/// One process on the machine, as the OS sees it.  A process run by
+/// another user (or the OS itself) can be listed without letting us read
+/// its numbers, and those are `None`.
+#[derive(Debug, Clone)]
+pub struct ProcessReading {
+    pub pid: u32,
+    /// The program's name.  Linux cuts it to 15 characters.
+    pub name: String,
+    /// CPU time used by all its threads since it started.
+    pub cpu_time: Option<Duration>,
+    /// Memory actually in RAM.
+    pub memory_bytes: Option<u64>,
+    /// How many threads it has.
+    pub threads: Option<u32>,
 }
 
 /// One core's running totals: time spent busy, and time in all.  The unit

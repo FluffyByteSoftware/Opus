@@ -19,23 +19,46 @@
 //!                "threads_in_use": [ { "os_id", "name", "ours", "core_percent", "cpu_ms" } ],
 //!                "threads_asked_for": [ { "name", "started_by", "started_at", "os_id", "running" } ],
 //!                "database": { "running", "connected", "waiting", "jobs_done", "reads", "writes",
-//!                              "other", "slow_jobs", "slowest_ms", "recent_slow": [ ... ] } },
+//!                              "other", "slow_jobs", "slowest_ms", "recent_slow": [ ... ] },
+//!                "processes": [ { "pid", "name", "ours", "cpu_percent", "memory_bytes", "threads" } ] },
+//!   "services": [ { "name": "Archivist", "state": "running", "note": "...", "since": "...Z",
+//!                   "seen_seconds_ago": 0.42, "healthy": true } ],
 //!   "log": { "file": "...", "lines": [ { "number": 12, "priority": "Info", "text": "..." } ] } }
 //! ```
 //!
 //! Anything that couldn't be measured is `null`, and `monitor` itself is
-//! `null` for the second before its first look.
+//! `null` for the second before its first look.  `services` comes straight
+//! from the services list, not from the monitor, so it still tells the
+//! truth if the monitor has died.  `state` is expected, starting, running,
+//! trouble or stopped; `since` is `null` while a service is still expected,
+//! and `seen_seconds_ago` is `null` for one that doesn't check in.
+//! `processes` is busiest first, and a process the OS won't let us read
+//! has `null` for its numbers.
+//!
+//! `/Opus/threads?pid=N` has an answer of its own, one process's threads:
+//!
+//! ```text
+//! { "pid": 1234, "visible": true, "threads": [ { "os_id", "name", "cpu_ms" } ] }
+//! ```
+//!
+//! `visible` is false, with no threads, when the process is gone or the OS
+//! won't let us look.  There's no percent in it: the page asks once a
+//! second and works that out from two answers.
 
 use std::path::Path;
 
-use conductor_monitor::probe::MachineMemory;
-use conductor_monitor::{Disk, Snapshot, ThreadInUse};
+use conductor_monitor::probe::{MachineMemory, ThreadReading};
+use conductor_monitor::{Disk, ProcessInUse, Snapshot, ThreadInUse};
 use conductor_tools::archivist::{SlowJob, Status};
 use conductor_tools::scribe::RecentLine;
+use conductor_tools::services::Service;
 use conductor_tools::threads::ThreadRecord;
 
 /// The whole answer to `/Opus/status`.
-pub(crate) fn status(snapshot: Option<&Snapshot>, lines: &[RecentLine], log_file: Option<&Path>) -> String {
+pub(crate) fn status(snapshot: Option<&Snapshot>,
+                     services: &[Service],
+                     lines: &[RecentLine],
+                     log_file: Option<&Path>) -> String {
     let log = Object::new()
         .raw("file", log_file.map_or_else(null, |path| text(&path.display().to_string())))
         .raw("lines", array(lines.iter().map(line)))
@@ -43,6 +66,7 @@ pub(crate) fn status(snapshot: Option<&Snapshot>, lines: &[RecentLine], log_file
 
     Object::new()
         .raw("monitor", snapshot.map_or_else(null, monitor))
+        .raw("services", array(services.iter().map(service)))
         .raw("log", log)
         .done()
 }
@@ -63,6 +87,36 @@ fn monitor(snapshot: &Snapshot) -> String {
         .raw("threads_in_use", array(snapshot.threads_in_use.iter().map(thread_in_use)))
         .raw("threads_asked_for", array(snapshot.threads_asked_for.iter().map(thread_asked_for)))
         .raw("database", database(&snapshot.database))
+        .raw("processes", array(snapshot.processes.iter().map(process)))
+        .done()
+}
+
+/// The whole answer to `/Opus/threads?pid=N`.  `None` for a process we
+/// can't see.
+pub(crate) fn threads_of(pid: u32, threads: Option<&[ThreadReading]>) -> String {
+    Object::new()
+        .whole("pid", u64::from(pid))
+        .flag("visible", threads.is_some())
+        .raw("threads", array(threads.unwrap_or_default().iter().map(thread_reading)))
+        .done()
+}
+
+fn process(process: &ProcessInUse) -> String {
+    Object::new()
+        .whole("pid", u64::from(process.pid))
+        .text("name", &process.name)
+        .flag("ours", process.ours)
+        .raw("cpu_percent", decimal(process.cpu_percent))
+        .raw("memory_bytes", process.memory_bytes.map_or_else(null, |bytes| bytes.to_string()))
+        .raw("threads", process.threads.map_or_else(null, |count| count.to_string()))
+        .done()
+}
+
+fn thread_reading(thread: &ThreadReading) -> String {
+    Object::new()
+        .whole("os_id", thread.os_id)
+        .raw("name", thread.name.as_deref().map_or_else(null, text))
+        .whole("cpu_ms", thread.cpu_time.as_millis() as u64)
         .done()
 }
 
@@ -123,6 +177,17 @@ fn slow_job(job: &SlowJob) -> String {
         .text("label", &job.label)
         .whole("ran_ms", job.ran_for.as_millis() as u64)
         .whole("waited_ms", job.waited.as_millis() as u64)
+        .done()
+}
+
+fn service(service: &Service) -> String {
+    Object::new()
+        .text("name", service.name)
+        .text("state", &service.state.to_string())
+        .text("note", &service.note)
+        .raw("since", service.since.map_or_else(null, |since| text(&since.line_stamp())))
+        .raw("seen_seconds_ago", decimal(service.seen_ago.map(|ago| ago.as_secs_f64())))
+        .flag("healthy", service.healthy())
         .done()
 }
 
@@ -241,7 +306,13 @@ mod tests {
     }
 
     #[test]
+    fn a_process_we_cant_see_has_no_threads() {
+        assert_eq!(threads_of(7, None), "{\"pid\":7,\"visible\":false,\"threads\":[]}");
+    }
+
+    #[test]
     fn before_the_first_look_the_monitor_is_null() {
-        assert_eq!(status(None, &[], None), "{\"monitor\":null,\"log\":{\"file\":null,\"lines\":[]}}");
+        assert_eq!(status(None, &[], &[], None),
+                   "{\"monitor\":null,\"services\":[],\"log\":{\"file\":null,\"lines\":[]}}");
     }
 }

@@ -14,8 +14,10 @@
 //! What it answers:
 //!
 //! - `GET /Opus` -- the page (`page.html`, baked in).  `/` sends you there.
-//! - `GET /Opus/status?after=N` -- the monitor's latest look and Scribe's
-//!   lines after line N, as JSON.  The page asks once a second.
+//! - `GET /Opus/status?after=N` -- the monitor's latest look, the services,
+//!   and Scribe's lines after line N, as JSON.  The page asks once a second.
+//! - `GET /Opus/threads?pid=N` -- one process's threads, for when the admin
+//!   clicks it on the System tab.  It only reads, like the status.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -37,6 +39,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use conductor_tools::scribe::{self, Channel};
+use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
 use http::Request;
@@ -60,6 +63,7 @@ pub fn start(port: u16) -> bool {
         Err(e) => {
             scribe::error_with(Channel::System, &e, &format!("THE WEB ADMIN CAN'T LISTEN ON 127.0.0.1:{port}.  \
                 Something else probably has the port.  Stop it, or change wgui_port in conductor_globals.cfg."));
+            services::set(services::WEB_ADMIN, State::Stopped, &format!("Can't listen on 127.0.0.1:{port}: {e}"));
             return false;
         }
     };
@@ -70,10 +74,12 @@ pub fn start(port: u16) -> bool {
                 .unwrap_or_else(|poisoned| poisoned.into_inner());
             *guard = Some(handle);
             scribe::info(Channel::System, &format!("The web admin is up at http://127.0.0.1:{port}/Opus"));
+            services::set(services::WEB_ADMIN, State::Running, &format!("At http://127.0.0.1:{port}/Opus"));
             true
         }
         Err(e) => {
             scribe::error_with(Channel::System, &e, "The web admin couldn't start its thread.");
+            services::set(services::WEB_ADMIN, State::Stopped, &format!("Couldn't start its thread: {e}"));
             false
         }
     }
@@ -121,6 +127,7 @@ fn serve(listener: TcpListener, port: u16) {
         }
     }
     scribe::info(Channel::System, "The web admin has stopped.");
+    services::set(services::WEB_ADMIN, State::Stopped, "Shut down.");
 }
 
 /// Reads one request and answers it.
@@ -182,9 +189,17 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             let after = request.query_value("after").and_then(|after| after.parse().ok()).unwrap_or(0);
             let log_file = scribe::current_file();
             let body = json::status(conductor_monitor::latest().as_ref(),
+                                    &services::list(),
                                     &scribe::recent_lines(after),
                                     log_file.as_deref());
             (Answer::new("200 OK", "application/json", body), Next::KeepGoing)
+        }
+        ("GET", "/Opus/threads") => {
+            let Some(pid) = request.query_value("pid").and_then(|pid| pid.parse::<u32>().ok()) else {
+                return (Answer::plain("400 Bad Request", "Which process?  /Opus/threads?pid=N"), Next::KeepGoing);
+            };
+            let threads = conductor_monitor::probe::threads_of(pid);
+            (Answer::new("200 OK", "application/json", json::threads_of(pid, threads.as_deref())), Next::KeepGoing)
         }
         ("POST", "/Opus/shutdown") => {
             if request.header("x-opus") != Some("shut-down") {
@@ -195,7 +210,8 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             scribe::info(Channel::System, "Shut down from the web admin.");
             (Answer::new("200 OK", "application/json", "{\"shutting_down\":true}"), Next::ShutDown)
         }
-        (_, "/") | (_, "/Opus") | (_, "/Opus/") | (_, "/Opus/status") | (_, "/Opus/shutdown") => {
+        (_, "/") | (_, "/Opus") | (_, "/Opus/") | (_, "/Opus/status") | (_, "/Opus/threads")
+        | (_, "/Opus/shutdown") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
         _ => (Answer::plain("404 Not Found", "There's nothing here."), Next::KeepGoing),
@@ -256,6 +272,19 @@ mod tests {
 
         let (answer, _) = route(&request("GET", "/nope", &[HOST]), 9996);
         assert_eq!(answer.status, "404 Not Found");
+    }
+
+    #[test]
+    fn a_process_is_asked_for_by_its_number() {
+        let mut asking = request("GET", "/Opus/threads", &[HOST]);
+        asking.query = format!("pid={}", std::process::id());
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "200 OK");
+        assert!(answer.body.starts_with(format!("{{\"pid\":{},", std::process::id()).as_bytes()));
+
+        asking.query = "pid=nope".to_string();
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "400 Bad Request");
     }
 
     #[test]

@@ -12,10 +12,13 @@
 // crates, and the `use` lines reach into them.  The crates are called
 // conductor-tools and so on in Cargo.toml, and Rust spells them with an
 // underscore in code, since a `-` would read as a minus sign.
-use conductor_tools::{archivist, constellations};
+use conductor_tools::{archivist, constellations, threads};
 use conductor_tools::scribe::{self, Channel};
 
 fn main() {
+    // On the thread list as "main", like every thread we start.
+    threads::name_this_thread("main");
+
     // Scribe first, so everything after it has somewhere to complain.  The
     // config isn't loaded yet, so it starts on the default log folder.
     scribe::start(&constellations::log_dir());
