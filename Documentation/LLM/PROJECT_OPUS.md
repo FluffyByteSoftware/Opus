@@ -52,8 +52,8 @@ Opus/
 |--------------------|------------------------------------------------------|-----------------------------|---------------------------|
 | Conductor          | The server.  Authoritative: it owns the game state.  | `Conductor/`                | Tools and launcher only   |
 | Ensemble           | The client players run.                              | `Ensemble/`                 | Not started, engine unpicked |
-| conductor-tools    | Lib crate: the tools the rest of the server uses.    | `Conductor/dev/conductor-tools/`    | Written, split unbuilt |
-| conductor-launcher | Bin crate: the program and the admin's menu.         | `Conductor/dev/conductor-launcher/` | Written, unbuilt   |
-| Scribe             | The log.                                             | `conductor-tools/src/scribe.rs`         | Written, split unbuilt |
-| Constellations     | The config file and the settings it holds.           | `conductor-tools/src/constellations.rs` | Written, split unbuilt |
+| conductor-tools    | Lib crate: the tools the rest of the server uses.    | `Conductor/dev/conductor-tools/`    | Built and tested |
+| conductor-launcher | Bin crate: the program and the admin's menu.         | `Conductor/dev/conductor-launcher/` | Built and tested   |
+| Scribe             | The log.                                             | `conductor-tools/src/scribe.rs`         | Built and tested |
+| Constellations     | The config file and the settings it holds.           | `conductor-tools/src/constellations.rs` | Built and tested |
 | The clock          | UTC date and time.                                   | `conductor-tools/src/clock.rs`          | Built and tested    |

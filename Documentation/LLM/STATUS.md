@@ -13,9 +13,9 @@ crates: `conductor-tools` (lib: Scribe, Constellations, the clock) and `conducto
 tools and runs the admin's menu).  The menu has L to view the log and Q to shut down, and that's all.
 Ensemble hasn't been started.
 
-**The workspace split hasn't been built yet.**  Everything before it built and passed its 7 tests on Jacob's
-machine.  The split, the Scribe and Constellations changes, and the launcher were written after that, and
-the first `cargo build` / `cargo test` on them is still to come.
+All of it builds with no warnings, and all 19 tests pass on Jacob's machine (12 in the tools, 7 in the
+launcher).  `cargo run -p conductor-launcher` showed the menu, kept the log off the terminal, and L read the
+day's log back with the new `Caller:` paths.
 
 ## Last session -- 2026-09-28
 
@@ -36,7 +36,7 @@ What we did:
 - Built and tested that first version on Jacob's machine: 7 tests passed, and `cargo run` found the real
   `Content/` folder by walking up from `Conductor/dev`.
 - Then split it into the workspace, made Scribe write to the file only, and added the launcher with its
-  view-log command.  This part is unbuilt (see above).
+  view-log command.  Built, tested and run on Jacob's machine.
 
 What fought back:
 
@@ -44,7 +44,8 @@ What fought back:
   branch), and the pull request had a conflict.  It was merged with `Content/` kept, so the whole folder is
   ignored.
 - Commits from the session got blocked by a permission prompt at first, so the work sat uncommitted until
-  Jacob asked how to pull it.
+  Jacob asked how to pull it.  Pulling a session branch took a minute to figure out too.  The commands are
+  in "What's waiting".
 
 What Jacob decided:
 
@@ -63,7 +64,10 @@ What Jacob decided:
 
 ## What's waiting
 
-- The first build and test of the workspace split and the launcher.
+- Merging this session's branch, `claude/tone-communication-style-z5v1au`, into `main` (open a pull request
+  on GitHub and merge it, then `git checkout main` and `git pull origin main`).  To try a session branch
+  before merging: `git fetch origin <branch>` then `git checkout <branch>`.
+- Not tried yet: the bad-value, unknown-key and lost-log-file checks from the hand-back message.
 - The rest of Conductor's tools: the disk manager and Security.
 - PostgreSQL, once a crate is OK'd.
 - Picking Ensemble's engine.
