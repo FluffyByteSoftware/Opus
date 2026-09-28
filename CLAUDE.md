@@ -45,15 +45,19 @@ Opus/
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
-│   │   ├── conductor-tools/    # lib: Scribe, Constellations, the clock
+│   │   ├── conductor-tools/    # lib: Scribe, Constellations, Archivist, the clock
 │   │   └── conductor-launcher/ # bin: the program -- starts the tools, runs the admin menu
 │   └── build/             # compiled output -- never committed
 ├── Ensemble/              # client
 │   ├── dev/               # source code (the engine project lives here)
 │   └── build/             # compiled output -- never committed
-├── Content/               # runtime data both programs read and write -- never committed
-│   ├── cfg/               # config files (conductor_globals.cfg lives here)
-│   └── logs/              # log files
+├── Content/               # data both programs read and write -- committed, except Assets/ and logs/
+│   ├── Assets/            # purchased art -- never committed
+│   ├── cfg/               # config files (conductor_globals.cfg, postgres.cfg)
+│   ├── logs/              # log files -- never committed
+│   └── psql/
+│       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
+│       └── migrations/    # every change to a table after that, numbered
 └── Documentation/
     └── LLM/               # working docs
         ├── STATUS.md      # bridge between sessions
@@ -70,12 +74,12 @@ what the compiler makes. Runtime data for both components lives in one shared
 named so it's clear who owns them (`conductor_globals.cfg`, `*.scribe.log`).
 Don't create new top-level folders without asking me.
 
-Because `Content/` is never committed, a fresh checkout has no `Content/` folder
-at all. Programs must create it and any file they need there (config, logs,
-saves) with sensible defaults when it's missing, and never crash because it's
-absent. Conductor finds it through the `OPUS_CONTENT` environment variable, or
-by walking up from the working directory until it sees a `Content/` folder, or
-by creating `./Content` when neither works.
+`Content/` is committed, except `Content/Assets/` (the purchased art) and
+`Content/logs/`. Even so, programs must create it and any file they need there
+(config, logs, saves, schemas) with sensible defaults when it's missing, and
+never crash because it's absent. Conductor finds it through the `OPUS_CONTENT`
+environment variable, or by walking up from the working directory until it sees
+a `Content/` folder, or by creating `./Content` when neither works.
 
 ---
 
@@ -83,9 +87,9 @@ by creating `./Content` when neither works.
 
 1. Read `Documentation/LLM/STATUS.md`, `Documentation/LLM/PROJECT_OPUS.md`, and `Documentation/LLM/TODO.md` to get
    your bearings. Read anything in `Documentation/LLM/design/` that touches today's work.
-2. Re-read any source file before editing it. I hand-edit files between sessions,
-   and my edits are the master copy. Never overwrite my changes with an older
-   version from memory.
+2. Re-read any source file before editing it. I sometimes hand-edit files
+   between sessions, and my edits are the master copy. Never overwrite my
+   changes with an older version from memory.
 3. Tell me in a couple of lines where things stand, then ask what I want to work on.
 
 ## During a session
@@ -97,11 +101,13 @@ by creating `./Content` when neither works.
 - **Things that can't be done yet** (because a dependency isn't built) go in
   `Documentation/LLM/TODO.md`, not half-implemented in code.
 - **Future ideas** that come up in conversation also go in `Documentation/LLM/TODO.md`.
+- **I'm hands-off on the files in `Opus/`.** You make every edit, CLAUDE.md
+  included. Don't hand me a list of changes to make by hand; make them and tell
+  me what changed.
 - **I build, run, and test everything myself** and paste back the output.
   Do not run `cargo check`, `cargo build`, `cargo test`, the server, or the
   client. Stick to writing the code. When it's written, put your questions at
-  the top of the reply, then tell me what I need to modify by hand (if
-  anything) and exactly which commands to run. I paste back what happens and
+  the top of the reply, then tell me exactly which commands to run. I paste back what happens and
   we go from there.
 - Do not predict or number future sessions ("next session is X, then Y").
   I pick what to open next and I'm free to change my mind.
@@ -116,7 +122,8 @@ When I say we're wrapping up:
 2. Update `Documentation/LLM/TODO.md`, `Documentation/LLM/PROJECT_OPUS.md`, and any `Documentation/LLM/design/`
    files the session changed, so they match reality.
 3. Update `README.md` if anything about the project's overview changed.
-4. Suggest any additions to this CLAUDE.md based on how the session went.
+4. Update this CLAUDE.md with anything the session taught us, and tell me what
+   changed.
 5. Make no code changes during hand-off unless there's a glaring bug, and if so,
    tell me first.
 
@@ -138,6 +145,12 @@ When I say we're wrapping up:
 - Simple and readable over clever. If there's a clever way and a plain way, use
   the plain way.
 - **All time is UTC.** Any time shown to a person ends with `Z`.
+- **Most log lines are Debug.** Routine things (loaded a file, connected, ran
+  the schemas, a job finished) go to Scribe as Debug. Info is for the few
+  milestones an admin cares about (starting, shutting down, a service coming up
+  or going down). Warn and Error are for things that are actually wrong. A
+  switch in the config turns Debug lines off, so a finished server's log reads
+  clean instead of chatty.
 - Ask before adding any new dependency (crate, package, plugin). Minimal
   dependencies is the default.
 - No references to AI, Claude, or assistants anywhere in source code, comments,
@@ -177,7 +190,8 @@ When I say we're wrapping up:
   ```
   The only files without a header are ones that can't hold comments or that a
   tool generates and rewrites: JSON, Unity's `.meta` / `.unity` / `.asset` /
-  `.prefab` files, lock files, and anything under `build/` or `Content/`.
+  `.prefab` files, lock files, and anything under `build/` or `Content/` (the
+  schema files and configs in `Content/` included).
 
 ## Rust rules (Conductor)
 
@@ -188,7 +202,10 @@ When I say we're wrapping up:
 - Prefer clear ownership and simple types over heavy generics or macros.
 - `conductor-launcher` is the program. New server pieces (networking, the game)
   are lib crates that the launcher starts, not programs of their own.
-- [FILL IN any tick rate / threading rules, e.g. "fixed 50 ms tick"]
+- Anything that can be slow (database, disk, network) runs on its own thread,
+  and callers get the answer back later (Archivist's `Pending`). The game loop
+  never waits on it. No async runtime.
+- [FILL IN the tick rate once there is a game loop]
 
 ## Database (Conductor)
 
@@ -199,14 +216,26 @@ When I say we're wrapping up:
   with password auth (`scram-sha-256`).
 - **Tables are created as `opus_game`**, so the server owns them. `seliris`
   owns the database itself but should not own game tables.
-- Never hardcode the password in source. Ask me how Conductor should get its
-  connection string before wiring it up.
-- No Postgres crate is chosen yet. Ask before adding one.
+- Never hardcode the password in source. Archivist (in `conductor-tools`)
+  reads the address, port, database, username and password from
+  `Content/cfg/postgres.cfg`. That file is committed on purpose: the password
+  is a placeholder and Postgres only listens on this machine.
+- The Postgres crate is `postgres` (the blocking client). Archivist runs it on
+  its own thread so it never blocks the rest of the server. Ask before adding
+  any other database crate.
 - Do not run `psql`, migrations, or anything that touches the live database,
   and never edit Postgres's own config (`pg_hba.conf`, `postgresql.conf`).
   Write the SQL; I run it and paste back the output.
-- Ask me where schema/migration SQL files should live before creating a
-  folder for them.
+- Default schemas live in `Content/psql/defaults/schemas/`, one `.sql` file
+  per table. They only `CREATE ... IF NOT EXISTS`, and Archivist runs them on
+  every connect. Each one is also baked into Conductor with `include_str!`
+  (listed in `DEFAULT_SCHEMAS` in `archivist/schemas.rs`) so a missing file gets
+  written back out.
+- **A schema file is frozen once its table exists.** Every change after that
+  is a migration in `Content/psql/migrations/`, named `0001_what_it_does.sql`.
+  Archivist runs each one exactly once, in number order, in a transaction, and
+  records it in the `archivist_migrations` table. Never edit a migration that
+  has already run; write a new one.
 
 ## Client rules (Ensemble)
 
@@ -217,13 +246,16 @@ When I say we're wrapping up:
 ## Git rules
 
 - **Each session's work goes on its own branch** and reaches `main` through a
-  pull request that I open and merge. You may commit and push to that session
-  branch. Never push to `main`, and never merge a pull request yourself.
+  pull request. You may commit and push to that session branch. When I say to
+  merge, open the pull request and merge it yourself. Never push straight to
+  `main`, and never merge without me saying so.
+- If I've pushed to the session branch from my machine, fetch and merge it
+  before pushing. Never rebase or force-push over my commits.
 - The whole `Opus/` folder is one **private** repo: code, docs, and assets.
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
-- Never commit build output, runtime data, or engine caches: both `build/`
-  folders, `Content/`, Rust `target/`, Unity `Library/` `Temp/`
+- Never commit build output, logs, purchased art, or engine caches: both
+  `build/` folders, `Content/Assets/`, `Content/logs/`, Rust `target/`, Unity `Library/` `Temp/`
   `Obj/` `Logs/`, Godot `.godot/`. If something like that
   shows up in `git status`, tell me and suggest a `.gitignore` line.
 - Large binary assets (models, textures, audio, `.blend`, `.unitypackage`) go

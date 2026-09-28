@@ -9,8 +9,13 @@
 Conductor/build/
 Ensemble/build/
 
-# Runtime data (configs, logs, saves) -- programs recreate these
-Content/
+# Content/ is committed: the configs and the default schemas live there.
+# The configs hold a placeholder database password, and Postgres only
+# listens on this machine, so that's fine.  The logs stay out, since they
+# change every run.  Content/Assets/ is the purchased art, which stays out
+# for now.
+Content/Assets/
+Content/logs/
 
 # Rust, in case target/ ever lands in dev/
 **/target/

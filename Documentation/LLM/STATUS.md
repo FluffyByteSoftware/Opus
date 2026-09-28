@@ -8,66 +8,72 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor has its first tools and a program to run them.  `Conductor/dev/` is a Cargo workspace with two
-crates: `conductor-tools` (lib: Scribe, Constellations, the clock) and `conductor-launcher` (bin: starts the
-tools and runs the admin's menu).  The menu has L to view the log and Q to shut down, and that's all.
-Ensemble hasn't been started.
+Conductor has four tools and a program to run them.  `conductor-tools` (lib) holds Scribe, Constellations,
+Archivist and the clock; `conductor-launcher` (bin) starts them and runs the admin's text menu (L and Q).
+Archivist talks to PostgreSQL 18 on localhost and makes the `accounts` table on its own.  Ensemble hasn't
+been started.
 
-All of it builds with no warnings, and all 19 tests pass on Jacob's machine (12 in the tools, 7 in the
-launcher).  `cargo run -p conductor-launcher` showed the menu, kept the log off the terminal, and L read the
-day's log back with the new `Caller:` paths.
+All of it builds with no warnings, and all 32 tests pass on Jacob's machine (25 in the tools, 7 in the
+launcher).  A run connected to `opusdb` as `opus_game`, read the server version back, ran the accounts
+schema, and added the new settings to `postgres.cfg`.  `\d accounts` in psql matched the design exactly.
 
 ## Last session -- 2026-09-28
 
-The first real session.  We set up the docs and wrote Conductor's first tools.
+Archivist, the database.
 
 What we did:
 
-- Put the file headers on the docs and the git dotfiles.
-- Wrote Scribe, the log.  Every line looks like
-  `[ 02:16:43 PM - 09-28-26 Z ] - [ System / Info ] - [ message ] [ Caller: file, Line: n ]`, goes to a file
-  named for the UTC date in `Content/logs/`, and rolls to a new file at midnight UTC.  An error value can be
-  passed along with the message (`error_with()` and friends) and it prints in front, the way `ex.Message`
-  did in the C# version.
-- Wrote Constellations, the config.  It reads `Content/cfg/conductor_globals.cfg`, writes one with the
-  defaults if it's missing, and holds the settings in a checked struct.  A bad line is a Warn in the log
-  and that setting keeps its default.  One key so far: `scribe_log_dir`.
-- Wrote the date math by hand (`clock.rs`), so there are no crates yet.
-- Built and tested that first version on Jacob's machine: 7 tests passed, and `cargo run` found the real
-  `Content/` folder by walking up from `Conductor/dev`.
-- Then split it into the workspace, made Scribe write to the file only, and added the launcher with its
-  view-log command.  Built, tested and run on Jacob's machine.
+- Added the `postgres` crate (the blocking client) and wrote Archivist on a thread of its own.  Jobs go in
+  a mailbox and come back as a `Pending`: `check()` never waits, `wait()` does.  So the game never waits on
+  the database.
+- `Content/cfg/postgres.cfg` holds the address, port, database, username and password, plus a query time
+  limit (10 s, Postgres cancels anything longer) and a slow-job limit (250 ms, logged as a Warn).  Settings
+  the file is missing get added to the end with their defaults.
+- The `accounts` table, in `Content/psql/defaults/schemas/accounts.sql`, run on every connect with
+  `CREATE ... IF NOT EXISTS` and baked into Conductor in case the file goes missing.
+- Migrations: numbered files in `Content/psql/migrations/`, each run once, in order, in a transaction,
+  tracked in `archivist_migrations`.  None written yet.
+- `archivist::transaction(name, |tx| ...)` for all-or-nothing work where one step uses the last one's result.
+- `archivist::status()`: running, connected, jobs waiting, jobs done, slow jobs.  Nothing shows it yet.
+- Split Archivist into `archivist.rs` and `archivist/` (settings, worker, schemas, status).
+- `Content/` is committed now, except `Content/Assets/` and `Content/logs/`.
 
 What fought back:
 
-- Jacob edited `.gitignore` on GitHub while the branch was open (`Content/Assets/` there, `Content/` on the
-  branch), and the pull request had a conflict.  It was merged with `Content/` kept, so the whole folder is
-  ignored.
-- Commits from the session got blocked by a permission prompt at first, so the work sat uncommitted until
-  Jacob asked how to pull it.  Pulling a session branch took a minute to figure out too.  The commands are
-  in "What's waiting".
+- A pool of workers that grew when busy went in and came out the same day.  Two workers can finish jobs out
+  of order, so a SELECT could miss the UPDATE sent right before it.  Jacob asked whether async was the answer
+  to keep the server from lagging on a write.  It wasn't: the server already doesn't wait, since every job
+  hands back a `Pending` straight away.  So it's one worker, jobs in order, and the speed comes from keeping
+  prepared statements instead.
+- The first commit carried attribution lines that CLAUDE.md doesn't allow in commit messages.  Amended
+  before anything was built on it.
 
 What Jacob decided:
 
-- Runtime data for both components lives in one `Opus/Content/` at the root, not one per component.
-- Conductor finds `Content/` through `OPUS_CONTENT`, then by walking up from the working directory, then
-  falls back to `./Content`.
-- All log time is UTC and ends in `Z`.  The twelve-hour clock and the bracket layout are Jacob's.
-- Scribe writes to the file only.  The terminal belongs to the launcher's menu, and L is how the log gets
-  read: the last 25 lines, `L -n N`, or `L all`.  The one exception is a lost log file, and then lines print
-  to the terminal.
-- Scribe starts first on the default folder, and moves to the configured one after Constellations loads.
-- The launcher is the program, the way Stratum's was.  Networking and the game become lib crates later.
-- Stratum's code is reference only.  Jacob uploads the Stratum file for a piece when it's time to build it.
-- The code gets written in the session.  Jacob builds, runs and tests it himself and pastes back the result.
-- The repo is private, so assets don't need special exclusion for now.
+- The database piece is called Archivist and lives in `conductor-tools`.
+- `postgres.cfg` lives in `Content/cfg/` and is committed.  The password is a placeholder, and Postgres
+  only listens on localhost.
+- Schemas in `Content/psql/defaults/schemas/`, no file headers (nothing in `Content/` gets one).  A schema
+  file is frozen once its table exists; every change after is a migration.
+- Accounts: `account_username` 8 to 32 characters of `a-z`, `0-9`, `_`; the owner's name as they capitalize
+  it; one account per email; Argon2 for the password hash, later.
+- Transactions as a closure (option B), so a step can use the last step's result.
+- One worker.  No async.
+- The admin interface outgrows a console.  Jacob wants a web application Conductor hosts to manage the
+  server through, modeled on how the TLP at his work is designed: critical service status at a glance, and
+  the console window becomes raw log output.  He plans to work on it before anything else.
+- Most log messages should be Debug, with a switch in the config to turn Debug off, so a finished server's
+  log isn't chatty.  The rule is in CLAUDE.md; the switch and the pass over existing lines are in TODO.
 
 ## What's waiting
 
-- Merging this session's branch, `claude/tone-communication-style-z5v1au`, into `main` (open a pull request
-  on GitHub and merge it, then `git checkout main` and `git pull origin main`).  To try a session branch
-  before merging: `git fetch origin <branch>` then `git checkout <branch>`.
-- Not tried yet: the bad-value, unknown-key and lost-log-file checks from the hand-back message.
+- Merging `claude/jolly-faraday-ywhu9g` into `main`.  Commit `Cargo.lock` and `Content/cfg/` from Jacob's
+  machine first, since the session couldn't.
+- The web admin.  Open before it starts: its name (CLAUDE.md says to ask before creating a third piece), what
+  "the TLP at work" looks like (Jacob to describe it), which web server crate (needs an OK), whether it lives
+  in a new lib crate the launcher starts, and how it's kept to this machine or logged into.
+- The Debug switch in `conductor_globals.cfg`, and moving the routine log lines to Debug.
+- `\dt` in psql to confirm `archivist_migrations` exists.  It should, but it wasn't looked at.
+- Accounts (make, check, log in), which waits on Security for Argon2.
 - The rest of Conductor's tools: the disk manager and Security.
-- PostgreSQL, once a crate is OK'd.
 - Picking Ensemble's engine.

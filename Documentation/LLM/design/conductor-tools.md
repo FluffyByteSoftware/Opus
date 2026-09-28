@@ -7,7 +7,8 @@ Author:     Jacob Chacko
 # conductor-tools
 
 A lib crate.  The pieces the rest of Conductor leans on but that know nothing about the game: the log, the
-config, and the clock.  No dependencies.
+config, the database, and the clock.  One dependency, `postgres` (the blocking Postgres client), for
+Archivist.  It pulls in tokio behind the scenes, but nothing of ours is async.
 
 ## Skeleton
 
@@ -15,7 +16,16 @@ config, and the clock.  No dependencies.
 conductor-tools/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs             pub mod clock; pub mod constellations; pub mod scribe;
+    ├── lib.rs             pub mod archivist; pub mod clock; pub mod constellations; pub mod scribe;
+    ├── archivist.rs       the front door: start(), stop(), status(), config_path()
+    │                        execute(sql, params) -> Pending<u64>, query(sql, params) -> Pending<Vec<Row>>
+    │                        batch(sql) -> Pending<()>, transaction(name, |tx| ...) -> Pending<T>
+    │                        Pending<T> { check() never waits, wait() does }, enum ArchivistError, type Param
+    ├── archivist/
+    │   ├── settings.rs    postgres.cfg: struct DbSettings, load(), adds missing settings to the file
+    │   ├── worker.rs      the one worker thread, its mailbox, struct Link (the connection, prepared statements)
+    │   ├── schemas.rs     get_in_shape(): default schemas, then migrations
+    │   └── status.rs      struct Status, struct SlowJob, the running totals
     ├── clock.rs           Utc { year, month, day, hour, minute, second }
     │                        Utc::now(), Utc::from_unix(seconds)
     │                        date(), file_stamp() -> "2026_09_28", line_stamp() -> "02:16:43 PM - 09-28-26 Z"
@@ -81,6 +91,64 @@ What's open:
 
 - No reload.  The launcher's config menu will need one, which means Constellations stops being load-once.
 - The file is written straight to disk.  It goes through the disk manager once that exists.
+
+## Archivist
+
+The database.  Named by Jacob.
+
+What we decided:
+
+- **One worker thread, one connection, jobs in order.**  The rest of the server never waits on it:
+  `execute()`, `query()`, `batch()` and `transaction()` put a job in the mailbox and hand back a `Pending`
+  straight away.  `check()` never waits (the game loop uses that one), `wait()` does (startup and admin use).
+- We tried a pool of workers that grew when the mailbox got busy.  It came out the same day: two workers can
+  finish jobs out of order, so a SELECT could miss the UPDATE sent just before it.  Nobody waits on the
+  worker anyway, so one is enough.  Async (tokio) was talked about and turned down for the same reason -- the
+  game already doesn't wait, and async would only add machinery.
+- For speed, the worker keeps every statement it has prepared (up to 500), so a query sent over and over is
+  planned by Postgres once.  The list is emptied on reconnect and after any `batch()`.
+- Values always go in as `$1`, `$2` params, never pasted into the SQL.  `batch()` is for our own SQL only.
+- `transaction(name, |tx| ...)` runs a closure on the worker inside a transaction, so one step can use the
+  last one's result (insert an account, get its id, use it).  All of it commits or none of it does.  The rule:
+  never wait on anything else inside it.
+- `Content/cfg/postgres.cfg`: `address`, `port`, `database`, `username`, `password`,
+  `query_time_limit_seconds` (10, handed to Postgres as `statement_timeout`; 0 is no limit) and
+  `slow_job_ms` (250).  A missing file is written with an empty password and a capitals Error.  A setting
+  the file doesn't have is added to the end with its default.  The file is committed on purpose: the
+  password is a placeholder and Postgres only listens on localhost.
+- The password never reaches the log: `DbSettings` has a hand-written Debug, and a broken line isn't echoed.
+- On every connect, before any job: the schemas in `Content/psql/defaults/schemas/` (only `CREATE ... IF NOT
+  EXISTS`, baked in with `include_str!` and written back out if missing), then the migrations in
+  `Content/psql/migrations/`.
+- **A schema file is frozen once its table exists.**  Every change after that is a migration named
+  `0001_what_it_does.sql`, run once, in number order, in a transaction with its row in
+  `archivist_migrations`.  A failure stops the rest.  A badly named file or two with one number stops them
+  all.  Migrations skip the query time limit.
+- A job that runs at least `slow_job_ms` is a Warn with its time, its wait in the mailbox, and the first 80
+  characters of its SQL (never the values).  `status()` keeps running, connected, waiting, jobs done, slow
+  jobs, the slowest, and the last 5 slow ones.  Nothing shows it yet.
+- If Postgres is down, jobs come back `NotConnected`, the first failure is logged once, and it tries again
+  on a later job, no more than once every 5 seconds.  Nothing in Archivist stops the server.
+
+Tables today:
+
+| Table                  | Made by                | What it is                                              |
+|------------------------|------------------------|---------------------------------------------------------|
+| `accounts`             | `schemas/accounts.sql` | One row per account.  Columns below.                    |
+| `archivist_migrations` | Archivist itself       | Which migrations have run, and when.                    |
+
+`accounts`: `id` (from Postgres), `account_username` (8 to 32 of `a-z`, `0-9`, `_`, unique),
+`owner_first_name` and `owner_last_name` (as the owner capitalizes them), `owner_email` (loosely checked,
+one account per address ignoring case), `password_hash` (the Argon2 string, once Security exists),
+`created_at`, `last_login_datetime` (empty until the first login).  Postgres checks the name and email
+itself, so even a bug in Conductor can't store a bad one.  `last_played_character` comes as a migration once
+there are characters.
+
+What's open:
+
+- Nothing shows `status()` yet.  The web admin will.
+- Most of its log lines are Info today and should be Debug (see TODO).
+- A password with a space at either end loses it, since every value is trimmed.
 
 ## The clock
 

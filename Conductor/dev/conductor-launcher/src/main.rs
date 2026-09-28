@@ -4,7 +4,7 @@
 //!
 //! Entry point.  Brings the tools up in order, hands the terminal to the
 //! admin's menu, and when the menu returns, Conductor shuts down.  Right
-//! now the tools are Scribe and Constellations, in that order.
+//! now the tools are Scribe, Constellations and Archivist, in that order.
 
 // Rust note: `mod launcher;` tells the compiler that src/launcher.rs is part
 // of this program.  The tools live in their own crate, and the `use` lines
@@ -13,7 +13,7 @@
 // minus sign.
 mod launcher;
 
-use conductor_tools::constellations;
+use conductor_tools::{archivist, constellations};
 use conductor_tools::scribe::{self, Channel};
 
 fn main() {
@@ -30,8 +30,15 @@ fn main() {
     scribe::info(Channel::System, &format!("Content folder: {}", constellations::content_dir().display()));
     scribe::info(Channel::System, &format!("Settings from {}", constellations::config_path().display()));
 
+    // Then the database.  This comes straight back, and Archivist connects
+    // on its own thread.  The log says how that went.
+    archivist::start();
+
     // The admin's menu.  It runs until they pick Q.
     launcher::run();
 
     scribe::info(Channel::System, "Conductor is shutting down.");
+
+    // Last, so the jobs already in Archivist's mailbox get done first.
+    archivist::stop();
 }

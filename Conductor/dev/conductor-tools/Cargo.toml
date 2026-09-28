@@ -2,7 +2,10 @@
 # Component:  Conductor
 # Author:     Jacob Chacko
 #
-# The tools: Scribe, Constellations and the clock.  A lib crate.
+# The tools: Scribe, Constellations, Archivist and the clock.  A lib crate.
+#
+# postgres is the blocking Postgres client.  Archivist runs it on a thread
+# of its own, so blocking there never holds up anything else.
 
 [package]
 name = "conductor-tools"
@@ -10,3 +13,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+postgres = "0.19"
