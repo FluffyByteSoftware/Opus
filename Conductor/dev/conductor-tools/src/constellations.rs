@@ -39,6 +39,9 @@ pub struct Settings {
     /// file.  A relative path is taken from the Content folder, so the
     /// default of `logs` means `Content/logs`.  `log_dir()` does that.
     pub scribe_log_dir: PathBuf,
+    /// The port the web admin listens on.  It only ever listens on
+    /// 127.0.0.1, so the port is the only part that can be changed.
+    pub wgui_port: u16,
 }
 
 /// The built-in values.  These go into a freshly written config file, and a
@@ -47,6 +50,7 @@ pub struct Settings {
 fn default_settings() -> Settings {
     Settings {
         scribe_log_dir: PathBuf::from("logs"),
+        wgui_port: 9996,
     }
 }
 
@@ -191,6 +195,7 @@ fn parse_text(text: &str, settings: &mut Settings) -> Vec<String> {
 fn apply_setting(settings: &mut Settings, key: &str, value: &str) -> Result<(), String> {
     match key {
         "scribe_log_dir" => settings.scribe_log_dir = parse_folder(key, value)?,
+        "wgui_port" => settings.wgui_port = parse_port(key, value)?,
         _ => return Err(format!("There is no setting called {key}.")),
     }
     Ok(())
@@ -202,6 +207,15 @@ fn parse_folder(key: &str, value: &str) -> Result<PathBuf, String> {
         return Err(format!("{key} is empty, and it needs a folder, like logs or /var/log/opus."));
     }
     Ok(PathBuf::from(value))
+}
+
+/// A port.  1 to 65535, since 0 would mean "any port the OS likes" and
+/// nobody would know where to point the browser.
+fn parse_port(key: &str, value: &str) -> Result<u16, String> {
+    match value.parse::<u16>() {
+        Ok(port) if port > 0 => Ok(port),
+        _ => Err(format!("{key} is \"{value}\", and it needs a port from 1 to 65535, like 9996.")),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +237,12 @@ fn file_text(settings: &Settings) -> String {
 # The folder Scribe writes its logs into.  One file a day, named by the
 # UTC date, rolling over at midnight UTC.
 scribe_log_dir = {}
-", settings.scribe_log_dir.display())
+
+# The port the web admin listens on.  It only listens on 127.0.0.1, so it
+# can't be reached from another machine.  Open http://127.0.0.1:<port>/Opus
+# in a browser on this one.
+wgui_port = {}
+", settings.scribe_log_dir.display(), settings.wgui_port)
 }
 
 /// There was no config file, so we write one with the defaults.  If that
@@ -254,6 +273,7 @@ mod tests {
         // parse would still "match".
         let written = Settings {
             scribe_log_dir: PathBuf::from("/tmp/somewhere else/logs"),
+            wgui_port: 12345,
         };
 
         let mut read_back = default_settings();
@@ -278,6 +298,20 @@ mod tests {
         assert_eq!(problems.len(), 1);
         assert!(problems[0].starts_with("line 1:"));
         assert_eq!(settings, default_settings());
+    }
+
+    #[test]
+    fn a_port_has_to_be_a_real_one() {
+        for bad in ["0", "65536", "-1", "port", ""] {
+            let mut settings = default_settings();
+            let problems = parse_text(&format!("wgui_port = {bad}\n"), &mut settings);
+            assert_eq!(problems.len(), 1, "{bad} should be a complaint");
+            assert_eq!(settings, default_settings());
+        }
+
+        let mut settings = default_settings();
+        assert!(parse_text("wgui_port = 8080\n", &mut settings).is_empty());
+        assert_eq!(settings.wgui_port, 8080);
     }
 
     #[test]

@@ -30,6 +30,7 @@ use std::fmt;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::Instant;
 
+use status::JobKind;
 use worker::{Job, Link};
 
 // Rust note: `pub use` hands these on to whoever uses Archivist, so the
@@ -103,7 +104,7 @@ impl<T> Pending<T> {
         }
     }
 
-    /// Waits for the answer.  Fine at startup and in the admin's menu, but
+    /// Waits for the answer.  Fine at startup and for the web admin, but
     /// never in the game loop, because this is exactly the blocking the
     /// worker was made to avoid.
     pub fn wait(self) -> Result<T, ArchivistError> {
@@ -133,7 +134,7 @@ pub fn stop() {
 }
 
 /// How Archivist is doing right now: running, connected, jobs waiting,
-/// and the slow ones.
+/// reads and writes, and the slow ones.
 pub fn status() -> Status {
     worker::status()
 }
@@ -148,7 +149,7 @@ pub fn status() -> Status {
 /// what a player types can't turn into SQL.
 pub fn execute(sql: &str, params: Vec<Param>) -> Pending<u64> {
     let owned = sql.to_string();
-    post(sql, move |link| link.execute(&owned, &params))
+    post(sql, JobKind::Write, move |link| link.execute(&owned, &params))
 }
 
 /// Runs a SELECT (or anything else with RETURNING) and gets back the rows.
@@ -164,7 +165,7 @@ pub fn execute(sql: &str, params: Vec<Param>) -> Pending<u64> {
 /// ```
 pub fn query(sql: &str, params: Vec<Param>) -> Pending<Vec<Row>> {
     let owned = sql.to_string();
-    post(sql, move |link| link.query(&owned, &params))
+    post(sql, JobKind::Read, move |link| link.query(&owned, &params))
 }
 
 /// Runs several statements in one go, separated by `;`, with no params.
@@ -172,7 +173,7 @@ pub fn query(sql: &str, params: Vec<Param>) -> Pending<Vec<Row>> {
 /// input in it.
 pub fn batch(sql: &str) -> Pending<()> {
     let owned = sql.to_string();
-    post(sql, move |link| link.batch(&owned))
+    post(sql, JobKind::Other, move |link| link.batch(&owned))
 }
 
 /// Runs `work` inside a transaction, on the worker's thread.  Everything it
@@ -202,7 +203,7 @@ where
     T: Send + 'static,
     F: FnOnce(&mut Transaction<'_>) -> Result<T, PostgresError> + Send + 'static,
 {
-    post(name, move |link| {
+    post(name, JobKind::Other, move |link| {
         let mut transaction = link.client()?.transaction().map_err(ArchivistError::Postgres)?;
         // If `work` fails, `?` returns before commit(), and dropping the
         // transaction rolls it back.
@@ -216,7 +217,7 @@ where
 /// mailbox.  If Archivist isn't running, the job is thrown away and the
 /// channel with it, so the `Pending` hears `NotRunning` instead of waiting
 /// forever.
-fn post<T, W>(label: &str, work: W) -> Pending<T>
+fn post<T, W>(label: &str, kind: JobKind, work: W) -> Pending<T>
 where
     T: Send + 'static,
     W: FnOnce(&mut Link) -> Result<T, ArchivistError> + Send + 'static,
@@ -224,6 +225,7 @@ where
     let (reply, answer) = mpsc::channel();
     worker::send(Job {
         label: label.to_string(),
+        kind,
         posted_at: Instant::now(),
         // A dropped Pending means nobody wants the answer, so a failed
         // `send` is fine to ignore.

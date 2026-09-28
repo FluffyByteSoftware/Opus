@@ -13,12 +13,13 @@
 //!     [ Caller: conductor-launcher/src/main.rs, Line: 27 ]
 //! ```
 //!
-//! The file is the only place a line goes.  Nothing prints to the terminal,
-//! because the terminal belongs to the launcher's menu, and the menu's L
-//! is how the admin reads the log.  The one exception is a line with no
-//! file to go to -- before `start()`, or when the file can't be opened or
-//! written.  Then it prints to the terminal, since a line nobody can see
-//! anywhere is worse than one that lands in the middle of the menu.
+//! Every line goes to three places: the file, the terminal, and a list of
+//! the last `RECENT_LINES` lines kept in memory.  The terminal is the
+//! launcher's console, which is nothing but Scribe's output now that the
+//! admin works through the web page.  The list in memory is what the web
+//! page shows, so it doesn't have to read the file back.  A line with no
+//! file to go to (before `start()`, or when the file can't be opened or
+//! written) still reaches the other two.
 //!
 //! Scribe never panics and never returns an error from a log call.  A log
 //! that takes the server down is worse than no log.
@@ -30,6 +31,7 @@
 //! somewhere else, the handful of lines logged before the move stay behind
 //! in the default folder.  Not worth fixing while both are the same one.
 
+use std::collections::VecDeque;
 use std::fmt;
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
@@ -58,6 +60,9 @@ impl fmt::Display for Channel {
         write!(f, "{:?}", self)
     }
 }
+
+/// How many lines `recent_lines()` can hand back.  About 30 KB of text.
+pub const RECENT_LINES: usize = 200;
 
 /// How much a line matters.  Everything is written for now; filtering by
 /// priority is on the TODO list.
@@ -90,11 +95,32 @@ struct Scribe {
     day: (i64, u32, u32),
 }
 
+/// One line from the list in memory.
+#[derive(Debug, Clone)]
+pub struct RecentLine {
+    /// Counts up from 1 since Conductor started, so a reader can ask for
+    /// the lines after the last one it saw.
+    pub number: u64,
+    pub priority: Priority,
+    /// The whole line, exactly as the file has it.
+    pub text: String,
+}
+
+/// The last few lines, and the number the next one gets.
+struct Recent {
+    next: u64,
+    lines: VecDeque<RecentLine>,
+}
+
 // Rust note: a `Mutex` is a lock around the value inside it.  The compiler
 // won't let us touch the Scribe without locking first, which is what stops
 // two threads writing over the top of each other's lines.  `None` means
 // start() hasn't run yet.
 static SCRIBE: Mutex<Option<Scribe>> = Mutex::new(None);
+
+// Rust note: a VecDeque is a list that's quick to add to at one end and
+// take off the other, which is all a rolling window of lines needs.
+static RECENT: Mutex<Recent> = Mutex::new(Recent { next: 1, lines: VecDeque::new() });
 
 /// Opens today's log file in `dir`, making the folder if it has to.  main
 /// calls this first thing, before Constellations, on the default folder.
@@ -119,7 +145,7 @@ pub fn move_to(dir: &Path) {
     open_in(dir);
 }
 
-/// The file Scribe is writing to right now, for the launcher's L.  `None`
+/// The file Scribe is writing to right now, for the web page.  `None`
 /// before `start()`, or when the file couldn't be opened.
 pub fn current_file() -> Option<PathBuf> {
     let guard = SCRIBE.lock()
@@ -128,6 +154,15 @@ pub fn current_file() -> Option<PathBuf> {
         Some(scribe) if scribe.file.is_some() => Some(scribe.path.clone()),
         _ => None,
     }
+}
+
+/// The lines in memory numbered after `after`, oldest first.  Pass 0 for
+/// all of them.  Only the last `RECENT_LINES` are kept, so a reader that
+/// fell further behind than that gets a gap, not the lines it missed.
+pub fn recent_lines(after: u64) -> Vec<RecentLine> {
+    let guard = RECENT.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    guard.lines.iter().filter(|line| line.number > after).cloned().collect()
 }
 
 /// Opens (or makes) today's file in `dir` and makes it the one Scribe
@@ -212,23 +247,30 @@ pub fn error_with(channel: Channel, err: &dyn fmt::Display, message: &str) {
     write(Priority::Error, channel, &format!("{err} - {message}"), Location::caller());
 }
 
-/// Builds the line and appends it to the file, rolling to a new file first
-/// if the UTC date has changed since the last write.  A line with no file
-/// to go to prints to the terminal instead.
+/// Builds the line, prints it, adds it to the list in memory, and appends
+/// it to the file, rolling to a new file first if the UTC date has changed
+/// since the last write.
 ///
 /// The lock is held for the whole call, so two threads can't interleave
-/// their lines.
+/// their lines, and the terminal, the list and the file all have them in
+/// the same order.
 fn write(priority: Priority, channel: Channel, message: &str, caller: &Location<'_>) {
     let now = Utc::now();
     let line = format_line(&now, priority, channel, message, caller);
 
     let mut guard = SCRIBE.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
+
+    // Rust note: println! panics if the terminal is gone (a closed pipe,
+    // say), and Scribe never panics.  Writing to stdout ourselves hands
+    // back the error instead, and we let it go.
+    let _ = writeln!(std::io::stdout(), "{line}");
+    remember(priority, &line);
+
     // Rust note: `let ... else` runs the else block when the pattern doesn't
     // match -- here, when start() hasn't run yet -- and that block has to
     // leave the function.
     let Some(scribe) = guard.as_mut() else {
-        println!("{line}");
         return;
     };
 
@@ -247,15 +289,23 @@ fn write(priority: Priority, channel: Channel, message: &str, caller: &Location<
         None => None,
     };
 
-    match result {
-        Some(Ok(())) => {}
-        Some(Err(e)) => {
-            eprintln!("Scribe can't write to {}: {e}.  Log lines print here until midnight UTC.",
-                      scribe.path.display());
-            scribe.file = None;
-            println!("{line}");
-        }
-        None => println!("{line}"),
+    if let Some(Err(e)) = result {
+        eprintln!("Scribe can't write to {}: {e}.  Log lines only print here until midnight UTC.",
+                  scribe.path.display());
+        scribe.file = None;
+    }
+}
+
+/// Adds a line to the list in memory, dropping the oldest once there are
+/// `RECENT_LINES` of them.
+fn remember(priority: Priority, line: &str) {
+    let mut guard = RECENT.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let number = guard.next;
+    guard.next += 1;
+    guard.lines.push_back(RecentLine { number, priority, text: line.to_string() });
+    if guard.lines.len() > RECENT_LINES {
+        guard.lines.pop_front();
     }
 }
 
@@ -264,14 +314,14 @@ fn write(priority: Priority, channel: Channel, message: &str, caller: &Location<
 fn reopen(scribe: &mut Scribe) {
     scribe.file = None;
     if let Err(e) = fs::create_dir_all(&scribe.dir) {
-        eprintln!("Scribe can't make the log folder {}: {e}.  Log lines print here instead.",
+        eprintln!("Scribe can't make the log folder {}: {e}.  Log lines only print here.",
                   scribe.dir.display());
         return;
     }
     match OpenOptions::new().append(true).create(true).open(&scribe.path) {
         Ok(file) => scribe.file = Some(file),
         Err(e) => {
-            eprintln!("Scribe can't open {}: {e}.  Log lines print here instead.", scribe.path.display());
+            eprintln!("Scribe can't open {}: {e}.  Log lines only print here.", scribe.path.display());
         }
     }
 }
@@ -306,6 +356,22 @@ mod tests {
         assert!(line.starts_with(expected_start));
         assert!(line.ends_with(" ]"));
         assert!(line.contains("scribe.rs, Line: "));
+    }
+
+    #[test]
+    fn the_list_in_memory_counts_up_and_keeps_the_last_few() {
+        // Other tests log too, and they run at the same time, so this only
+        // counts on its own lines being in order, not on being alone.
+        let before = recent_lines(0).last().map_or(0, |line| line.number);
+        for n in 0..(RECENT_LINES + 5) {
+            remember(Priority::Debug, &format!("line {n}"));
+        }
+
+        let lines = recent_lines(before);
+        assert!(lines.len() <= RECENT_LINES);
+        assert!(lines.windows(2).all(|pair| pair[0].number < pair[1].number));
+        assert!(lines.iter().any(|line| line.text == format!("line {}", RECENT_LINES + 4)));
+        assert!(!lines.iter().any(|line| line.text == "line 0"));
     }
 
     #[test]
