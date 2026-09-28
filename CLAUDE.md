@@ -55,7 +55,9 @@ Opus/
 │   ├── Assets/            # purchased art -- never committed
 │   ├── cfg/               # config files (conductor_globals.cfg, postgres.cfg)
 │   ├── logs/              # log files -- never committed
-│   └── psql/defaults/schemas/ # default database schemas, one .sql file per table
+│   └── psql/
+│       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
+│       └── migrations/    # every change to a table after that, numbered
 └── Documentation/
     └── LLM/               # working docs
         ├── STATUS.md      # bridge between sessions
@@ -217,8 +219,11 @@ When I say we're wrapping up:
   every connect. Each one is also baked into Conductor with `include_str!`
   (listed in `DEFAULT_SCHEMAS` in `archivist.rs`) so a missing file gets
   written back out.
-- Changing a table that already exists takes a migration. There is no
-  migration system yet; ask me where migrations should live before making one.
+- **A schema file is frozen once its table exists.** Every change after that
+  is a migration in `Content/psql/migrations/`, named `0001_what_it_does.sql`.
+  Archivist runs each one exactly once, in number order, in a transaction, and
+  records it in the `archivist_migrations` table. Never edit a migration that
+  has already run; write a new one.
 
 ## Client rules (Ensemble)
 

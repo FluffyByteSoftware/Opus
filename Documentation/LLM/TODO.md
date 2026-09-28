@@ -10,8 +10,9 @@ Author:     Jacob Chacko
 
 Things that wait on a piece that doesn't exist yet.
 
-- Archivist: migrations.  The schema files only CREATE ... IF NOT EXISTS, so a column added later (like
-  the last played character, once there are characters) never reaches a table that already exists.
+- A graphical admin console, instead of the launcher's text menu.  It would show `archivist::status()`
+  (workers, connections, jobs waiting, slow jobs) among other things.  Needs a name, a toolkit and a way to
+  talk to Conductor, all Jacob's call.  Until then nothing shows the status, though slow jobs are in the log.
 - Accounts: making, checking and logging in.  Waits on Security for the Argon2 hashing.
 - The rest of Conductor's tools, each its own session: the disk manager (temp-file-and-rename writes, the
   one place whole files get replaced), and Security (TLS for the welcome TCP connection, password hashing).
