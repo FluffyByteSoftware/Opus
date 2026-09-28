@@ -14,7 +14,9 @@
 //! ```
 //!
 //! Every line goes to three places: the file, the terminal, and a list of
-//! the last `RECENT_LINES` lines kept in memory.  The terminal is the
+//! the last `RECENT_LINES` lines kept in memory.  A Warn or an Error also
+//! becomes a notice (`notices.rs`), which stays on the web admin's bell
+//! until somebody ACKs it.  The terminal is the
 //! launcher's console, which is nothing but Scribe's output now that the
 //! admin works through the web page.  The list in memory is what the web
 //! page shows, so it doesn't have to read the file back.  A line with no
@@ -47,6 +49,7 @@ use std::sync::Mutex;
 
 use crate::clock::Utc;
 use crate::diskman;
+use crate::notices::{self, Level};
 use crate::services::{self, State};
 
 /// Which part of the server a line came from.  Add to this as the server
@@ -254,6 +257,18 @@ pub fn error_with(channel: Channel, err: &dyn fmt::Display, message: &str) {
 fn write(priority: Priority, channel: Channel, message: &str, caller: &Location<'_>) {
     let now = Utc::now();
     let line = format_line(&now, priority, channel, message, caller);
+
+    // Done before taking Scribe's lock, so the two locks are never held at
+    // once.
+    match priority {
+        Priority::Warn => {
+            notices::publish(Level::Warn, &channel.to_string(), message);
+        }
+        Priority::Error => {
+            notices::publish(Level::Error, &channel.to_string(), message);
+        }
+        Priority::Debug | Priority::Info => {}
+    }
 
     let mut guard = SCRIBE.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());

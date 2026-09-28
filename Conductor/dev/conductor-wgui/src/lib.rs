@@ -19,6 +19,10 @@
 //!   asks once a second.
 //! - `GET /Opus/threads?pid=N` -- one process's threads, for when the admin
 //!   clicks it on the System tab.  It only reads, like the status.
+//! - `GET /Opus/notices` -- every open notice, for the Notifications
+//!   History tab.  It only reads.
+//! - `POST /Opus/notices/ack?id=N` -- clears one notice.
+//! - `POST /Opus/notices/ack-all` -- clears every notice.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -28,8 +32,8 @@
 //! pages open in the admin's own browser.  Any site could have the browser
 //! send a POST to 127.0.0.1:9996/Opus/shutdown.  Two checks stop that.
 //! The `Host` header has to be this server's own address, and the shutdown
-//! has to carry an `X-Opus` header, which a browser won't let another
-//! site's page add.
+//! and the ACKs have to carry an `X-Opus` header, which a browser won't let
+//! another site's page add.
 
 mod http;
 mod json;
@@ -39,8 +43,8 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use conductor_tools::diskman;
 use conductor_tools::scribe::{self, Channel};
+use conductor_tools::{diskman, notices};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
@@ -53,6 +57,9 @@ const PAGE: &str = include_str!("page.html");
 /// answer.  A browser needs a few milliseconds.  This is so a connection
 /// that sends nothing can't hold the server up forever.
 const TIME_LIMIT: Duration = Duration::from_secs(2);
+
+/// How many notices the bell shows at once.
+const NEWEST_NOTICES: usize = 5;
 
 static SERVER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
@@ -190,9 +197,12 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         ("GET", "/Opus/status") => {
             let after = request.query_value("after").and_then(|after| after.parse().ok()).unwrap_or(0);
             let log_file = scribe::current_file();
+            let (open_notices, newest_notices) = notices::newest(NEWEST_NOTICES);
             let body = json::status(conductor_monitor::latest().as_ref(),
                                     &services::list(),
                                     &diskman::status(),
+                                    open_notices,
+                                    &newest_notices,
                                     &scribe::recent_lines(after),
                                     log_file.as_deref());
             (Answer::new("200 OK", "application/json", body), Next::KeepGoing)
@@ -204,6 +214,30 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             let threads = conductor_monitor::probe::threads_of(pid);
             (Answer::new("200 OK", "application/json", json::threads_of(pid, threads.as_deref())), Next::KeepGoing)
         }
+        ("GET", "/Opus/notices") => {
+            (Answer::new("200 OK", "application/json", json::notices(&notices::all())), Next::KeepGoing)
+        }
+        ("POST", "/Opus/notices/ack") => {
+            if request.header("x-opus") != Some("ack") {
+                return (Answer::plain("403 Forbidden", "ACK from the page."), Next::KeepGoing);
+            }
+            let Some(id) = request.query_value("id").and_then(|id| id.parse::<u64>().ok()) else {
+                return (Answer::plain("400 Bad Request", "Which notice?  /Opus/notices/ack?id=N"), Next::KeepGoing);
+            };
+            // Already gone (ACKed from another browser, say) is fine too:
+            // either way it isn't open any more.
+            let cleared = notices::ack(id);
+            scribe::debug(Channel::System, &format!("Notice {id} ACKed from the web admin."));
+            (Answer::new("200 OK", "application/json", format!("{{\"cleared\":{cleared}}}")), Next::KeepGoing)
+        }
+        ("POST", "/Opus/notices/ack-all") => {
+            if request.header("x-opus") != Some("ack") {
+                return (Answer::plain("403 Forbidden", "ACK from the page."), Next::KeepGoing);
+            }
+            let cleared = notices::ack_all();
+            scribe::debug(Channel::System, &format!("All {cleared} notice(s) ACKed from the web admin."));
+            (Answer::new("200 OK", "application/json", format!("{{\"cleared\":{cleared}}}")), Next::KeepGoing)
+        }
         ("POST", "/Opus/shutdown") => {
             if request.header("x-opus") != Some("shut-down") {
                 scribe::warn(Channel::System, "The web admin turned away a shutdown that didn't come from its \
@@ -214,6 +248,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             (Answer::new("200 OK", "application/json", "{\"shutting_down\":true}"), Next::ShutDown)
         }
         (_, "/") | (_, "/Opus") | (_, "/Opus/") | (_, "/Opus/status") | (_, "/Opus/threads")
+        | (_, "/Opus/notices") | (_, "/Opus/notices/ack") | (_, "/Opus/notices/ack-all")
         | (_, "/Opus/shutdown") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
@@ -288,6 +323,23 @@ mod tests {
         asking.query = "pid=nope".to_string();
         let (answer, _) = route(&asking, 9996);
         assert_eq!(answer.status, "400 Bad Request");
+    }
+
+    #[test]
+    fn an_ack_needs_the_page_header_and_clears_the_notice() {
+        let id = notices::publish(notices::Level::Notice, "Test", "ack me");
+
+        let mut asking = request("POST", "/Opus/notices/ack", &[HOST]);
+        asking.query = format!("id={id}");
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "403 Forbidden");
+        assert!(notices::all().iter().any(|notice| notice.id == id));
+
+        let mut asking = request("POST", "/Opus/notices/ack", &[HOST, ("x-opus", "ack")]);
+        asking.query = format!("id={id}");
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "200 OK");
+        assert!(!notices::all().iter().any(|notice| notice.id == id));
     }
 
     #[test]
