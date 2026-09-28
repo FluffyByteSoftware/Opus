@@ -20,7 +20,7 @@ Project root: `/opt/storage/Coding/Opus`
 
 - **Conductor** -- the game server. Authoritative: it owns the game state and the
   tick loop. Clients ask, Conductor decides.
-  - Language: [FILL IN -- e.g. Rust, edition 2024]
+  - Language: Rust, edition 2024
   - Folder: `Conductor/`
 - **Ensemble** -- the game client that players run.
   - Engine / language: [FILL IN -- e.g. Unity 6 (C#) or Godot 4 (C#)]
@@ -45,12 +45,13 @@ Opus/
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code (the Cargo project lives here)
-│   ├── content/           # runtime data the server reads and writes -- never committed
 │   └── build/             # compiled output -- never committed
 ├── Ensemble/              # client
 │   ├── dev/               # source code (the engine project lives here)
-│   ├── content/           # runtime data the client reads and writes -- never committed
 │   └── build/             # compiled output -- never committed
+├── Content/               # runtime data both programs read and write -- never committed
+│   ├── cfg/               # config files (conductor_globals.cfg lives here)
+│   └── logs/              # log files
 └── Documentation/
     └── LLM/               # working docs
         ├── STATUS.md      # bridge between sessions
@@ -61,13 +62,18 @@ Opus/
         └── design/        # one markdown file per system or feature
 ```
 
-Each component keeps the same three folders: `dev/` is where code is written,
-`content/` is what the running program uses, `build/` is what the compiler makes.
+Each component keeps two folders: `dev/` is where code is written, `build/` is
+what the compiler makes. Runtime data for both components lives in one shared
+`Content/` folder at the root (one per component was redundant). Files in it are
+named so it's clear who owns them (`conductor_globals.cfg`, `*.scribe.log`).
 Don't create new top-level folders without asking me.
 
-Because `content/` is never committed, a fresh checkout has empty `content/`
-folders. Programs must create any file they need there (config, logs, saves)
-with sensible defaults when it's missing, and never crash because it's absent.
+Because `Content/` is never committed, a fresh checkout has no `Content/` folder
+at all. Programs must create it and any file they need there (config, logs,
+saves) with sensible defaults when it's missing, and never crash because it's
+absent. Conductor finds it through the `OPUS_CONTENT` environment variable, or
+by walking up from the working directory until it sees a `Content/` folder, or
+by creating `./Content` when neither works.
 
 ---
 
@@ -90,10 +96,11 @@ with sensible defaults when it's missing, and never crash because it's absent.
   `Documentation/LLM/TODO.md`, not half-implemented in code.
 - **Future ideas** that come up in conversation also go in `Documentation/LLM/TODO.md`.
 - **I build, run, and test everything myself** and paste back the output.
-  Do not run the server or client. [DECIDE: allow `cargo check` / `cargo build`
-  so you can catch your own compile errors? If yes, delete this bracket and
-  replace with: "You may run `cargo check`, `cargo build`, and `cargo test`
-  to verify your changes. Never run the server itself."]
+  Do not run `cargo check`, `cargo build`, `cargo test`, the server, or the
+  client. Stick to writing the code. When it's written, put your questions at
+  the top of the reply, then tell me what I need to modify by hand (if
+  anything) and exactly which commands to run. I paste back what happens and
+  we go from there.
 - Do not predict or number future sessions ("next session is X, then Y").
   I pick what to open next and I'm free to change my mind.
 
@@ -168,7 +175,7 @@ When I say we're wrapping up:
   ```
   The only files without a header are ones that can't hold comments or that a
   tool generates and rewrites: JSON, Unity's `.meta` / `.unity` / `.asset` /
-  `.prefab` files, lock files, and anything under `build/` or `content/`.
+  `.prefab` files, lock files, and anything under `build/` or `Content/`.
 
 ## Rust rules (Conductor)
 
@@ -192,7 +199,7 @@ When I say we're wrapping up:
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
 - Never commit build output, runtime data, or engine caches: both `build/`
-  folders, both `content/` folders, Rust `target/`, Unity `Library/` `Temp/`
+  folders, `Content/`, Rust `target/`, Unity `Library/` `Temp/`
   `Obj/` `Logs/`, Godot `.godot/`. If something like that
   shows up in `git status`, tell me and suggest a `.gitignore` line.
 - Large binary assets (models, textures, audio, `.blend`, `.unitypackage`) go

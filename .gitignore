@@ -1,9 +1,16 @@
+# File:       Opus/.gitignore
+# Component:  Opus
+# Author:     Jacob Chacko
+#
+# What never gets committed: build output, runtime data, and the caches
+# each tool leaves behind.
+
 # Compiled output
 Conductor/build/
 Ensemble/build/
 
 # Runtime data (configs, logs, saves) -- programs recreate these
-Content/Assets/
+Content/
 
 # Rust, in case target/ ever lands in dev/
 **/target/

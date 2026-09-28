@@ -106,7 +106,7 @@ Every `Cargo.toml`, `.conf`, `.gitignore` and shell script gets the same header 
 # The server, as a Cargo workspace.
 ```
 
-Markdown puts the header in an HTML comment at the very top, so it doesn't show when rendered.  Files that can't hold a comment, or that a tool writes and rewrites (JSON, Unity's `.meta`, `.unity`, `.asset` and `.prefab` files, lock files, anything in `build/` or `content/`), have no header.
+Markdown puts the header in an HTML comment at the very top, so it doesn't show when rendered.  Files that can't hold a comment, or that a tool writes and rewrites (JSON, Unity's `.meta`, `.unity`, `.asset` and `.prefab` files, lock files, anything in `build/` or `Content/`), have no header.
 
 ### Doc comments
 
