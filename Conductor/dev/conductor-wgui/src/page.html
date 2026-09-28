@@ -7,7 +7,8 @@ Author:     Jacob Chacko
 The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
-of that answer is written down at the top of json.rs.
+of that answer is written down at the top of json.rs.  Four tabs under the
+header; while the database isn't connected they're blurred and locked.
 -->
 <html lang="en">
 <head>
@@ -177,6 +178,52 @@ of that answer is written down at the top of json.rs.
   .p-Error { color: var(--red); }
   .note { color: var(--ink-faint); font-size: 12px; }
 
+  /* The database pill in the header, and the flashing that draws the eye
+     when it's offline. */
+  .pill {
+    display: flex; align-items: center; padding: 6px 12px; border-radius: 4px;
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.08em;
+    border: 1px solid var(--line); background: var(--panel-dark); color: var(--ink-soft);
+  }
+  .pill.good { color: var(--green); border-color: rgba(16, 185, 129, 0.5); background: rgba(16, 185, 129, 0.1); }
+  .pill.bad {
+    color: var(--red); border-color: rgba(248, 113, 113, 0.7); background: rgba(248, 113, 113, 0.15);
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 18px rgba(248, 113, 113, 0.7); }
+    50% { box-shadow: 0 0 4px rgba(248, 113, 113, 0.1); }
+  }
+  @media (prefers-reduced-motion: reduce) { .pill.bad, .veil-card.bad { animation: none; } }
+
+  /* The tabs.  Everything under the header is the .content, which gets
+     blurred and made unclickable while the database isn't connected. */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+  .maintab {
+    padding: 10px 18px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em;
+    background: transparent; color: var(--ink-soft);
+    border: 1px solid transparent; border-bottom: none; border-radius: 4px 4px 0 0;
+  }
+  .maintab:hover { background: var(--panel-dark); }
+  .maintab.on { color: var(--green); border-color: var(--line); background: var(--panel); }
+  .tabpage { display: none; }
+  .tabpage.on { display: block; }
+
+  .stage { position: relative; }
+  .content { display: flex; flex-direction: column; gap: 24px; transition: filter 0.3s, opacity 0.3s; }
+  .content.locked { filter: blur(8px) grayscale(0.7); opacity: 0.5; pointer-events: none; user-select: none; }
+  .veil { display: none; position: absolute; inset: 0; z-index: 5; }
+  .veil-card {
+    position: sticky; top: 96px; max-width: 560px; margin: 0 auto; padding: 24px; text-align: center;
+    border: 2px solid var(--line); border-radius: 8px; background: rgba(15, 23, 42, 0.96);
+  }
+  .veil-card.bad { border-color: var(--red); animation: pulse 1s ease-in-out infinite; }
+  .veil-card h2 { margin: 0 0 8px 0; font-size: 22px; letter-spacing: 0.04em; color: var(--ink-bright); }
+  .veil-card.bad h2 { color: var(--red); }
+  .veil-card p { margin: 8px 0 0 0; font-size: 13px; color: var(--ink-soft); }
+
+  .short { min-height: 240px; max-height: 40vh; }
+
   .gone {
     position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(0, 0, 0, 0.75); z-index: 10;
@@ -195,6 +242,9 @@ of that answer is written down at the top of json.rs.
       <div class="sub mono" id="summary">Waiting for the first look...</div>
     </div>
     <div class="head-right">
+      <div class="pill" id="db-pill">
+        <span class="dot idle" id="db-pill-dot"></span><span id="db-pill-text">DB CONNECTING</span>
+      </div>
       <div class="clock">
         <div class="label">Uptime</div>
         <div class="mono good-ink" id="uptime">--:--:--:--</div>
@@ -203,6 +253,16 @@ of that answer is written down at the top of json.rs.
     </div>
   </header>
 
+  <div class="stage">
+  <div class="content locked" id="content" inert>
+  <nav class="tabs" role="tablist">
+    <button class="maintab" role="tab" data-tab="system">System</button>
+    <button class="maintab" role="tab" data-tab="conductor">Conductor</button>
+    <button class="maintab" role="tab" data-tab="services">Services</button>
+    <button class="maintab" role="tab" data-tab="storage">Storage</button>
+  </nav>
+
+  <section class="tabpage" id="page-conductor">
   <div class="grid">
     <div class="panel span-8">
       <h3>CPU</h3>
@@ -249,7 +309,7 @@ of that answer is written down at the top of json.rs.
       </div>
     </div>
 
-    <div class="panel span-3">
+    <div class="panel span-6">
       <h3>Disk</h3>
       <div class="pair">
         <div class="tile">
@@ -265,36 +325,11 @@ of that answer is written down at the top of json.rs.
       </div>
     </div>
 
-    <div class="panel span-3">
+    <div class="panel span-6">
       <h3>Machine</h3>
       <div class="small mono" id="os">--</div>
       <div class="small mono" id="process">--</div>
       <div class="small mono" id="taken-at">--</div>
-    </div>
-
-    <div class="panel span-6">
-      <h3><span class="dot idle" id="db-dot"></span>Archivist</h3>
-      <div class="pair">
-        <div class="tile">
-          <div class="label">Postgres</div>
-          <div class="value" id="db-state">--</div>
-          <div class="small" id="db-waiting">--</div>
-        </div>
-        <div class="tile">
-          <div class="label">Jobs done</div>
-          <div class="value" id="db-done">--</div>
-          <div class="small" id="db-kinds">--</div>
-        </div>
-        <div class="tile">
-          <div class="label">Slow jobs</div>
-          <div class="value" id="db-slow">--</div>
-          <div class="small" id="db-slowest">--</div>
-        </div>
-        <div class="tile">
-          <div class="label">Last slow job</div>
-          <div class="small mono" id="db-last-slow">None yet.</div>
-        </div>
-      </div>
     </div>
 
     <div class="panel span-12 boxed">
@@ -320,13 +355,78 @@ of that answer is written down at the top of json.rs.
       </div>
     </div>
 
-    <div class="panel span-12 boxed tall">
+  </div>
+  </section>
+
+  <section class="tabpage" id="page-system">
+  <div class="grid">
+    <div class="panel span-12">
+      <h3>System</h3>
+      <div class="small">Not built yet.  This tab will list every process on the machine and its threads, with
+        Conductor's row highlighted.</div>
+    </div>
+  </div>
+  </section>
+
+  <section class="tabpage" id="page-services">
+  <div class="grid">
+    <div class="panel span-12">
+      <h3>Services</h3>
+      <div class="small">Not built yet.  This tab will show whether each of Conductor's own services (Scribe,
+        Constellations, Archivist, the monitor, the web admin) is up.</div>
+    </div>
+  </div>
+  </section>
+
+  <section class="tabpage" id="page-storage">
+  <div class="grid">
+    <div class="panel span-6">
+      <h3><span class="dot idle" id="db-dot"></span>Archivist</h3>
+      <div class="pair">
+        <div class="tile">
+          <div class="label">Postgres</div>
+          <div class="value" id="db-state">--</div>
+          <div class="small" id="db-waiting">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Jobs done</div>
+          <div class="value" id="db-done">--</div>
+          <div class="small" id="db-kinds">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Slow jobs</div>
+          <div class="value" id="db-slow">--</div>
+          <div class="small" id="db-slowest">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">Last slow job</div>
+          <div class="small mono" id="db-last-slow">None yet.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel span-6">
+      <h3>Disk manager</h3>
+      <div class="small">Not built yet.  Its numbers will show here once it exists.</div>
+    </div>
+  </div>
+  </section>
+
+    <div class="panel boxed tall short">
       <div class="tall-head">
         <h3>Scribe</h3>
         <div class="note mono" id="log-file"></div>
       </div>
       <div class="tall-body terminal" id="terminal"></div>
     </div>
+  </div>
+
+  <div class="veil" id="veil">
+    <div class="veil-card" id="veil-card">
+      <h2 id="veil-title">CONNECTING TO THE DATABASE</h2>
+      <p id="veil-text">Waiting for Archivist.</p>
+    </div>
+  </div>
   </div>
 </main>
 
@@ -344,6 +444,15 @@ of that answer is written down at the top of json.rs.
 // terminal keeps before dropping the oldest.
 const CHART_SECONDS = 60;
 const MOST_LINES = 500;
+
+// The tabs, and the one that opens first.  It becomes "system" once that tab
+// has something on it.
+const MAIN_TABS = ["system", "conductor", "services", "storage"];
+const DEFAULT_TAB = "conductor";
+
+// Conductor is "connecting" to the database, not "offline", for this many
+// seconds after it starts.  Archivist needs a moment to make its first call.
+const CONNECT_GRACE_SECONDS = 10;
 
 const SVG = "http://www.w3.org/2000/svg";
 
@@ -464,12 +573,12 @@ function drawMonitor(m) {
 
   const db = m.database;
   const dbState = db.connected ? "connected" : (db.running ? "NOT CONNECTED" : "NOT RUNNING");
-  $("summary").innerHTML = "";
-  $("summary").append("system.status == ");
+  $("summary").textContent = "system.status == ";
   const state = document.createElement("span");
   state.className = db.connected ? "good-ink" : "bad-ink";
   state.textContent = db.connected ? "NOMINAL" : "DATABASE " + dbState;
   $("summary").append(state);
+  applyDbMode(dbMode(m), dbState, m.taken_at);
 
   if (!m.measured) {
     $("cpu-note").textContent = "not measured on this OS yet";
@@ -552,6 +661,73 @@ function drawLog(log) {
   if (atBottom) terminal.scrollTop = terminal.scrollHeight;
 }
 
+// The database decides whether the game can run at all, so it gets the whole
+// page's attention.  Three modes: "online", "connecting" (Conductor has just
+// started and Archivist hasn't had its chance yet) and "offline".  Anything
+// but online blurs and locks everything under the header, so the only thing
+// left to press is SHUT DOWN.  The page keeps asking and drawing underneath,
+// so it un-blurs by itself the moment Archivist is connected.
+let everConnected = false;
+let offlineSince = null;
+
+function dbMode(m) {
+  if (m.database.connected) {
+    everConnected = true;
+    return "online";
+  }
+  if (!everConnected && m.uptime_seconds < CONNECT_GRACE_SECONDS) return "connecting";
+  return "offline";
+}
+
+function applyDbMode(mode, dbState, takenAt) {
+  const look = {
+    online: { pill: "good", dot: "good", text: "DB ONLINE" },
+    connecting: { pill: "", dot: "idle", text: "DB CONNECTING" },
+    offline: { pill: "bad", dot: "bad", text: "DB OFFLINE" },
+  }[mode];
+  $("db-pill").className = "pill " + look.pill;
+  $("db-pill-dot").className = "dot " + look.dot;
+  $("db-pill-text").textContent = look.text;
+  document.title = mode === "offline" ? "DB OFFLINE - Opus Conductor" : "Opus Conductor";
+
+  const content = $("content");
+  content.classList.toggle("locked", mode !== "online");
+  // `inert` keeps the keyboard out of it too, not just the mouse.
+  content.inert = mode !== "online";
+  $("veil").style.display = mode === "online" ? "none" : "block";
+  $("veil-card").className = "veil-card" + (mode === "offline" ? " bad" : "");
+
+  if (mode === "offline") {
+    if (offlineSince === null) offlineSince = takenAt;
+    $("veil-title").textContent = "DATABASE OFFLINE";
+    $("veil-text").textContent = "The game can't run right now.  Archivist says Postgres is " + dbState +
+      ".  Conductor is still running and keeps trying to connect.  Seen offline since " + offlineSince +
+      ".  The rest of this page comes back when the database does.";
+  } else {
+    offlineSince = null;
+    $("veil-title").textContent = "CONNECTING TO THE DATABASE";
+    $("veil-text").textContent = "Waiting for Archivist.";
+  }
+}
+
+// The tab that was open last time is remembered by the browser, if it lets us.
+function showMainTab(name) {
+  if (!MAIN_TABS.includes(name)) name = DEFAULT_TAB;
+  for (const tab of document.querySelectorAll(".maintab")) {
+    const on = tab.dataset.tab === name;
+    tab.classList.toggle("on", on);
+    tab.setAttribute("aria-selected", on);
+  }
+  for (const page of document.querySelectorAll(".tabpage")) {
+    page.classList.toggle("on", page.id === "page-" + name);
+  }
+  try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
+}
+
+function savedMainTab() {
+  try { return localStorage.getItem("opus.tab") || DEFAULT_TAB; } catch (e) { return DEFAULT_TAB; }
+}
+
 function showGone(title, text) {
   stopped = true;
   $("gone-title").textContent = title;
@@ -599,6 +775,13 @@ $("shut-down").addEventListener("click", async () => {
   }
 });
 
+for (const tab of document.querySelectorAll(".maintab")) {
+  tab.addEventListener("click", () => showMainTab(tab.dataset.tab));
+}
+showMainTab(savedMainTab());
+
+// Blurred and "connecting" until the first look says otherwise.
+applyDbMode("connecting", "", "");
 ask();
 </script>
 </body>
