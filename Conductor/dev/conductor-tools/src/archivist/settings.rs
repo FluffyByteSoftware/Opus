@@ -307,7 +307,7 @@ fn add_missing(path: &Path, seen: &HashSet<String>) {
         .and_then(|mut file| file.write_all(text.as_bytes()));
 
     match added {
-        Ok(()) => scribe::info(Channel::Database, &format!("Archivist added the settings {} was missing, \
+        Ok(()) => scribe::info(Channel::Database, &format!("Archivist added the settings missing from {}, \
             with their defaults.", path.display())),
         Err(e) => scribe::warn_with(Channel::Database, &e, &format!("Archivist couldn't add the missing \
             settings to {}.  They run on their defaults.", path.display())),
