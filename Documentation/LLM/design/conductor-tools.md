@@ -7,8 +7,9 @@ Author:     Jacob Chacko
 # conductor-tools
 
 A lib crate.  The pieces the rest of Conductor leans on but that know nothing about the game: the log, the
-config, the database, the clock, and the list of threads we started.  One dependency, `postgres` (the
-blocking Postgres client), for Archivist.  It pulls in tokio behind the scenes, but nothing of ours is async.
+config, the database, the clock, the list of threads we started, and the list of services we expect.  One
+dependency, `postgres` (the blocking Postgres client), for Archivist.  It pulls in tokio behind the scenes,
+but nothing of ours is async.
 
 ## Skeleton
 
@@ -16,7 +17,7 @@ blocking Postgres client), for Archivist.  It pulls in tokio behind the scenes, 
 conductor-tools/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs             pub mod archivist; clock; constellations; scribe; threads;
+    ├── lib.rs             pub mod archivist; clock; constellations; scribe; services; threads;
     ├── archivist.rs       the front door: start(), stop(), status(), config_path()
     │                        execute(sql, params) -> Pending<u64>, query(sql, params) -> Pending<Vec<Row>>
     │                        batch(sql) -> Pending<()>, transaction(name, |tx| ...) -> Pending<T>
@@ -37,7 +38,11 @@ conductor-tools/
     │                        debug_with / info_with / warn_with / error_with (channel, err, message)
     ├── constellations.rs  struct Settings { scribe_log_dir, wgui_port }
     │                        load(), settings(), log_dir(), content_dir(), config_path()
+    ├── services.rs        enum State { Expected, Starting, Running, Trouble, Stopped }
+    │                        set(name, state, note), seen(name), list() -> Vec<Service>
+    │                        Service { name, state, note, since, seen_ago }, healthy(); the names as consts
     └── threads.rs         spawn(name, work) -> io::Result<JoinHandle<T>>, list() -> Vec<ThreadRecord>
+                             name_this_thread(name), for main
                              ThreadRecord { name, started_by, started_at, os_id, running }
 ```
 
@@ -168,8 +173,32 @@ What we decided:
   reports, which is how a thread in the "in use" view gets our name and an "ours" mark.
 - A thread is marked finished when its closure ends, a panic included (a guard that's dropped either way).
   Finished threads stay on the list.  There are a handful of them, not thousands.
-- Threads today: `archivist`, `monitor`, `wgui`.  The postgres crate starts some of its own, and those show
-  up as "not ours".
+- Threads today: `main`, `archivist`, `monitor`, `wgui`.  The postgres crate starts some of its own, and
+  those show up as "not ours".
+- main can't be started by `spawn()`, so it puts itself on the list with `name_this_thread("main")` as the
+  first line of `main()`.  It stays "running" for good, since main ending ends Conductor.
+
+## Services
+
+The list of services Conductor expects, in `services.rs`, and how each says it's doing.  The web admin's
+Services tab shows it.  Built 2026-09-28, Zabbix style.
+
+What we decided:
+
+- Nothing can look into a service from outside and tell whether it's alive, so **each one reports on
+  itself**: `services::set(name, state, note)`, with a note that says what it's doing or what went wrong.
+- **Every expected service is on the list from the start**, as "expected", so one that never started shows
+  as missing.  The list is `EXPECTED` in `services.rs`: Scribe, Constellations, Archivist, Monitor, Web
+  admin, each with the name of its thread if it has one.  Adding a service means adding it there.
+- A service with a thread is **stopped once that thread has ended**, whatever it last said.  A thread that
+  panics says nothing on the way out.  This is worked out when the list is read, from `threads::list()`.
+- A service can **check in** with `seen(name)`.  One that has checked in and then goes quiet for more than
+  `QUIET_LIMIT` (5 seconds) isn't healthy.  Only the monitor does today; the others have no loop to check in
+  from.
+- Healthy means running and not gone quiet.  The page shows starting as yellow, not down.
+- **Nothing in `services.rs` writes to Scribe.**  Scribe reports to the list, so a call the other way could
+  leave each waiting on the other's lock.
+- Who reports what is the table in `conductor-wgui.md`.
 
 ## The clock
 

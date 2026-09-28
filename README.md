@@ -11,7 +11,7 @@ Opus is a multiplayer game I'm building as a hobby.  It's two programs: **Conduc
 and Conductor decides.
 
 It is early.  Conductor has its first tools (a log, a config file and a PostgreSQL connection), a monitor
-that watches the process, and a web page to run it from, and that's all.  There is no game yet, and
+that watches the process and the machine, and a web page to run it from, and that's all.  There is no game yet, and
 Ensemble hasn't been started.  Things will change and things will break.
 
 ## Building and running Conductor
@@ -27,8 +27,10 @@ cargo run -p conductor-launcher
 ```
 
 That starts Conductor.  The console shows the log as it's written and takes no input.  Everything else is
-done from the web admin at <http://127.0.0.1:9996/Opus>, in a browser on the same machine: CPU, memory,
-disk, threads, the database, the log, and the Shut Down button.  It only listens on 127.0.0.1, so it can't be
+done from the web admin at <http://127.0.0.1:9996/Opus>, in a browser on the same machine.  It has a tab
+each for the machine and every process on it, Conductor's own CPU, memory, disk and threads, its services,
+the database, and the log, plus the Shut Down button.  While the database is offline, the page shows that
+and nothing else, since the game can't run without it.  It only listens on 127.0.0.1, so it can't be
 reached from anywhere else.  The port is `wgui_port` in `conductor_globals.cfg`.
 
 Conductor runs on Linux (Nobara and Fedora are what it's built on) and Windows.  macOS builds and runs, but

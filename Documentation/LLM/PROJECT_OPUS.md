@@ -31,13 +31,14 @@ Opus/
 │       │       ├── clock.rs           # UTC date and time, calendar math by hand
 │       │       ├── constellations.rs  # the config: finds Content/, reads and checks conductor_globals.cfg
 │       │       ├── scribe.rs          # the log: one file per UTC day, the console, the last 200 in memory
+│       │       ├── services.rs        # the services we expect, each reporting how it's doing
 │       │       └── threads.rs         # threads::spawn(): every thread we start, who asked and when
 │       ├── conductor-monitor/         # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools only
 │       │   └── src/
 │       │       ├── lib.rs             # the monitor's thread: a look once a second, latest()
-│       │       ├── snapshot.rs        # two looks -> percents and speeds
-│       │       ├── probe.rs           # one raw look; picks the file for the OS
+│       │       ├── snapshot.rs        # two looks -> percents and speeds, for Conductor and every process
+│       │       ├── probe.rs           # one raw look; one process's threads; picks the file for the OS
 │       │       └── probe/
 │       │           ├── linux.rs       # /proc
 │       │           ├── windows.rs     # kernel32
@@ -45,10 +46,10 @@ Opus/
 │       ├── conductor-wgui/            # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools and conductor-monitor
 │       │   └── src/
-│       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
+│       │       ├── lib.rs             # the web admin's thread and its four routes, on 127.0.0.1
 │       │       ├── http.rs            # just enough HTTP
 │       │       ├── json.rs            # the status answer, written by hand
-│       │       └── page.html          # the page, baked in
+│       │       └── page.html          # the page, baked in: five tabs and the database lock
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml
 │           └── src/
@@ -85,11 +86,13 @@ Where each one lives is in the tree above.
 | Conductor          | The server.  It owns the game state.          | Tools, monitor, web admin    |
 | Ensemble           | The client players run.                       | Not started, engine unpicked |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
-| conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux, Windows untried |
-| conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
+| conductor-monitor  | Lib crate: looks at the process once a second.| Linux; new parts not run yet |
+| conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Linux; the tabs not run yet  |
 | conductor-launcher | Bin crate: the program.  Starts everything.   | Runs on Linux                |
 | Scribe             | The log.                                      | Built and tested             |
 | Constellations     | The config file and the settings it holds.    | Built and tested             |
 | Archivist          | The database: PostgreSQL on its own thread.   | Built and tested             |
 | The clock          | UTC date and time.                            | Built and tested             |
 | Threads            | The list of threads we started.               | Runs on Linux                |
+| Services           | The services we expect, and how each is doing.| Written, not built yet       |
+| Disk manager       | Whole-file writes, temp file and rename.      | Not started                  |
