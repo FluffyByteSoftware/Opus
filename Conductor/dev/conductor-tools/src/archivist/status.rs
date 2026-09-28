@@ -20,6 +20,17 @@ const RECENT_SLOW: usize = 5;
 /// How much of a job's SQL goes in the log and in `SlowJob`.
 const LABEL_CHARS: usize = 80;
 
+/// What a job was, for the read and write counts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum JobKind {
+    /// `query()`, which hands back rows.
+    Read,
+    /// `execute()`, which changes rows and says how many.
+    Write,
+    /// `batch()` and `transaction()`, which can do either or both.
+    Other,
+}
+
 /// One job that took longer than `slow_job_ms`.
 #[derive(Debug, Clone)]
 pub struct SlowJob {
@@ -45,6 +56,12 @@ pub struct Status {
     pub waiting: usize,
     /// Jobs finished since Conductor started.
     pub jobs_done: u64,
+    /// How many of those were `query()` jobs.
+    pub reads: u64,
+    /// How many were `execute()` jobs.
+    pub writes: u64,
+    /// How many were `batch()` or `transaction()` jobs.
+    pub other: u64,
     /// How many of those were slow.
     pub slow_jobs: u64,
     /// The longest any job has run.
@@ -56,6 +73,9 @@ pub struct Status {
 /// The totals that need a lock, because they change together.
 struct Totals {
     jobs_done: u64,
+    reads: u64,
+    writes: u64,
+    other: u64,
     slow_jobs: u64,
     slowest: Duration,
     recent_slow: Vec<SlowJob>,
@@ -63,6 +83,9 @@ struct Totals {
 
 static TOTALS: Mutex<Totals> = Mutex::new(Totals {
     jobs_done: 0,
+    reads: 0,
+    writes: 0,
+    other: 0,
     slow_jobs: 0,
     slowest: Duration::ZERO,
     recent_slow: Vec::new(),
@@ -78,7 +101,7 @@ pub(super) fn set_connected(connected: bool) {
 }
 
 /// The worker calls this after every job.  A slow one goes in the log too.
-pub(super) fn record(label: &str, waited: Duration, ran_for: Duration, slow_limit: Duration) {
+pub(super) fn record(label: &str, kind: JobKind, waited: Duration, ran_for: Duration, slow_limit: Duration) {
     let slow = ran_for >= slow_limit;
     let label = short_label(label);
 
@@ -91,6 +114,11 @@ pub(super) fn record(label: &str, waited: Duration, ran_for: Duration, slow_limi
     let mut guard = TOTALS.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     guard.jobs_done += 1;
+    match kind {
+        JobKind::Read => guard.reads += 1,
+        JobKind::Write => guard.writes += 1,
+        JobKind::Other => guard.other += 1,
+    }
     if ran_for > guard.slowest {
         guard.slowest = ran_for;
     }
@@ -113,6 +141,9 @@ pub(super) fn snapshot(running: bool, waiting: usize) -> Status {
         connected: CONNECTED.load(Ordering::SeqCst),
         waiting,
         jobs_done: guard.jobs_done,
+        reads: guard.reads,
+        writes: guard.writes,
+        other: guard.other,
         slow_jobs: guard.slow_jobs,
         slowest: guard.slowest,
         recent_slow: guard.recent_slow.clone(),

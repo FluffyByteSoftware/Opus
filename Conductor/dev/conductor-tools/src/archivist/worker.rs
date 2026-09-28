@@ -20,16 +20,17 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Mutex, OnceLock};
-use std::thread::{self, JoinHandle};
+use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use postgres::{Client, NoTls, Statement};
 
 use super::schemas;
 use super::settings::DbSettings;
-use super::status::{self, Status};
+use super::status::{self, JobKind, Status};
 use super::{ArchivistError, Param, ToSql};
 use crate::scribe::{self, Channel};
+use crate::threads;
 
 /// After a failed connect, jobs fail straight away for this long instead
 /// of each one trying again.  Otherwise a queue of 100 jobs with the
@@ -49,6 +50,7 @@ pub(super) struct Job {
     /// The start of the SQL, or a transaction's name.  For the slow-job
     /// log.
     pub(super) label: String,
+    pub(super) kind: JobKind,
     pub(super) posted_at: Instant,
     // Rust note: `Box<dyn FnOnce(...)>` is a function packed up to be
     // called later, exactly once, along with anything it captured.  Like
@@ -77,9 +79,7 @@ pub(super) fn start(settings: DbSettings) {
     }
 
     let (sender, receiver) = mpsc::channel();
-    let spawned = thread::Builder::new()
-        .name("archivist".to_string())
-        .spawn(move || run(receiver));
+    let spawned = threads::spawn("archivist", move || run(receiver));
 
     match spawned {
         Ok(handle) => {
@@ -157,7 +157,7 @@ fn run(mailbox: Receiver<Job>) {
         let waited = job.posted_at.elapsed();
         let started = Instant::now();
         (job.work)(&mut link);
-        status::record(&job.label, waited, started.elapsed(), slow_limit);
+        status::record(&job.label, job.kind, waited, started.elapsed(), slow_limit);
     }
 
     if link.client.is_some() {
