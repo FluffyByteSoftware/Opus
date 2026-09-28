@@ -72,11 +72,18 @@ What Jacob decided:
 - Memory per thread can't be shown (no OS tracks it), so memory is per process and CPU is per thread.
 - **Next: services, the way Zabbix or the TLP at work does it.**  An "expected services" section on the page:
   Scribe, Constellations, Archivist, the monitor, the web admin, and the disk manager once it exists.  Each is
-  expected to start and keep running, and anything that isn't gets a flashing red mark.  Jacob picked this
-  for the next conversation.
+  expected to start and keep running, and anything that isn't gets a flashing red mark.
+- **Then changed his mind: the next conversation is docking.**  He wants to talk through the web admin's
+  layout and make it more flexible by docking the panels.  Services wait until after.
 
 ## What's waiting
 
+- **Docking the web admin's panels.**  Jacob's pick for the next conversation, and it starts as a talk, not
+  code.  Nothing is decided.  Things to pin down with him before building: what "docking" means to him
+  (dragging panels to rearrange the grid, resizing them, hiding and showing them, popping one out into its
+  own window, or tabs like an IDE), whether a layout is remembered, and where (the browser only, or
+  Conductor saving it to `Content/`), and whether it can be done in plain JavaScript with no library, since
+  the page pulls nothing from the web.
 - **The expected services.**  The idea so far (not agreed yet, so talk it through first): a small services
   list in `conductor-tools` next to the thread list.  Every expected service is named up front as "expected,
   not started".  Each one reports on itself: starting, running, trouble with a reason, stopped, plus a "last

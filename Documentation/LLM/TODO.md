@@ -10,9 +10,11 @@ Author:     Jacob Chacko
 
 Things that wait on a piece that doesn't exist yet.
 
+- Web admin: docking the panels, for a more flexible layout.  Jacob wants to talk it through first; the
+  questions to settle are in STATUS.md.
 - Expected services on the web admin, Zabbix style: every service Conductor should have, each reporting
   starting / running / trouble / stopped and a "last seen" time, and a flashing red mark for any that isn't
-  healthy.  Jacob picked it for the next conversation.  The plan so far is in `design/conductor-wgui.md`.
+  healthy.  The plan so far is in `design/conductor-wgui.md`.
 - The main thread shows as "conductor-launc (not ours)" on the page, because `main()` isn't started by
   `threads::spawn()`.  Put it on the list as "main".  Fits with the services work.
 - Monitor on macOS: `proc_pidinfo` / `proc_pid_rusage` from libproc for memory, CPU, disk and per-thread
