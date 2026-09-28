@@ -34,7 +34,19 @@ Things that wait on a piece that doesn't exist yet.
   through that instead, so a crash mid-write can't leave half a config file.
 - Web admin: start / stop the game.  Waits on networking and a game loop.  (Was the launcher's S.)
 - Web admin: account management (make, delete, list, finger, change password).  Waits on accounts.
-- Web admin: config management (show, change, reload).  Reload needs Constellations to stop being load-once.
+- Web admin: the settings, shown and changed live (Jacob asked on 2026-09-28).  Showing them is small: a
+  read-only route and a Settings tab.  Changing them live needs:
+  - Constellations to stop being load-once.  Today the settings sit in a `OnceLock`, which can't change
+    after it's set; it would become a lock around settings that can be swapped.
+  - A route that changes things (`POST`, with the `X-Opus` header like Shut Down), which is Jacob's call
+    per CLAUDE.md.  Every value is checked before anything is written, and a bad one is turned away.
+  - Each setting saying what happens when it changes.  `scribe_log_dir` can switch on the spot
+    (`scribe::move_to()`); `wgui_port` means restarting the web admin on the new port, so the page has to
+    follow it there, or it waits for the next start.  Every setting added later says which kind it is.
+  - The file written back safely.  Until the disk manager exists, a crash mid-write could leave half a
+    config file, so this may want to wait for it.
+  - Maybe `postgres.cfg` too, but it holds the password, and showing that on a page is Jacob's call.
+  - Once there is a login, only an admin can change them.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it) once there is something to save on shutdown.
   Today there isn't, so Ctrl-C is harmless.  Catching it on both Linux and Windows without a crate means a
   signal handler on one and a console handler on the other.
