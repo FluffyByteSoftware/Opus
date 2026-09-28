@@ -20,8 +20,8 @@ use std::time::{Duration, Instant};
 use conductor_tools::{archivist, constellations, diskman, threads};
 use conductor_tools::scribe::{self, Channel};
 
-/// How long shutdown gives DiskMan before telling the admin it's safe to
-/// give up on it.  It keeps waiting after that; it just stops counting.
+/// How long shutdown gives DiskMan before telling the admin to force quit.
+/// It keeps waiting after that; it just stops counting.
 const DISKMAN_GRACE: Duration = Duration::from_secs(60);
 
 /// How often the countdown says where it's at.
@@ -82,14 +82,15 @@ fn main() {
 }
 
 /// Tells DiskMan to finish up and waits until it has.  If it takes more
-/// than a second, the console counts down from a minute.  After the minute
-/// Conductor still waits, and says it's safe to force quit, with what would
-/// be lost.  The countdown lines go through DiskMan too, like every line.
+/// than a second, the console counts down from a minute.  At zero it says
+/// Conductor should be closed and to force quit it if it isn't, with what
+/// would be lost, and says so again every 30 seconds for as long as it's
+/// still going.  It keeps waiting on DiskMan the whole time.  The countdown
+/// lines go through DiskMan too, like every line.
 fn wait_on_diskman() {
     diskman::stop();
     let started = Instant::now();
     let mut next_note = Duration::from_secs(1);
-    let mut past_grace = false;
 
     while !diskman::finished() {
         thread::sleep(Duration::from_millis(50));
@@ -104,17 +105,12 @@ fn wait_on_diskman() {
             let left = (DISKMAN_GRACE - waited).as_secs();
             scribe::info(Channel::System, &format!("Waiting on DiskMan to write {holding}.  {left} s left."));
             next_note += COUNTDOWN_EVERY;
-        } else if !past_grace {
-            past_grace = true;
-            scribe::error(Channel::System, &format!("DISKMAN IS STILL WRITING AFTER A MINUTE: {holding}.  \
-                Conductor keeps waiting.  To force quit, press Ctrl-C or close this window, and what's \
-                listed next is lost."));
+        } else {
+            scribe::error(Channel::System, &format!("SHOULD BE CLOSED, IF STILL RUNNING PLEASE FORCE QUIT.  \
+                DiskMan still has {holding} to write, and force quitting loses it:"));
             for path in diskman::waiting_files() {
                 scribe::error(Channel::System, &format!("Not written yet: {}", path.display()));
             }
-            next_note = waited + DISKMAN_GRACE / 2;
-        } else {
-            scribe::warn(Channel::System, &format!("DiskMan is still writing {holding}."));
             next_note = waited + DISKMAN_GRACE / 2;
         }
     }
