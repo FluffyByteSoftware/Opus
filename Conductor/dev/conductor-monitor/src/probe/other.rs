@@ -8,10 +8,15 @@
 //! (`proc_pidinfo` and friends), and that's a job for when there's a Mac
 //! to test it on.
 
-use super::Reading;
+use super::{Reading, ThreadReading};
 
 /// Always `None`: nothing measured here yet.
 pub fn read() -> Option<Reading> {
+    None
+}
+
+/// Always `None`: no other process can be looked at here yet.
+pub fn threads_of(_pid: u32) -> Option<Vec<ThreadReading>> {
     None
 }
 

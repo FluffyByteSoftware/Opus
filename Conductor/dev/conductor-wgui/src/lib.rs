@@ -16,6 +16,8 @@
 //! - `GET /Opus` -- the page (`page.html`, baked in).  `/` sends you there.
 //! - `GET /Opus/status?after=N` -- the monitor's latest look, the services,
 //!   and Scribe's lines after line N, as JSON.  The page asks once a second.
+//! - `GET /Opus/threads?pid=N` -- one process's threads, for when the admin
+//!   clicks it on the System tab.  It only reads, like the status.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -192,6 +194,13 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
                                     log_file.as_deref());
             (Answer::new("200 OK", "application/json", body), Next::KeepGoing)
         }
+        ("GET", "/Opus/threads") => {
+            let Some(pid) = request.query_value("pid").and_then(|pid| pid.parse::<u32>().ok()) else {
+                return (Answer::plain("400 Bad Request", "Which process?  /Opus/threads?pid=N"), Next::KeepGoing);
+            };
+            let threads = conductor_monitor::probe::threads_of(pid);
+            (Answer::new("200 OK", "application/json", json::threads_of(pid, threads.as_deref())), Next::KeepGoing)
+        }
         ("POST", "/Opus/shutdown") => {
             if request.header("x-opus") != Some("shut-down") {
                 scribe::warn(Channel::System, "The web admin turned away a shutdown that didn't come from its \
@@ -201,7 +210,8 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             scribe::info(Channel::System, "Shut down from the web admin.");
             (Answer::new("200 OK", "application/json", "{\"shutting_down\":true}"), Next::ShutDown)
         }
-        (_, "/") | (_, "/Opus") | (_, "/Opus/") | (_, "/Opus/status") | (_, "/Opus/shutdown") => {
+        (_, "/") | (_, "/Opus") | (_, "/Opus/") | (_, "/Opus/status") | (_, "/Opus/threads")
+        | (_, "/Opus/shutdown") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
         _ => (Answer::plain("404 Not Found", "There's nothing here."), Next::KeepGoing),
@@ -262,6 +272,19 @@ mod tests {
 
         let (answer, _) = route(&request("GET", "/nope", &[HOST]), 9996);
         assert_eq!(answer.status, "404 Not Found");
+    }
+
+    #[test]
+    fn a_process_is_asked_for_by_its_number() {
+        let mut asking = request("GET", "/Opus/threads", &[HOST]);
+        asking.query = format!("pid={}", std::process::id());
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "200 OK");
+        assert!(answer.body.starts_with(format!("{{\"pid\":{},", std::process::id()).as_bytes()));
+
+        asking.query = "pid=nope".to_string();
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "400 Bad Request");
     }
 
     #[test]

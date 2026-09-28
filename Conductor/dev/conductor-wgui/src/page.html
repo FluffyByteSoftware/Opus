@@ -87,11 +87,13 @@ they're all locked and the page under the header is blurred.
   .grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
   .span-3 { grid-column: span 3; }
   .span-4 { grid-column: span 4; }
+  .span-5 { grid-column: span 5; }
   .span-6 { grid-column: span 6; }
+  .span-7 { grid-column: span 7; }
   .span-8 { grid-column: span 8; }
   .span-12 { grid-column: span 12; }
   @media (max-width: 1100px) {
-    .span-3, .span-4, .span-6, .span-8 { grid-column: span 12; }
+    .span-3, .span-4, .span-5, .span-6, .span-7, .span-8 { grid-column: span 12; }
   }
 
   .panel {
@@ -157,6 +159,24 @@ they're all locked and the page under the header is blurred.
   tr.down td.note-cell { color: var(--ink); }
   tr.later td { color: var(--ink-faint); }
   #services-note { margin-top: 12px; }
+
+  /* The System tab's process list.  Conductor's row is green with a bar
+     down its left edge, and the process whose threads are showing is
+     tinted blue. */
+  tr.pick { cursor: pointer; }
+  tr.pick:hover td { background: var(--panel-dark); }
+  tr.conductor td { color: var(--green); }
+  tr.conductor td:first-child { box-shadow: inset 3px 0 0 var(--green-deep); }
+  tr.picked td { background: rgba(96, 165, 250, 0.12); }
+  .tag {
+    margin-left: 8px; padding: 1px 6px; border-radius: 3px; font-size: 10px; letter-spacing: 0.08em;
+    color: var(--green); background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.4);
+  }
+  input[type="search"] {
+    font: inherit; font-size: 12px; padding: 6px 10px; width: 200px; border-radius: 4px;
+    border: 1px solid var(--line); background: var(--panel-dark); color: var(--ink);
+  }
+  .tall-body .note { margin-top: 12px; }
   /* A red dot on a sidebar tab when something on it needs looking at. */
   .maintab .dot { margin: 0 0 0 8px; vertical-align: middle; }
   .dot[hidden] { display: none; }
@@ -383,10 +403,52 @@ they're all locked and the page under the header is blurred.
 
   <section class="tabpage" id="page-system">
   <div class="grid">
-    <div class="panel span-12">
-      <h3>System</h3>
-      <div class="small">Not built yet.  This tab will list every process on the machine and its threads, with
-        Conductor's row highlighted.</div>
+    <div class="panel span-4">
+      <h3>Machine CPU</h3>
+      <div class="big" id="sys-cpu">--</div>
+      <div class="small" id="sys-cpu-note">Every program together</div>
+    </div>
+    <div class="panel span-4">
+      <h3>Machine memory</h3>
+      <div class="big" id="sys-memory">--</div>
+      <div class="small" id="sys-memory-note">--</div>
+    </div>
+    <div class="panel span-4">
+      <h3>Processes</h3>
+      <div class="big" id="sys-count">--</div>
+      <div class="small" id="sys-count-note">--</div>
+    </div>
+
+    <div class="panel span-7 boxed tall">
+      <div class="tall-head">
+        <h3>Processes</h3>
+        <input type="search" id="process-filter" placeholder="Filter by name" aria-label="Filter by name">
+      </div>
+      <div class="tall-body">
+        <table id="processes">
+          <thead><tr>
+            <th>Name</th><th class="num">PID</th><th class="num">CPU %</th><th class="num">Memory</th>
+            <th class="num">Threads</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note" id="processes-note"></div>
+      </div>
+    </div>
+
+    <div class="panel span-5 boxed tall">
+      <div class="tall-head">
+        <h3 id="picked-title">Threads</h3>
+      </div>
+      <div class="tall-body">
+        <table id="picked-threads">
+          <thead><tr>
+            <th>Name</th><th class="num">OS id</th><th class="num">Core %</th><th class="num">CPU time</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note" id="picked-note">Click a process to see its threads.</div>
+      </div>
     </div>
   </div>
   </section>
@@ -640,6 +702,150 @@ function drawMonitor(m) {
     : "None yet.";
 
   drawThreads(m);
+  lastMonitor = m;
+  drawSystem(m);
+  drawPicked(m);
+}
+
+// ---------------------------------------------------------------------------
+// The System tab
+// ---------------------------------------------------------------------------
+
+// The process whose threads are showing.  Conductor's, until the admin
+// clicks another.  `pickedLast` is the last answer about it, since a
+// thread's percent needs two answers and the time between them.
+let pickedPid = null;
+let pickedLast = null;
+let lastMonitor = null;
+
+function drawSystem(m) {
+  const cores = m.core_percents;
+  $("sys-cpu").textContent = cores.length === 0 ? "--"
+    : pct(cores.reduce((sum, percent) => sum + percent, 0) / cores.length);
+  $("sys-cpu-note").textContent = "Every program together, across " + m.cores + " core(s)";
+
+  const machine = m.machine_memory;
+  if (machine && machine.total_bytes > 0) {
+    $("sys-memory").textContent = bytes(machine.total_bytes - machine.available_bytes);
+    $("sys-memory-note").textContent = "in use, of " + bytes(machine.total_bytes) + " in the machine";
+  }
+
+  const processes = m.processes;
+  const hidden = processes.filter(process => process.memory_bytes === null).length;
+  $("sys-count").textContent = processes.length === 0 ? "--" : processes.length;
+  $("sys-count-note").textContent = processes.length === 0 ? "Can't be listed on this OS yet"
+    : hidden === 0 ? "Conductor can read every one of them"
+    : hidden + " won't let Conductor read their numbers";
+
+  if (pickedPid === null) pickedPid = m.process_id;
+  const filter = $("process-filter").value.trim().toLowerCase();
+  const body = $("processes").tBodies[0];
+  body.textContent = "";
+  for (const process of processes) {
+    // Conductor always stays in the list, whatever the filter says.
+    if (filter && !process.ours && !process.name.toLowerCase().includes(filter)) continue;
+
+    const row = body.insertRow();
+    row.className = "pick" + (process.ours ? " conductor" : "") + (process.pid === pickedPid ? " picked" : "");
+    row.addEventListener("click", () => pick(process.pid));
+
+    const name = document.createElement("td");
+    name.textContent = process.name;
+    if (process.ours) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "CONDUCTOR";
+      name.appendChild(tag);
+    }
+    row.appendChild(name);
+    cell(row, process.pid, "num");
+    cell(row, pct(process.cpu_percent), "num");
+    cell(row, bytes(process.memory_bytes), "num");
+    cell(row, process.threads === null ? "--" : process.threads, "num");
+    if (process.memory_bytes === null) row.title = "The OS won't let Conductor read this one's numbers.";
+  }
+
+  const rank = processes.findIndex(process => process.ours) + 1;
+  $("processes-note").textContent = processes.length === 0
+    ? "The OS can't be asked about other programs here yet."
+    : "Busiest first.  Conductor is #" + rank + " of " + processes.length + ".  CPU % is each one's share of "
+      + "the whole machine, the same as Conductor's big number.  Click one to see its threads.";
+}
+
+function pick(pid) {
+  pickedPid = pid;
+  pickedLast = null;
+  $("picked-threads").tBodies[0].textContent = "";
+  $("picked-note").textContent = "Asking...";
+  if (lastMonitor) {
+    drawSystem(lastMonitor);
+    drawPicked(lastMonitor);
+  }
+}
+
+// Conductor's own threads are already in the status answer, with our names
+// for them.  Anyone else's are asked for, but only while this tab is open.
+function drawPicked(m) {
+  if (currentTab !== "system" || pickedPid === null) return;
+  const process = m.processes.find(process => process.pid === pickedPid);
+  const name = process ? process.name : (pickedPid === m.process_id ? "Conductor" : "process");
+  $("picked-title").textContent = "Threads of " + name + " (" + pickedPid + ")";
+
+  if (pickedPid === m.process_id) {
+    const body = $("picked-threads").tBodies[0];
+    body.textContent = "";
+    for (const t of m.threads_in_use) {
+      const row = body.insertRow();
+      if (!t.ours) row.className = "theirs";
+      cell(row, t.name + (t.ours ? "" : "  (not ours)"));
+      cell(row, t.os_id, "num");
+      cell(row, pct(t.core_percent), "num");
+      cell(row, duration(t.cpu_ms), "num");
+    }
+    $("picked-note").textContent = "Conductor's own.  The Conductor tab has who started each one.";
+    return;
+  }
+  askPicked(pickedPid);
+}
+
+async function askPicked(pid) {
+  let answer;
+  try {
+    answer = await (await fetch("/Opus/threads?pid=" + pid, { cache: "no-store" })).json();
+  } catch (e) {
+    return; // The status ask notices if Conductor is gone.
+  }
+  // The admin may have clicked something else while this was on its way.
+  if (answer.pid !== pickedPid) return;
+
+  const body = $("picked-threads").tBodies[0];
+  body.textContent = "";
+  if (!answer.visible) {
+    $("picked-note").textContent = "Process " + pid + " has ended, or the OS won't let Conductor look at its "
+      + "threads.";
+    pickedLast = null;
+    return;
+  }
+
+  const now = performance.now();
+  const before = pickedLast && pickedLast.pid === pid ? pickedLast : null;
+  const cpu = new Map();
+  for (const t of answer.threads) {
+    cpu.set(t.os_id, t.cpu_ms);
+    const row = body.insertRow();
+    cell(row, t.name === null ? "(no name)" : t.name);
+    cell(row, t.os_id, "num");
+    const then = before ? before.cpu.get(t.os_id) : undefined;
+    const coreShare = then === undefined ? null : Math.max(0, t.cpu_ms - then) / (now - before.at) * 100;
+    cell(row, pct(coreShare), "num");
+    cell(row, duration(t.cpu_ms), "num");
+  }
+  pickedLast = { pid, at: now, cpu };
+
+  const process = lastMonitor ? lastMonitor.processes.find(process => process.pid === pid) : null;
+  const missing = process && process.threads !== null ? process.threads - answer.threads.length : 0;
+  $("picked-note").textContent = "Core % is how much of one core it used since the last look."
+    + (missing > 0 ? "  " + missing + " more the OS won't let Conductor read." : "");
 }
 
 function drawThreads(m) {
@@ -744,8 +950,11 @@ function applyDbMode(mode, dbState, takenAt) {
 }
 
 // The tab that was open last time is remembered by the browser, if it lets us.
+let currentTab = DEFAULT_TAB;
+
 function showMainTab(name) {
   if (!MAIN_TABS.includes(name)) name = DEFAULT_TAB;
+  currentTab = name;
   for (const tab of document.querySelectorAll(".maintab")) {
     const on = tab.dataset.tab === name;
     tab.classList.toggle("on", on);
@@ -757,6 +966,7 @@ function showMainTab(name) {
   // A hidden terminal can't be scrolled, so the log lands at its newest
   // line when its tab is opened.
   if (name === "log") $("terminal").scrollTop = $("terminal").scrollHeight;
+  if (name === "system" && lastMonitor) drawPicked(lastMonitor);
   try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
 }
 
@@ -858,6 +1068,7 @@ function showTab(inUse) {
 }
 
 $("tab-in-use").addEventListener("click", () => showTab(true));
+$("process-filter").addEventListener("input", () => { if (lastMonitor) drawSystem(lastMonitor); });
 $("tab-asked-for").addEventListener("click", () => showTab(false));
 
 $("shut-down").addEventListener("click", async () => {

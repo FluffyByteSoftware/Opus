@@ -34,7 +34,7 @@ use snapshot::{Fixed, Previous};
 
 // Rust note: `pub use` hands these on, so whoever uses the monitor can
 // name a Snapshot without knowing it lives in snapshot.rs.
-pub use snapshot::{Disk, Snapshot, ThreadInUse};
+pub use snapshot::{Disk, ProcessInUse, Snapshot, ThreadInUse};
 
 /// How often the monitor looks.  Once a second is often enough for a
 /// person watching a page, and reading a few small files that often

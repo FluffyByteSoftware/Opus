@@ -8,13 +8,14 @@
 //! readings and the time between them.  That math lives here, away from
 //! the thread and the OS calls, so the tests can feed it made-up readings.
 
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 use conductor_tools::archivist::{self, Status};
 use conductor_tools::clock::Utc;
 use conductor_tools::threads::{self, ThreadRecord};
 
-use crate::probe::{MachineMemory, Reading};
+use crate::probe::{MachineMemory, ProcessReading, Reading};
 
 /// One look at Conductor.
 #[derive(Debug, Clone)]
@@ -50,6 +51,23 @@ pub struct Snapshot {
     /// The threads our own code asked for, from `threads::spawn()`.
     pub threads_asked_for: Vec<ThreadRecord>,
     pub database: Status,
+    /// Every process on the machine we can see, busiest first.
+    pub processes: Vec<ProcessInUse>,
+}
+
+/// One process on the machine.
+#[derive(Debug, Clone)]
+pub struct ProcessInUse {
+    pub pid: u32,
+    pub name: String,
+    /// True for Conductor itself.
+    pub ours: bool,
+    /// Its share of the whole machine's CPU over the last second, 0 to 100,
+    /// the same way `Snapshot::cpu_percent` is.  `None` on its first look,
+    /// or when the OS won't let us read its CPU time.
+    pub cpu_percent: Option<f64>,
+    pub memory_bytes: Option<u64>,
+    pub threads: Option<u32>,
 }
 
 /// Disk totals since Conductor started, and the speed over the last second.
@@ -127,6 +145,11 @@ pub(crate) fn build(fixed: &Fixed, previous: Option<&Previous>, now: Instant, re
         _ => Vec::new(),
     };
 
+    let processes = match reading {
+        Some(reading) => processes(reading, previous.map(|previous| &previous.reading), since, fixed.cores),
+        None => Vec::new(),
+    };
+
     let threads_in_use = match reading {
         Some(reading) => threads_in_use(reading, previous.map(|previous| &previous.reading), since, &ours),
         None => Vec::new(),
@@ -147,6 +170,7 @@ pub(crate) fn build(fixed: &Fixed, previous: Option<&Previous>, now: Instant, re
         threads_in_use,
         threads_asked_for: ours,
         database: archivist::status(),
+        processes,
     }
 }
 
@@ -187,6 +211,45 @@ fn threads_in_use(reading: &Reading,
     }).collect()
 }
 
+/// Every process in the reading, with its share of the machine since the
+/// last reading, busiest first.  A process is matched to last time's by its
+/// number and its name, since the OS hands a finished process's number out
+/// again.
+fn processes(reading: &Reading,
+             previous: Option<&Reading>,
+             since: Option<Duration>,
+             cores: usize) -> Vec<ProcessInUse> {
+    let before: HashMap<u32, &ProcessReading> = previous
+        .map(|previous| previous.processes.iter().map(|process| (process.pid, process)).collect())
+        .unwrap_or_default();
+    let our_pid = std::process::id();
+
+    let mut processes: Vec<ProcessInUse> = reading.processes.iter().map(|process| {
+        let old = before.get(&process.pid).filter(|old| old.name == process.name);
+        let cpu_percent = match (process.cpu_time, old.and_then(|old| old.cpu_time), since) {
+            (Some(now), Some(then), Some(since)) => {
+                Some(percent(now.saturating_sub(then), since) / cores.max(1) as f64)
+            }
+            _ => None,
+        };
+        ProcessInUse {
+            pid: process.pid,
+            name: process.name.clone(),
+            ours: process.pid == our_pid,
+            cpu_percent,
+            memory_bytes: process.memory_bytes,
+            threads: process.threads,
+        }
+    }).collect();
+
+    // Busiest first, then biggest.  A process with no numbers goes last.
+    processes.sort_by(|a, b| {
+        let cpu = |process: &ProcessInUse| process.cpu_percent.unwrap_or(-1.0);
+        cpu(b).total_cmp(&cpu(a)).then(b.memory_bytes.cmp(&a.memory_bytes))
+    });
+    processes
+}
+
 /// `used` as a percent of `over`.  The CPU time used in a second, over that
 /// second, is how much of one core it kept busy.
 fn percent(used: Duration, over: Duration) -> f64 {
@@ -207,7 +270,7 @@ fn per_second(now_total: u64, before_total: u64, over: Duration) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::probe::{CoreTimes, DiskTotals, ThreadReading};
+    use crate::probe::{CoreTimes, DiskTotals, ProcessReading, ThreadReading};
 
     fn reading(cpu_ms: u64, read: u64, threads: &[(u64, u64)]) -> Reading {
         Reading {
@@ -223,7 +286,42 @@ mod tests {
                 .collect(),
             cores: vec![CoreTimes { busy: cpu_ms, total: cpu_ms * 2 }, CoreTimes { busy: 0, total: cpu_ms * 2 }],
             machine_memory: None,
+            processes: Vec::new(),
         }
+    }
+
+    fn process(pid: u32, name: &str, cpu_ms: Option<u64>) -> ProcessReading {
+        ProcessReading {
+            pid,
+            name: name.to_string(),
+            cpu_time: cpu_ms.map(Duration::from_millis),
+            memory_bytes: Some(1024),
+            threads: Some(1),
+        }
+    }
+
+    #[test]
+    fn each_process_gets_its_share_of_the_machine_busiest_first() {
+        let fixed = Fixed { os: "Test OS".to_string(), cores: 4, started: Instant::now() };
+        let at = Instant::now();
+        let mut first = reading(0, 0, &[]);
+        first.processes = vec![process(1, "quiet", Some(100)), process(2, "busy", Some(0)),
+                               process(3, "hidden", None), process(4, "old name", Some(0))];
+        let previous = Previous { at, reading: first };
+
+        // One second later: "busy" used 2 seconds of CPU across 4 cores,
+        // and process 4 is a new program that got the old one's number.
+        let mut second = reading(0, 0, &[]);
+        second.processes = vec![process(1, "quiet", Some(100)), process(2, "busy", Some(2_000)),
+                                process(3, "hidden", None), process(4, "new name", Some(500))];
+        let snapshot = build(&fixed, Some(&previous), at + Duration::from_secs(1), Some(&second));
+
+        let names: Vec<&str> = snapshot.processes.iter().map(|process| process.name.as_str()).collect();
+        assert_eq!(names, vec!["busy", "quiet", "hidden", "new name"]);
+        assert_eq!(snapshot.processes[0].cpu_percent, Some(50.0));
+        assert_eq!(snapshot.processes[1].cpu_percent, Some(0.0));
+        assert_eq!(snapshot.processes[2].cpu_percent, None);
+        assert_eq!(snapshot.processes[3].cpu_percent, None);
     }
 
     #[test]
