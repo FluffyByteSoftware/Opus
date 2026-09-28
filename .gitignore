@@ -3,8 +3,7 @@ Conductor/build/
 Ensemble/build/
 
 # Runtime data (configs, logs, saves) -- programs recreate these
-Conductor/content/
-Ensemble/content/
+Content/Assets/
 
 # Rust, in case target/ ever lands in dev/
 **/target/
