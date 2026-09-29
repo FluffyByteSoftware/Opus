@@ -149,8 +149,10 @@ When I say we're wrapping up:
 
 - I'm an amateur hobbyist. Comfortable in C and C#, still learning Rust.
 - Explain Rust plainly. Don't translate Rust into C terms unless I ask.
-- **Questions for me go at the top of your reply under a visible `## Questions`
-  header** so I don't miss them.
+- **Questions for me go at the bottom of your reply, under a big, loud
+  header** (`# >>>>>>>>>> QUESTIONS FOR JACOB <<<<<<<<<<` -- large and annoying
+  on purpose, so I can't miss them).  They used to go at the top; Jacob
+  moved them to the bottom on 2026-09-29.
 - Keep replies short at first. Expand when I engage.
 - When you change files, end with a short list of which files changed and why.
 
