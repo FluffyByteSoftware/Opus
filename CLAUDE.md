@@ -60,7 +60,8 @@ Opus/
 │   │   └── conductor-launcher/ # bin: the program -- boots, then starts and stops the server on the Control Panel's say
 │   └── build/             # compiled output -- never committed
 ├── Ensemble/              # client
-│   ├── dev/               # source code (the engine project lives here)
+│   ├── dev/               # source code
+│   │   └── Opus.Ensemble/ # the Unity project.  Its Assets/, Packages/ and UserSettings/ are gitignored (Jacob, 2026-09-29)
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/ and logs/
 │   ├── Assets/            # purchased art -- never committed

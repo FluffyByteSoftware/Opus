@@ -136,8 +136,11 @@ What Jacob decided:
   start and stop lines and Archivist's aren't yet.
 - Catching Ctrl-C.
 - The Windows build, whenever getting to that machine is less of a hassle.
-- **Ensemble is Unity 6000.6**, Jacob said at the close, 2026-09-29.  A Unity project sits in `Ensemble/` on his
-  machine, untracked, while he goes through his catalogue of assets.  Before any of it is committed, a
+- **Ensemble is Unity 6000.6**, Jacob said at the close, 2026-09-29.  The Unity project is
+  `Ensemble/dev/Opus.Ensemble/`, on his machine and untracked, while he goes through his catalogue of
+  assets.  He added its `Assets/`, `Packages/` and `UserSettings/` to `.gitignore` himself the same day
+  (his lines, kept as he wrote them), which keeps the purchased art out and, for now, the project's own
+  scripts too; that's his to revisit when Ensemble gets a session.  Before any of it is committed, a
   look together: what a Unity project commits (`Assets/`, `Packages/`, `ProjectSettings/`; the caches
   are already in `.gitignore`), where the purchased art goes (CLAUDE.md says `Content/Assets/`, never
   committed, but Unity wants assets under `Ensemble/dev/Assets`), and LFS for anything big.  Its own
