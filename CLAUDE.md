@@ -343,7 +343,11 @@ When I say we're wrapping up:
   Security's line.
 - **`PROTOCOL.md` is the contract**, byte for byte.  `protocol.rs` and the
   test client are written from it; when either disagrees with the document,
-  the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`.
+  the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`,
+  and so does a new value in a packet's enum (a Kicked reason took it to 2
+  on 2026-09-29): `protocol.rs`, PROTOCOL.md and `test_client.py` all
+  change together, and the document gets a line saying what the version
+  added.
 - **The TLS pair is made by hand** with the openssl command in README.md, in
   `Content/certs/`.  The key is gitignored, the certificate committed.
   Conductor never makes one and never crashes without one: the Services tab
@@ -353,6 +357,11 @@ When I say we're wrapping up:
   back what it prints, the same as the server.
 - **Client management** (a player limit, reconnect tokens, kicking from the
   web admin) is not this iteration.  It's in TODO.md as one heading.
+- **The access lists** (`access.rs`, 2026-09-29) are the one thing that
+  changes without a reboot.  A change from the page is enforced the same
+  moment: `enforce()` asks the door's verdict again for everybody online
+  and drops whoever it now turns away, so a whitelist removal is a ban as
+  much as a blacklisting.  Jacob's rule.
 
 ### Linux and Windows
 

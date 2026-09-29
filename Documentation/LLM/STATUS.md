@@ -27,8 +27,8 @@ admin's Control Panel, and STOP SERVER takes it back down with Conductor still r
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests (the session
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
-says.  `main` sits on the TCP tab session; `unstable` and `testing` carry the access lists session on top
-of it, untested.
+says.  At the close of the access lists session he had `main` moved up, so `main`, `testing` and
+`unstable` all sit on the same commit again: the access lists and everything before it.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `c4cfd59`: the login and the
 Settings tab.  `cargo test` passed 132 (15 monitor, 89 tools with the benchmark ignored, 28 web admin), and
@@ -40,8 +40,9 @@ six times slower than release), UDP Connect accepted, keep-alives answered, Good
 STOP SERVER and SHUT DOWN came down clean with networking in the mix.  `cargo test` hasn't been pasted
 back yet.  Jacob committed `Cargo.lock` and `Content/certs/conductor.crt` from his machine onto `testing`,
 and the session merged that into `unstable`.  The Windows code has never been built.  The TCP tab was
-built and seen working the same day.  **The access lists (the seventh session) have not been built
-anywhere yet.**
+built and seen working the same day.  **The access lists (the seventh session) built clean and passed
+194 tests on his machine the same day**, and a run came up with both list files read and "Access lists:
+off"; the hand checks on the tabs (the section in `TEST_CHECKLIST.md`) weren't done before the close.
 
 ## Last session -- 2026-09-29 (the seventh that day)
 
@@ -65,9 +66,12 @@ and Historical (everything since START SERVER).  So the ledger keeps the whole r
 10,000 with the oldest finished going first, and `connections_remember_seconds` is gone from
 `networking.cfg` (the session's call: a setting nobody had tested, replaced by "since start").
 
-**Not built anywhere yet.**  The page was rendered headless with made-up numbers and clicked through
-(no script errors, the tabs unlock, the menu opens, ADD and REMOVE post the right paths and header);
-the Rust was read over by eye and no more.  `cargo build` and `cargo test` are Jacob's, on `testing`.
+**Built and tested on his machine at the close**, from `testing`: `cargo build` clean with no warnings,
+`cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the benchmark ignored, 34 web admin),
+and the first run read both list files (0 entries), said "Access lists: off" and brought both listeners
+up.  Before that the page was rendered headless in the session with made-up numbers and clicked
+through (the tabs, the menu, ADD and REMOVE, Recent and Historical).  **Nothing on the new tabs has
+been looked at in a real run yet**: the checklist section is all open bar the build line.
 
 What we did:
 
@@ -112,8 +116,9 @@ setting went rather than staying unused; the ledger's cap is 10,000.
 
 ## What's waiting
 
-- **The 2026-09-29 access lists section of `TEST_CHECKLIST.md`**, all of it, on `testing`: the build
-  first.  If the build fails, the fix comes back here.
+- **The 2026-09-29 access lists section of `TEST_CHECKLIST.md`**, everything after the build line: the
+  sidebar, the Connections tab's two views and the UDP table, the three-dot menu, the list tabs, the
+  ban (the client should print a Kicked "banned"), the whitelist removal, the outside connection.
 - **The rest of the TCP tab's checks** in the same file: a wrong password on the tab, KICK, the
   five-minute drop, the setting at 10, `net-dns` on the threads list, `user` seeing the buttons greyed.
 - **The next session is documentation clean-up and management**, Jacob's word mid-session.
