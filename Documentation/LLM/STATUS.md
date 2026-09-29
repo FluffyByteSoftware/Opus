@@ -25,11 +25,9 @@ networking, the monitor, and whatever comes later) only starts when START SERVER
 admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  At the close of the documentation pass Jacob said to move
-`main` up.  `unstable` and `testing` sit on the same commit: this session's documentation, one fix to
-`page.html`, and DiskMan noticing hand edits, none of it built yet.  The session handed him the one-line
-release to run once `cargo build` and `cargo test` come back clean, so `main` never holds code that
-hasn't been built; until he runs it, `main` sits on the access lists hand-off.
+stable release, moved only when Jacob says.  All three sit on the same commit: at the close of the
+documentation pass Jacob built `testing`, ran it (START SERVER, a Settings save and RESTART SERVER, the
+test client twice on one account), and said to merge to `main`.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
 build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
@@ -88,7 +86,8 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
 ## What's waiting
 
 - **The 2026-09-29 access lists section of `TEST_CHECKLIST.md`**, everything after the build line.
-- **The rest of the TCP tab's checks** and **the untried networking hand tests** in the same file.
+- **The rest of the TCP tab's checks** and **the untried networking hand tests** in the same file (two
+  clients on one account passed at the close).
 - **Accounts, in the server code.**  Jacob said at the close that the next session builds accounts.
   What's there to build on: the `accounts` table (`Content/psql/defaults/schemas/accounts.sql`, frozen, so
   any change is a migration; `uuid` came with 0001), with Postgres checking the name (8 to 32 of `a-z`,
@@ -100,8 +99,8 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
   one" and the web admin's game account management (make, delete, list, finger, change password).  Open
   until the session asks: who makes an account (a player over the protocol, which is a new packet and
   protocol version 3, or the admin from the web admin, or both), and what each needs from the other.
-- **Building this session's changes**, then the release: the build and test lines, and the hand checks
-  at the bottom of `TEST_CHECKLIST.md` (the page's greying, DiskMan noticing a hand edit).
+- **This session's checks**: it built and ran, but `cargo test` wasn't pasted back, and the hand checks
+  at the bottom of `TEST_CHECKLIST.md` (the page's greying, DiskMan noticing a hand edit) are open.
 - **The stale words in the code**, in TODO.md.
 - **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
   settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`

@@ -20,9 +20,12 @@ Every command is one line, from `Conductor/dev`.
 Hand tests the networking session left untried (STATUS.md had them; they live here now):
 
 - [x] ~~`cargo test` from `Conductor/dev` after networking.~~  2026-09-29: passed with the TCP tab's, 178 in all.
-- [ ] Two clients on one account: the second gets the kick-or-hang-up prompt ("Already logged in.  Log
+- [x] ~~Two clients on one account: the second gets the kick-or-hang-up prompt ("Already logged in.  Log
       the other session out?"; `--leave-other-alone` on `test_client.py` answers no without asking);
-      answer `y` and the first hears a Kicked over UDP.
+      answer `y` and the first hears a Kicked over UDP.~~  2026-09-29, from `testing` with this session's
+      DiskMan change in: "throwaway_01 is already in the world ... Asking 10.0.0.84:44194 what to do.",
+      then "logged the other session on throwaway_01 out" and the second in the world.  The same run
+      saved `bind_address` on the Settings tab and RESTART SERVER came up on the new address.
 - [ ] `--go-quiet`: the player is dropped after the 40-second UDP timeout and the log says so.
 - [ ] A wrong secret word: refused without a hash (no Security line in the log).
 - [ ] A wrong password, then a connection straight after from the same machine: closed at the door for
