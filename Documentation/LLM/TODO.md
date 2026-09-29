@@ -86,11 +86,6 @@ Things we thought of along the way.  None of them are promised.
   minutes.
 - Web admin: a setting in `conductor_globals.cfg` that starts the server on its own when Conductor boots,
   for a machine nobody sits at.  Today it always waits on START SERVER.
-- Web admin: the Log tab is open while the server is stopped but locked under the database lock while it's
-  running.  Opening it there too would let the admin read why the database is offline without stopping the
-  server.  Jacob's call.
-- Web admin: the header's SHUT DOWN and the Control Panel's are the same button twice on that tab.  One
-  could go.
 - Web admin: a Control Panel line saying what a RESTART is for (a changed `postgres.cfg` is read again).
 - Web admin: a Debug on / off switch for the Log tab, once Scribe has its Debug switch.
 - Web admin: saved page layouts, per user, once the web admin has users.  Jacob's long-term idea from the

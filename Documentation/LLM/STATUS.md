@@ -52,8 +52,9 @@ What we did:
   RESTART SERVER, STOP SERVER and SHUT DOWN, and a short services list beside it.  While the server isn't
   running only the Control Panel and the Log can be clicked, the bell is hidden, and the header pill reads
   SERVER STOPPED.  When it turns running the page moves to the remembered tab (Conductor by default) and
-  everything works as before, database lock included.  The Control Panel sits outside that lock, so the
-  server can be stopped while the database is offline.
+  everything works as before, database lock included.  The Control Panel and the Log sit outside that
+  lock, so the server can be stopped while the database is offline and the log read to see why.
+- **SHUT DOWN is on the Control Panel only.**  The header's button went.
 - **Only rendered in a headless browser with made-up numbers**, not run against Conductor.  Every
   transition (stopped, starting, running with the database connecting, online, stopping, stopped again)
   showed the right tabs, pill, bell and buttons, with no script errors.  Nothing in Rust has been compiled:
@@ -63,23 +64,22 @@ What fought back:
 
 - The database lock used to lock the whole sidebar with one class and `inert`.  It's per tab now
   (`lockTabs()`), since the Control Panel has to stay clickable under it while the others don't.
-- The header already had SHUT DOWN, and the Control Panel has one too, so that tab shows two.  Left as is;
-  Jacob's call whether the header's goes.
+- The header already had SHUT DOWN, and the Control Panel got one too.  Jacob picked the Control Panel's,
+  and the header's went.
 
 What Jacob decided (from the ask that opened the session):
 
 - A control panel page is what the web admin greets you with.  Only the log is reachable in the tabs until
   the server is running.  No notifications while nothing is started.  START / RESTART / STOP SERVER and
   SHUTDOWN.  When the server is running, the page is the pages as they were.
+- The Log stays open under the database lock too.  The header's SHUT DOWN goes; the Control Panel is
+  where STOP and SHUT DOWN live.
 
 ## What's waiting
 
 - **Jacob to build and run this session and the Fingerprinter session.**  `cargo build`, `cargo test`,
   then the page: press START SERVER and watch the Services list, then STOP, then START again (Archivist
   reconnects, the monitor's uptime starts over), then SHUT DOWN.
-- Whether the Log stays locked under the database lock now that it's open with the server stopped.  Asked
-  in the session's reply, not answered.
-- Whether the header keeps its own SHUT DOWN now that the Control Panel has one.
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.
 - DiskMan: seeing hand edits to a file it already holds.  In TODO.
 - The Windows build, whenever getting to that machine is less of a hassle.

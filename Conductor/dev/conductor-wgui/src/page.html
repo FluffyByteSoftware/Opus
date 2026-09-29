@@ -14,8 +14,9 @@ server is started and stopped, and it's all there is until the server is
 running: the other tabs are locked, bar the log, and the bell is hidden.
 Once the server is running the tabs open up, and while the database isn't
 connected they're locked again and the page under the header is blurred.
-The Control Panel and the bell stay above that lock, so the server can
-still be stopped.
+The Control Panel, the Log and the bell stay above that lock, so the
+server can still be stopped and the log read to see why.  SHUT DOWN is on
+the Control Panel, with the server buttons, and nowhere else.
 -->
 <html lang="en">
 <head>
@@ -360,7 +361,6 @@ still be stopped.
         <div class="label">Uptime</div>
         <div class="mono good-ink" id="uptime">--:--:--:--</div>
       </div>
-      <button id="shut-down">SHUT DOWN</button>
       <button class="bell" id="bell" aria-label="Notifications" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
@@ -404,6 +404,16 @@ still be stopped.
       </div>
     </div>
   </div>
+  </section>
+
+  <section class="tabpage" id="page-log">
+    <div class="panel boxed full">
+      <div class="tall-head">
+        <h3>Scribe</h3>
+        <div class="note mono" id="log-file"></div>
+      </div>
+      <div class="tall-body terminal" id="terminal"></div>
+    </div>
   </section>
 
   <div class="content locked" id="content" inert>
@@ -670,15 +680,6 @@ still be stopped.
     </div>
   </section>
 
-  <section class="tabpage" id="page-log">
-    <div class="panel boxed full">
-      <div class="tall-head">
-        <h3>Scribe</h3>
-        <div class="note mono" id="log-file"></div>
-      </div>
-      <div class="tall-body terminal" id="terminal"></div>
-    </div>
-  </section>
   </div>
 
   <div class="veil" id="veil">
@@ -1107,8 +1108,8 @@ function applyDbMode(mode, dbState, takenAt) {
     $("veil-title").textContent = "DATABASE OFFLINE";
     $("veil-text").textContent = "The game can't run right now.  Archivist says Postgres is " + dbState +
       ".  Conductor is still running and keeps trying to connect.  Seen offline since " + offlineSince +
-      ".  The rest of this page comes back when the database does.  The Control Panel still works, to stop " +
-      "the server or shut down.";
+      ".  The rest of this page comes back when the database does.  The Control Panel and the Log still " +
+      "work, to see why and to stop the server or shut down.";
   } else {
     offlineSince = null;
     $("veil-title").textContent = "CONNECTING TO THE DATABASE";
@@ -1116,23 +1117,26 @@ function applyDbMode(mode, dbState, takenAt) {
   }
 }
 
-// Which sidebar tabs can be clicked.  With the server stopped, only the
-// Control Panel and the Log.  With it running, the database lock decides
-// the rest, and the Control Panel stays open so the server can be stopped.
+// Which sidebar tabs can be clicked.  The Control Panel and the Log
+// always: the server can always be stopped, and the log read to see why
+// something went wrong.  The rest only with the server running and the
+// database connected.
 let dbLocked = true;
 
 function lockTabs() {
   for (const tab of document.querySelectorAll(".maintab")) {
     const name = tab.dataset.tab;
-    tab.disabled = name === "control" ? false
+    tab.disabled = name === "control" || name === "log" ? false
       : serverRunning ? dbLocked
-      : name !== "log";
+      : true;
   }
 }
 
-// The database veil covers the data tabs, never the Control Panel.
+// The database veil covers the data tabs, never the Control Panel or the
+// Log, which sit outside the blurred content.
 function showVeil() {
-  $("veil").style.display = serverRunning && dbLocked && currentTab !== "control" ? "block" : "none";
+  const covered = currentTab !== "control" && currentTab !== "log";
+  $("veil").style.display = serverRunning && dbLocked && covered ? "block" : "none";
 }
 
 // The tab that was open last time is remembered by the browser, if it lets
@@ -1501,11 +1505,9 @@ $("tab-in-use").addEventListener("click", () => showTab(true));
 $("process-filter").addEventListener("input", () => { if (lastMonitor) drawSystem(lastMonitor); });
 $("tab-asked-for").addEventListener("click", () => showTab(false));
 
-// SHUT DOWN, from the header or the Control Panel.  Both buttons do the
-// same thing.
+// SHUT DOWN, on the Control Panel.
 async function shutDown() {
   if (!confirm("Shut Conductor down?")) return;
-  $("shut-down").disabled = true;
   $("control-shut-down").disabled = true;
   try {
     // The X-Opus header is what makes the server believe the click came
@@ -1515,13 +1517,11 @@ async function shutDown() {
     showGone("Conductor is shutting down", "The server stops first if it's running, then DiskMan writes out "
       + "what it's holding.  The console counts down if that takes more than a second, and ends once it's done.");
   } catch (e) {
-    $("shut-down").disabled = false;
     $("control-shut-down").disabled = false;
     alert("The shut down didn't go through: " + e);
   }
 }
 
-$("shut-down").addEventListener("click", shutDown);
 $("control-shut-down").addEventListener("click", shutDown);
 $("server-start").addEventListener("click", () => askServer("start"));
 $("server-restart").addEventListener("click", () => { if (confirm("Restart the server?")) askServer("restart"); });

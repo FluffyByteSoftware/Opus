@@ -91,8 +91,11 @@ The JSON shapes are written out at the top of `json.rs`.  The page's script is t
   thread is never stuck behind an Archivist that's finishing a long query on the way down; the page sees
   the state change through the status.  The state flips to starting or stopping in `server::ask()` itself,
   under its lock, so two clicks can't both get through.
-- **The Control Panel stays above the database lock**, like the header and the bell, so the server can be
-  stopped while the database is offline.  The Log is locked there as before; opening it too is in TODO.
+- **The Control Panel and the Log stay above the database lock**, like the header and the bell, so the
+  server can be stopped while the database is offline and the log read to see why.  Jacob's call, the same
+  day: "stay open".  Both sections sit outside the blurred content block for that.
+- **SHUT DOWN lives on the Control Panel, with STOP SERVER, and nowhere else.**  The header had its own
+  from the first web admin session; Jacob had it go once the Control Panel had one.
 - **The bell is hidden while the server isn't running.**  Notices raised anyway (a config complaint at boot,
   say) are still there once it is, and in the log meanwhile.
 
@@ -108,7 +111,7 @@ server is running (its pieces being down is the normal state before that).
 **Header, on every tab**: the name; a status line (NOMINAL, or what's wrong: `DATABASE NOT CONNECTED`,
 `2 SERVICES DOWN`, or `SERVER STOPPED` while it is); a pill (DB ONLINE green, DB CONNECTING grey, DB OFFLINE
 flashing red, or SERVER STOPPED / STARTING / STOPPING grey); uptime as DD:HH:MM:SS, dashes while the server
-is stopped; SHUT DOWN (asks first); and the bell in the corner, hidden while the server isn't running.
+is stopped; and the bell in the corner, hidden while the server isn't running.
 
 **Control Panel**: the server's state big (STOPPED plain, STARTING and STOPPING yellow, RUNNING green), the
 launcher's note under it and since when; then START SERVER (green), RESTART SERVER (green, asks first),
@@ -123,8 +126,8 @@ whatever tab is open with the newest five, each a card with its level, where it 
 and an ACK button, and ACK ALL at the top (asks first).  Each card fades after 30 seconds; the notice itself
 stays open until it's ACKed.  Click the bell again to close the tray.
 
-**The database lock**: anything but DB ONLINE blurs and greys everything under the header and the sidebar
-tabs, and makes them unclickable (the keyboard too, with `inert`).  A card over it says "CONNECTING TO THE
+**The database lock**: anything but DB ONLINE blurs and greys the data tabs under the header and locks
+their sidebar buttons (the keyboard too, with `inert`); the Control Panel and the Log stay clickable.  A card over it says "CONNECTING TO THE
 DATABASE", or, flashing red, "DATABASE OFFLINE -- the game can't run right now", what Archivist says, and
 when the page first saw it offline.  The browser tab's title turns to "DB OFFLINE".  For the first 10
 seconds after Conductor starts it's "connecting", not offline, to give Archivist its first try.
@@ -164,8 +167,8 @@ happened, and an ACK button.  ACK ALL (asks first) and TEST NOTIFICATION at the 
 `/Opus/notices` once a second, only while this tab is open.
 
 **Log**: Scribe's terminal, the height of the window, coloured by priority, keeping the last 500 lines, and
-staying at the bottom unless the admin has scrolled up.  Open while the server is stopped, so the admin
-can read why a start went wrong.
+staying at the bottom unless the admin has scrolled up.  Always open: with the server stopped and under
+the database lock both, so the admin can read why something went wrong.
 
 If Conductor stops answering, the page covers itself with a note and stops asking.  After SHUT DOWN it says
 Conductor is shutting down, that the server stops first if it's running, and that the console counts down
@@ -197,4 +200,3 @@ the monitor are the server: expected until the first START SERVER, stopped after
   changed live are planned in TODO.md.
 - The lock can't lift until Archivist reconnects, and Archivist only tries when a job comes in.  TODO.md.
   A STOP SERVER and a START SERVER is the way round it today.
-- Two SHUT DOWN buttons on the Control Panel tab (the header's and its own).

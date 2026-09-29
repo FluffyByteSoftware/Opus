@@ -285,13 +285,14 @@ When I say we're wrapping up:
 - The page is seven tabs down the left sidebar, under the OP logo: Control
   Panel, System, Conductor, Services, Storage, Notifications History, Log.
   Anything new goes on one of them, or is a new tab I agree to.
-- Until the server is running, only the Control Panel and the Log can be
-  clicked, and the bell is hidden. The Control Panel is the only place the
-  server is started, restarted and stopped.
-- While the server is running and the database isn't connected, the page is
-  blurred and locked, with the Control Panel and SHUT DOWN the only things
-  that work. Anything new on the page sits under that lock; only the header
-  (the bell and its tray included) and the Control Panel stay above it.
+- The Control Panel and the Log are always clickable. Until the server is
+  running they're the only tabs that are, and the bell is hidden. The Control
+  Panel is the only place the server is started, restarted and stopped, and
+  the only place SHUT DOWN is; the header has no buttons but the bell.
+- While the server is running and the database isn't connected, the data
+  tabs are blurred and locked. Anything new on the page sits under that lock;
+  only the header (the bell and its tray included), the Control Panel and the
+  Log stay above it.
 - When talking about the page, name the panel or tab ("the Log tab"), not the
   tool behind it. "Where does Scribe go?" read as moving the crate.
 - [FILL IN the tick rate once there is a game loop]
