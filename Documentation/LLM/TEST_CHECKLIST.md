@@ -37,20 +37,23 @@ does a real reverse lookup of `127.0.0.1`, which asks the resolver; it passes wi
 ~~Build and tests~~ 2026-09-29: `cargo clean && cargo build && cargo test` clean, 178 passed (15 monitor,
 44 networking, 89 tools with the benchmark ignored, 30 web admin), no warnings.
 
-- [ ] Before START SERVER: the TCP tab is greyed in the sidebar, like the other data tabs.
-- [ ] After START SERVER with the database connected: the TCP tab is clickable, and empty ("0 in the last
-      5 minutes").  The top tile says where TCP and UDP listen.
+- [x] ~~Before START SERVER: the TCP tab is greyed in the sidebar, like the other data tabs.~~  2026-09-29.
+- [x] ~~After START SERVER with the database connected: the TCP tab is clickable, and empty ("0 in the last
+      5 minutes").  The top tile says where TCP and UDP listen.~~  2026-09-29, screenshot.
 - [ ] With the TLS files moved away and the server restarted: both network services in trouble, and the
       TCP tab stays greyed (it wants both listeners up).  Put the files back after.
-- [ ] Run the Python client (`python3 conductor-networking/test_client.py`, the usual line) and watch the
-      tab: the row appears, moves through TLS and "Waiting for its Login" and "Checking the login", and
-      ends green as "Logged in and handed a ticket for UDP".  The address is the client's, with its port.
-- [ ] Host: `127.0.0.1` shows `localhost` (or whatever `/etc/hosts` calls it) once the lookup is back, a
-      second or so after the row appears.  The log has a Debug line "Reverse DNS: ... is ...".
+- [x] ~~Run the Python client and watch the tab: the row appears, moves through the stages, and ends as
+      "Logged in and handed a ticket for UDP".  The address is the client's, with its port.~~  2026-09-29,
+      screenshot.  The stages go by in half a second, so KICK is up for about that long on a login that
+      isn't held up; by design (TCP is only the login).  One miss: the finished row's "Logged in" is
+      grey, not green (the greyed-row style outweighs `.good-ink`; a one-line CSS fix, in TODO.md).
+- [x] ~~Host: `127.0.0.1` shows `localhost` once the lookup is back.  The log has a Debug line
+      "Reverse DNS: ... is ...".~~  2026-09-29: both, in the same second as the connection.
 - [ ] A wrong password: the row ends as "Refused: wrong secret word, name or password", greyed.  The
       connection closed at the door two seconds later shows as "Closed at the door: on hold after a
       failed login".
-- [ ] Ago counts up once a second; a finished row disappears five minutes after it arrived.
+- [x] ~~Ago counts up once a second~~ 2026-09-29.  [ ] A finished row disappears five minutes after it
+      arrived.
 - [ ] The Settings tab shows `connections_remember_seconds` (300) on `networking.cfg`'s card.  Save it as
       10, STOP SERVER and START SERVER, run the client once: its row goes ten seconds after it arrived,
       and the tab's count says "in the last 10 seconds".  Put it back to 300 after.

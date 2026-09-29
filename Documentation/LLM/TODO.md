@@ -123,6 +123,9 @@ Things we thought of along the way.  None of them are promised.
   the last tab, in the browser.
 - Web admin: more accounts than `user` and `admin`, with names of their own.  Two fixed ones were
   Jacob's ask for now.
+- Web admin: on the TCP tab, a finished row that logged in was meant to read green and reads grey: `tr.over
+  td` outweighs `.good-ink`.  A `tr.over td.good-ink { color: var(--green); }` line fixes it.  Seen in
+  Jacob's screenshot, 2026-09-29, at the wrap-up, so it waited.
 - Web admin: the Settings tab could offer the default beside a field, and a "back to default" click.
 - Web admin: pin Conductor to the top of the System tab's process list, if busiest-first buries it.
 - Web admin: a setting in `conductor_globals.cfg` that starts the server on its own when Conductor boots,

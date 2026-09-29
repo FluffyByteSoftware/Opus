@@ -26,8 +26,8 @@ admin's Control Panel, and STOP SERVER takes it back down with Conductor still r
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests (the session
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
-says.  `main` sits on networking and everything before it; `unstable` and `testing` are one session
-ahead of it, the TCP tab, which Jacob hasn't built yet.
+says.  At the close of the TCP tab session he had `main` moved up, so `main`, `testing` and `unstable`
+all sit on the same commit again: the TCP tab and everything before it.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `c4cfd59`: the login and the
 Settings tab.  `cargo test` passed 132 (15 monitor, 89 tools with the benchmark ignored, 28 web admin), and
@@ -53,8 +53,13 @@ ability to manage TCP connections", which went to TODO.md under the one-feature 
 a rolling test checklist, which is `TEST_CHECKLIST.md` now.
 
 **Built and `cargo test` passed on his machine the same day**, from `testing`: clean build, no warnings,
-178 tests (15 monitor, 44 networking, 89 tools with the benchmark ignored, 30 web admin).  The run and
-the checklist are what's left.  The page's script was parsed with node (a syntax check, nothing more).
+178 tests (15 monitor, 44 networking, 89 tools with the benchmark ignored, 30 web admin), and **the run
+showed the tab working** (his screenshot): the row for the Python client, `localhost` from reverse DNS
+in the same second, the stamp, Ago counting, "Logged in and handed a ticket for UDP".  A login takes
+half a second, so KICK was on screen for about that long; by design, and he read it that way himself.
+One miss, cosmetic: that finished row reads grey where it was meant to be green (TODO.md, one CSS
+line).  Untried: a wrong password on the tab, KICK itself, the five-minute drop, the setting at 10.
+At the close he had `main` moved up to `testing`, so all three branches sit on this session.
 
 What we did:
 
@@ -92,9 +97,10 @@ What Jacob decided:
 
 ## What's waiting
 
-- **Run this session's work**: the 2026-09-29 section of `TEST_CHECKLIST.md`.  The build and the tests
-  passed; the kick and the queue place have only unit tests behind them, and the ledger and the DNS
-  thread haven't been seen running.
+- **The rest of the 2026-09-29 section of `TEST_CHECKLIST.md`**: a wrong password on the tab, KICK (its
+  only tests are unit tests; the Ctrl-Z trick is in the checklist), the five-minute drop, the setting at
+  10, `net-dns` on the threads list, the `user` login seeing KICK greyed.
+- The grey-not-green finished row on the TCP tab: one CSS line, in TODO.md.
 - **The UDP tab** (Jacob's spec in TODO.md): the account of every player, and the character once there
   is one.  `sessions.rs` needs a `players()` first.
 - **Jacob's pick for the next session**, his words: "ability to kick a TCP connection that's in queue, or
