@@ -13,5 +13,6 @@ edition = "2024"
 
 [dependencies]
 conductor-monitor = { path = "../conductor-monitor" }
+conductor-networking = { path = "../conductor-networking" }
 conductor-tools = { path = "../conductor-tools" }
 conductor-wgui = { path = "../conductor-wgui" }

@@ -249,6 +249,8 @@ Built on 2026-09-28, Zabbix style, the way the TLP at Jacob's work does it.  The
 | Fingerprinter  | The OS gave it random bytes on START SERVER   | It wouldn't: nothing can get a UUID           |
 | Security       | Its arena is allotted; checks in every second | Its thread wouldn't start                     |
 | Archivist      | It's connected to Postgres                    | It can't connect, or lost the connection      |
+| Network (TCP)  | The acceptor is listening for logins          | The TLS files are missing, or it can't listen  |
+| Network (UDP)  | Its thread is listening; checks in every second | It can't listen (TCP comes back down too)     |
 | Monitor        | Its thread is looking once a second           | Never; stuck shows as gone quiet after 5 s    |
 | Web admin      | It's listening                                | Never; if it can't listen, Conductor stops    |
 

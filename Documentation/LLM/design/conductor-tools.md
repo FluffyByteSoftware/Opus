@@ -55,20 +55,22 @@ conductor-tools/
     │                        hash_password(password) -> Ticket<String>
     │                        verify_password(password, stored) -> Ticket<bool>
     │                        verify_no_account(password) -> Ticket<()>
-    │                        Ticket<T> { check(), wait(), place() -> Place { ahead, wait } }
+    │                        Ticket<T> { check(), wait_for(wait), wait(), place() -> Place { ahead, wait } }
     │                        check_password_rules(password) -> Result<(), String>, pad_login_time(started)
     │                        type Pending<T> (from pending.rs), enum SecurityError { NotRunning, Failed }
     ├── security/          advise_huge_pages(start, bytes) per OS: linux.rs (madvise), windows.rs, other.rs
     ├── notices.rs         enum Level { Notice, Warn, Error }, struct Notice { id, when, level, source, text }
     │                        publish(level, source, text) -> id, newest(n), all(), ack(id), ack_all()
-    ├── pending.rs         Pending<T, E> { check() never waits, wait() does }, trait NotRunning
+    ├── pending.rs         Pending<T, E> { check() never waits, wait_for(wait) waits so long, wait() does }
+    │                        trait NotRunning
     ├── constellations.rs  the store: load(file), value / number / port / folder (file, key), values(file)
     │                        settings() -> Settings { scribe_log_dir, wgui_port }, log_dir(), content_dir()
     │                        path_of(file), waiting_path(file), config_path()
     │                        save_waiting(file, text), waiting(file), discard_waiting(file), server_stopped()
     ├── constellations/
     │   ├── files.rs       the table: enum Reboot { Soft, Hard }, enum Kind, struct Setting, struct ConfigFile
-    │                        GLOBALS (conductor_globals.cfg, hard), POSTGRES (postgres.cfg, soft), FILES
+    │                        GLOBALS (conductor_globals.cfg, hard), WGUI (wgui.cfg, hard),
+    │                        POSTGRES (postgres.cfg, soft), NETWORKING (networking.cfg, soft), FILES
     │   └── text.rs        the one reader and writer: parse(file, text) -> Parsed, check(setting, value)
     │                        file_text(file, values), missing_text(file, seen), defaults(file); type Values
     ├── server.rs          enum State { Stopped, Starting, Running, Stopping }, enum Command { Start, Stop, Restart }
@@ -217,7 +219,8 @@ every number is six times bigger, which is why the benchmark says to use `--rele
 
 What's open:
 
-- The queue place is worked out but not yet told to anyone.  Networking's, when there is a client to tell.
+- The queue place is told to the client now: networking's login thread waits on the `Ticket` a second at
+  a time with `wait_for()` (2026-09-29) and sends an InLine with `place()`'s numbers between waits.
 - Rayon lanes would cut a single hash's wall time across cores at the same CPU cost, but it's a crate and
   its threads bypass `threads::spawn()`.  Not taken.
 - Not hashing at all on a reconnect (a token from Fingerprinter instead) is the biggest CPU saving there is,
@@ -354,6 +357,7 @@ The files today:
 | `conductor_globals.cfg`  | hard   | the launcher at boot | `scribe_log_dir` (`logs`), `wgui_port` (`9996`)   |
 | `wgui.cfg`               | hard   | the launcher at boot; the web admin's login reads the values | `user_password` (`user`), `admin_password` (`admin`), both text, neither empty |
 | `postgres.cfg`           | soft   | Archivist on START SERVER | `address`, `port`, `database`, `username`, `password` (secret), `query_time_limit_seconds` (0 to 3600, 10), `slow_job_ms` (1 to 600000, 250) |
+| `networking.cfg`         | soft   | networking on START SERVER | `bind_address` (`0.0.0.0`), `tcp_port` (`9997`), `udp_port` (`9998`), `certificate_file` (`certs/conductor.crt`), `private_key_file` (`certs/conductor.key`), `secret_word` (`potato`), `client_versions` (`0.0.1`, a comma list), `login_deadline_seconds` (1 to 600, 10), `login_threads` (1 to 256, 8), `max_waiting_logins` (1 to 10000, 64), `token_deadline_seconds` (1 to 600, 30), `udp_timeout_seconds` (1 to 3600, 40) |
 
 The two passwords in `wgui.cfg` are kept as they are, not hashed (Jacob, 2026-09-29): Security only runs
 while the server does, and a login has to work before START SERVER.  They're `Text`, not `Secret`, so an
@@ -439,8 +443,8 @@ What we decided:
   reports, which is how a thread in the "in use" view gets our name and an "ours" mark.
 - A thread is marked finished when its closure ends, a panic included (a guard that's dropped either way).
   Finished threads stay on the list.  There are a handful of them, not thousands.
-- Threads today: `main`, `diskman`, `security`, `archivist`, `monitor`, `wgui`.  The postgres crate starts
-  some of its own, and those show up as "not ours".
+- Threads today: `main`, `diskman`, `security`, `archivist`, `net-tcp`, `net-login-1` and up, `net-udp`,
+  `monitor`, `wgui`.  The postgres crate starts some of its own, and those show up as "not ours".
 - main can't be started by `spawn()`, so it puts itself on the list with `name_this_thread("main")` as the
   first line of `main()`.  It stays "running" for good, since main ending ends Conductor.
 
@@ -455,13 +459,13 @@ What we decided:
   itself**: `services::set(name, state, note)`, with a note that says what it's doing or what went wrong.
 - **Every expected service is on the list from the start**, as "expected", so one that never started shows
   as missing.  The list is `EXPECTED` in `services.rs`: DiskMan, Scribe, Constellations, Fingerprinter,
-  Security, Archivist, Monitor, Web admin, each with the name of its thread if it has one.  Adding a service
-  means adding it there.
+  Security, Archivist, Network (TCP), Network (UDP), Monitor, Web admin, each with the name of its thread
+  if it has one.  Adding a service means adding it there.
 - A service with a thread is **stopped once that thread has ended**, whatever it last said.  A thread that
   panics says nothing on the way out.  This is worked out when the list is read, from `threads::list()`.
 - A service can **check in** with `seen(name)`.  One that has checked in and then goes quiet for more than
-  `QUIET_LIMIT` (5 seconds) isn't healthy.  The monitor, DiskMan and Security do; the others have no loop to
-  check in from.
+  `QUIET_LIMIT` (5 seconds) isn't healthy.  The monitor, DiskMan, Security and the UDP side do; the others
+  have no loop to check in from.
 - Healthy means running and not gone quiet.  The page shows starting as yellow, not down.
 - **Nothing in `services.rs` writes to Scribe.**  Scribe reports to the list, so a call the other way could
   leave each waiting on the other's lock.

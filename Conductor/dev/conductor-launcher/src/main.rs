@@ -4,8 +4,8 @@
 //!
 //! Entry point.  Brings up the program -- DiskMan, Scribe, Constellations
 //! and the web admin -- and then waits on the web admin's Control Panel.
-//! The server itself (Fingerprinter, Security, Archivist, the monitor, and
-//! whatever comes later) doesn't start until the admin presses START SERVER there,
+//! The server itself (Fingerprinter, Security, Archivist, networking, the
+//! monitor, and whatever comes later) doesn't start until the admin presses START SERVER there,
 //! and STOP SERVER takes it back down while the program keeps running.
 //! The console is only Scribe's output, and typing in it does nothing.
 //! When the admin presses SHUT DOWN, the web admin stops, main wakes up,
@@ -63,7 +63,7 @@ fn main() {
     scribe::info(Channel::System, &format!("Content folder: {}", constellations::content_dir().display()));
     scribe::info(Channel::System, &format!("Settings from {}", constellations::config_path().display()));
     scribe::info(Channel::System, "A changed conductor_globals.cfg or wgui.cfg needs Conductor run again; a \
-        changed postgres.cfg needs STOP SERVER and START SERVER.");
+        changed postgres.cfg or networking.cfg needs STOP SERVER and START SERVER.");
 
     server::set(State::Stopped, "Not started yet.  START SERVER on the Control Panel starts it.");
 
@@ -116,35 +116,39 @@ fn take_commands() {
 /// checks the OS will give it random bytes before anything needs a UUID;
 /// Security allots its hash arena on its own thread, and takes its salts
 /// from Fingerprinter, so it comes after it; Archivist comes straight back
-/// and connects on its own thread; the monitor starts looking once a
+/// and connects on its own thread; networking opens the door once the
+/// three a login leans on are up; the monitor starts looking once a
 /// second.  None of them can fail to the point of stopping this: each says
 /// how it went in the log and on the Services tab.
 fn start_server() {
-    server::set(State::Starting, "Starting Fingerprinter, Security, Archivist and the monitor.");
+    server::set(State::Starting, "Starting Fingerprinter, Security, Archivist, networking and the monitor.");
     scribe::info(Channel::System, "The server is starting.");
 
     fingerprinter::start();
     security::start();
     archivist::start();
+    conductor_networking::start();
     conductor_monitor::start();
 
-    server::set(State::Running, "Fingerprinter, Security, Archivist and the monitor were started.  \
+    server::set(State::Running, "Fingerprinter, Security, Archivist, networking and the monitor were started.  \
         The Services tab says how each one is doing.");
     scribe::info(Channel::System, "The server is running.");
 }
 
-/// Takes the server back down, in the opposite order.  Security goes
-/// before Archivist, so a hash on its way to the accounts table still
-/// gets there; Archivist finishes the jobs already in its mailbox, and
-/// anything it hands DiskMan on the way out is written by the DiskMan
-/// that's still running.  Last, with every server piece down, any config
-/// file saved from the web admin while they ran is swapped in, so the
-/// next START SERVER reads the new one.
+/// Takes the server back down, in the opposite order.  Networking goes
+/// first, so the door is shut and every player told before the pieces a
+/// login leans on go; Security goes before Archivist, so a hash on its
+/// way to the accounts table still gets there; Archivist finishes the
+/// jobs already in its mailbox, and anything it hands DiskMan on the way
+/// out is written by the DiskMan that's still running.  Last, with every
+/// server piece down, any config file saved from the web admin while they
+/// ran is swapped in, so the next START SERVER reads the new one.
 fn stop_server() {
-    server::set(State::Stopping, "Stopping the monitor, Security, Archivist and Fingerprinter.");
+    server::set(State::Stopping, "Stopping the monitor, networking, Security, Archivist and Fingerprinter.");
     scribe::info(Channel::System, "The server is stopping.");
 
     conductor_monitor::stop();
+    conductor_networking::stop();
     security::stop();
     archivist::stop();
     fingerprinter::stop();

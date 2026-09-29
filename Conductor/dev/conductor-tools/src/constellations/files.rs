@@ -215,9 +215,107 @@ pub static POSTGRES: ConfigFile = ConfigFile {
     ],
 };
 
+/// `Content/cfg/networking.cfg`: where Conductor listens for players, the
+/// TLS files, and how long a player gets at each step.  Networking reads
+/// it on every START SERVER, so it's soft.
+pub static NETWORKING: ConfigFile = ConfigFile {
+    name: "networking.cfg",
+    reboot: Reboot::Soft,
+    channel: Channel::Network,
+    about: "Where Conductor listens for players, and how it treats them.  One\n\
+            \"key = value\" a line, and \"#\" starts a comment.  Paths are relative\n\
+            to the Content folder unless they start with \"/\".",
+    settings: &[
+        Setting {
+            key: "bind_address",
+            kind: Kind::Text,
+            default: "0.0.0.0",
+            about: "The address to listen on, for TCP and UDP both.  0.0.0.0 is every\n\
+                    address this machine has; 127.0.0.1 is this machine only.",
+        },
+        Setting {
+            key: "tcp_port",
+            kind: Kind::Port,
+            default: "9997",
+            about: "The port players log in on, inside TLS.  The connection closes once\n\
+                    the player has their ticket for UDP.",
+        },
+        Setting {
+            key: "udp_port",
+            kind: Kind::Port,
+            default: "9998",
+            about: "The port the game runs on.  A player is told it with their ticket.",
+        },
+        Setting {
+            key: "certificate_file",
+            kind: Kind::Text,
+            default: "certs/conductor.crt",
+            about: "The TLS certificate, a PEM file.  Clients trust this one file and no\n\
+                    authority.  Make it with openssl; the log says how when it's missing.",
+        },
+        Setting {
+            key: "private_key_file",
+            kind: Kind::Text,
+            default: "certs/conductor.key",
+            about: "The certificate's private key, a PEM file.  It never leaves this\n\
+                    machine and never goes in git.",
+        },
+        Setting {
+            key: "secret_word",
+            kind: Kind::Text,
+            default: "potato",
+            about: "What a client has to say with its login.  Not a secret from anybody\n\
+                    with a copy of the client; it turns port scanners away before they\n\
+                    cost a hash.",
+        },
+        Setting {
+            key: "client_versions",
+            kind: Kind::Text,
+            default: "0.0.1",
+            about: "The client versions let in, separated by commas.  Any other is told\n\
+                    \"Outdated Client Failure\" before its password is looked at.",
+        },
+        Setting {
+            key: "login_deadline_seconds",
+            kind: Kind::Number { low: 1, high: 600 },
+            default: "10",
+            about: "How long a connection gets to finish TLS and send its login before\n\
+                    it's closed.  Time spent waiting in Security's line doesn't count.",
+        },
+        Setting {
+            key: "login_threads",
+            kind: Kind::Number { low: 1, high: 256 },
+            default: "8",
+            about: "How many logins can be in progress at once.  Security hashes one at\n\
+                    a time whatever this says; the rest wait in its line.",
+        },
+        Setting {
+            key: "max_waiting_logins",
+            kind: Kind::Number { low: 1, high: 10_000 },
+            default: "64",
+            about: "How many connections can wait for a login thread before new ones\n\
+                    are turned away at the door.",
+        },
+        Setting {
+            key: "token_deadline_seconds",
+            kind: Kind::Number { low: 1, high: 600 },
+            default: "30",
+            about: "How long a ticket stays good if the client never shows up on UDP\n\
+                    with it.",
+        },
+        Setting {
+            key: "udp_timeout_seconds",
+            kind: Kind::Number { low: 1, high: 3600 },
+            default: "40",
+            about: "How long a player can go without sending anything over UDP before\n\
+                    they're dropped.  Clients send a keep-alive every second.",
+        },
+    ],
+};
+
 /// Every config file, in the order the page lists them.  A new file goes
 /// here and nowhere else.
-pub static FILES: [&ConfigFile; 3] = [&GLOBALS, &WGUI, &POSTGRES];
+pub static FILES: [&ConfigFile; 4] = [&GLOBALS, &WGUI, &POSTGRES, &NETWORKING];
 
 #[cfg(test)]
 mod tests {

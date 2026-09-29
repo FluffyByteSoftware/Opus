@@ -21,19 +21,27 @@ Things that wait on a piece that doesn't exist yet.
   Security is a server piece and only runs between START SERVER and STOP SERVER, and a login has to work
   before START SERVER, so this waits on Security being up from boot, or a hash on the caller's thread.
   Jacob's call when it matters; plain text is fine while the page only listens on this machine.
-- Web admin: HTTPS, once Security brings in TLS for the game.
+- Web admin: HTTPS.  rustls is in the build now (networking, 2026-09-29), so this waits only on wanting
+  it, and on the browser warning a self-signed certificate gets.
 - Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
-- Accounts: making, checking and logging in.  Security's `hash_password()` and `verify_password()` are
-  ready for it; Fingerprinter's `new_uuid()` names the row.  Waits on networking for the login itself.
-- Accounts and networking: **one login at a time, hard limit.**  Jacob's rule from 2026-09-29.  Security's
-  worker already hashes one at a time with the rest in line; the login flow has to lean on that line, never
-  work around it (no hashing anywhere else, no second worker).  The client is told its place and about how
-  long: `Ticket::place()` has the numbers; the message to the client is networking's.
-- Accounts: a login token on reconnect (`fingerprinter::new_token()`), so a player who drops and comes back
-  doesn't pay for a hash.  The biggest CPU saving Security can't make on its own.
-- Security: TLS for the welcome TCP connection.  Waits on networking, and on a crate we'd have to pick.
+- Accounts: making one.  Logging in is built (networking, 2026-09-29) and reads the `accounts` table;
+  nothing writes a row yet.  Security's `hash_password()` and Fingerprinter's `new_uuid()` are ready.  How
+  the first throwaway account gets made is under discussion in STATUS.md.
+- **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
+  this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
+  - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full
+    server could still say so).  Today `max_waiting_logins` caps the door and nothing caps the world.
+  - A login token on reconnect (`fingerprinter::new_token()`), so a player who drops and comes back doesn't
+    pay for a hash.  The biggest CPU saving Security can't make on its own.  Against today's rule on
+    purpose (a dropped UDP session is gone, start over), so it's a design change when it comes, not a fix.
+  - A session id in every UDP packet, so a home router changing the port mid-session doesn't end it.
+  - Anything an admin does to a player from the web admin: see who's on, kick, message.
+- Networking: the web admin shows nothing of it yet.  `conductor_networking::status()` has the listening
+  addresses, the players and the unused tickets, for whichever tab they go on.
+- Networking: the protocol version in the Hello is `1` and the client versions are a list in
+  `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
   which today is Fingerprinter, Security, Archivist and the monitor.  Networking and the game loop go in
   `start_server()` and `stop_server()` in the launcher when they exist, and come up and down with the
@@ -105,6 +113,12 @@ Things we thought of along the way.  None of them are promised.
   way the monitor reads `/proc`.
 - Security: wipe passwords from memory once they're hashed (the crate's `zeroize` feature and a wipe of the
   job's `String`).  Off for now; a hobby server, and the theory matters more than the polish.
+- Networking: make the TLS pair itself on first start, the way Stratum did with the `rcgen` crate, instead
+  of the openssl command by hand.  One more crate; Jacob picked the command for now (2026-09-29).
+- Networking: the private key sits in DiskMan's cache for as long as Conductor runs, like every file read.
+  Reading it past DiskMan (the way the monitor reads `/proc`) would keep it out, if it ever matters.
+- Networking: the login threads' `serving` list and the failure hold are two small maps under two locks;
+  fine at this size.  If the door ever sees thousands of connections a second, look here first.
 - Running Conductor with no console window.  The page's Log tab shows everything the console does, but
   closing the console kills Conductor today (Linux sends the terminal's hang-up signal, Windows ends the
   process), so it goes down without a clean shutdown.  Ways to fix it: start it detached (`setsid` or

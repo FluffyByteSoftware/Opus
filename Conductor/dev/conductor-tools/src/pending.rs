@@ -7,7 +7,8 @@
 //! carry on and pick the answer up later.  It started in Archivist and
 //! moved here when DiskMan needed the same thing.
 
-use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
+use std::time::Duration;
 
 /// What a tool's error says when there's nobody left to answer: the tool
 /// isn't running, or it stopped before it got to the job.
@@ -53,6 +54,19 @@ impl<T, E: NotRunning> Pending<T, E> {
             Ok(answer) => Some(answer),
             Err(TryRecvError::Empty) => None,
             Err(TryRecvError::Disconnected) => Some(Err(E::not_running())),
+        }
+    }
+
+    /// Waits up to `wait` for the answer, and hands back `None` if it
+    /// hasn't come by then.  The `Pending` is still good after a `None`,
+    /// so a thread can wait a second at a time and do something in
+    /// between (tell a client where it stands in Security's line, say).
+    /// For a connection's own thread, never the game loop.
+    pub fn wait_for(&self, wait: Duration) -> Option<Result<T, E>> {
+        match self.reply.recv_timeout(wait) {
+            Ok(answer) => Some(answer),
+            Err(RecvTimeoutError::Timeout) => None,
+            Err(RecvTimeoutError::Disconnected) => Some(Err(E::not_running())),
         }
     }
 

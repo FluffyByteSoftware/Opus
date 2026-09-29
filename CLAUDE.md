@@ -54,6 +54,7 @@ Opus/
 │   ├── dev/               # source code -- a Cargo workspace
 │   │   ├── conductor-tools/    # lib: the tools (DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, ...)
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
+│   │   ├── conductor-networking/ # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── conductor-launcher/ # bin: the program -- boots, then starts and stops the server on the Control Panel's say
 │   └── build/             # compiled output -- never committed
@@ -62,7 +63,8 @@ Opus/
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/ and logs/
 │   ├── Assets/            # purchased art -- never committed
-│   ├── cfg/               # config files (conductor_globals.cfg, wgui.cfg, postgres.cfg)
+│   ├── cfg/               # config files (conductor_globals.cfg, wgui.cfg, postgres.cfg, networking.cfg)
+│   ├── certs/             # the TLS certificate (committed) and its key (never committed), made with openssl
 │   ├── logs/              # log files -- never committed
 │   └── psql/
 │       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
@@ -235,8 +237,8 @@ When I say we're wrapping up:
   hard). Jacob's words, 2026-09-29.
 - **Conductor and the server are two things.** The program (DiskMan, Scribe,
   Constellations, the web admin) is up from boot. The server (Fingerprinter,
-  Security, Archivist, the monitor, and the network and the game when they
-  exist) only runs between START SERVER and STOP SERVER on the web admin's
+  Security, Archivist, networking, the monitor, and the game when it
+  exists) only runs between START SERVER and STOP SERVER on the web admin's
   Control Panel: Conductor comes up with its door closed, and the admin opens
   it (and closes it) from there. Jacob's rule, 2026-09-29. The launcher does
   the calling on the Control Panel's say, so a new server piece goes in both
@@ -269,8 +271,8 @@ When I say we're wrapping up:
   comments, and whether the file is **soft** or **hard**.  A file is one or
   the other as a whole, never a mix; a piece that needs both gets two
   files, and files are kept separate rather than one file with sections.
-  Soft (`postgres.cfg`) is read on every START SERVER, so STOP SERVER and
-  START SERVER applies a change.  Hard (`conductor_globals.cfg`: anything
+  Soft (`postgres.cfg`, `networking.cfg`) is read on every START SERVER, so
+  STOP SERVER and START SERVER applies a change.  Hard (`conductor_globals.cfg`: anything
   about Constellations, Scribe or the web admin's port; `wgui.cfg`: the web
   admin's accounts) is read at boot, so Conductor is shut down and run
   again.  Nothing hot swaps.  Jacob's
@@ -299,6 +301,31 @@ When I say we're wrapping up:
   `wwwhook` is Jacob's name for a path the page posts to that makes something
   happen; the shutdown and ACK routes predate it and kept their paths. Ask
   where a new one goes.
+
+### Networking (conductor-networking)
+
+- **TCP is only the login; UDP is everything after.**  A client logs in over
+  TLS on the TCP port, gets a ticket (a one-time token and the UDP port),
+  and the TCP connection closes.  When the UDP session ends, for any
+  reason, the player is gone and the client starts over at the login
+  screen.  Nothing is kept for a reconnect.  Jacob's design, 2026-09-29.
+- **Lower CPU, more RAM if it buys that.**  Jacob's steer for this crate.  A
+  fixed pool of login threads, no thread per connection; no polling loop
+  anywhere, every wait is the OS's own; players found by address in a map;
+  fixed answers built once.  One login is hashed at a time, always, through
+  Security's line.
+- **`PROTOCOL.md` is the contract**, byte for byte.  `protocol.rs` and the
+  test client are written from it; when either disagrees with the document,
+  the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`.
+- **The TLS pair is made by hand** with the openssl command in README.md, in
+  `Content/certs/`.  The key is gitignored, the certificate committed.
+  Conductor never makes one and never crashes without one: the Services tab
+  says it's missing and the log says the command.
+- **`test_client.py`** beside the crate is how networking is tested until
+  Ensemble exists.  Python 3, standard library only.  I run it and paste
+  back what it prints, the same as the server.
+- **Client management** (a player limit, reconnect tokens, kicking from the
+  web admin) is not this iteration.  It's in TODO.md as one heading.
 
 ### Linux and Windows
 

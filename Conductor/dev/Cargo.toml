@@ -4,8 +4,9 @@
 #
 # The server, as a Cargo workspace.  conductor-tools is the lib everything
 # else leans on, conductor-monitor keeps an eye on the process,
-# conductor-wgui is the web admin, and conductor-launcher is the program.
+# conductor-networking talks to players, conductor-wgui is the web admin,
+# and conductor-launcher is the program.
 
 [workspace]
-members = ["conductor-tools", "conductor-monitor", "conductor-wgui", "conductor-launcher"]
+members = ["conductor-tools", "conductor-monitor", "conductor-networking", "conductor-wgui", "conductor-launcher"]
 resolver = "3"

@@ -19,6 +19,9 @@ Content/logs/
 # A change saved from the web admin, waiting for its reboot.  It's this
 # machine's, not the repo's.
 Content/cfg/*.wait4server
+# The TLS private key.  The certificate beside it is committed (clients
+# need a copy); the key never leaves the machine it was made on.
+Content/certs/*.key
 
 # Rust, in case target/ ever lands in dev/
 **/target/

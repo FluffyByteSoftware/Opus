@@ -1,0 +1,25 @@
+# File:       Opus/Conductor/dev/conductor-networking/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# Networking: the TLS front door players log in at over TCP, and the UDP
+# side the game runs on.  A lib crate, and a server piece: it comes up on
+# START SERVER and down on STOP SERVER.
+#
+# rustls is the TLS.  Nobody writes their own, and this includes us.  Its
+# default features are off: "ring" picks the crypto (pure Rust plus a bit
+# of C, no cmake, the same on Linux and Windows), "std" is the sockets, and
+# leaving "tls12" out makes it TLS 1.3 only, which is less code and less
+# CPU per handshake.  rustls-pki-types is already inside rustls; naming it
+# here turns on its "pem" feature, which is how the certificate and key
+# files get read.
+
+[package]
+name = "conductor-networking"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-tools = { path = "../conductor-tools" }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rustls-pki-types = { version = "1", features = ["pem"] }

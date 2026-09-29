@@ -244,6 +244,13 @@ impl<T> Ticket<T> {
         self.pending.check()
     }
 
+    /// Waits up to `wait` for the answer; `None` if it hasn't come by
+    /// then, and the ticket is still good.  Networking waits a second at
+    /// a time and tells the client its `place()` in between.
+    pub fn wait_for(&self, wait: Duration) -> Option<Result<T, SecurityError>> {
+        self.pending.wait_for(wait)
+    }
+
     /// Waits for the answer.  Fine on a connection's own thread, never in
     /// the game loop.
     pub fn wait(self) -> Result<T, SecurityError> {
