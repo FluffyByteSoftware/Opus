@@ -352,18 +352,22 @@ OUT, sit at the bottom of the sidebar.
   .login .logo { margin-bottom: 16px; }
   .login h3 { text-align: center; }
   .login label { display: block; margin: 12px 0 4px; }
-  input.field {
+  input.field, select.field {
     font: inherit; font-size: 13px; width: 100%; padding: 8px 10px; border-radius: 4px;
     border: 1px solid var(--line); background: var(--panel-dark); color: var(--ink);
   }
-  input.field:focus { outline: none; border-color: var(--green-deep); }
+  input.field:focus, select.field:focus { outline: none; border-color: var(--green-deep); }
   input.field:disabled { opacity: 0.6; }
+  select.field { width: auto; min-width: 260px; font-family: var(--mono); }
   .login-error { min-height: 16px; margin-top: 10px; font-size: 12px; }
   .login .controls { margin-top: 12px; }
 
-  /* The Settings tab: one card per config file, a field per setting. */
+  /* The Settings tab: one card per config file, a field per setting.  With
+     more than a few files, a picker shows one card at a time. */
   #settings-note { margin-bottom: 16px; }
   #settings-note:empty { display: none; }
+  .settings-head { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .settings-head[hidden], .settings-card[hidden] { display: none; }
   .settings-card h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .settings-card h3 .tag { margin-left: 0; }
   .settings-reboot { margin-top: 8px; }
@@ -478,6 +482,11 @@ OUT, sit at the bottom of the sidebar.
 
   <section class="tabpage" id="page-settings">
     <div class="note" id="settings-note"></div>
+    <div class="settings-head" id="settings-head" hidden>
+      <label class="label" for="settings-pick">Config file</label>
+      <select class="field" id="settings-pick"></select>
+      <span class="note" id="settings-pick-note"></span>
+    </div>
     <div class="grid" id="settings-files"></div>
   </section>
 
@@ -1653,13 +1662,48 @@ function kindWords(setting) {
   }
 }
 
+// Up to this many files, every card is on the page at once.  Past it, a
+// picker at the top shows one card at a time.  Jacob's number.
+const PICKER_FROM = 4;
+
+// The file the picker is on, kept across redraws.
+let pickedFile = null;
+
 function drawSettings(files) {
   $("settings-note").textContent = canChange ? ""
     : "Read only: logged in as user.  Log in as admin to change a setting.";
   const grid = $("settings-files");
   grid.textContent = "";
   for (const file of files) grid.appendChild(settingsCard(file));
+
+  const many = files.length > PICKER_FROM;
+  $("settings-head").hidden = !many;
+  if (!many) return;
+  if (!files.some(file => file.name === pickedFile)) pickedFile = files[0].name;
+  const pick = $("settings-pick");
+  pick.textContent = "";
+  for (const file of files) {
+    const option = document.createElement("option");
+    option.value = file.name;
+    option.textContent = file.name + (file.waiting ? " (waiting)" : "");
+    pick.appendChild(option);
+  }
+  pick.value = pickedFile;
+  $("settings-pick-note").textContent = files.length + " files";
+  showPickedSettings();
 }
+
+// Only the picked file's card shows while the picker is up.
+function showPickedSettings() {
+  for (const card of document.querySelectorAll(".settings-card")) {
+    card.hidden = card.dataset.file !== pickedFile;
+  }
+}
+
+$("settings-pick").addEventListener("change", () => {
+  pickedFile = $("settings-pick").value;
+  showPickedSettings();
+});
 
 // One config file: what it's for, the reboot it needs, a field per
 // setting, and SAVE and DISCARD.

@@ -227,7 +227,9 @@ the database lock both, so the admin can read why something went wrong.
 change is saved and not yet applied), what it's for, the reboot it needs, a field per setting with its
 kind and comment, then SAVE and DISCARD.  A complaint from a failed save shows under the field it's about;
 one that isn't about a line (the disk saying no) shows under the card.  Read only for `user`: the fields
-and buttons are greyed and a line at the top says so.  Always open, like the Log.
+and buttons are greyed and a line at the top says so.  Always open, like the Log.  Past four files
+(`PICKER_FROM`, Jacob's number) a picker at the top shows one card at a time, marking a file with a
+change waiting; up to four, every card is on the page at once.
 
 If Conductor stops answering, the page covers itself with a note and stops asking.  After SHUT DOWN it says
 Conductor is shutting down, that the server stops first if it's running, and that the console counts down

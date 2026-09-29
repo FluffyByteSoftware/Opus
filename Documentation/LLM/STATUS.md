@@ -66,7 +66,8 @@ What we did:
   starts it again); who's logged in and LOG OUT at the bottom of the sidebar; every changing button greyed
   for `user`.  The **Settings** tab, eighth after Log, always clickable and outside the database lock: one
   card per file, a field per setting, SAVE and DISCARD, a WAITING tag and "running on" lines after a
-  save, a complaint under the field it names after a failed one.
+  save, a complaint under the field it names after a failed one.  Past four files a picker at the top
+  shows one card at a time (Jacob's ask after seeing the cards; the cards were more than he'd pictured).
 - Tests: 4 in `login.rs`, 2 loopback ones in `http.rs`, the route tests reworked to log in first plus
   new ones for the login, `user` being turned away, and the settings routes; 1 for the settings JSON; 1
   for `file_named()`.  Not run yet.
