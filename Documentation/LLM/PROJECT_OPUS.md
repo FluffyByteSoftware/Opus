@@ -116,4 +116,4 @@ Where each one lives is in the tree above.
 | Notices            | What the admin has to ACK, on the bell.       | Built and tested             |
 | Fingerprinter      | Version 7 UUIDs and login tokens.             | Built and tested on Linux    |
 | Security           | Argon2id password hashing, one worker.        | Built and run on Linux       |
-| The server's switch| Stopped / starting / running / stopping.      | Written, not built yet       |
+| The server's switch| Stopped / starting / running / stopping.      | Built and tested on Linux    |

@@ -21,9 +21,11 @@ monitor, and whatever comes later) only starts when START SERVER is pressed on t
 Panel, and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests (the session
-pushes `unstable` onto it when a round is ready), `main` is the stable release, moved by Jacob alone.  This
-session was cut from `main` by mistake, before Security and the branch change reached it, and merged
-`testing` back in at the end; the session branch `claude/gracious-ramanujan-j5ojyq` is history now.
+pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
+says.  He said so at the end of this session, so `main`, `testing` and `unstable` all sit on the same
+commit: the Control Panel, Security, everything.  This session was cut from `main` by mistake, before
+Security and the branch change reached it, and merged `testing` back in; the session branch
+`claude/gracious-ramanujan-j5ojyq` is history and waits on Jacob to delete it.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `9577f03`.  `cargo build` clean,
 `cargo test` passed 108 tests (15 monitor, 76 tools with the benchmark ignored, 16 web admin), and a run
@@ -106,7 +108,6 @@ login in release.  Jacob called the tools done at the end of it, and changed the
 - **The config editor**, Jacob's pick for the next conversation: edit the config files from the page, hot
   swap the values in, save to disk, and tag each setting soft reboot or hard reboot.  The plan so far is
   under the settings item in TODO.md.
-- `main`, when Jacob says.
 - On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` once this is on `unstable` and `testing`.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
   the client), PROTOCOL.md filled in.  The first piece of the server proper, started and stopped from the

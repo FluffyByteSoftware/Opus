@@ -218,6 +218,12 @@ When I say we're wrapping up:
 - Prefer clear ownership and simple types over heavy generics or macros.
 - `conductor-launcher` is the program. New server pieces (networking, the game)
   are lib crates, not programs of their own.
+- **Two kinds of restart.** A *soft reboot* is RESTART SERVER on the Control
+  Panel: the server pieces come down and back up, the launcher and the page
+  stay put. A *hard reboot* is Conductor, the whole program, run again. When
+  the config editor comes, every setting gets tagged with the one it needs
+  (a tick rate is soft; where the log goes and the web admin's port are
+  hard). Jacob's words, 2026-09-29.
 - **Conductor and the server are two things.** The program (DiskMan, Scribe,
   Constellations, the web admin) is up from boot. The server (Fingerprinter,
   Security, Archivist, the monitor, and the network and the game when they
@@ -261,7 +267,10 @@ When I say we're wrapping up:
   and later accounts and config) is a page or a button there. It listens on
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
   adding a route that changes anything. Starting, restarting and stopping the
-  server (the three `/Opus/wwwhook/` routes) are already agreed to.
+  server (`/Opus/wwwhook/start`, `/stop`, `/restart`) are already agreed to.
+  `wwwhook` is Jacob's name for a path the page posts to that makes something
+  happen; the shutdown and ACK routes predate it and kept their paths. Ask
+  where a new one goes.
 
 ### Linux and Windows
 
@@ -363,6 +372,10 @@ When I say we're wrapping up:
 
 - **Three branches, since 2026-09-29.**
   - `unstable` is where you write. Every session commits and pushes here.
+    **First thing every session: `git fetch origin` and make sure the work
+    starts from `origin/unstable`'s tip**, whatever branch the session was
+    opened on. A session cut from `main` on 2026-09-29 was eleven commits
+    behind and had to merge `testing` back in by hand.
   - `testing` is where I test. **When a round of edits is done and you want
     me to test it, push `unstable` onto `testing` yourself** (a fast-forward:
     `git push origin unstable:testing`), then tell me what to run. Don't wait
