@@ -262,7 +262,8 @@ When I say we're wrapping up:
   a "wrote a file" line would loop forever. It logs failures only, and never
   while holding its own lock.
 - **Every config file is Constellations'** (`constellations.rs` and `constellations/`
-  in `conductor-tools`).  All of them live in `Content/cfg/`, in one format
+  in `conductor-tools`).  All of them live in `Content/cfg/`, fixed relative to Opus (there will
+  never be a setting that moves the config folder; Jacob, 2026-09-29), in one format
   (`key = value`, `#` comments), and every one is written down once in
   `constellations/files.rs`: its settings, their kinds, defaults and
   comments, and whether the file is **soft** or **hard**.  A file is one or

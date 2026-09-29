@@ -24,9 +24,12 @@ SERVER takes it back down with Conductor still running.
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
 says.  `main` and `testing` sit on the Control Panel commit; `unstable` is ahead of them by this session.
 
-**Last built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `9577f03`: the Control Panel,
-108 tests, START / RESTART / STOP / SHUT DOWN from the page.  **This session's code hasn't been built yet.**
-The Windows code has never been built.
+**Built on Linux (Nobara 44), 2026-09-29**, from `testing`: `cargo build` was clean at `e14bcc7`; the
+test build failed on four lines in DiskMan's new tests (`status()` called on the test's own DiskMan
+instead of through its lock), fixed at `4a34aa3`.  **`cargo test` and a run haven't been reported back
+yet**, so the first thing next time is to see how they went.  The last full test and run was the Control
+Panel session (108 tests, START / RESTART / STOP / SHUT DOWN from the page).  The Windows code has never
+been built.
 
 ## Last session -- 2026-09-29 (the third that day)
 
@@ -76,11 +79,7 @@ What Jacob decided:
 - The password can show on the page: Postgres is local and not reachable outside the machine.
 - A Settings tab, and save / discard routes under `/Opus/wwwhook/settings/`, are agreed to.
 
-What's not settled:
-
-- Whether `conductor_globals.cfg` gets a `cfg_dir` pointing at where the other config files live.  Jacob's
-  answer read as "a change to where the config comes from is hard", not as asking for the setting.  Not
-  added.  In TODO.
+- No `cfg_dir`, ever: the config folder is `Content/cfg/`, fixed relative to Opus.
 
 ## The session before -- 2026-09-29, the Control Panel
 
@@ -90,13 +89,15 @@ are in the web admin and launcher design docs.
 
 ## What's waiting
 
-- **Build and test this session**: `cargo build`, `cargo test`, then a run that starts and stops the
-  server, and a hand-written `Content/cfg/postgres.cfg.wait4server` to see it swapped in at STOP SERVER
-  (and a `conductor_globals.cfg.wait4server` swapped in at SHUT DOWN).  Commands in the session's last
-  reply.
+- **The test result and a run of this session's code**: `cargo test` after the fix at `4a34aa3`, then a
+  run that starts and stops the server with a hand-written `Content/cfg/postgres.cfg.wait4server` beside
+  the live file, to see it swapped in at the next START SERVER (the log says "found ... and swapped it
+  in"), and a `conductor_globals.cfg.wait4server` picked up at the next boot.  If anything fails, that's
+  the next conversation's first job.
 - **The config editor's web admin half**: the settings route, the save and discard routes, the Settings
   tab.  Laid out in TODO.md.
 - On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` and `testing_/charming-euler-jlyos7`.
+  Jacob said he'd do it.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
   the client), PROTOCOL.md filled in.  The first piece of the server proper, started and stopped from the
   Control Panel with the rest.  Its name is Jacob's to give.  Its settings would be a soft file of its own.

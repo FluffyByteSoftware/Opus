@@ -55,9 +55,8 @@ Things that wait on a piece that doesn't exist yet.
     applied.  No hot swapping: nothing changes until the reboot.
   - The JSON shape at the top of `json.rs`, and the design docs.
   - Once there is a login, only an admin can change them.
-  - Maybe: a `cfg_dir` setting in `conductor_globals.cfg` saying where the *other* config files live, if
-    Jacob wants the config folder movable (it can't point at its own folder).  Asked on 2026-09-29, not
-    settled.
+  - No `cfg_dir` setting, ever: the config folder is `Content/cfg/`, fixed relative to Opus.  Jacob's
+    call, 2026-09-29.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
   on shutdown: Ctrl-C loses whatever it hasn't written yet.  Catching it on both Linux and Windows without a crate means a
   signal handler on one and a console handler on the other.
