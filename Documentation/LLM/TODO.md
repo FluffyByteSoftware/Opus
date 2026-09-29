@@ -45,9 +45,10 @@ Things that wait on a piece that doesn't exist yet.
   today), a `players` list in `status()`, its shape at the top of `json.rs`, and the tab.  Kicking a
   player from it is client management, above.
 - **Networking: a whitelist and a blacklist of addresses**, switchable in `networking.cfg`.  Jacob's ask at
-  the end of the TCP tab session, 2026-09-29, with "the ability to manage TCP connections" (a BAN on the
-  TCP tab that adds the address to the blacklist, say, beside the KICK that's built).  Its own session;
-  what it has to settle first:
+  the end of the TCP tab session, 2026-09-29, and his pick for the session after it, in his words: "ability
+  to kick a TCP connection that's in queue, or connected.  A quick 'add to whitelist' or 'add to blacklist'
+  option."  The kick of a queued or a connected connection is built (the TCP tab's KICK covers both); the
+  lists and the two per-row buttons are the session.  What it has to settle first:
   - Where the lists live.  Constellations' files are `key = value`, and a list of addresses that grows
     from the page doesn't fit one line.  A file of its own per list (`Content/cfg/whitelist.txt`, one
     address or range a line) read by networking through DiskMan is the plain way; the switch

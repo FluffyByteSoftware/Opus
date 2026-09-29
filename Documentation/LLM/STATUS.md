@@ -86,7 +86,8 @@ What Jacob decided:
 - KICK is admin's.  The route is `/Opus/wwwhook/tcp/kick`, under `wwwhook` like the server buttons; he
   OK'd the path.
 - The whitelist and blacklist are the next session, his call, with a BAN on the tab as part of managing
-  connections.  TODO.md has what it has to settle.
+  connections.  At the close he named it as the next session: kick in queue or connected (built), and
+  "add to whitelist" / "add to blacklist" on the tab.  TODO.md has what it has to settle.
 - A rolling test checklist, kept across sessions: `TEST_CHECKLIST.md`.
 
 ## What's waiting
@@ -96,7 +97,12 @@ What Jacob decided:
   thread haven't been seen running.
 - **The UDP tab** (Jacob's spec in TODO.md): the account of every player, and the character once there
   is one.  `sessions.rs` needs a `players()` first.
-- **The whitelist and blacklist**, and a BAN on the TCP tab (TODO.md, with the questions).
+- **Jacob's pick for the next session**, his words: "ability to kick a TCP connection that's in queue, or
+  connected.  A quick 'add to whitelist' or 'add to blacklist' option."  The kick is built and covers
+  both (a queued one's socket is shut and its login thread skips it; a connected one's read is cut), so
+  the session is the whitelist and blacklist in `networking.cfg` and two buttons per row on the TCP tab.
+  TODO.md has the four things to settle before building (where the lists live, whether a change takes
+  at once, addresses or ranges, where the check sits); ask those first.
 - The items below are unordered.
 - **The untried hand tests from the networking session** moved to the top of `TEST_CHECKLIST.md`: two
   clients on one account, `--go-quiet`, a wrong secret word, a wrong password and the hold, STOP SERVER
