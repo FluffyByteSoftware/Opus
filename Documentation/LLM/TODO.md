@@ -25,8 +25,8 @@ Things that wait on a piece that doesn't exist yet.
   ready for it; Fingerprinter's `new_uuid()` names the row.  Waits on networking for the login itself.
 - Accounts and networking: **one login at a time, hard limit.**  Jacob's rule from 2026-09-29.  Security's
   worker already hashes one at a time with the rest in line; the login flow has to lean on that line, never
-  work around it (no hashing anywhere else, no second worker).  Whether a waiting client is told its place
-  in the queue is open.
+  work around it (no hashing anywhere else, no second worker).  The client is told its place and about how
+  long: `Ticket::place()` has the numbers; the message to the client is networking's.
 - Accounts: a login token on reconnect (`fingerprinter::new_token()`), so a player who drops and comes back
   doesn't pay for a hash.  The biggest CPU saving Security can't make on its own.
 - Security: TLS for the welcome TCP connection.  Waits on networking, and on a crate we'd have to pick.

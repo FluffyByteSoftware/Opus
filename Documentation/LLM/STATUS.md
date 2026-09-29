@@ -15,7 +15,8 @@ web admin at `http://127.0.0.1:9996/Opus`, and the only way to shut the server d
 (bin) starts all of it and waits on the web admin.  Ensemble hasn't been started.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29.**  `cargo build` clean with no warnings, `cargo test -p
-conductor-tools` passed 73 tests (1 ignored, the benchmark), and the benchmark ran in release.  This session's
+conductor-tools` passed 73 tests (1 ignored, the benchmark), and the benchmark ran in release.  The
+`Ticket` came after that run and is waiting on a build.  This session's
 branch is `infamous-saganism`, ready to merge when Jacob says so.  The Windows code has never been built.
 
 ## Last session -- 2026-09-29
@@ -43,7 +44,7 @@ What we did:
   source stays out of the build.
 - **Wired in**: `services::SECURITY` on the expected list (thread `security`, checks in every second), the
   launcher starts it after Fingerprinter and stops it before Archivist.
-- Twelve tests, most at the cheapest Argon2 setting in an arena of their own, one at the real cost, one
+- Thirteen tests, most at the cheapest Argon2 setting in an arena of their own, one at the real cost, one
   checking our PHC line is byte-for-byte what the crate's own hasher writes.  And the benchmark,
   `cargo test -p conductor-tools --release argon2_cost -- --ignored --nocapture`: five memory settings at one and two
   passes, three ways each (fresh memory, the arena, the arena with huge pages).
@@ -66,6 +67,9 @@ What Jacob decided:
   design doc.
 - **One login at a time, hard limit.**  Other clients wait in the queue.  Security's worker is that queue;
   accounts and networking build on it.  In TODO.
+- **A waiting client is told its place in line and about how long.**  Added this session: the three
+  functions hand back a `Ticket` (the `Pending` plus `place()`), from a job number, the worker's finished
+  count and a running average of one hash.  Networking does the telling, later.
 
 ## What's waiting
 

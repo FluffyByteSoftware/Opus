@@ -72,8 +72,13 @@
 //! # How it's used
 //!
 //! Nothing waits on the worker.  `hash_password()` and `verify_password()`
-//! hand back a `Pending` the moment the job is in line, the same as
-//! Archivist and DiskMan, so the game loop never waits on a hash.  A
+//! hand back a `Ticket` the moment the job is in line: the `Pending` the
+//! answer arrives in, the same as Archivist and DiskMan, so the game loop
+//! never waits on a hash, plus `place()`, which says how many are ahead
+//! and about how long that is.  The worker numbers every job, counts the
+//! ones it has finished, and keeps a running average of how long one
+//! takes; the place is worked out from those three numbers, so a client
+//! in line can be told "3 ahead of you, about 120 ms" while it waits.  A
 //! login that fails always says the same thing, whether the name or the
 //! password was wrong; that's the caller's job.  Ours is the other half:
 //! a name with no account still costs a hash, in the same line as
@@ -89,6 +94,7 @@
 
 use std::fmt;
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -170,6 +176,16 @@ const MIN_LOGIN_MILLIS: u64 = 150;
 const MIN_PASSWORD_CHARS: usize = 8;
 const MAX_PASSWORD_CHARS: usize = 128;
 
+/// What one hash is assumed to take until the worker has done one and
+/// measured it: the benchmark's 30 ms.  After that the running average
+/// takes over, so a slower machine tells the truth about itself.
+const HASH_ESTIMATE_MILLIS: u64 = 30;
+
+/// How much of the running average one hash moves: a new time counts for
+/// an eighth, the old average for the rest.  Enough to follow a machine
+/// that's warming up or under load, without one slow hash swinging it.
+const AVERAGE_WEIGHT: u64 = 8;
+
 /// How long the worker waits for a job before checking in with the
 /// services list, so a worker with nothing to do still shows as alive.
 const CHECK_IN: Duration = Duration::from_secs(1);
@@ -211,6 +227,75 @@ impl NotRunning for SecurityError {
 /// An answer that is on its way: `check()` never waits, `wait()` does.
 /// The workings are in `pending.rs`, shared with Archivist and DiskMan.
 pub type Pending<T> = crate::pending::Pending<T, SecurityError>;
+
+/// A job in line: the answer on its way, and where the job stands.
+pub struct Ticket<T> {
+    /// The job's number in the line, counting from 1 since Conductor
+    /// started.  0 means it never got in line (the worker wasn't running)
+    /// and the answer is already "not running".
+    number: u64,
+    pending: Pending<T>,
+}
+
+impl<T> Ticket<T> {
+    /// The answer if it's here, `None` if the worker hasn't got to the job
+    /// yet.  Never waits, so this is the one the game loop uses.
+    pub fn check(&self) -> Option<Result<T, SecurityError>> {
+        self.pending.check()
+    }
+
+    /// Waits for the answer.  Fine on a connection's own thread, never in
+    /// the game loop.
+    pub fn wait(self) -> Result<T, SecurityError> {
+        self.pending.wait()
+    }
+
+    /// Where the job stands right now: how many are ahead of it, and about
+    /// how long until its answer.  For telling a waiting client.
+    pub fn place(&self) -> Place {
+        place(self.number, DONE.load(Ordering::Relaxed), average_hash())
+    }
+}
+
+/// Where a job stands in the line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Place {
+    /// Jobs still to finish before this one, the one being hashed right
+    /// now included.  0 means this one is next, or already done.
+    pub ahead: u64,
+    /// About how long until this job's answer: the jobs ahead plus this
+    /// one, at the running average.  Zero once it's done.  "About" because
+    /// the average is of whatever the machine has been doing lately.
+    pub wait: Duration,
+}
+
+/// How many jobs have been given a number.  The next job gets this plus
+/// one, under WORKER's lock, so numbers go in the same order as the line.
+static NUMBERED: AtomicU64 = AtomicU64::new(0);
+
+/// How many jobs the worker has finished, in order, so a job's number
+/// minus this is how many are still ahead of it.
+static DONE: AtomicU64 = AtomicU64::new(0);
+
+/// The running average of one job, in nanoseconds.  Starts at the
+/// benchmark's number and follows what the machine actually does.
+static AVERAGE_NANOS: AtomicU64 = AtomicU64::new(HASH_ESTIMATE_MILLIS * 1_000_000);
+
+/// The running average, as a Duration.
+fn average_hash() -> Duration {
+    Duration::from_nanos(AVERAGE_NANOS.load(Ordering::Relaxed))
+}
+
+/// Where job `number` stands when `done` jobs have finished and one takes
+/// `average`.  Kept apart from the statics so the tests can pin it.
+fn place(number: u64, done: u64, average: Duration) -> Place {
+    if number == 0 || number <= done {
+        return Place { ahead: 0, wait: Duration::ZERO };
+    }
+    let ahead = number - done - 1;
+    let wait = Duration::from_nanos((average.as_nanos() as u64).saturating_mul(ahead + 1));
+    Place { ahead, wait }
+}
 
 // ---------------------------------------------------------------------------
 // The worker
@@ -318,12 +403,30 @@ fn serve(jobs: Receiver<Job>, arena: &mut Arena) {
     // empty, it says Disconnected instead, and that ends the loop.
     loop {
         match jobs.recv_timeout(CHECK_IN) {
-            Ok(job) => do_job(job, arena),
+            Ok(job) => {
+                let started = Instant::now();
+                do_job(job, arena);
+                note_finished(started.elapsed());
+            }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
         }
         services::seen(services::SECURITY);
     }
+}
+
+/// One more job done, and the running average moved toward how long it
+/// took.  The count goes up after the average, so a place read between
+/// the two is off by one job's time, never by a job.
+fn note_finished(took: Duration) {
+    let took = took.as_nanos() as u64;
+    // Rust note: fetch_update reads the value, runs the closure on it and
+    // writes what comes back, trying again if another thread got in
+    // between.  Nobody else writes this one, so it never has to.
+    let _ = AVERAGE_NANOS.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |average| {
+        Some(average - average / AVERAGE_WEIGHT + took / AVERAGE_WEIGHT)
+    });
+    DONE.fetch_add(1, Ordering::Relaxed);
 }
 
 /// Does one job and sends back the answer.  A failure is logged here, on
@@ -358,14 +461,19 @@ fn do_job(job: Job, arena: &mut Arena) {
     }
 }
 
-/// Puts a job in line.  If the worker isn't running, or has died, the
-/// job is dropped here, and dropping it drops its reply end, which is
-/// what tells the `Pending` that nobody is coming.
-fn queue(job: Job) {
+/// Puts a job in line and hands back its number.  If the worker isn't
+/// running, or has died, the job is dropped here, and dropping it drops
+/// its reply end, which is what tells the `Pending` that nobody is
+/// coming; the number is 0.
+fn queue(job: Job) -> u64 {
     let worker = WORKER.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
-    if let Some(running) = worker.as_ref() {
-        let _ = running.queue.send(job);
+    let Some(running) = worker.as_ref() else {
+        return 0;
+    };
+    match running.queue.send(job) {
+        Ok(()) => NUMBERED.fetch_add(1, Ordering::Relaxed) + 1,
+        Err(_) => 0,
     }
 }
 
@@ -441,10 +549,10 @@ fn current_params() -> Params {
 ///
 /// This doesn't check the password rules.  Call `check_password_rules()`
 /// first, and tell the player what they got wrong.
-pub fn hash_password(password: &str) -> Pending<String> {
+pub fn hash_password(password: &str) -> Ticket<String> {
     let (reply, pending) = Pending::new();
-    queue(Job::Hash { password: password.to_string(), reply });
-    pending
+    let number = queue(Job::Hash { password: password.to_string(), reply });
+    Ticket { number, pending }
 }
 
 /// Checks a typed password against the line from the accounts table.
@@ -459,10 +567,10 @@ pub fn hash_password(password: &str) -> Pending<String> {
 /// in it: a salt and a hash have no business in a log).  The answer is
 /// the error, and the password is wrong as far as the caller is
 /// concerned.
-pub fn verify_password(password: &str, stored: &str) -> Pending<bool> {
+pub fn verify_password(password: &str, stored: &str) -> Ticket<bool> {
     let (reply, pending) = Pending::new();
-    queue(Job::Verify { password: password.to_string(), stored: stored.to_string(), reply });
-    pending
+    let number = queue(Job::Verify { password: password.to_string(), stored: stored.to_string(), reply });
+    Ticket { number, pending }
 }
 
 /// For a login whose name has no account.  It waits in the same line as
@@ -470,10 +578,10 @@ pub fn verify_password(password: &str, stored: &str) -> Pending<bool> {
 /// apart by how long the answer took.  There's nothing to check the
 /// password against, so the answer is always no, and the caller knows
 /// that already.  That's why it hands back nothing.
-pub fn verify_no_account(password: &str) -> Pending<()> {
+pub fn verify_no_account(password: &str) -> Ticket<()> {
     let (reply, pending) = Pending::new();
-    queue(Job::NoAccount { password: password.to_string(), reply });
-    pending
+    let number = queue(Job::NoAccount { password: password.to_string(), reply });
+    Ticket { number, pending }
 }
 
 /// Says whether a new password is allowed, and if not, why, in words
@@ -811,6 +919,9 @@ mod tests {
         assert_eq!(first.wait(), Ok(true));
         assert_eq!(second.wait(), Ok(false));
         assert_eq!(third.wait(), Ok(()));
+        // Three more finished, and the average is a real number.
+        assert!(DONE.load(Ordering::Relaxed) >= 3);
+        assert!(average_hash() > Duration::ZERO);
 
         // Letting go of the line ends the thread.  If it didn't, join()
         // would never come back and the test would hang.
@@ -825,7 +936,22 @@ mod tests {
         assert_eq!(hash_password("Nobody home 1!").wait(), Err(SecurityError::NotRunning));
         assert_eq!(verify_password("Nobody home 1!", "$argon2id$v=19$m=8,t=1,p=1$x$y").wait(),
                    Err(SecurityError::NotRunning));
-        assert_eq!(verify_no_account("Nobody home 1!").wait(), Err(SecurityError::NotRunning));
+        let ticket = verify_no_account("Nobody home 1!");
+        assert_eq!(ticket.place(), Place { ahead: 0, wait: Duration::ZERO });
+        assert_eq!(ticket.wait(), Err(SecurityError::NotRunning));
+    }
+
+    #[test]
+    fn a_place_counts_the_jobs_ahead_and_the_time_they_take() {
+        let hash = Duration::from_millis(30);
+
+        // Job 5 with 2 done: jobs 3 and 4 are ahead, and 3 hashes to go.
+        assert_eq!(place(5, 2, hash), Place { ahead: 2, wait: Duration::from_millis(90) });
+        // Job 3 with 2 done: it's being hashed now.
+        assert_eq!(place(3, 2, hash), Place { ahead: 0, wait: hash });
+        // Done, and never queued, are both nothing to wait for.
+        assert_eq!(place(2, 2, hash), Place { ahead: 0, wait: Duration::ZERO });
+        assert_eq!(place(0, 2, hash), Place { ahead: 0, wait: Duration::ZERO });
     }
 
     #[test]

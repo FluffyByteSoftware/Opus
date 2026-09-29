@@ -235,9 +235,11 @@ When I say we're wrapping up:
   while holding its own lock.
 - **Every password hash goes through Security** (`security.rs` in
   `conductor-tools`): `hash_password()`, `verify_password()` and
-  `verify_no_account()`, each handing back a `Pending`.  One worker thread,
-  one arena of memory kept for the server's life, one hash at a time.
-  Nothing else calls the argon2 crate, and nothing ever logs a password.
+  `verify_no_account()`, each handing back a `Ticket` (the `Pending`, plus
+  `place()` for how many are ahead and about how long).  One worker thread,
+  one arena of memory kept for the server's life, one login hashed at a
+  time, hard limit, with everybody else in line.  Nothing else calls the
+  argon2 crate, and nothing ever logs a password.
 - **Every Warn and Error becomes a notice** on the web admin's bell, and stays
   there until I ACK it. So a Warn is for something actually wrong, never
   chatter. Code can raise one on purpose with `notices::publish()`.

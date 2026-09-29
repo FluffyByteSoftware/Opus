@@ -49,9 +49,10 @@ conductor-tools/
     │                        looks_like_uuid(text), uuid_time(text) -> Option<Utc>
     ├── fingerprinter/     fill(bytes) per OS: linux.rs (getrandom), windows.rs (BCryptGenRandom), other.rs
     ├── security.rs        start(), stop()
-    │                        hash_password(password) -> Pending<String>
-    │                        verify_password(password, stored) -> Pending<bool>
-    │                        verify_no_account(password) -> Pending<()>
+    │                        hash_password(password) -> Ticket<String>
+    │                        verify_password(password, stored) -> Ticket<bool>
+    │                        verify_no_account(password) -> Ticket<()>
+    │                        Ticket<T> { check(), wait(), place() -> Place { ahead, wait } }
     │                        check_password_rules(password) -> Result<(), String>, pad_login_time(started)
     │                        type Pending<T> (from pending.rs), enum SecurityError { NotRunning, Failed }
     ├── security/          advise_huge_pages(start, bytes) per OS: linux.rs (madvise), windows.rs, other.rs
@@ -151,6 +152,10 @@ What we decided:
   and blew the tick; one at a time, each took 72 ms and all 50 were done in 3.6 s.  **Jacob's rule: one
   login is hashed at a time, hard limit, and every other client waits in the queue** in the order it
   arrived.  Accounts and networking build on that line, not around it.
+- **A `Ticket` says where a job stands.**  Every job gets a number under the worker's lock, the worker
+  counts what it has finished and keeps a running average of one job (starts at the benchmark's 30 ms, then
+  an eighth of each new time), and `place()` turns the three into "N ahead, about M ms".  Jacob asked for
+  both so a waiting client can be told; the telling is networking's, later.
 - **One arena, allotted once and kept**: 64 MiB of `Block`s the worker owns for Conductor's whole run.
   The crate would otherwise ask the OS for a fresh 64 MiB on every hash (16,384 page faults' worth of CPU
   that isn't ours).  Every hash runs in the arena through `hash_password_into_with_memory()`; a stored line
