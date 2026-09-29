@@ -8,8 +8,9 @@ Author:     Jacob Chacko
 
 A lib crate, and a server piece: it comes up on START SERVER after Archivist and down on STOP SERVER
 before Security.  The part of Conductor that talks to players.  Started 2026-09-29, named by Jacob.  One
-new crate, `rustls` (with `ring` for the crypto, TLS 1.3 only); `rustls-pki-types` is named in
-Cargo.toml too, but it's already inside rustls and the line only turns on its PEM reading.
+new crate, `rustls` (with `ring` for the crypto, TLS 1.3 only).  The PEM reading comes with its `std`
+feature; a separate `rustls-pki-types` line with a `pem` feature was the first build error, since no such
+feature exists.
 
 ## Skeleton
 

@@ -46,7 +46,7 @@ What we did:
 - **The crate**: `lib.rs` (start, stop, status), `settings.rs`, `tls.rs`, `protocol.rs`, `sessions.rs`,
   `tcp.rs`, `udp.rs`, and `test_client.py` beside it.  In `start_server()` after Archivist and
   `stop_server()` before Security.  Two services, "Network (TCP)" and "Network (UDP)".  One new crate,
-  `rustls` 0.23 with `ring`, TLS 1.3 only, plus a `rustls-pki-types` line that only turns on PEM reading.
+  `rustls` 0.23 with `ring`, TLS 1.3 only.
   The design doc, `design/conductor-networking.md`, has every decision and the reasons.
 - **The shape**: TCP is only the login.  Hello, one Login (version, secret word, username, password), then a
   Ticket (token and UDP port) or a LoginResult, and the connection closes.  UDP is everything after:
