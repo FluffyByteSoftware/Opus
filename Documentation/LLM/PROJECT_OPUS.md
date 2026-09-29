@@ -12,7 +12,7 @@ The skeleton of the whole project: every folder, every file, one line each on wh
 Opus/
 ├── CLAUDE.md                          # working rules for the sessions
 ├── README.md                          # what Opus is and how to build it
-├── .gitignore                         # build output, Content/, caches
+├── .gitignore                         # build output, logs, the art, the TLS key, caches
 ├── .gitattributes                     # which file types go through Git LFS
 ├── Conductor/                         # the server
 │   └── dev/                           # a Cargo workspace
@@ -86,8 +86,8 @@ Opus/
 │       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
 │       │       ├── http.rs            # just enough HTTP: the head, then the body Content-Length says
 │       │       ├── login.rs           # the two accounts (user, admin) and the live logins, by cookie
-│       │       ├── json.rs            # the status, login, settings and problems answers, written by hand
-│       │       └── page.html          # the page, baked in: the login card, the Control Panel and ten tabs, the bell, the locks
+│       │       ├── json.rs            # every JSON answer the page reads, written by hand; the shapes at its top
+│       │       └── page.html          # the page, baked in: the login card, eleven tabs, the bell, the locks
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml             # depends on the four libs
 │           └── src/
@@ -130,7 +130,7 @@ Where each one lives is in the tree above.
 
 | Name               | What it is                                    | State                        |
 |--------------------|-----------------------------------------------|------------------------------|
-| Conductor          | The server.  It owns the game state.          | Tools, monitor, web admin    |
+| Conductor          | The server.  It owns the game state.          | Tools, monitor, door, web admin |
 | Ensemble           | The client players run.  Unity 6000.6, C#.    | On Jacob's machine, uncommitted |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
 | conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |
@@ -148,4 +148,5 @@ Where each one lives is in the tree above.
 | Fingerprinter      | Version 7 UUIDs and login tokens.             | Built and tested on Linux    |
 | Security           | Argon2id password hashing, one worker.        | Built and run on Linux       |
 | The server's switch| Stopped / starting / running / stopping.      | Built and tested on Linux    |
+| The access lists   | The whitelist and the blacklist at the door.  | Built, unit tested; hand checks open |
 | The protocol       | What Conductor and a client say to each other.| Version 2, written           |

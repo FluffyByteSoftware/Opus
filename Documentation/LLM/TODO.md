@@ -59,9 +59,25 @@ Things that wait on a piece that doesn't exist yet.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
   on shutdown: Ctrl-C loses whatever it hasn't written yet.  Catching it on both Linux and Windows without a crate means a
   signal handler on one and a console handler on the other.
-- Ensemble has no way to find `Content/` yet.  Decide how once the engine is picked.
+- Ensemble has no way to find `Content/` yet.  The engine is Unity 6000.6 now; how it finds the folder is
+  Ensemble's first session's call.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
+- **Web admin: `lockChanges()` only ever greys.**  Found reading the page against its design doc on
+  2026-09-29, not seen in a run.  Log in as `user`, LOG OUT, log in as `admin` in the same page, and SHUT
+  DOWN, TEST NOTIFICATION, both ACK ALLs and the two list ADD fields stay greyed until a reload (the three
+  server buttons are set again by the Control Panel's own code).  A one-function fix: set each one from
+  the role, not only turn it off.  Not fixed in the documentation session, which changes no code.
+- **Stale words in the code**, found the same day, for whichever session next touches each file:
+  `access.rs` has a Warn the admin sees that says "the web admin's Networking tab" (the tabs are Whitelist
+  and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs`, the web admin's `Cargo.toml` and a
+  comment in its `lib.rs` still say "the TCP tab"; `security.rs` says the arena is kept for as long as
+  Conductor runs (it goes with the server); `snapshot.rs` says uptime is a moment less than Conductor's
+  (it's since START SERVER); `tcp.rs`'s header says a stop has no deadline (it has 2 seconds);
+  `json.rs`'s notes and the Control Panel's note on the page leave out the Settings tab and networking;
+  the header of `constellations.rs` names only `postgres.cfg` as soft; the monitor's `Cargo.toml` header
+  leaves out the process list.  And the comment Constellations writes into every soft file says a hand
+  edit is read on the next START SERVER, which DiskMan's cache makes untrue (the DiskMan idea below).
 
 ## Ideas
 

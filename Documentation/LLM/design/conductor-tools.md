@@ -11,7 +11,8 @@ log, the config, the UUIDs, the password hashing, the database, the clock, the l
 the list of services we expect, the notices the admin has to acknowledge, and the switch that starts and
 stops the server.  Two dependencies: `postgres` (the blocking Postgres client) for Archivist, which pulls
 in tokio behind the scenes though nothing of ours is async, and `argon2` for Security, with its default
-features off.
+features off and two turned back on: `alloc` (for a stored line that wants more memory than the arena) and
+`password-hash` (the PHC string).
 
 ## Skeleton
 
@@ -48,7 +49,7 @@ conductor-tools/
     ├── diskman/
     │   ├── cache.rs       struct State, struct Entry (whole file, dirty, tail), the swap list, the rules; Limits
     │   └── worker.rs      the one worker thread: reads, writes, removes, swaps, the big write, streams
-    ├── fingerprinter.rs   start(), new_uuid() -> io::Result<String>, new_token(), random_bytes(buffer)
+    ├── fingerprinter.rs   start(), stop(), new_uuid() -> io::Result<String>, new_token(), random_bytes(buffer)
     │                        looks_like_uuid(text), uuid_time(text) -> Option<Utc>
     ├── fingerprinter/     fill(bytes) per OS: linux.rs (getrandom), windows.rs (BCryptGenRandom), other.rs
     ├── security.rs        start(), stop()
@@ -65,7 +66,8 @@ conductor-tools/
     │                        trait NotRunning
     ├── constellations.rs  the store: load(file), value / number / port / folder (file, key), values(file)
     │                        settings() -> Settings { scribe_log_dir, wgui_port }, log_dir(), content_dir()
-    │                        path_of(file), waiting_path(file), config_path()
+    │                        path_of(file), waiting_path(file), config_path(), file_named(name)
+    │                        is_loaded(file), file_values(file) (as it sits on disk)
     │                        save_waiting(file, text), waiting(file), discard_waiting(file), server_stopped()
     ├── constellations/
     │   ├── files.rs       the table: enum Reboot { Soft, Hard }, enum Kind, struct Setting, struct ConfigFile
@@ -106,7 +108,7 @@ What we decided:
 - **Clean files unload past 256 MB**, the one used longest ago first.  Dirty files don't count and are never
   unloaded, whatever their size: a few GB of world terrain is held until it's on disk.
 - **Whole writes never leave half a file**: temp file (`name.diskman-tmp`, same folder), flushed, renamed over
-  the old one, and on Linux the folder flushed too.  Appends are flushed but not all-at-once; a crash can cut
+  the old one, and on Linux (any Unix) the folder flushed too.  Appends are flushed but not all-at-once; a crash can cut
   off the last line.
 - **The chunker**: a whole write over 8 MB goes into its temp file 1 MB at a time, and other files get their
   turn in between, so terrain never holds up a config or a log line.  One big write at a time.  A newer
@@ -138,8 +140,11 @@ What we decided:
 
 What's open:
 
-- **Hand edits while running aren't seen** if DiskMan already holds the file.  Today only configs, read once
-  at startup.  Checking the file's modified time before trusting the copy would fix it.
+- **Hand edits while running aren't seen** if DiskMan already holds the file.  The soft configs, the two
+  access lists (read on every START SERVER) and the schema and migration files (read on every connect)
+  are all read again while Conductor runs, and all come from memory the second time.  So a hand edit
+  between a STOP SERVER and a START SERVER isn't seen, whatever the soft files' own comments say.
+  Checking the file's modified time before trusting the copy would fix it (TODO.md, under DiskMan).
 - The Windows side (renaming over a file, no folder flush) hasn't been built there.
 - Nothing uses the big write or `stream()` for real yet: there's no terrain.  The tests cover them with tiny
   sizes.
@@ -165,7 +170,7 @@ time on spending less CPU per hash and more RAM where that buys the same protect
 
 What we decided:
 
-- **Argon2id, through the `argon2` crate** (0.6, default features off).  Nobody writes their own password
+- **Argon2id, through the `argon2` crate** (0.6, default features off, `alloc` and `password-hash` on).  Nobody writes their own password
   hash.  What's stored is the PHC string, `$argon2id$v=19$m=65536,t=1,p=1$<salt>$<hash>`, which carries its
   own settings, so an old account still checks after the settings change.
 - **The settings: 64 MiB, one pass, one lane, a 32-byte hash, a 16-byte salt.**  Argon2's CPU time is
@@ -181,14 +186,16 @@ What we decided:
   counts what it has finished and keeps a running average of one job (starts at the benchmark's 30 ms, then
   an eighth of each new time), and `place()` turns the three into "N ahead, about M ms".  Jacob asked for
   both so a waiting client can be told; the telling is networking's, later.
-- **One arena, allotted once and kept**: 64 MiB of `Block`s the worker owns for Conductor's whole run.
+- **One arena, allotted once and kept**: 64 MiB of `Block`s the worker owns for as long as the server
+  runs, allotted on every START SERVER and let go on every STOP.
   The crate would otherwise ask the OS for a fresh 64 MiB on every hash (16,384 page faults' worth of CPU
   that isn't ours).  Every hash runs in the arena through `hash_password_into_with_memory()`; a stored line
   made with more memory than the arena holds gets a one-off allocation instead of no answer.
 - **The huge page hint on Linux**: `madvise(MADV_HUGEPAGE)` on the arena before its pages are touched, so
   Argon2's random jumps through 64 MiB land in 32 pages instead of 16,384 and the TLB covers all of it.  A
   hint, in the OS file `security/linux.rs`; Windows and macOS have nothing yet and say so.  The Services tab
-  note says whether the kernel took the hint.
+  note says whether `madvise()` took the ask; whether the huge pages actually landed only the kernel
+  knows (TODO.md has reading that).
 - **A name with no account still costs a hash** (`verify_no_account()`), in the same line, and
   `pad_login_time()` makes every login attempt take at least 150 ms, so a stopwatch can't tell a real name
   from a made-up one.  Both carried over from Stratum.
@@ -219,8 +226,6 @@ every number is six times bigger, which is why the benchmark says to use `--rele
 
 What's open:
 
-- The queue place is told to the client now: networking's login thread waits on the `Ticket` a second at
-  a time with `wait_for()` (2026-09-29) and sends an InLine with `place()`'s numbers between waits.
 - Rayon lanes would cut a single hash's wall time across cores at the same CPU cost, but it's a crate and
   its threads bypass `threads::spawn()`.  Not taken.
 - Not hashing at all on a reconnect (a token from Fingerprinter instead) is the biggest CPU saving there is,
@@ -260,7 +265,8 @@ What we decided:
   waits with a time limit so the launcher can look up between asks and see whether the web admin is still
   there.
 - Nothing in here writes to Scribe.  The web admin and the launcher say what happened in their own words.
-- The one test walks the whole switch in order, since the switch is one for the whole program.
+- One test walks the whole switch in order, since the switch is one for the whole program; the other
+  checks the states read as words.
 
 Since Archivist and the monitor can now stop and start again: Archivist's settings ride with its worker
 onto the thread (they were in a write-once `OnceLock`) and `postgres.cfg` is read again on every start; a
@@ -316,7 +322,7 @@ What we decided:
   Adding a setting is one entry in the table and a line wherever it's read; adding a file is one entry and
   a `load()` where its piece starts.  `file_named(name)` finds a file by its name, for the routes.
 - **Every file lives in `Content/cfg/`** and is soft or hard as a whole, never a mix.  Soft
-  (`postgres.cfg`): the server pieces read it on every START SERVER, so STOP SERVER and START SERVER is
+  (`postgres.cfg`, `networking.cfg`): the server pieces read it on every START SERVER, so STOP SERVER and START SERVER is
   the reboot.  Hard (`conductor_globals.cfg`: Constellations, Scribe and the web admin's port; `wgui.cfg`:
   the web admin's accounts): read at boot, so Conductor is shut down and run again.  A piece that needs both kinds gets two files.  Jacob's rule:
   anything about Constellations or Scribe is hard, and files are kept separate rather than one file with
@@ -325,8 +331,8 @@ What we decided:
   it's missing, appends any setting it lacks with the default, logs the lines it can't use as Warns) and
   keeps the values by the file's name.  `value()`, `number()`, `port()` and `folder()` read one; a file
   that hasn't been loaded reads as its defaults, which is what lets Scribe start on the default folder
-  before the file is read.  The launcher loads `GLOBALS` at boot; Archivist's `start()` loads `POSTGRES`,
-  so every START SERVER reads it again.
+  before the file is read.  The launcher loads `GLOBALS` and `WGUI` at boot; Archivist's `start()` loads
+  `POSTGRES` and networking's loads `NETWORKING`, so every START SERVER reads both again.
 - **A change from the web admin never touches the live file.**  `save_waiting(file, text)` checks every
   line first (a wrong one means nothing is written and the complaints come back for the page), writes the
   whole file, comments and all, to `name.cfg.wait4server` beside the live one, and asks DiskMan to rename
@@ -408,6 +414,8 @@ What we decided:
   characters of its SQL (never the values).  `status()` keeps running, connected, waiting, jobs done, slow
   jobs, the slowest, and the last 5 slow ones.  It also counts `query()` jobs as reads, `execute()` jobs as
   writes, and `batch()` and `transaction()` as other.  The web admin shows all of it.
+- Archivist connects the moment it starts, before any job, so the log says straight away whether Postgres
+  is there (with its `SELECT version()` in the Info line).
 - If Postgres is down, jobs come back `NotConnected`, the first failure is logged once, and it tries again
   on a later job, no more than once every 5 seconds.  Nothing in Archivist stops the server.
 
@@ -416,11 +424,11 @@ Tables today:
 | Table                  | Made by                | What it is                                              |
 |------------------------|------------------------|---------------------------------------------------------|
 | `accounts`             | `schemas/accounts.sql` | One row per account.  Columns below.                    |
-| `archivist_migrations` | Archivist itself       | Which migrations have run, and when.                    |
+| `archivist_migrations` | Archivist itself       | Which migrations have run, and when.  `uuid` from 0001. |
 
-`accounts`: `id` (from Postgres), `account_username` (8 to 32 of `a-z`, `0-9`, `_`, unique),
+`accounts`: `id` (from Postgres), `uuid` (migration 0001), `account_username` (8 to 32 of `a-z`, `0-9`, `_`, unique),
 `owner_first_name` and `owner_last_name` (as the owner capitalizes them), `owner_email` (loosely checked,
-one account per address ignoring case), `password_hash` (the Argon2 string, once Security exists),
+one account per address ignoring case), `password_hash` (Security's Argon2 PHC string),
 `created_at`, `last_login_datetime` (empty until the first login).  Postgres checks the name and email
 itself, so even a bug in Conductor can't store a bad one.  `last_played_character` comes as a migration once
 there are characters.
