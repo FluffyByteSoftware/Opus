@@ -365,6 +365,21 @@ When I say we're wrapping up:
   pushing. Never rebase or force-push over my commits, on any branch.
 - Deleting a branch on GitHub can't be done from the session (the push is
   refused), so I do that by hand when one is finished with.
+- **Tell me explicitly when to touch git from my terminal, and give the exact
+  commands.** I don't keep the branch model in my head; you do. Every time
+  one of these happens, the reply says so in a line of its own, with the
+  commands to paste:
+  - You've pushed to `testing` and it's my turn to test: `git fetch origin`
+    and `git checkout testing` (or `git pull` if I'm already on it), then
+    the build and run commands.
+  - You've pushed to `unstable` and I've hand-edited or built on my machine:
+    `git pull` on `unstable`, so my copy matches before I do anything.
+  - A build changed `Cargo.lock`: the `git add`, `git commit -m` and
+    `git push` for it.
+  - I've said to release: the commands that move `main` to `testing`.
+  - A branch needs deleting on GitHub: the `git push origin --delete` line.
+  If nothing on my side needs doing, say that too ("nothing to run in git"),
+  so silence never means I missed something.
 - The whole `Opus/` folder is one **private** repo: code, docs, and assets.
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
