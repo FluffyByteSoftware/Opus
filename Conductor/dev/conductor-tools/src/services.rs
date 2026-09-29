@@ -32,6 +32,7 @@ use crate::threads;
 pub const DISKMAN: &str = "DiskMan";
 pub const SCRIBE: &str = "Scribe";
 pub const CONSTELLATIONS: &str = "Constellations";
+pub const FINGERPRINTER: &str = "Fingerprinter";
 pub const ARCHIVIST: &str = "Archivist";
 pub const MONITOR: &str = "Monitor";
 pub const WEB_ADMIN: &str = "Web admin";
@@ -39,10 +40,11 @@ pub const WEB_ADMIN: &str = "Web admin";
 /// Every service Conductor expects, in the order the page lists them, and
 /// the thread each runs on, if it has one.  The thread names are the ones
 /// given to `threads::spawn()`.
-const EXPECTED: [(&str, Option<&str>); 6] = [
+const EXPECTED: [(&str, Option<&str>); 7] = [
     (DISKMAN, Some("diskman")),
     (SCRIBE, None),
     (CONSTELLATIONS, None),
+    (FINGERPRINTER, None),
     (ARCHIVIST, Some("archivist")),
     (MONITOR, Some("monitor")),
     (WEB_ADMIN, Some("wgui")),
@@ -193,7 +195,7 @@ mod tests {
     #[test]
     fn every_expected_service_is_there_from_the_start() {
         let names: Vec<&str> = list().iter().map(|service| service.name).collect();
-        assert_eq!(names, vec![DISKMAN, SCRIBE, CONSTELLATIONS, ARCHIVIST, MONITOR, WEB_ADMIN]);
+        assert_eq!(names, vec![DISKMAN, SCRIBE, CONSTELLATIONS, FINGERPRINTER, ARCHIVIST, MONITOR, WEB_ADMIN]);
     }
 
     #[test]

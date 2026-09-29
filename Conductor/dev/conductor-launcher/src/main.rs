@@ -3,12 +3,12 @@
 //! Author:     Jacob Chacko
 //!
 //! Entry point.  Brings everything up in order -- DiskMan, Scribe,
-//! Constellations, Archivist, the monitor, then the web admin -- and
-//! waits.  The console is only Scribe's output from here on, and typing in
-//! it does nothing.  The admin works through the web page, and when they
-//! press Shut Down there, the web admin stops, main wakes up, and
-//! Conductor shuts down.  DiskMan goes last, and shutdown waits on it to
-//! write out everything it's holding.
+//! Constellations, Fingerprinter, Archivist, the monitor, then the web
+//! admin -- and waits.  The console is only Scribe's output from here on,
+//! and typing in it does nothing.  The admin works through the web page,
+//! and when they press Shut Down there, the web admin stops, main wakes
+//! up, and Conductor shuts down.  DiskMan goes last, and shutdown waits
+//! on it to write out everything it's holding.
 
 // Rust note: the tools, the monitor and the web admin live in their own
 // crates, and the `use` lines reach into them.  The crates are called
@@ -17,7 +17,7 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
-use conductor_tools::{archivist, constellations, diskman, threads};
+use conductor_tools::{archivist, constellations, diskman, fingerprinter, threads};
 use conductor_tools::scribe::{self, Channel};
 
 /// How long shutdown gives DiskMan before telling the admin to force quit.
@@ -46,6 +46,10 @@ fn main() {
     scribe::info(Channel::System, "Conductor is starting.");
     scribe::info(Channel::System, &format!("Content folder: {}", constellations::content_dir().display()));
     scribe::info(Channel::System, &format!("Settings from {}", constellations::config_path().display()));
+
+    // Fingerprinter, the UUID maker, checks the OS will give it random
+    // bytes before anything needs a UUID.
+    fingerprinter::start();
 
     // Then the database.  This comes straight back, and Archivist connects
     // on its own thread.  The log says how that went.
