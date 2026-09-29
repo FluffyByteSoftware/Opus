@@ -112,6 +112,10 @@ a `Content/` folder, or by creating `./Content` when neither works.
   sure you understand what I mean, then write it out. When something I ask for
   could mean more than one thing, ask before building, and say what each
   reading would mean in practice. Don't fill gaps with guesses.
+- **The test checklist.** `Documentation/LLM/TEST_CHECKLIST.md` is the rolling list of what to check on
+  `testing`: every session that changes what Conductor does adds its checks there, and the reply that
+  pushes to `testing` points at them.  Jacob's ask, 2026-09-29, so that once game features come, there's a
+  reminder of what changed and what to look at in game.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another
@@ -145,6 +149,9 @@ When I say we're wrapping up:
    List what's waiting, unordered.
 2. Update `Documentation/LLM/TODO.md`, `Documentation/LLM/PROJECT_OPUS.md`, and any `Documentation/LLM/design/`
    files the session changed, so they match reality.
+   Add the session's checks to `Documentation/LLM/TEST_CHECKLIST.md` (Jacob's ask, 2026-09-29): what to
+   run on `testing` to see this session's change working, and what to look at in the game once there is
+   one.  A check is struck through with the date once he's done it, never deleted.
 3. Update `README.md` if anything about the project's overview changed.
 4. Update this CLAUDE.md with anything the session taught us, and tell me what
    changed.
@@ -307,7 +314,8 @@ When I say we're wrapping up:
   and later accounts and config) is a page or a button there. It listens on
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
   adding a route that changes anything. Starting, restarting and stopping the
-  server (`/Opus/wwwhook/start`, `/stop`, `/restart`) are already agreed to.
+  server (`/Opus/wwwhook/start`, `/stop`, `/restart`) and kicking a TCP
+  connection (`/Opus/wwwhook/tcp/kick`) are already agreed to.
   `wwwhook` is Jacob's name for a path the page posts to that makes something
   happen; the shutdown and ACK routes predate it and kept their paths. Ask
   where a new one goes.
@@ -370,9 +378,16 @@ When I say we're wrapping up:
   is added, make sure the CSS for it exists.
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
-- The page is eight tabs down the left sidebar, under the OP logo: Control
-  Panel, System, Conductor, Services, Storage, Notifications History, Log,
-  Settings. Anything new goes on one of them, or is a new tab I agree to.
+- The page is nine tabs down the left sidebar, under the OP logo: Control
+  Panel, System, Conductor, Services, Storage, TCP, Notifications History,
+  Log, Settings. Anything new goes on one of them, or is a new tab I agree to.
+- **The TCP tab** (2026-09-29) is the login door: every connection that
+  reached the TCP listener in the last five minutes, by address and DNS
+  name, never by account, with where each one is (the queue, TLS, Security's
+  line with its place, finished and how) and a KICK for `admin`.  It's
+  locked until both of networking's listeners are up.  A UDP tab (the
+  account, and the character once there is one) is Jacob's next; in
+  TODO.md.
 - The Control Panel, the Log and the Settings are always clickable. Until
   the server is running they're the only tabs that are, and the bell is
   hidden. The Control Panel is the only place the server is started,

@@ -15,15 +15,15 @@ accents, a terminal box), redone in plain CSS.
 
 ```
 conductor-wgui/
-├── Cargo.toml         depends on conductor-tools and conductor-monitor, nothing else
+├── Cargo.toml         depends on conductor-tools, conductor-monitor and conductor-networking (the TCP tab)
 └── src/
     ├── lib.rs         start(port) -> bool, has_ended(); the thread, route(), log_in(), only_admin(),
-    │                    server_command(), settings_states(), settings_save(), settings_discard(), host_is_ours()
+    │                    server_command(), settings_states(), settings_save(), settings_discard(), tcp_kick(), host_is_ours()
     ├── http.rs        read_request() (head, then the body Content-Length says), parse_head(), respond();
     │                    struct Request
     ├── login.rs       the two accounts and the live logins: log_in(), role_of(), log_out(), the cookie lines,
     │                    fields(); enum Role, enum Login
-    ├── json.rs        status(switch, role, snapshot, services, disk, open_notices, newest_notices, lines, log_file),
+    ├── json.rs        status(switch, role, snapshot, services, disk, networking, open_notices, newest_notices, lines, log_file),
     │                    login(role), notices(open), threads_of(pid, threads), settings(files), problems(list)
     │                    -> String; a small Object builder, text() escaping
     └── page.html      the one page, baked in with include_str!
@@ -37,7 +37,7 @@ conductor-wgui/
 | GET    | `/Opus`                | The page                                                            |
 | POST   | `/Opus/login`          | `name = ...` and `password = ...` lines in the body.  Needs `X-Opus: login`.  A good one sets the cookie; a wrong one is a 403 that doesn't say which half |
 | POST   | `/Opus/logout`         | Forgets the cookie's login.  Needs `X-Opus: login`                  |
-| GET    | `/Opus/status?after=N` | The server's switch, who's logged in, the monitor's look, the services, DiskMan, the notices, the log |
+| GET    | `/Opus/status?after=N` | The server's switch, who's logged in, the monitor's look, the services, DiskMan, networking's door, the notices, the log |
 | GET    | `/Opus/threads?pid=N`  | One process's threads, for the System tab.  Reads only.             |
 | GET    | `/Opus/notices`        | Every open notice, for the Notifications History tab.  Reads only.  |
 | POST   | `/Opus/notices/ack?id=N` | Clears one notice.  Needs `X-Opus: ack`                           |
@@ -49,11 +49,12 @@ conductor-wgui/
 | GET    | `/Opus/settings`       | Every config file and setting: kind, comment, default, running value, waiting value.  Reads only |
 | POST   | `/Opus/wwwhook/settings/save?file=<name>` | SAVE on the Settings tab.  `key = value` lines in the body.  Needs `X-Opus: settings`.  400 with the complaints as JSON if a line is wrong, and nothing written; 500 the same way if the disk says no |
 | POST   | `/Opus/wwwhook/settings/discard?file=<name>` | DISCARD: throws the file's `.wait4server` away.  Needs `X-Opus: settings` |
+| POST   | `/Opus/wwwhook/tcp/kick?id=N` | KICK on the TCP tab: closes connection N at the door.  Needs `X-Opus: tcp`.  404 if it isn't open, 409 if TCP isn't listening |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
 Everything but `/`, the page and `/Opus/login` needs the login cookie, and answers `401 Unauthorized`
 without it; the page shows its login card on any 401.  Every route that changes something (the ACKs, the
-test notice, the server buttons, the settings, SHUT DOWN) needs `admin`, and answers `403 Forbidden` to
+test notice, the server buttons, the settings, the kick, SHUT DOWN) needs `admin`, and answers `403 Forbidden` to
 `user`.  The JSON shapes are written out at the top of `json.rs`.  The page's script is the other half of
 them.
 
@@ -146,6 +147,21 @@ them.
   card carries a yellow WAITING ON A HARD (or SOFT) REBOOT tag, each changed field says what's running
   under it, and nothing changes until that reboot.  The page needed a body reader in `http.rs` for it,
   which the login uses too.
+- **The TCP tab** (2026-09-29), Jacob's pick for the session after networking: "the connections that have
+  reached out to our listener in the last 5 minutes listed by IP address (and DNS if known), their
+  position in the login queue (if not already logged in)", and no account information, "purely tracked
+  by IP address".  Then, the same session, a KICK on each row for `admin`.  Sixth in the sidebar, after
+  Storage, and locked until the server is running, the database is connected and both of networking's
+  listeners are up (his words: after the TCP listener and the UDP listener are online), so it sits
+  under the database lock like the other data tabs, with one lock more.  Drawn once a second from the
+  `networking` part of the status: two tiles (where TCP and UDP listen, and how many connections are
+  open, waiting, in Security's line and finished lately), then the table, newest first, with the
+  address, its reverse DNS name when one has come back, when it arrived and how long ago, where it is in
+  words (a queued one says how many are ahead of it; one in Security's line says how many jobs are ahead
+  and about how long; a finished one says how it ended, greyed, green if it logged in), and KICK on
+  every open one.  The ledger behind it, the DNS thread and the kick are networking's; see
+  `conductor-networking.md`.  A UDP tab, with the account and the character once there is one, is
+  Jacob's next and waits in TODO.md.
 
 ## The page
 
@@ -153,11 +169,12 @@ them.
 and what went wrong under them.  It's up on every 401: the first load, after LOG OUT, and after Conductor
 has been run again.  The status loop stops while it's up and a login starts it again.
 
-**Sidebar**: the OP logo, and eight tabs under it: Control Panel, System, Conductor, Services, Storage,
-Notifications History, Log, Settings.  The Control Panel shows whenever the server isn't running; once it
+**Sidebar**: the OP logo, and nine tabs under it: Control Panel, System, Conductor, Services, Storage,
+TCP, Notifications History, Log, Settings.  The Control Panel shows whenever the server isn't running; once it
 is, the page moves to the tab the browser remembers, Conductor by default.  A locked tab is greyed and
 can't be clicked: with the server stopped that's everything but the Control Panel, the Log and the
-Settings, and with it running the database lock decides.  The Services tab gets a flashing red dot when a
+Settings, and with it running the database lock decides, and the TCP tab needs both network listeners up
+on top of that.  The Services tab gets a flashing red dot when a
 service is down, only while the server is running (its pieces being down is the normal state before
 that).  At the bottom: who's logged in, whether they can change things, and LOG OUT.
 
@@ -215,6 +232,12 @@ waiting), files and bytes held in memory, bytes written (whole writes, append ba
 read (from disk and from memory), failures (failing now, given up on), the last failure, and the big write
 under way with a progress bar, and open streams.  The dot flashes red when DiskMan isn't running or a file
 is failing.
+
+**TCP**: two tiles, then every connection that reached the login door in the last five minutes, newest
+first: address, host (reverse DNS, or `--`), arrived (UTC) and seconds ago, where it is in words, and
+KICK on an open one (asks first; greyed for `user`).  A finished row is greyed and says how it ended;
+a logged-in one is green.  No account name anywhere on it.  Locked while either listener is down, and
+the page steps off it to the default tab if that happens while it's open.
 
 **Notifications History**: every open notice, newest first: when, level (coloured), where from, what
 happened, and an ACK button.  ACK ALL (asks first) and TEST NOTIFICATION at the top.  The page asks

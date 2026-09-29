@@ -38,9 +38,30 @@ Things that wait on a piece that doesn't exist yet.
     purpose (a dropped UDP session is gone, start over), so it's a design change when it comes, not a fix.
   - A session id in every UDP packet, so a home router changing the port mid-session doesn't end it.
   - Anything an admin does to a player from the web admin: see who's on, kick, message.
-- Networking: the web admin shows nothing of it yet.  `conductor_networking::status()` has the listening
-  addresses and the counts; tracking the login queue and the accounts connected, on a tab of their own, is
-  Jacob's pick for the next conversation (STATUS.md has what it needs).
+- **Web admin: the UDP tab.**  Jacob's spec, 2026-09-29, with the TCP tab's: the account of every player
+  connected over UDP, and the character they're playing once there are characters.  Locked like the TCP
+  tab until both listeners are up.  Needs a `players()` in `sessions.rs` that copies out each player's
+  account, address, connected-since and last-heard (the book holds it all and only hands out counts
+  today), a `players` list in `status()`, its shape at the top of `json.rs`, and the tab.  Kicking a
+  player from it is client management, above.
+- **Networking: a whitelist and a blacklist of addresses**, switchable in `networking.cfg`.  Jacob's ask at
+  the end of the TCP tab session, 2026-09-29, with "the ability to manage TCP connections" (a BAN on the
+  TCP tab that adds the address to the blacklist, say, beside the KICK that's built).  Its own session;
+  what it has to settle first:
+  - Where the lists live.  Constellations' files are `key = value`, and a list of addresses that grows
+    from the page doesn't fit one line.  A file of its own per list (`Content/cfg/whitelist.txt`, one
+    address or range a line) read by networking through DiskMan is the plain way; the switch
+    (`access_list = off | whitelist | blacklist`) stays in `networking.cfg`.
+  - Whether a change to a list takes at once or on the soft reboot like the rest of `networking.cfg`.  A
+    ban from the page that waits for a STOP SERVER isn't much of a ban, so probably at once, which
+    would be the first hot swap in Conductor and wants saying so.
+  - Addresses only, or ranges (CIDR) too.  A ban on one home address is easy to step around.
+  - Where the check sits: the acceptor, beside the failure hold, so a listed address costs nothing but
+    an accept and a close, and the ledger says "closed at the door: blacklisted".
+- Networking: `REMEMBER_FOR`, how long a finished connection stays on the TCP tab (five minutes), is a
+  constant in `ledger.rs`.  A setting in `networking.cfg` if Jacob ever wants it longer.
+- Networking: reverse DNS on macOS.  `dns/other.rs` hands back no name; macOS has `getnameinfo` with its
+  own `sockaddr` layout (a length byte first).  Waits on a Mac, like the monitor.
 - Networking: the protocol version in the Hello is `1` and the client versions are a list in
   `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,

@@ -19,7 +19,7 @@ conductor-networking/
 ├── Cargo.toml
 ├── test_client.py       the stand-in client: TLS, Login, Ticket, Connect, keep-alives, Goodbye.  Python 3.
 └── src/
-    ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets }
+    ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections }, kick(id)
     │                      timed_out(), wake_address(), shared by the two sides
     ├── settings.rs      networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs           server_config(settings) -> Arc<ServerConfig>; MAKE_PAIR, the openssl command
@@ -28,7 +28,13 @@ conductor-networking/
     │                      connect_result(), keep_alive(), kicked(); read_login(), read_session_choice(), read_connect()
     ├── sessions.rs      the book: tickets by token, players by address, each account's whereabouts
     │                      playing(), issue(), connect(), heard(), leave(), kick(), sweep(), clear(), counts()
-    ├── tcp.rs           the acceptor thread, the login threads, TLS, the login flow, the failure hold
+    ├── ledger.rs        the door's ledger: every connection of the last five minutes and its Stage; End; Connection
+    │                      clear(), arrived(), set(), ended(), is_done(), snapshot()
+    ├── dns.rs           reverse DNS on thread net-dns, with a cache: start(), stop(), ask(), name_of()
+    ├── dns/linux.rs     reverse(ip) around getnameinfo from the C library
+    ├── dns/windows.rs   the same around ws2_32's; never built
+    ├── dns/other.rs     macOS and the rest: no names
+    ├── tcp.rs           the acceptor thread, the login threads, TLS, the login flow, the failure hold, kick()
     └── udp.rs           the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; tell() for kicks
 ```
 
@@ -103,6 +109,29 @@ because of the CPU cost.
 - **Log levels.**  Connections, TLS, hang-ups and timeouts are Debug on the Network channel.  Who logged
   in, who failed, who's in the world and who left are Info on the Security channel.  A full queue and a
   failed accept or send are Warn.  Missing TLS files and a token that can't be made are capitals Errors.
+- **The door's ledger** (2026-09-29, the session after), for the web admin's TCP tab.  Jacob's spec: every
+  connection that reached the listener in the last 5 minutes, by IP address and DNS if known, its place
+  in the login queue if it isn't logged in yet, and no account information, tracked purely by address.
+  So `ledger.rs` is a BTreeMap of entries numbered as they arrive: the acceptor writes one in for every
+  accept (the ones it closes at the door too, marked so), the login thread moves it a stage at a time
+  (TLS, waiting for its Login, checking, in Security's line with `place()`'s numbers once a second,
+  asked about another session), and every way out writes the ending.  A handful of lock touches per
+  login, never per byte.  A finished entry stays five minutes from its arrival (`REMEMBER_FOR`, a
+  constant for now); one in progress stays whatever the clock says; past 1000 entries the oldest
+  finished ones go early.  The first ending written wins, so a kicked connection reads "kicked" and not
+  the login thread's "hung up" a moment later.  A queued connection's place is a count of the queued
+  entries ahead of it, worked out when the snapshot is taken.  Wiped on START SERVER and STOP SERVER.
+- **Reverse DNS on its own thread**, `net-dns` (`dns.rs`).  A lookup asks the OS's resolver and can take
+  seconds, so the acceptor only drops the address on a queue; the thread looks it up with the OS's own
+  `getnameinfo` (an `extern` block in `dns/linux.rs` and `dns/windows.rs`, the way the monitor talks to
+  the OS, no crate) and writes the name into a cache the snapshot reads.  One lookup per address per
+  START SERVER, at most 4096 cached.  No name is never a failure: the tab shows the address on its own.
+  macOS gets no names until there's a Mac to test on.
+- **KICK from the TCP tab** (Jacob, the same session): a clone of every open socket is kept under its
+  ledger number from accept until its login thread is done with it (the same map `stop()` shuts to wake
+  the threads; it used to hold only the ones being served).  `kick(id)` marks the ledger, shuts the
+  socket, and the login thread finds its read failing, or skips the connection if it was still queued.
+  The client sees the connection drop and nothing else.  A kick is an Info line on the Network channel.
 - **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file,
   prints every packet, and has switches for kicking or sparing the other session, leaving after N
   seconds, and going quiet to watch the timeout.  Jacob used one for Stratum too.
@@ -119,5 +148,9 @@ because of the CPU cost.
   the session.  A session id in each UDP packet would survive it.  Later, if it bites.
 - **The Windows side** has never been built.  Nothing here is OS-specific but the `ConnectionReset` line
   in `udp.rs`, which is Windows telling us about a bounced packet.
-- **The web admin shows none of this yet.**  `status()` has the numbers (listening addresses, players,
-  tickets) for whichever tab they end up on.
+- **The web admin shows the door** (the TCP tab, 2026-09-29) and not the world yet: a UDP tab with the
+  account, and the character once there is one, is Jacob's next.  `sessions.rs` would need a `players()`
+  that copies each player out; today it only hands out counts.
+- **A whitelist and a blacklist** of addresses, switchable in `networking.cfg`, and a way to manage
+  connections from the tab beyond the kick (a BAN that adds to the blacklist, say).  Jacob's ask at the
+  end of the TCP tab session; in TODO.md with the questions it raises.

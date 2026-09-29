@@ -37,7 +37,8 @@ SERVER brings the server up (the database connection, the network and the monito
 there is one), STOP SERVER takes it back down, and SHUT DOWN closes Conductor.  Until the server is running, the only
 other tabs that work are the log and the settings.  Once it is, there's a tab each for the machine and
 every process on it, Conductor's own CPU, memory, disk and threads, its services, the database and the
-disk manager, the open notifications, the log, and the settings, where every config file can be changed
+disk manager, the login door (every TCP connection of the last five minutes, by address, with a KICK), the
+open notifications, the log, and the settings, where every config file can be changed
 from the page and the change takes at the next restart of whatever reads it.  Every warning and error
 lands on a bell in the corner and stays there until somebody acknowledges it.  While the database is
 offline, the page shows that and nothing else, since the game can't run without it.  It only listens on

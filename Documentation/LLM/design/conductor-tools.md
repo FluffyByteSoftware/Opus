@@ -443,8 +443,8 @@ What we decided:
   reports, which is how a thread in the "in use" view gets our name and an "ours" mark.
 - A thread is marked finished when its closure ends, a panic included (a guard that's dropped either way).
   Finished threads stay on the list.  There are a handful of them, not thousands.
-- Threads today: `main`, `diskman`, `security`, `archivist`, `net-tcp`, `net-login-1` and up, `net-udp`,
-  `monitor`, `wgui`.  The postgres crate starts some of its own, and those show up as "not ours".
+- Threads today: `main`, `diskman`, `security`, `archivist`, `net-tcp`, `net-login-1` and up, `net-dns`,
+  `net-udp`, `monitor`, `wgui`.  The postgres crate starts some of its own, and those show up as "not ours".
 - main can't be started by `spawn()`, so it puts itself on the list with `name_this_thread("main")` as the
   first line of `main()`.  It stays "running" for good, since main ending ends Conductor.
 

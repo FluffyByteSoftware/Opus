@@ -72,16 +72,21 @@ Opus/
 │       │       ├── tls.rs             # reads the certificate and key, builds rustls's server settings
 │       │       ├── protocol.rs        # the packets, byte for byte; PROTOCOL.md is the other half
 │       │       ├── sessions.rs        # the book: tickets by token, players by address, accounts by name
-│       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login flow, the failure hold
+│       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login flow, the failure hold, the kick
+│       │       ├── ledger.rs          # the door's ledger: every TCP connection of the last five minutes and where it is
+│       │       ├── dns.rs             # reverse DNS for the ledger, on its own thread; picks the file for the OS
+│       │       ├── dns/linux.rs       # getnameinfo from the C library
+│       │       ├── dns/windows.rs     # getnameinfo from ws2_32
+│       │       ├── dns/other.rs       # macOS and the rest: no names yet
 │       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep
 │       ├── conductor-wgui/            # lib
-│       │   ├── Cargo.toml             # depends on conductor-tools and conductor-monitor
+│       │   ├── Cargo.toml             # depends on conductor-tools, conductor-monitor and conductor-networking
 │       │   └── src/
 │       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
 │       │       ├── http.rs            # just enough HTTP: the head, then the body Content-Length says
 │       │       ├── login.rs           # the two accounts (user, admin) and the live logins, by cookie
 │       │       ├── json.rs            # the status, login, settings and problems answers, written by hand
-│       │       └── page.html          # the page, baked in: the login card, the Control Panel and seven tabs, the bell, the locks
+│       │       └── page.html          # the page, baked in: the login card, the Control Panel and eight tabs, the bell, the locks
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml             # depends on the four libs
 │           └── src/
