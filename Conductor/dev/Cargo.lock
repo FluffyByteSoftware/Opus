@@ -150,6 +150,7 @@ name = "conductor-wgui"
 version = "0.1.0"
 dependencies = [
  "conductor-monitor",
+ "conductor-networking",
  "conductor-tools",
 ]
 
