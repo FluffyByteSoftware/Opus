@@ -70,6 +70,9 @@ Things we thought of along the way.  None of them are promised.
   would get it back sooner after, say, a full disk is cleaned up.
 - Scribe: the caller shows the path Rust compiled with (`conductor-launcher/src/main.rs`).  Trim to the file
   name if that gets noisy.
+- Constellations: a stray `Content/` inside `Conductor/dev` (made by hand by mistake, 2026-09-29) shadows
+  the real one, since the walk up takes the nearest.  Skipping a `Content` whose parent holds a
+  `Cargo.toml` would rule that one out.  Not done; the folder was removed instead.
 - Constellations: the Storage tab could show `swaps_waiting` from DiskMan's status (it's in the struct,
   not in the JSON yet).  The Settings tab is there now to explain it.
 - Archivist: a password that starts or ends with a space loses the space, because every value is trimmed.

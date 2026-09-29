@@ -163,6 +163,11 @@ When I say we're wrapping up:
 - **Every command I'm to paste is one line.**  Never wrapped with `\` over
   several lines; pasting a wrapped command breaks it.  Long is fine.  Jacob,
   2026-09-29.
+- **My terminal sits in `Conductor/dev`**, where cargo runs.  Every command
+  works from there: absolute paths (`/opt/storage/Coding/Opus/...`) for
+  anything outside it, never a relative path with "from the repo root" in
+  front.  A `mkdir -p Content/certs` given that way made a second `Content`
+  inside `dev/`, and Conductor found that one first.  2026-09-29.
 - When you change files, end with a short list of which files changed and why.
 
 ---
