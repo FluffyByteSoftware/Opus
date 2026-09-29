@@ -627,7 +627,7 @@ mod tests {
         diskman.swap(&live, &waiting, SwapAt::Now).wait().expect("the swap should happen");
         assert_eq!(diskman.read(&live).wait().expect("a read").as_slice(), b"new");
         assert!(!waiting.exists());
-        assert_eq!(diskman.status().swaps_waiting, 0);
+        assert_eq!(diskman.lock().status().swaps_waiting, 0);
 
         // Nothing waiting is fine: the swap counts as done.
         diskman.swap(&live, &waiting, SwapAt::Now).wait().expect("nothing to swap is fine");
@@ -652,13 +652,13 @@ mod tests {
         diskman.swap(&hard, &hard.with_extension("cfg.wait4server"), SwapAt::Shutdown);
         // A second swap for the same file replaces the first.
         diskman.swap(&hard, &hard.with_extension("cfg.wait4server"), SwapAt::Shutdown);
-        assert_eq!(diskman.status().swaps_waiting, 2);
+        assert_eq!(diskman.lock().status().swaps_waiting, 2);
         assert_eq!(fs::read(&soft).expect("there"), b"old soft");
 
         diskman.run_swaps(SwapAt::ServerStop).wait().expect("the server-stop swaps should run");
         assert_eq!(diskman.read(&soft).wait().expect("a read").as_slice(), b"new old soft");
         assert_eq!(fs::read(&hard).expect("there"), b"old hard");
-        assert_eq!(diskman.status().swaps_waiting, 1);
+        assert_eq!(diskman.lock().status().swaps_waiting, 1);
 
         stop_and_wait(diskman);
         assert_eq!(fs::read(&hard).expect("there"), b"new old hard");
@@ -676,7 +676,7 @@ mod tests {
         diskman.write(&waiting, b"new".to_vec()).wait().expect("the waiting file should land");
         diskman.swap(&live, &waiting, SwapAt::Shutdown);
         diskman.forget_swap(&live);
-        assert_eq!(diskman.status().swaps_waiting, 0);
+        assert_eq!(diskman.lock().status().swaps_waiting, 0);
 
         diskman.remove(&waiting).wait().expect("the remove should happen");
         assert!(!waiting.exists());
