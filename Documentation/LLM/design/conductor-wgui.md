@@ -37,9 +37,9 @@ conductor-wgui/
 | POST   | `/Opus/notices/ack?id=N` | Clears one notice.  Needs `X-Opus: ack`                           |
 | POST   | `/Opus/notices/ack-all`| Clears every notice.  Needs `X-Opus: ack`                           |
 | POST   | `/Opus/notices/test`   | Raises a test notice.  Needs `X-Opus: ack`                          |
-| POST   | `/Opus/server/start`   | Asks the launcher to start the server.  Needs `X-Opus: server`.  409 if it isn't stopped |
-| POST   | `/Opus/server/stop`    | Asks the launcher to stop it.  Needs `X-Opus: server`.  409 if it isn't running |
-| POST   | `/Opus/server/restart` | Stop, then start.  Needs `X-Opus: server`.  409 if it isn't running |
+| POST   | `/Opus/wwwhook/start`   | Asks the launcher to start the server.  Needs `X-Opus: server`.  409 if it isn't stopped |
+| POST   | `/Opus/wwwhook/stop`    | Asks the launcher to stop it.  Needs `X-Opus: server`.  409 if it isn't running |
+| POST   | `/Opus/wwwhook/restart` | Stop, then start.  Needs `X-Opus: server`.  409 if it isn't running |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
 The JSON shapes are written out at the top of `json.rs`.  The page's script is the other half of them.
@@ -91,7 +91,9 @@ The JSON shapes are written out at the top of `json.rs`.  The page's script is t
   Jacob called it the control panel when it opened, so that's its name.  The three server routes answer at once and the launcher does the work, so the web admin's one
   thread is never stuck behind an Archivist that's finishing a long query on the way down; the page sees
   the state change through the status.  The state flips to starting or stopping in `server::ask()` itself,
-  under its lock, so two clicks can't both get through.
+  under its lock, so two clicks can't both get through.  The routes live under `/Opus/wwwhook/`, Jacob's
+  name for a path the page posts to that makes something happen (2026-09-29).  Only the three server
+  routes are there; SHUT DOWN and the ACKs kept their old paths.
 - **The Control Panel and the Log stay above the database lock**, like the header and the bell, so the
   server can be stopped while the database is offline and the log read to see why.  Jacob's call, the same
   day: "stay open".  Both sections sit outside the blurred content block for that.

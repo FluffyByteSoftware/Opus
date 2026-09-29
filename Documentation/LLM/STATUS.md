@@ -55,7 +55,7 @@ What we did:
   page has no numbers while the server is stopped.  Fingerprinter got a `stop()` that only tells the
   Services tab.  Security could already do it, so it went in as it was: its arena comes and goes with the
   server.
-- **Three routes**: `POST /Opus/server/start`, `/stop`, `/restart`, needing `X-Opus: server`.  Each answers
+- **Three routes**: `POST /Opus/wwwhook/start`, `/stop`, `/restart`, needing `X-Opus: server`.  Each answers
   right away (200, or 409 with "Not now.  The server is running.") and the launcher does the work.  The
   status JSON starts with `"server": { "state", "note", "since" }`.
 - **The Control Panel tab**, first in the sidebar: the state big, the note, since when, START SERVER,

@@ -26,7 +26,7 @@
 //! - `POST /Opus/notices/ack-all` -- clears every notice.
 //! - `POST /Opus/notices/test` -- raises a test notice, to see the bell
 //!   work.
-//! - `POST /Opus/server/start`, `/stop`, `/restart` -- the Control Panel's
+//! - `POST /Opus/wwwhook/start`, `/stop`, `/restart` -- the Control Panel's
 //!   buttons.  Each drops an ask in the server's mailbox (`server.rs` in
 //!   conductor-tools) for the launcher to act on, and answers straight
 //!   away.  Turned away with a 409 when it doesn't fit where the server is
@@ -260,9 +260,9 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             let id = notices::publish(Level::Notice, "Web admin", "Test notification from the web admin.");
             (Answer::new("200 OK", "application/json", format!("{{\"id\":{id}}}")), Next::KeepGoing)
         }
-        ("POST", "/Opus/server/start") => server_command(request, Command::Start),
-        ("POST", "/Opus/server/stop") => server_command(request, Command::Stop),
-        ("POST", "/Opus/server/restart") => server_command(request, Command::Restart),
+        ("POST", "/Opus/wwwhook/start") => server_command(request, Command::Start),
+        ("POST", "/Opus/wwwhook/stop") => server_command(request, Command::Stop),
+        ("POST", "/Opus/wwwhook/restart") => server_command(request, Command::Restart),
         ("POST", "/Opus/shutdown") => {
             if request.header("x-opus") != Some("shut-down") {
                 scribe::warn(Channel::System, "The web admin turned away a shutdown that didn't come from its \
@@ -274,7 +274,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         }
         (_, "/") | (_, "/Opus") | (_, "/Opus/") | (_, "/Opus/status") | (_, "/Opus/threads")
         | (_, "/Opus/notices") | (_, "/Opus/notices/ack") | (_, "/Opus/notices/ack-all") | (_, "/Opus/notices/test")
-        | (_, "/Opus/server/start") | (_, "/Opus/server/stop") | (_, "/Opus/server/restart")
+        | (_, "/Opus/wwwhook/start") | (_, "/Opus/wwwhook/stop") | (_, "/Opus/wwwhook/restart")
         | (_, "/Opus/shutdown") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
@@ -416,14 +416,14 @@ mod tests {
     // program, and server.rs's own test walks it through its states.
     #[test]
     fn a_server_command_needs_the_page_header_and_a_post() {
-        let (answer, next) = route(&request("POST", "/Opus/server/start", &[HOST]), 9996);
+        let (answer, next) = route(&request("POST", "/Opus/wwwhook/start", &[HOST]), 9996);
         assert_eq!(answer.status, "403 Forbidden");
         assert!(matches!(next, Next::KeepGoing));
 
-        let (answer, _) = route(&request("GET", "/Opus/server/stop", &[HOST, ("x-opus", "server")]), 9996);
+        let (answer, _) = route(&request("GET", "/Opus/wwwhook/stop", &[HOST, ("x-opus", "server")]), 9996);
         assert_eq!(answer.status, "405 Method Not Allowed");
 
-        let (answer, _) = route(&request("POST", "/Opus/server/dance", &[HOST, ("x-opus", "server")]), 9996);
+        let (answer, _) = route(&request("POST", "/Opus/wwwhook/dance", &[HOST, ("x-opus", "server")]), 9996);
         assert_eq!(answer.status, "404 Not Found");
     }
 

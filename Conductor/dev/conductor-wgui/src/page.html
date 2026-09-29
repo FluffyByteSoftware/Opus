@@ -1257,7 +1257,7 @@ function drawPieces(services) {
 async function askServer(what) {
   for (const id of ["server-start", "server-restart", "server-stop"]) $(id).disabled = true;
   try {
-    const answer = await fetch("/Opus/server/" + what, { method: "POST", headers: { "X-Opus": "server" } });
+    const answer = await fetch("/Opus/wwwhook/" + what, { method: "POST", headers: { "X-Opus": "server" } });
     if (!answer.ok) alert("Conductor said no: " + await answer.text());
   } catch (e) {
     alert("The ask didn't go through: " + e);

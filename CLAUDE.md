@@ -261,7 +261,7 @@ When I say we're wrapping up:
   and later accounts and config) is a page or a button there. It listens on
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
   adding a route that changes anything. Starting, restarting and stopping the
-  server (the three `/Opus/server/` routes) are already agreed to.
+  server (the three `/Opus/wwwhook/` routes) are already agreed to.
 
 ### Linux and Windows
 
