@@ -328,8 +328,12 @@ When I say we're wrapping up:
   (`/Opus/wwwhook/networking/addip` and `/removeip`; Jacob's names, "add"
   and "remove" alone were too generic) are already agreed to.
   `wwwhook` is Jacob's name for a path the page posts to that makes something
-  happen; the shutdown and ACK routes predate it and kept their paths. Ask
-  where a new one goes.
+  happen; the shutdown and ACK routes predate it and kept their paths.
+  **Every new route goes through `/Opus/wwwhook/`**, and when a reply says
+  "route" it names the whole path (`/Opus/wwwhook/tcp/kick`), so it's clear
+  that's what is meant: a web admin path, not a file or a function.  Jacob,
+  2026-09-29 (he wrote `Opus/Content/wwwhook/`; the paths are `/Opus/wwwhook/`).
+  Ask before adding one.
 
 ### Networking (conductor-networking)
 
