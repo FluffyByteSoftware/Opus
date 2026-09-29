@@ -126,7 +126,7 @@ Where each one lives is in the tree above.
 | Ensemble           | The client players run.                       | Not started, engine unpicked |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
 | conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |
-| conductor-networking | Lib crate: the login over TLS, the game over UDP. | Written, unbuilt           |
+| conductor-networking | Lib crate: the login over TLS, the game over UDP. | Runs on Linux              |
 | conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
 | conductor-launcher | Bin crate: the program.  Boots, then waits on the Control Panel. | Runs on Linux |
 | Scribe             | The log.                                      | Built and tested             |

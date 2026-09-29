@@ -30,16 +30,19 @@ says.  `main` sits on the login and the Settings tab; `unstable` and `testing` c
 **Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `c4cfd59`: the login and the
 Settings tab.  `cargo test` passed 132 (15 monitor, 89 tools with the benchmark ignored, 28 web admin), and
 a run did the whole loop: admin logged in, START SERVER, a save of `wgui_port` on the Settings tab, STOP
-SERVER, SHUT DOWN, and the next run came up on the new port.  **Networking has never been built**: it was
-written in a session with no compiler at hand, so the first `cargo build` is the test.  The Windows code
-has never been built.
+SERVER, SHUT DOWN, and the next run came up on the new port.  **Networking built and ran the same day**,
+from `testing`: `cargo build` clean after one Cargo.toml fix (a feature that didn't exist), and the Python
+client did the whole loop against a debug build: TLS 1.3 in 1 ms, a Ticket in 544 ms (debug Argon2 is
+six times slower than release), UDP Connect accepted, keep-alives answered, Goodbye logged as a logout.
+STOP SERVER and SHUT DOWN came down clean with networking in the mix.  `cargo test` hasn't been pasted
+back yet.  The Windows code has never been built.
 
 ## Last session -- 2026-09-29 (the fifth that day)
 
-**Networking**, Jacob's pick: `conductor-networking`, named by him.  Written against the five Stratum
-files he uploaded as a model (lib, protocol, sessions, tcp, tls, udp, and the old Python test script),
-not ported.  His steer: lower CPU, more RAM where that buys it, one login hashed at a time.  Not built,
-not run.
+**Networking**, Jacob's pick: `conductor-networking`, named by him.  Written against the Stratum files he
+uploaded as a model (lib, protocol, sessions, tcp, tls, udp, and the old Python test script), not ported.
+His steer: lower CPU, more RAM where that buys it, one login hashed at a time.  Built and run the same
+session (see above).
 
 What we did:
 
@@ -85,11 +88,11 @@ What Jacob decided:
 
 ## What's waiting
 
-- **Build it.**  `cargo build` and `cargo test` from `Conductor/dev`.  The rustls calls follow what
-  Stratum compiled with, but nothing here has met a compiler.  Cargo.lock changes; Jacob commits it.
-- **Make the TLS pair** with the command in README.md, then START SERVER, then the Python client.  With no
-  account in the table every login ends in "Invalid Credentials", which still walks TLS, the framing,
-  Archivist, Security's line and the hold.
+- **`cargo test`** from `Conductor/dev`: the build and the run are done, the tests haven't been pasted
+  back.  Cargo.lock changed and the certificate exists; both wait on Jacob's commit.
+- **Not tried yet by hand**: two clients on one account (the kick-or-hang-up prompt), `--go-quiet` for
+  the 40-second drop, a wrong secret word, a wrong password and the two-second hold, STOP SERVER with a
+  player in the world (they should hear a Kicked).
 - **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
   settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`
   with the password `Throwaway 1!`, a test row on a database that only listens on his machine.  The line
