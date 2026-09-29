@@ -71,9 +71,7 @@ OPUS_CONTENT=/path/to/Opus/Content cargo run -p conductor-launcher
   the repo root, and the certificate is what a client trusts:
 
   ```
-  mkdir -p Content/certs && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes \
-    -keyout Content/certs/conductor.key -out Content/certs/conductor.crt -days 3650 \
-    -subj "/CN=Opus Conductor" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
+  mkdir -p Content/certs && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout Content/certs/conductor.key -out Content/certs/conductor.crt -days 3650 -subj "/CN=Opus Conductor" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
   ```
 
   The key stays out of git; the certificate goes in, since clients need a copy.

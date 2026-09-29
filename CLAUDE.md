@@ -160,6 +160,9 @@ When I say we're wrapping up:
   on purpose, so I can't miss them).  They used to go at the top; Jacob
   moved them to the bottom on 2026-09-29.
 - Keep replies short at first. Expand when I engage.
+- **Every command I'm to paste is one line.**  Never wrapped with `\` over
+  several lines; pasting a wrapped command breaks it.  Long is fine.  Jacob,
+  2026-09-29.
 - When you change files, end with a short list of which files changed and why.
 
 ---
