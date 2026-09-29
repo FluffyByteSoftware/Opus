@@ -204,6 +204,10 @@ them.
 **The login card**: covers the whole page until Conductor says who's logged in.  Name, password, LOG IN,
 and what went wrong under them.  It's up on every 401: the first load and after Conductor has been run
 again.  LOG OUT puts it up itself, with "Logged out." under it.  The status loop stops while it's up and a login starts it again.
+Until you're in, the card is all there is.  Once in, both accounts see the same sidebar: with the server
+stopped only the Control Panel, the Log and the Settings open, and the rest wait for START SERVER.  `user`
+reads the Log and the Settings tab (read only); only `admin` has START, RESTART and STOP SERVER and SHUT
+DOWN.  (Jacob's notes from the 2026-09-29 test run.)
 
 **Sidebar**: the OP logo, and eleven tabs under it: Control Panel, System, Conductor, Services, Storage,
 Notifications History, then a rule and a NETWORK ADMIN heading with Connections, Whitelist and Blacklist

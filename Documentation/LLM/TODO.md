@@ -8,6 +8,18 @@ Author:     Jacob Chacko
 
 The big features, the ones that are a run of sessions each, are in LONGTERM_TODO.md instead.
 
+## Bugs
+
+Found in the 2026-09-29 test run, waiting on a fix.
+
+- **1. RESTART SERVER doesn't seem to re-read a hand edit to `postgres.cfg`.**  Edit `slow_job_ms` by
+  hand, RESTART SERVER: the Settings tab still shows the old value.  STOP SERVER and START SERVER picks it
+  up.  A Settings save of `access_list` in `networking.cfg` then RESTART SERVER took fine.  In the code
+  RESTART is exactly `stop_server()` then `start_server()`, and `archivist::start()` loads the file
+  again through DiskMan's hand-edit check, so the one difference is that the two run back to back.  Not
+  yet known: whether the file really isn't read again, or the Settings tab is showing what it fetched
+  mid-restart (it only asks again when the tab is opened, and never on the server coming back up).
+
 ## Deferred
 
 Things that wait on a piece that doesn't exist yet.

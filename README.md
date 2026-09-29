@@ -128,7 +128,10 @@ else, and it pulls nothing from the internet.
 
 It asks for a login first.  There are two accounts: `admin` can do everything, and `user` can look at
 everything and change nothing.  Their passwords are in `Content/cfg/wgui.cfg` (`admin` and `user` out of
-the box).  Every time Conductor starts, everybody starts logged out.
+the box).  Every time Conductor starts, everybody starts logged out.  Until you're in, the page is only
+the login.  With the server stopped, only the Control Panel, the Log and the Settings open; the rest wait
+for START SERVER.  So does the bell: a Warn at boot (a leftover line in a config file, say) is in the Log
+tab meanwhile, and on the bell once the server is up.
 
 The page is a sidebar of tabs:
 

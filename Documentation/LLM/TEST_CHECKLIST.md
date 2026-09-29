@@ -34,22 +34,32 @@ The account is `throwaway_01` / `Throwaway 1!`.  The client is `conductor-networ
 
 ### 1. The web admin before START SERVER
 
+Log in as `admin` first: before that the page is only the login card.  These are done logged in, with
+the server not started.  (Jacob's note, 2026-09-29.)
+
 - [ ] The sidebar: Control Panel, System, Conductor, Services, Storage, Notifications History, then a
       rule and a NETWORK ADMIN heading with Connections, Whitelist and Blacklist indented under it, all
       three greyed, then Log and Settings.
 - [ ] The Settings tab, `networking.cfg`'s card: `access_list` (off), `whitelist_file`
       (cfg/whitelist.cfg), `blacklist_file` (cfg/blacklist.cfg); no `connections_remember_seconds`.  If
       your `networking.cfg` still has that line, START SERVER warns about it once; take the line out.
+- [ ] The bell isn't there before START SERVER.  A Warn raised at boot (a leftover line in a config
+      file, say) is in the Log tab.  After START SERVER, the same Warn is on the bell.  (Added from
+      Jacob's notes, 2026-09-29: the first half seen, the bell after START SERVER still to check.)
 
 ### 2. Constellations and DiskMan: hand edits
 
-- [ ] A soft file: START SERVER, STOP SERVER, change `slow_job_ms` in `Content/cfg/postgres.cfg` by hand
+- [x] ~~A soft file: START SERVER, STOP SERVER, change `slow_job_ms` in `Content/cfg/postgres.cfg` by hand
       (Conductor still running), START SERVER.  The Settings tab shows the new value as running.  Put it
-      back after.
-- [ ] A list file: server stopped, add `10.0.0.1` to `Content/cfg/blacklist.cfg` by hand, START SERVER.
+      back after.~~  2026-09-29: STOP SERVER and START SERVER picks it up.
+- [ ] The same with RESTART SERVER in place of STOP and START: edit `slow_job_ms` by hand, RESTART SERVER,
+      and the Settings tab shows the new value as running.  (Added from Jacob's notes.)  2026-09-29:
+      **failed**, the old value stayed; bug 1 in TODO.md.  Section 3 leans on RESTART SERVER too.
+- [x] ~~A list file: server stopped, add `10.0.0.1` to `Content/cfg/blacklist.cfg` by hand, START SERVER.
       The Blacklist tab shows it, and the log has the Debug line "Read 1 entry from .../blacklist.cfg."
       Take it out the same way.  (Rewritten: the old access-lists check wanted Conductor shut down for
-      this; DiskMan reads a hand edit now, so the server stopped is enough.)
+      this; DiskMan reads a hand edit now, so the server stopped is enough.)~~  2026-09-29: seen, and a
+      Settings save of `access_list = blacklist` then RESTART SERVER took as well.
 - [ ] STOP SERVER and START SERVER with no hand edits come up clean, and the Storage tab's cache hits
       count up as before.
 
