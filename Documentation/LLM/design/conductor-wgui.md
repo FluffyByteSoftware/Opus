@@ -26,7 +26,7 @@ conductor-wgui/
     │                    fields(); enum Role, enum Login
     ├── json.rs        status(switch, role, snapshot, services, disk, networking, open_notices, newest_notices, lines, log_file),
     │                    login(role), notices(open), threads_of(pid, threads), settings(files), problems(list),
-    │                    access(lists), listed(), unlisted() -> String; a small Object builder, text() escaping
+    │                    access(lists), changed() -> String; a small Object builder, text() escaping
     └── page.html      the one page, baked in with include_str!
 ```
 
@@ -53,7 +53,7 @@ conductor-wgui/
 | POST   | `/Opus/wwwhook/tcp/kick?id=N` | KICK on the Connections tab: closes connection N at the door.  Needs `X-Opus: tcp`.  404 if it isn't open, 409 if TCP isn't listening |
 | GET    | `/Opus/networking`     | Both access lists, for the Whitelist and Blacklist tabs.  Reads only; `running` is false with empty lists while the server is stopped |
 | POST   | `/Opus/wwwhook/networking/addip?list=<whitelist or blacklist>&entry=<address or range>` | ADD on a list tab, or the Connections tab's menu.  Takes at once; a blacklisting while the blacklist is on is a ban.  Needs `X-Opus: networking`.  400 with the reason in words for an entry that isn't one, 409 while networking isn't running |
-| POST   | `/Opus/wwwhook/networking/removeip?list=...&entry=...` | REMOVE on a list tab, the same way |
+| POST   | `/Opus/wwwhook/networking/removeip?list=...&entry=...` | REMOVE on a list tab, the same way; off the whitelist while the whitelist is on, a ban too |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
 Everything but `/`, the page and `/Opus/login` needs the login cookie, and answers `401 Unauthorized`
@@ -167,9 +167,10 @@ them.
   `conductor-networking.md`.
 - **The Network Admin subsection** (2026-09-29, the session after): Jacob's layout, "a subsection on the
   left for Network Admin and underneath it: Connections (which will show TCP and UDP ordered by type on
-  the page) and then WHITELIST and BLACKLIST".  So the TCP tab became **Connections**, sixth in the
-  sidebar under a small NETWORK ADMIN heading with the two list tabs after it, and all three take the
-  TCP tab's lock (both listeners up on top of the database).  Connections is the TCP table as it was,
+  the page) and then WHITELIST and BLACKLIST".  So the TCP tab became **Connections**, under a small
+  NETWORK ADMIN heading with a rule above it, below Notifications History and above the Log (his
+  placing), with the two list tabs after it, and all three take the TCP tab's lock (both listeners up
+  on top of the database).  Connections is the TCP table as it was,
   then a UDP table of every player in the world (address, account, connected when, playing for, quiet
   for; the account is the point there, unlike the door).  KICK moved into a three-dot menu on each row
   (his ask: "in style like a : colon"), with ADD TO WHITELIST and ADD TO BLACKLIST under it, on finished
@@ -178,7 +179,8 @@ them.
   checks (`access_list` in networking.cfg, on the Settings tab) and what it means if not, the count, the
   entries with REMOVE on each, and an ADD field in the head.  A change takes at once, and the tab says
   what it did (an entry that was there already, a list that isn't switched on, how many connections
-  and players a ban dropped); a bad entry's reason shows in red, in Conductor's words.  The two
+  and players a ban dropped; a whitelist removal with the whitelist on is a ban too, his rule, and
+  REMOVE there says so before asking); a bad entry's reason shows in red, in Conductor's words.  The two
   routes are `addip` and `removeip`, his names ("add" and "remove" were too generic), under
   `/Opus/wwwhook/networking/`.  The lists can't be changed while the server is stopped, by his rule:
   the tabs are locked then, and the files can be edited by hand.
@@ -190,8 +192,8 @@ and what went wrong under them.  It's up on every 401: the first load, after LOG
 has been run again.  The status loop stops while it's up and a login starts it again.
 
 **Sidebar**: the OP logo, and eleven tabs under it: Control Panel, System, Conductor, Services, Storage,
-a NETWORK ADMIN heading with Connections, Whitelist and Blacklist indented under it, then Notifications
-History, Log, Settings.  The Control Panel shows whenever the server isn't running; once it
+Notifications History, then a rule and a NETWORK ADMIN heading with Connections, Whitelist and Blacklist
+indented under it, then Log, Settings.  The Control Panel shows whenever the server isn't running; once it
 is, the page moves to the tab the browser remembers, Conductor by default.  A locked tab is greyed and
 can't be clicked: with the server stopped that's everything but the Control Panel, the Log and the
 Settings, and with it running the database lock decides, and the three Network Admin tabs need both network

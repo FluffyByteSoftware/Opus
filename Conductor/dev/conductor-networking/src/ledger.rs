@@ -100,7 +100,8 @@ pub enum End {
     Blacklisted,
     /// Closed at the door: the whitelist is on and the address isn't.
     NotWhitelisted,
-    /// The admin added its address to the blacklist while it was open.
+    /// The admin changed the access lists while it was open, and its
+    /// address is no longer let in.
     Banned,
 }
 
@@ -157,7 +158,7 @@ impl End {
             End::Kicked => "Kicked by the admin",
             End::Blacklisted => "Closed at the door: blacklisted",
             End::NotWhitelisted => "Closed at the door: not on the whitelist",
-            End::Banned => "Banned: the admin put the address on the blacklist",
+            End::Banned => "Banned: the access lists changed and the address isn't let in",
         }
     }
 }

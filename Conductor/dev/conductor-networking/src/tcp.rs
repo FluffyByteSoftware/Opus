@@ -47,7 +47,7 @@
 //! A clone of every open socket is kept under its ledger number from
 //! accept until its login thread is done with it: that is what `stop()`
 //! shuts to wake the threads, what `kick()` shuts when the admin kicks a
-//! connection from the tab, and what `close_matching()` shuts for a ban.
+//! connection from the tab, and what `close_where()` shuts for a ban.
 
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
@@ -65,7 +65,7 @@ use conductor_tools::security::{self, SecurityError, Ticket};
 use conductor_tools::services::{self, State};
 use conductor_tools::{archivist, threads};
 
-use crate::access::{self, Entry, Verdict};
+use crate::access::{self, Verdict};
 use crate::ledger::{self, End, Stage};
 use crate::protocol::{self, Choice, KickReason, LoginAnswer, LoginRequest, Packet, PacketType};
 use crate::settings::Settings;
@@ -320,10 +320,10 @@ pub fn kick(id: u64) -> Kicked {
     Kicked::Yes
 }
 
-/// The admin put `entry` on the blacklist: every open connection from
-/// inside it is closed where it stands, the way a kick is, and the
-/// ledger says banned.  How many there were.
-pub fn close_matching(entry: &Entry) -> usize {
+/// The admin changed the access lists: every open connection whose
+/// address `turned_away` says so for is closed where it stands, the way
+/// a kick is, and the ledger says banned.  How many there were.
+pub fn close_where(turned_away: impl Fn(IpAddr) -> bool) -> usize {
     let open = {
         let guard = TCP.lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -336,7 +336,7 @@ pub fn close_matching(entry: &Entry) -> usize {
         let mut open = open.lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
         let ids: Vec<u64> = open.iter()
-            .filter(|(_, socket)| socket.peer_addr().is_ok_and(|peer| entry.contains(peer.ip())))
+            .filter(|(_, socket)| socket.peer_addr().is_ok_and(|peer| turned_away(peer.ip())))
             .map(|(id, _)| *id)
             .collect();
         ids.into_iter().filter_map(|id| open.remove(&id).map(|socket| (id, socket))).collect()
@@ -346,7 +346,8 @@ pub fn close_matching(entry: &Entry) -> usize {
         let _ = socket.shutdown(Shutdown::Both);
     }
     if !closing.is_empty() {
-        scribe::info(Channel::Network, &format!("Banned {entry}: {} connection(s) closed at the door.", closing.len()));
+        scribe::info(Channel::Network, &format!("The access lists changed: {} connection(s) banned at the door.",
+                                                closing.len()));
     }
     closing.len()
 }

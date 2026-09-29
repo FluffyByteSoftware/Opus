@@ -41,12 +41,6 @@ Things that wait on a piece that doesn't exist yet.
 - **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
   the access lists, 2026-09-29.  Kicking a player from it is client management, above.
-- **Networking: a Kicked reason for a ban.**  A player dropped by a blacklisting is told nothing today,
-  like one who went quiet, because a new `KickReason` is a protocol change (`PROTOCOL_VERSION` bumps).
-  When Ensemble can show "you were banned", add the reason and bump the version.
-- **Networking: the whitelist-to-blacklist edge.**  Taking an address off the whitelist while the whitelist
-  is on kicks nobody: they're turned away on their next login.  A ban is the blacklist's job.  If that
-  ever bites, `close_matching()` and `drop_where()` are already there to call.
 - **Networking: `access_list` switchable from the page at once.**  Today the switch is in `networking.cfg`
   and takes on the next START SERVER, while the lists themselves take at once.  Jacob's call if the
   reboot is a bother.

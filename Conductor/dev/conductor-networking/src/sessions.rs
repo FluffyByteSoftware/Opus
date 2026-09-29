@@ -204,8 +204,8 @@ pub fn players() -> Vec<PlayerView> {
 }
 
 /// Crosses out every player whose address `matches` says so for: a ban
-/// from the web admin.  They're told nothing, like a player who went
-/// quiet.  Their addresses and accounts, for the log.
+/// from the web admin.  Nothing is sent from here; the caller tells each
+/// one with a Kicked.  Their addresses and accounts, for that and the log.
 pub fn drop_where(matches: impl Fn(SocketAddr) -> bool) -> Vec<(SocketAddr, String)> {
     drop_where_in(&mut book(), matches)
 }

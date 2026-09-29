@@ -108,12 +108,14 @@
 //! { "running": true, "mode": "blacklist", "whitelist": [ "10.0.0.0/8" ], "blacklist": [ "1.2.3.4" ] }
 //! ```
 //!
-//! `/Opus/wwwhook/networking/addip` answers with what the listing did,
-//! and `/removeip` with what the unlisting did:
+//! `/Opus/wwwhook/networking/addip` and `/removeip` answer with what the
+//! change did: `changed` is false when there was nothing to do (listed
+//! already, or not there to take off), `enforced` says whether the door
+//! is checking that list, and the two counts are who was dropped for it
+//! (a blacklisting, or a whitelist entry taken away, with that list on):
 //!
 //! ```text
-//! { "entry": "1.2.3.0/24", "was_new": true, "enforced": true, "tcp_closed": 1, "players_dropped": 0 }
-//! { "entry": "1.2.3.0/24", "was_there": true }
+//! { "entry": "1.2.3.0/24", "changed": true, "enforced": true, "tcp_closed": 1, "players_dropped": 0 }
 //! ```
 //!
 //! `/Opus/settings` has an answer of its own, every config file for the
@@ -142,7 +144,7 @@ use std::path::Path;
 
 use conductor_monitor::probe::{MachineMemory, ThreadReading};
 use conductor_monitor::{Disk, ProcessInUse, Snapshot, ThreadInUse};
-use conductor_networking::{AccessLists, Connection, End, Listed, Player, Stage, Status as NetStatus, Unlisted};
+use conductor_networking::{AccessLists, Changed, Connection, End, Player, Stage, Status as NetStatus};
 use conductor_tools::archivist::{SlowJob, Status};
 use conductor_tools::constellations::{ConfigFile, Kind, Reboot, Setting, Values};
 use conductor_tools::diskman::Status as DiskStatus;
@@ -418,22 +420,14 @@ pub(crate) fn access(lists: Option<&AccessLists>) -> String {
     }
 }
 
-/// `/Opus/wwwhook/networking/addip`'s answer.
-pub(crate) fn listed(listed: &Listed) -> String {
+/// `/Opus/wwwhook/networking/addip`'s and `/removeip`'s answer.
+pub(crate) fn changed(changed: &Changed) -> String {
     Object::new()
-        .text("entry", &listed.entry)
-        .flag("was_new", listed.was_new)
-        .flag("enforced", listed.enforced)
-        .whole("tcp_closed", listed.tcp_closed as u64)
-        .whole("players_dropped", listed.players_dropped as u64)
-        .done()
-}
-
-/// `/Opus/wwwhook/networking/removeip`'s answer.
-pub(crate) fn unlisted(unlisted: &Unlisted) -> String {
-    Object::new()
-        .text("entry", &unlisted.entry)
-        .flag("was_there", unlisted.was_there)
+        .text("entry", &changed.entry)
+        .flag("changed", changed.changed)
+        .flag("enforced", changed.enforced)
+        .whole("tcp_closed", changed.tcp_closed as u64)
+        .whole("players_dropped", changed.players_dropped as u64)
         .done()
 }
 
@@ -711,12 +705,10 @@ mod tests {
         assert_eq!(access(Some(&lists)), "{\"running\":true,\"mode\":\"blacklist\",\"whitelist\":[\"10.0.0.0/8\"],\
             \"blacklist\":[\"1.2.3.4\",\"2001:db8::/32\"]}");
 
-        let done = Listed { entry: "1.2.3.0/24".to_string(), was_new: true, enforced: true, tcp_closed: 1,
-                            players_dropped: 0 };
-        assert_eq!(listed(&done), "{\"entry\":\"1.2.3.0/24\",\"was_new\":true,\"enforced\":true,\"tcp_closed\":1,\
+        let done = Changed { entry: "1.2.3.0/24".to_string(), changed: true, enforced: true, tcp_closed: 1,
+                             players_dropped: 0 };
+        assert_eq!(changed(&done), "{\"entry\":\"1.2.3.0/24\",\"changed\":true,\"enforced\":true,\"tcp_closed\":1,\
             \"players_dropped\":0}");
-        let undone = Unlisted { entry: "1.2.3.0/24".to_string(), was_there: false };
-        assert_eq!(unlisted(&undone), "{\"entry\":\"1.2.3.0/24\",\"was_there\":false}");
     }
 
     #[test]

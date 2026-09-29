@@ -8,9 +8,9 @@ The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
 of that answer is written down at the top of json.rs.  Eleven tabs down
-the left side: the Control Panel, System, Conductor, Services, Storage, a
-Network Admin subsection (Connections, Whitelist, Blacklist),
-Notifications History, Scribe's log and Settings.  The Control Panel is
+the left side: the Control Panel, System, Conductor, Services, Storage,
+Notifications History, a Network Admin subsection under a rule
+(Connections, Whitelist, Blacklist), Scribe's log and Settings.  The Control Panel is
 where the server is started and stopped, and it's all there is until the
 server is running: the other tabs are locked, bar the log and the
 settings, and the bell is hidden.
@@ -290,9 +290,11 @@ OUT, sit at the bottom of the sidebar.
      unclickable.  Which ones are locked depends on whether the server is
      running and whether the database is connected; see lockTabs(). */
   .tabs { display: flex; flex-direction: column; gap: 4px; }
+  /* The Network Admin heading: a rule across the sidebar, then the label,
+     with its three tabs indented under it.  Jacob's layout, 2026-09-29. */
   .tabs-heading {
-    margin: 14px 0 2px 12px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em;
-    color: var(--ink-faint);
+    margin: 12px 0 2px; padding: 14px 0 0 12px; border-top: 1px solid var(--line);
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint);
   }
   .maintab.sub { padding-left: 24px; }
   .maintab:disabled { opacity: 0.35; filter: grayscale(1); }
@@ -438,11 +440,11 @@ OUT, sit at the bottom of the sidebar.
     <button class="maintab" role="tab" data-tab="services" disabled>Services<span class="dot bad flash"
       id="services-badge" hidden></span></button>
     <button class="maintab" role="tab" data-tab="storage" disabled>Storage</button>
+    <button class="maintab" role="tab" data-tab="notices" disabled>Notifications History</button>
     <div class="tabs-heading">Network Admin</div>
     <button class="maintab sub" role="tab" data-tab="connections" disabled>Connections</button>
     <button class="maintab sub" role="tab" data-tab="whitelist" disabled>Whitelist</button>
     <button class="maintab sub" role="tab" data-tab="blacklist" disabled>Blacklist</button>
-    <button class="maintab" role="tab" data-tab="notices" disabled>Notifications History</button>
     <button class="maintab" role="tab" data-tab="log" disabled>Log</button>
     <button class="maintab" role="tab" data-tab="settings" disabled>Settings</button>
   </nav>
@@ -813,7 +815,7 @@ OUT, sit at the bottom of the sidebar.
           ended.  The three dots on a row open its menu: KICK closes an open connection where it stands (the
           client sees the connection drop and nothing else), and the other two put the row's address on the
           whitelist or the blacklist.  Adding to the blacklist while the blacklist is on is a ban: every
-          connection and player from that address is dropped then and there.</div>
+          connection and player from that address is dropped then and there, the player with a Kicked.</div>
       </div>
     </div>
     <div class="panel span-12 boxed">
@@ -871,9 +873,10 @@ OUT, sit at the bottom of the sidebar.
         </table>
         <div class="note">One address (1.2.3.4, or an IPv6 one) or one range (1.2.3.0/24) a line, in the order
           they were added.  A change takes at once, on the next connection, and is written to the whitelist
-          file in Content/cfg the same moment.  Whether the door looks at this list at all is access_list in
-          networking.cfg, on the Settings tab; that switch takes on the next START SERVER.  With the whitelist
-          on and empty, nobody can log in.</div>
+          file in Content/cfg the same moment.  While the whitelist is on, taking an entry away drops anybody
+          online from an address no other entry covers, then and there.  Whether the door looks at this list
+          at all is access_list in networking.cfg, on the Settings tab; that switch takes on the next START
+          SERVER.  With the whitelist on and empty, nobody can log in.</div>
       </div>
     </div>
   </div>
@@ -913,7 +916,8 @@ OUT, sit at the bottom of the sidebar.
         <div class="note">One address (1.2.3.4, or an IPv6 one) or one range (1.2.3.0/24) a line, in the order
           they were added.  A change takes at once, on the next connection, and is written to the blacklist
           file in Content/cfg the same moment.  While the blacklist is on, adding an entry is a ban: every
-          open connection and every player from inside it is dropped then and there, told nothing.  Whether
+          open connection and every player from inside it is dropped then and there (a player hears a
+          Kicked, reason banned).  Whether
           the door looks at this list at all is access_list in networking.cfg, on the Settings tab; that
           switch takes on the next START SERVER.</div>
       </div>
@@ -992,8 +996,8 @@ const MOST_LINES = 500;
 
 // The tabs, and the one that opens first when the browser hasn't remembered
 // one.
-const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "connections", "whitelist", "blacklist",
-                   "notices", "log", "settings"];
+const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "notices", "connections", "whitelist",
+                   "blacklist", "log", "settings"];
 
 // The Network Admin subsection.  These three want both of networking's
 // listeners up as well as the database.
@@ -1895,7 +1899,9 @@ function drawList(list, lists) {
     remove.textContent = "REMOVE";
     remove.disabled = !canChange;
     remove.addEventListener("click", () => {
-      if (!confirm("Take " + entry + " off the " + list + "?")) return;
+      const warning = list === "whitelist"
+        ? "  While the whitelist is on, anybody online from an address no other entry covers is dropped at once." : "";
+      if (!confirm("Take " + entry + " off the " + list + "?" + warning)) return;
       listChange(list, entry, "removeip", list + "-said");
     });
     last.appendChild(remove);
@@ -1946,13 +1952,17 @@ async function listChange(list, entry, how, saidId) {
 }
 
 function listWords(list, how, did) {
+  let words;
   if (how === "removeip") {
-    return did.was_there ? did.entry + " is off the " + list + "." : did.entry + " wasn't on the " + list + ".";
+    words = did.changed ? did.entry + " is off the " + list + "." : did.entry + " wasn't on the " + list + ".";
+  } else {
+    words = did.changed ? did.entry + " is on the " + list + "." : did.entry + " was on the " + list + " already.";
   }
-  let words = did.was_new ? did.entry + " is on the " + list + "." : did.entry + " was on the " + list + " already.";
   if (!did.enforced) {
     words += "  The " + list + " isn't switched on (access_list in networking.cfg), so it does nothing yet.";
-  } else if (list === "blacklist") {
+  } else if ((list === "blacklist") === (how === "addip")) {
+    // A blacklisting, or a whitelist entry taken away: somebody may have
+    // been shut out.
     words += "  " + did.tcp_closed + " connection(s) closed at the door, " + did.players_dropped
       + " player(s) dropped from the world.";
   }

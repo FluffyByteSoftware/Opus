@@ -148,4 +148,4 @@ Where each one lives is in the tree above.
 | Fingerprinter      | Version 7 UUIDs and login tokens.             | Built and tested on Linux    |
 | Security           | Argon2id password hashing, one worker.        | Built and run on Linux       |
 | The server's switch| Stopped / starting / running / stopping.      | Built and tested on Linux    |
-| The protocol       | What Conductor and a client say to each other.| Version 1, written           |
+| The protocol       | What Conductor and a client say to each other.| Version 2, written           |

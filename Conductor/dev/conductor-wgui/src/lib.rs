@@ -64,7 +64,8 @@
 //!   that address then and there.  400 for an entry that isn't one (the
 //!   text says what's wrong), 409 while networking isn't running.
 //! - `POST /Opus/wwwhook/networking/removeip?list=...&entry=...` -- takes
-//!   one off, the same way.
+//!   one off, the same way; off the whitelist while the whitelist is on,
+//!   that's a kick too.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -491,13 +492,11 @@ fn networking_list(request: &Request, role: Role, change: ListChange) -> (Answer
         Err(why) => return (Answer::plain("400 Bad Request", &why), Next::KeepGoing),
     };
     let answer = match change {
-        ListChange::Add => conductor_networking::list_address(list, entry).map(|listed| json::listed(&listed)),
-        ListChange::Remove => {
-            conductor_networking::unlist_address(list, entry).map(|unlisted| json::unlisted(&unlisted))
-        }
+        ListChange::Add => conductor_networking::list_address(list, entry),
+        ListChange::Remove => conductor_networking::unlist_address(list, entry),
     };
     match answer {
-        Ok(body) => (Answer::new("200 OK", "application/json", body), Next::KeepGoing),
+        Ok(changed) => (Answer::new("200 OK", "application/json", json::changed(&changed)), Next::KeepGoing),
         Err(why) => (Answer::plain("409 Conflict", &why), Next::KeepGoing),
     }
 }

@@ -35,7 +35,7 @@
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 1;
+pub const PROTOCOL_VERSION: u8 = 2;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -188,6 +188,10 @@ pub enum KickReason {
     LoggedInElsewhere = 1,
     /// STOP SERVER on the Control Panel.
     ServerStopping = 2,
+    /// The admin changed the access lists and this address is no longer
+    /// let in: put on the blacklist, or taken off the whitelist.  Version
+    /// 2 of the protocol, 2026-09-29.
+    Banned = 3,
 }
 
 /// What the player picked when their account was already logged in.
@@ -471,6 +475,7 @@ mod tests {
         assert_eq!(keep_alive(), vec![0x32]);
         assert_eq!(kicked(KickReason::LoggedInElsewhere), vec![0x34, 1, 0, 0, 0]);
         assert_eq!(kicked(KickReason::ServerStopping), vec![0x34, 2, 0, 0, 0]);
+        assert_eq!(kicked(KickReason::Banned), vec![0x34, 3, 0, 0, 0]);
     }
 
     #[test]

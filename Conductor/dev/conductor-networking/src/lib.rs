@@ -73,29 +73,23 @@ pub struct Status {
     pub blacklisted: usize,
 }
 
-/// What listing an address did.
+/// What a change to a list did.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Listed {
+pub struct Changed {
     /// The entry as it's kept, host bits cleared.
     pub entry: String,
-    /// False if it was on the list already.
-    pub was_new: bool,
+    /// False if there was nothing to do: listed already, or not on the
+    /// list to take off.
+    pub changed: bool,
     /// Whether the door is checking that list right now
-    /// (`access_list` in networking.cfg).  A listing on a list that
-    /// isn't switched on is kept, and does nothing until it is.
+    /// (`access_list` in networking.cfg).  A change to a list that isn't
+    /// switched on is kept, and does nothing until it is.
     pub enforced: bool,
-    /// For a blacklisting that's enforced: the open TCP connections
+    /// When the change shut somebody out (a blacklisting, or a whitelist
+    /// entry taken away, with that list on): the open TCP connections
     /// closed and the players dropped from the world, then and there.
     pub tcp_closed: usize,
     pub players_dropped: usize,
-}
-
-/// What unlisting an address did.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Unlisted {
-    pub entry: String,
-    /// False if it wasn't on the list.
-    pub was_there: bool,
 }
 
 /// Brings both sides up: `networking.cfg` is read again, the TLS files
@@ -181,33 +175,50 @@ pub fn access_lists() -> Option<AccessLists> {
 
 /// The admin put `entry` on `list`, from the web admin.  It takes at
 /// once and the file is written behind it.  A blacklisting while the
-/// blacklist is on is a ban: every open TCP connection from inside the
-/// entry is closed and every player at such an address is dropped from
-/// the world, told nothing.  An `Err` while the server isn't running.
-pub fn list_address(list: List, entry: Entry) -> Result<Listed, String> {
-    let was_new = access::add(list, entry)?;
-    let mode = access::mode();
-    let enforced = match list {
-        List::Whitelist => mode == AccessMode::Whitelist,
-        List::Blacklist => mode == AccessMode::Blacklist,
-    };
-    let (mut tcp_closed, mut players_dropped) = (0, 0);
-    if list == List::Blacklist && enforced {
-        tcp_closed = tcp::close_matching(&entry);
-        let dropped = sessions::drop_where(|address| entry.contains(address.ip()));
-        for (address, account) in &dropped {
-            scribe::info(Channel::Security, &format!("Banned: {account} at {address} was dropped from the world."));
-        }
-        players_dropped = dropped.len();
-    }
-    Ok(Listed { entry: entry.to_string(), was_new, enforced, tcp_closed, players_dropped })
+/// blacklist is on is a ban: everybody the door would now turn away is
+/// dropped, then and there.  An `Err` while the server isn't running.
+pub fn list_address(list: List, entry: Entry) -> Result<Changed, String> {
+    let changed = access::add(list, entry)?;
+    let enforced = is_enforced(list);
+    let (tcp_closed, players_dropped) = if list == List::Blacklist && enforced { enforce() } else { (0, 0) };
+    Ok(Changed { entry: entry.to_string(), changed, enforced, tcp_closed, players_dropped })
 }
 
-/// The admin took `entry` off `list`.  Nobody is kicked for it: an
-/// address off the whitelist is turned away on its next connection.
-pub fn unlist_address(list: List, entry: Entry) -> Result<Unlisted, String> {
-    let was_there = access::remove(list, entry)?;
-    Ok(Unlisted { entry: entry.to_string(), was_there })
+/// The admin took `entry` off `list`.  Taking an address off the
+/// whitelist while the whitelist is on is a ban too, Jacob's rule: anybody
+/// online from an address no other entry covers is dropped.  Taking one
+/// off the blacklist lets it back in on its next connection and drops
+/// nobody.
+pub fn unlist_address(list: List, entry: Entry) -> Result<Changed, String> {
+    let changed = access::remove(list, entry)?;
+    let enforced = is_enforced(list);
+    let (tcp_closed, players_dropped) = if list == List::Whitelist && enforced { enforce() } else { (0, 0) };
+    Ok(Changed { entry: entry.to_string(), changed, enforced, tcp_closed, players_dropped })
+}
+
+/// Whether the door is checking `list` right now.
+fn is_enforced(list: List) -> bool {
+    match list {
+        List::Whitelist => access::mode() == AccessMode::Whitelist,
+        List::Blacklist => access::mode() == AccessMode::Blacklist,
+    }
+}
+
+/// Drops everybody the door would turn away now: every open TCP
+/// connection is closed where it stands (the ledger says banned) and
+/// every player is told Kicked, reason banned, and forgotten.  Asking the
+/// verdict again for each one, rather than matching the entry that
+/// changed, is what makes a whitelist removal right when another entry
+/// still covers the address.  How many of each.
+fn enforce() -> (usize, usize) {
+    let tcp_closed = tcp::close_where(|ip| access::verdict(ip) != access::Verdict::Allowed);
+    let dropped = sessions::drop_where(|address| access::verdict(address.ip()) != access::Verdict::Allowed);
+    let banned = protocol::kicked(protocol::KickReason::Banned);
+    for (address, account) in &dropped {
+        udp::tell(*address, &banned);
+        scribe::info(Channel::Security, &format!("Banned: {account} at {address} was dropped from the world."));
+    }
+    (tcp_closed, dropped.len())
 }
 
 // ---------------------------------------------------------------------------

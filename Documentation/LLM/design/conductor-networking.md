@@ -20,7 +20,7 @@ conductor-networking/
 ├── test_client.py       the stand-in client: TLS, Login, Ticket, Connect, keep-alives, Goodbye.  Python 3.
 └── src/
     ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections, in_world, access },
-    │                      kick(id), access_lists(), list_address(), unlist_address(); timed_out(), wake_address()
+    │                      kick(id), access_lists(), list_address(), unlist_address(), enforce(); timed_out(), wake_address()
     ├── settings.rs      networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs           server_config(settings) -> Arc<ServerConfig>; MAKE_PAIR, the openssl command
     ├── protocol.rs      the packets, byte for byte: PacketType, LoginAnswer, ConnectAnswer, KickReason, Choice
@@ -38,7 +38,7 @@ conductor-networking/
     ├── dns/windows.rs   the same around ws2_32's; never built
     ├── dns/other.rs     macOS and the rest: no names
     ├── tcp.rs           the acceptor thread, the login threads, TLS, the login flow, the failure hold, kick(),
-    │                      close_matching() for a ban
+    │                      close_where() for a ban
     └── udp.rs           the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; tell() for kicks
 ```
 
@@ -152,12 +152,14 @@ because of the CPU cost.
   cleared on the way in, an IPv4 address wrapped in IPv6 (`::ffff:1.2.3.4`, what a listener on `::` sees)
   is checked as the IPv4 one, and a check is one lock and a walk down a short list.  The UDP side checks
   a Connect too, so a listed address with a ticket in hand gets silence.  **A blacklisting while the
-  blacklist is on is a ban**, Jacob's rule: `close_matching()` shuts every open TCP connection from inside
-  the entry (the ledger says banned) and `sessions::drop_where()` drops every player at such an address,
-  told nothing, like a player who went quiet; a Kicked with a reason of its own would be a protocol
-  change, and it's in TODO.md.  Taking an address off a list kicks nobody.  An entry on a list that isn't
-  switched on is kept and does nothing, and the page says so.  With the whitelist on and empty, nobody
-  can log in, and the start says so with a Warn.
+  blacklist is on is a ban, and so is taking an entry off the whitelist while the whitelist is on**,
+  Jacob's rules: `enforce()` in `lib.rs` asks the verdict again for everybody online, so a whitelist
+  removal is right when another entry still covers the address; `tcp::close_where()` shuts every open
+  TCP connection the door would now turn away (the ledger says banned) and `sessions::drop_where()`
+  drops every such player, each told a Kicked with reason `3`, banned, first.  That reason is new:
+  protocol version 2, the same session.  Taking an address off the blacklist, or adding one to the
+  whitelist, kicks nobody.  An entry on a list that isn't switched on is kept and does nothing, and the
+  page says so.  With the whitelist on and empty, nobody can log in, and the start says so with a Warn.
 - **The players for the page** (the same session): `sessions::players()` copies every player out
   (address, account, when their Connect was accepted, how long they've been in, how long since their
   last packet), newest first, for the Connections tab's UDP list.  The account is on it, unlike the
@@ -180,8 +182,6 @@ because of the CPU cost.
   in `udp.rs`, which is Windows telling us about a bounced packet.
 - **The web admin shows the door and the world** (the Connections tab, 2026-09-29): the players are listed by
   account; the character goes beside it once there is one.
-- **A banned player is told nothing.**  A Kicked with a reason of its own (banned) would be a protocol
-  change; in TODO.md.
 - **A hand edit to a list file while Conductor runs** isn't seen on the next START SERVER: DiskMan serves a
   file it already holds from memory.  The same as the config files, in TODO.md under DiskMan.  A hand edit
   with Conductor down is read fine.

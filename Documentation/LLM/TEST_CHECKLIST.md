@@ -72,15 +72,17 @@ does a real reverse lookup of `127.0.0.1`, which asks the resolver; it passes wi
 ## 2026-09-29 -- The access lists, the Network Admin subsection
 
 Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 10 in `access.rs`, 2 in
-`sessions.rs`, 2 in the web admin's `lib.rs`, 2 in `json.rs`; one changed in `settings.rs` and one in
-`json.rs` (the status shape grew).  The page was rendered headless with made-up numbers in the session
+`sessions.rs`, 2 in the web admin's `lib.rs`, 2 in `json.rs`; one changed in `settings.rs`, one in
+`json.rs` (the status shape grew) and one in `protocol.rs` (reason 3).  **The protocol is version 2
+now**: the Python client says 2 too, so an old copy of it stops at the Hello.  The page was rendered headless with made-up numbers in the session
 and clicked through (the three tabs, the row menu, ADD, REMOVE); that isn't Conductor.
 
 - [ ] Build and tests: `cargo build` clean, no warnings, `cargo test` passes.  If the build says
       anything about `Result::is_ok_and` or `Ipv6Addr::to_ipv4_mapped`, say so: both are standard
       library and should be fine on a current toolchain.
-- [ ] Before START SERVER: the sidebar has a NETWORK ADMIN heading with Connections, Whitelist and
-      Blacklist under it, all three greyed.  Nothing else in the sidebar moved.
+- [ ] Before START SERVER: the sidebar has a rule and a NETWORK ADMIN heading under Notifications
+      History, with Connections, Whitelist and Blacklist indented under it, all three greyed, then Log
+      and Settings.  Nothing else in the sidebar moved.
 - [ ] The Settings tab shows three new settings on `networking.cfg`'s card: `access_list` (off),
       `whitelist_file` (cfg/whitelist.cfg), `blacklist_file` (cfg/blacklist.cfg).
 - [ ] START SERVER: the log has a Debug line "Access lists: off.  0 on the whitelist and 0 on the
@@ -115,18 +117,22 @@ and clicked through (the three tabs, the row menu, ADD, REMOVE); that isn't Cond
       then use its finished TCP row's three dots (the UDP table has no menu; the address is the same),
       ADD 127.0.0.1 TO BLACKLIST, confirm.  The line in the TCP panel's head says "0 connection(s)
       closed at the door, 1 player(s) dropped" (the TCP row finished half a second after it arrived),
-      the UDP row goes, the client stops hearing keep-alive echoes, and the log has "Banned:
-      throwaway_01 at 127.0.0.1:... was dropped from the world."  Run the client again: closed at the
-      door.
+      the UDP row goes, the client prints a Kicked with reason "banned" and "Back to the login screen.",
+      and the log has "Banned: throwaway_01 at 127.0.0.1:... was dropped from the world."  Run the
+      client again: closed at the door.
 - [ ] The ban on an open TCP connection: with 127.0.0.1 off the blacklist, Ctrl-Z the client after TLS
       (or start it with a long pause before its Login), then ADD its address TO BLACKLIST from its row.
-      The row reads "Banned: the admin put the address on the blacklist", the log has "Banned 127.0.0.1:
-      1 connection(s) closed at the door."
+      The row reads "Banned: the access lists changed and the address isn't let in", the log has "The
+      access lists changed: 1 connection(s) banned at the door."
 - [ ] Whitelist mode: set `access_list` to `whitelist` with the whitelist empty, STOP SERVER, START SERVER.
       A Warn on the bell: "access_list is whitelist and the whitelist is empty: NOBODY CAN LOG IN."  The
       client is turned away, "Closed at the door: not on the whitelist".  ADD `127.0.0.1` to the
-      whitelist: the next run of the client logs in, no reboot.  Put `access_list` back to `off` after,
-      and clear both lists.
+      whitelist: the next run of the client logs in, no reboot.  With the client sitting in the world,
+      REMOVE `127.0.0.1` from the whitelist (the confirm warns): the line says "1 player(s) dropped",
+      the client prints Kicked "banned", and its next run is closed at the door.  Add `127.0.0.0/8` and
+      `127.0.0.1` both, log the client in, REMOVE `127.0.0.1` alone: "0 player(s) dropped", the client
+      stays in (the range still covers it).  Put `access_list` back to `off` after, and clear both
+      lists.
 - [ ] A range: with the blacklist on, ADD `127.0.0.0/8`; the client from 127.0.0.1 is closed at the
       door.
 - [ ] `access_list = potato` in `networking.cfg` (by hand, server stopped): START SERVER logs an Error

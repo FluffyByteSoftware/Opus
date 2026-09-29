@@ -388,10 +388,10 @@ When I say we're wrapping up:
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
 - The page is eleven tabs down the left sidebar, under the OP logo: Control
-  Panel, System, Conductor, Services, Storage, then a **Network Admin**
-  subsection (Connections, Whitelist, Blacklist; Jacob's layout,
-  2026-09-29), then Notifications History, Log, Settings. Anything new goes
-  on one of them, or is a new tab I agree to.
+  Panel, System, Conductor, Services, Storage, Notifications History, then
+  a rule and a **Network Admin** subsection (Connections, Whitelist,
+  Blacklist; Jacob's layout, 2026-09-29), then Log, Settings. Anything new
+  goes on one of them, or is a new tab I agree to.
 - **The Connections tab** (2026-09-29; it was the TCP tab) is the door and
   the world, TCP first then UDP: every connection that reached the TCP
   listener in the last five minutes, by address and DNS name, never by
@@ -405,8 +405,10 @@ When I say we're wrapping up:
   and writes the file.  Which list the door checks is `access_list` in
   `networking.cfg` (off, whitelist or blacklist), on the Settings tab, and
   takes on the next START SERVER.  A blacklisting while the blacklist is on
-  is a ban: every connection and player from the address is dropped at
-  once.  All three Network Admin tabs are locked until both of networking's
+  is a ban, and so is taking an entry off the whitelist while the whitelist
+  is on: every connection and player the door would now turn away is
+  dropped at once, the player with a Kicked (reason 3, banned; protocol
+  version 2).  All three Network Admin tabs are locked until both of networking's
   listeners are up; the lists can't be changed from the page while the
   server is stopped (edit the files by hand then).
 - The Control Panel, the Log and the Settings are always clickable. Until

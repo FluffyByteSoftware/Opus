@@ -54,7 +54,11 @@ exception to Constellations' `key = value`, not editable from the page while the
 (edit them on disk then), rebuilt into memory on every START SERVER; a sidebar subsection "Network
 Admin" with Connections (TCP then UDP on one page), Whitelist and Blacklist under it; the routes are
 `addip` and `removeip` ("add" and "remove" were too generic).  He also said, mid-session, that the
-next session is documentation clean-up and management (TODO.md).
+next session is documentation clean-up and management (TODO.md).  His answers to the closing
+questions: the Network Admin group goes under Notifications History with a rule above it; taking an
+address off the whitelist kicks anyone online it uncovers; and a Kicked reason for a ban, so
+**the protocol is version 2** (reason `3`, banned; `KickReason::Banned`; PROTOCOL.md and the Python
+client say 2).
 
 **Not built anywhere yet.**  The page was rendered headless with made-up numbers and clicked through
 (no script errors, the tabs unlock, the menu opens, ADD and REMOVE post the right paths and header);
@@ -74,18 +78,19 @@ What we did:
 - **The door**: the acceptor asks `access::verdict()` before the failure hold; `End::Blacklisted` and
   `End::NotWhitelisted` on the ledger, Debug lines.  UDP's Connect asks too and answers a listed address
   with silence.
-- **The ban**: `list_address()` in networking's `lib.rs`; a blacklisting while the blacklist is on calls
-  `tcp::close_matching()` (every open socket from inside the entry shut, `End::Banned`) and
-  `sessions::drop_where()` (every player at such an address dropped, told nothing).  `Listed` says what
-  it did (was_new, enforced, tcp_closed, players_dropped); `Unlisted` for the other way.
+- **The ban**: `list_address()` and `unlist_address()` in networking's `lib.rs`; a blacklisting with
+  the blacklist on, or a whitelist removal with the whitelist on, calls `enforce()`, which asks the
+  verdict again for everybody online: `tcp::close_where()` shuts every open socket the door would now
+  turn away (`End::Banned`) and `sessions::drop_where()` drops every such player, each told a Kicked
+  with reason `3` first.  `Changed` says what it did (changed, enforced, tcp_closed, players_dropped).
 - **`sessions::players()`**: every player copied out (address, account, connected when, playing for,
   quiet for), newest first; `Player` got `connected_at` and `connected` for it.  `Status` grew
   `in_world`, `access`, `whitelisted`, `blacklisted`.
 - **The web admin**: `GET /Opus/networking`, `POST /Opus/wwwhook/networking/addip` and `/removeip`
   (`?list=&entry=`, `X-Opus: networking`, admin only, 400 with the reason for a bad entry, 409 while
   not running); `unescape()` for the `%2F` in a range; `json::access()`, `listed()`, `unlisted()`; the
-  status shape grew (top of `json.rs`).  The page: the NETWORK ADMIN heading and three indented tabs
-  under the TCP tab's lock; Connections is the old TCP tab (renamed; its `tcp-*` ids kept) plus a UDP
+  status shape grew (top of `json.rs`).  The page: a rule and the NETWORK ADMIN heading under
+  Notifications History, three indented tabs under the TCP tab's lock; Connections is the old TCP tab (renamed; its `tcp-*` ids kept) plus a UDP
   table; the three-dot menu (`#row-menu`, outside the table, closed on a click elsewhere, Escape or a
   tab change); the Whitelist and Blacklist tabs from one `drawList()`; `lockChanges()` greys the ADD
   fields for `user`.  The grey-not-green finished row from TODO.md got its one CSS line.
@@ -94,11 +99,9 @@ What we did:
   closed out; the Kicked reason, the whitelist edge, the switch at once, the doc session, the DiskMan
   hand-edit caveat, two ideas), TEST_CHECKLIST.
 
-What Jacob decided (all 2026-09-29): the five answers above, and the sidebar layout.  The session's
-own calls, said in the reply and open to change: taking an address off a list kicks nobody; a banned
-player is told nothing (a Kicked reason is a protocol change, TODO.md); an entry on a list that isn't
-switched on is kept and does nothing; the Network Admin group sits where the TCP tab was, between
-Storage and Notifications History.
+What Jacob decided (all 2026-09-29): the five answers above, the sidebar layout and its place, the
+whitelist removal as a ban, and the banned reason on the wire.  The session's own call, open to change:
+an entry on a list that isn't switched on is kept and does nothing.
 
 ## What's waiting
 
