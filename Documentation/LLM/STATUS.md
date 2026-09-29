@@ -25,8 +25,11 @@ pushes `unstable` onto it when a round is ready), `main` is the stable release, 
 session was cut from `main` by mistake, before Security and the branch change reached it, and merged
 `testing` back in at the end; the session branch `claude/gracious-ramanujan-j5ojyq` is history now.
 
-**Last built and tested on Linux (Nobara 44), 2026-09-29**, with Security in it, before this session.  This
-session's work hasn't been built by Jacob yet.  The Windows code has never been built.
+**Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `9577f03`.  `cargo build` clean,
+`cargo test` passed 108 tests (15 monitor, 76 tools with the benchmark ignored, 16 web admin), and a run
+did START, RESTART, STOP, START, STOP and SHUT DOWN from the Control Panel: Archivist reconnected to
+Postgres and Security re-allotted its arena on every start, and shutdown was clean.  The Windows code has
+never been built.
 
 **The tools are done**, as far as anything is done.  What comes next is the server proper, starting with
 networking, which goes in `start_server()` and `stop_server()` like the rest.
@@ -65,10 +68,8 @@ What we did:
   everything works as before, database lock included.  The Control Panel and the Log sit outside that
   lock, so the server can be stopped while the database is offline and the log read to see why.
 - **SHUT DOWN is on the Control Panel only.**  The header's button went.
-- **Only rendered in a headless browser with made-up numbers**, not run against Conductor.  Every
-  transition (stopped, starting, running with the database connecting, online, stopping, stopped again)
-  showed the right tabs, pill, bell and buttons, with no script errors.  Nothing in Rust has been compiled:
-  Jacob builds.
+- **Rendered in a headless browser with made-up numbers first**, every transition, then built and run by
+  Jacob (above).
 
 What fought back:
 
@@ -88,8 +89,10 @@ What Jacob decided:
   SHUTDOWN.  When the server is running, the page is the pages as they were.
 - The Log stays open under the database lock too.  The header's SHUT DOWN goes; the Control Panel is
   where STOP and SHUT DOWN live.
-- The three server routes were built without asking first (they're the buttons Jacob asked for); he was
-  looking them over when the session ended.
+- The three server routes live under `/Opus/wwwhook/`, his name for a path the page posts to that makes
+  something happen.  SHUT DOWN and the ACKs stay where they were.
+- Security comes and goes with the server, since a piece with settings of its own has to be restartable
+  without a hard reboot.  Soft reboot is RESTART SERVER; hard reboot is Conductor run again.
 
 ## The session before -- 2026-09-29, Security
 
@@ -100,12 +103,10 @@ login in release.  Jacob called the tools done at the end of it, and changed the
 
 ## What's waiting
 
-- **Jacob to build and run this session** from `testing`.  `cargo build`, `cargo test`, then the page:
-  press START SERVER and watch the Services list (Security's arena and Archivist's connect included), STOP,
-  START again (Archivist reconnects, the monitor's uptime starts over), then SHUT DOWN.
-- Jacob's word on the three server routes.
-- Whether Security belongs to the server (comes and goes with START / STOP, as built) or to the program
-  (up from boot, its arena always allotted).  Built as the server; Jacob's call.
+- **The config editor**, Jacob's pick for the next conversation: edit the config files from the page, hot
+  swap the values in, save to disk, and tag each setting soft reboot or hard reboot.  The plan so far is
+  under the settings item in TODO.md.
+- `main`, when Jacob says.
 - On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` once this is on `unstable` and `testing`.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
   the client), PROTOCOL.md filled in.  The first piece of the server proper, started and stopped from the
