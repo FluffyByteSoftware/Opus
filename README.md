@@ -118,7 +118,7 @@ The rest of the door:
   wouldn't be much of a ban.  Blacklisting an address while the blacklist is on, or taking it off the
   whitelist while the whitelist is on, drops everybody at that address on the spot.
 
-The whole contract, byte for byte, is in `Documentation/LLM/PROTOCOL.md`.  It's version 2.
+The whole contract, byte for byte, is in `Documentation/LLM/PROTOCOL.md`.  It's version 3.
 
 ### The web admin (`conductor-wgui`)
 

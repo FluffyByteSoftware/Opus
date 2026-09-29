@@ -27,8 +27,9 @@ admin's Control Panel, and STOP SERVER takes it back down with Conductor still r
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
 stable release, moved only when Jacob says.  At the close of the documentation pass Jacob built
 `testing`, ran it (START SERVER, a Settings save and RESTART SERVER, the test client twice on one
-account), and `main` moved up to it.  Then his LINKDEAD catch went onto `unstable` and `testing`, not
-built yet; `main` stays one step behind until it is.
+account), and `main` moved up to it.  Then his LINKDEAD catch went onto `unstable` and `testing`; he
+said it was all working, and asked for KICK on every row, which followed it there, not built yet.
+`main` stays behind both until he says to move it.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
 build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
@@ -80,6 +81,14 @@ What we did:
   used), greyed.  `ledger.rs` (`Gone`, `linkdead()`, `Connection::describe()`), `sessions.rs` (the row
   numbers, `Book::gone`, `with_book()`), two lines in `tcp.rs`, `json.rs` (green only while the player
   is in).  No protocol change, no page change.  Not built yet.
+- **KICK on any row** (Jacob's ask once LINKDEAD was working, his screenshot of the three dots):
+  KICK is in every TCP row's menu.  An open connection is closed at the door, as before; a login whose
+  player is in the world has the player kicked out, told a Kicked with a new reason `4`, kicked by the
+  admin, so **the protocol is version 3**; an unused ticket dies; a row with nothing left is greyed.  The
+  same route, `/Opus/wwwhook/tcp/kick` (Jacob: "we can use the existing ROUTE").  `sessions.rs`
+  (`kick_login()`), `lib.rs` (`kick()` tries the door, then the book), `tcp.rs` (`Kicked::FromWorld`),
+  `protocol.rs` and `test_client.py` (reason 4, version 3), `ledger.rs` (LINKDEAD "kicked by the
+  admin"), the web admin's route and menu.  Not built yet.
 - **TEST_CHECKLIST.md**: the two-clients check named `--kick` and `--spare`, which the client never had.
 - PROJECT_OPUS.md: the tab count, the `.gitignore` line, the access lists as a named piece.
 
@@ -88,7 +97,7 @@ What we did:
 It matters here because its hand checks are all open.  The whitelist and the blacklist (`access.rs`),
 `access_list` in `networking.cfg`, the Network Admin subsection on the page (Connections, Whitelist,
 Blacklist), the three-dot menu on a connection, Recent and Historical views of the door, and a ban that
-drops a player with a Kicked reason 3 (**protocol version 2**).  A blacklisting with the blacklist on, or
+drops a player with a Kicked reason 3 (protocol version 2; version 3 came with KICK on any row).  A blacklisting with the blacklist on, or
 a whitelist removal with the whitelist on, drops everybody the door would now turn away.  The design is
 in `design/conductor-networking.md` and `design/conductor-wgui.md`.
 
@@ -110,7 +119,7 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
   protocol version 3, or the admin from the web admin, or both), and what each needs from the other.
 - **This session's checks**: the release built and ran, but `cargo test` wasn't pasted back.  The hand
   checks at the bottom of `TEST_CHECKLIST.md` are open: the page's greying, DiskMan noticing a hand edit,
-  and LINKDEAD (built and tested on `testing` first, then `main` moves up).
+  LINKDEAD (the two-client row passed), and KICK on any row.
 - **The stale words in the code**, in TODO.md.
 - **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
   settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`

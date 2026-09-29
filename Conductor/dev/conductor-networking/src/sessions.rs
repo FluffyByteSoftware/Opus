@@ -131,6 +131,18 @@ pub struct PlayerView {
     pub quiet_for: Duration,
 }
 
+/// What the admin's kick of a login's row found in the book.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdminKick {
+    /// The login's player, taken out of the world: their address, so the
+    /// UDP side can tell them, and their account, for the log.
+    Player(SocketAddr, String),
+    /// The login's ticket, never used, now dead.  The account, for the log.
+    Ticket(String),
+    /// Nothing from that login is left in the book.
+    Nobody,
+}
+
 /// What a sweep crossed out.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Swept {
@@ -209,6 +221,13 @@ pub fn leave(from: SocketAddr) -> Option<String> {
 /// account had dies too.
 pub fn kick(account: &str, by: SocketAddr) -> Option<SocketAddr> {
     with_book(|book| kick_in(book, account, by))
+}
+
+/// The admin kicked the login on ledger row `door` from the Connections
+/// tab: its player out of the world, or its ticket if it hasn't come over
+/// UDP yet.  Either way the row goes LINKDEAD.
+pub fn kick_login(door: u64) -> AdminKick {
+    with_book(|book| kick_login_in(book, door))
 }
 
 /// Crosses out every player quiet for `udp_timeout` and every ticket
@@ -343,6 +362,28 @@ fn kick_in(book: &mut Book, account: &str, by: SocketAddr) -> Option<SocketAddr>
         }
         None => None,
     }
+}
+
+fn kick_login_in(book: &mut Book, door: u64) -> AdminKick {
+    // Found by a walk rather than a map: it's an admin's click, not a
+    // packet, so it doesn't have to be quick.
+    let player = book.players.iter().find(|(_, player)| player.door == door).map(|(address, _)| *address);
+    if let Some(address) = player {
+        if let Some(account) = remove_player_in(book, address, Gone::KickedByAdmin) {
+            return AdminKick::Player(address, account);
+        }
+    }
+    let ticket = book.tickets.iter().find(|(_, ticket)| ticket.door == door).map(|(token, _)| token.clone());
+    if let Some(token) = ticket {
+        if let Some(ticket) = book.tickets.remove(&token) {
+            if book.accounts.get(&ticket.account) == Some(&Whereabouts::Ticket(token)) {
+                book.accounts.remove(&ticket.account);
+            }
+            book.gone.push((ticket.door, Gone::KickedByAdmin));
+            return AdminKick::Ticket(ticket.account);
+        }
+    }
+    AdminKick::Nobody
 }
 
 fn sweep_in(book: &mut Book, now: Instant, udp_timeout: Duration, token_deadline: Duration) -> Swept {
@@ -496,6 +537,23 @@ mod tests {
         // The unused ticket's row, then the player's, named for the login
         // that logged them out.
         assert_eq!(book.gone, vec![(6, Gone::TicketTaken), (7, Gone::Replaced { by: second_login })]);
+    }
+
+    #[test]
+    fn the_admins_kick_takes_out_a_logins_player_or_its_ticket() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "abc", 20, now);
+        issue_in(&mut book, "brother", "def", 21, now);
+        connect_in(&mut book, "abc", home, now);
+
+        // Row 20's player is in the world; row 21 only has its ticket.
+        assert_eq!(kick_login_in(&mut book, 20), AdminKick::Player(home, "jacob".to_string()));
+        assert_eq!(kick_login_in(&mut book, 21), AdminKick::Ticket("brother".to_string()));
+        assert_eq!(kick_login_in(&mut book, 20), AdminKick::Nobody);
+        assert!(book.players.is_empty() && book.tickets.is_empty() && book.accounts.is_empty());
+        assert_eq!(book.gone, vec![(20, Gone::KickedByAdmin), (21, Gone::KickedByAdmin)]);
     }
 
     #[test]

@@ -324,7 +324,7 @@ When I say we're wrapping up:
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
   adding a route that changes anything. Starting, restarting and stopping the
   server (`/Opus/wwwhook/start`, `/stop`, `/restart`), kicking a TCP
-  connection (`/Opus/wwwhook/tcp/kick`) and changing the access lists
+  connection or the player its login became (`/Opus/wwwhook/tcp/kick`) and changing the access lists
   (`/Opus/wwwhook/networking/addip` and `/removeip`; Jacob's names, "add"
   and "remove" alone were too generic) are already agreed to.
   `wwwhook` is Jacob's name for a path the page posts to that makes something
@@ -347,7 +347,7 @@ When I say we're wrapping up:
   test client are written from it; when either disagrees with the document,
   the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`,
   and so does a new value in a packet's enum (a Kicked reason took it to 2
-  on 2026-09-29): `protocol.rs`, PROTOCOL.md and `test_client.py` all
+  on 2026-09-29, and another, kicked by the admin, to 3 the same day): `protocol.rs`, PROTOCOL.md and `test_client.py` all
   change together, and the document gets a line saying what the version
   added.
 - **The TLS pair is made by hand** with the openssl command in README.md, in
@@ -422,7 +422,9 @@ When I say we're wrapping up:
   is a ban, and so is taking an entry off the whitelist while the whitelist
   is on: every connection and player the door would now turn away is
   dropped at once, the player with a Kicked (reason 3, banned; protocol
-  version 2).  All three Network Admin tabs are locked until both of networking's
+  version 2).  KICK in a TCP row's three-dot menu kicks an open connection,
+  or the player its login became (reason 4, kicked by the admin; protocol
+  version 3; Jacob's ask, 2026-09-29), greyed when nothing is left to kick.  All three Network Admin tabs are locked until both of networking's
   listeners are up; the lists can't be changed from the page while the
   server is stopped (edit the files by hand then).
 - The Control Panel, the Log and the Settings are always clickable. Until

@@ -52,9 +52,10 @@
 //! - `POST /Opus/wwwhook/settings/discard?file=<name>` -- throws that
 //!   waiting file away.
 //! - `POST /Opus/wwwhook/tcp/kick?id=N` -- the Connections tab's KICK on
-//!   one connection, by its number in the status.  The connection is
-//!   closed where it stands.  404 for a number that isn't open, 409 while
-//!   the TCP side isn't listening.
+//!   one row, by its number in the status.  An open connection is closed
+//!   where it stands; a login's player is kicked out of the world (or its
+//!   unused ticket dies).  404 when there's nothing left to kick, 409
+//!   while the TCP side isn't listening.
 //! - `GET /Opus/networking` -- both access lists, for the Whitelist and
 //!   Blacklist tabs.  It only reads.
 //! - `POST /Opus/wwwhook/networking/addip?list=<whitelist|blacklist>&entry=<address or range>`
@@ -455,8 +456,13 @@ fn tcp_kick(request: &Request, role: Role) -> (Answer, Next) {
         conductor_networking::Kicked::Yes => {
             (Answer::new("200 OK", "application/json", format!("{{\"kicked\":{id}}}")), Next::KeepGoing)
         }
+        conductor_networking::Kicked::FromWorld => {
+            (Answer::new("200 OK", "application/json", format!("{{\"kicked\":{id},\"from_world\":true}}")),
+             Next::KeepGoing)
+        }
         conductor_networking::Kicked::NotOpen => {
-            (Answer::plain("404 Not Found", "That connection isn't open any more."), Next::KeepGoing)
+            (Answer::plain("404 Not Found", "Nothing to kick: that connection is closed and nobody from it is in \
+                the world."), Next::KeepGoing)
         }
         conductor_networking::Kicked::NotListening => {
             (Answer::plain("409 Conflict", "The TCP side isn't listening."), Next::KeepGoing)

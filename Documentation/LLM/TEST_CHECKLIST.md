@@ -191,10 +191,30 @@ book's tests in `sessions.rs` changed for the row numbers and check the LINKDEAD
 grew a LINKDEAD row.  Nothing was built in the session.
 
 - [ ] `cargo build` clean, no warnings; `cargo test` passes, 198 with the two new ones.
-- [ ] Two clients on one account, `y` to log the first out: the first client's TCP row greys and reads
+- [x] ~~Two clients on one account, `y` to log the first out: the first client's TCP row greys and reads
       "LINKDEAD: logged out by a second login from 10.0.0.84:<the second's port>", and the second's row
-      stays green "Logged in and handed a ticket for UDP".  The UDP table has only the second.
+      stays green "Logged in and handed a ticket for UDP".  The UDP table has only the second.~~
+      2026-09-29: Jacob's screenshot showed the row "... logged out by a second login from 10.0.0.84:34526",
+      and he said it was all working.
 - [ ] A client with `--leave-after 10`: once it says Goodbye, its row reads "LINKDEAD: said Goodbye".
 - [ ] A client with `--go-quiet`: 40 seconds on, "LINKDEAD: went quiet past the UDP timeout".
 - [ ] A ban from the row's menu (the blacklist on): "LINKDEAD: banned".
 - [ ] Both views: the LINKDEAD rows are in Recent (while among the newest five) and Historical alike.
+
+## 2026-09-29 -- KICK on any row of the Connections tab
+
+Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 1 in `sessions.rs`;
+`protocol.rs` and `ledger.rs` each check the new reason.  **The protocol is version 3 now**: the Python
+client says 3 too, so an old copy of it stops at the Hello.  The menu was opened headless in the session
+with made-up rows (an open connection, a live login, a LINKDEAD one); that isn't Conductor.
+
+- [ ] `cargo build` clean, no warnings; `cargo test` passes, 199.
+- [ ] Log the client in and leave it in the world.  Its TCP row's three dots: KICK is red and live.
+      KICK, confirm ("Kick the player who logged in from ... out of the world?"): the client prints a
+      Kicked "kicked by the admin" and "Back to the login screen.", the UDP table empties, the row reads
+      "LINKDEAD: kicked by the admin", and the log has "The admin kicked throwaway_01 at ... out of the
+      world."  Run the client again: it logs straight back in.
+- [ ] A LINKDEAD or refused row's three dots: KICK is there, greyed, and its tooltip says there's nothing
+      to kick.
+- [ ] An open connection (the client Ctrl-Z'd after TLS): KICK closes it at the door, as before.
+- [ ] As `user`: the three dots are greyed, as before.

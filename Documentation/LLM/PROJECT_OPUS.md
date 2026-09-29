@@ -149,4 +149,4 @@ Where each one lives is in the tree above.
 | Security           | Argon2id password hashing, one worker.        | Built and run on Linux       |
 | The server's switch| Stopped / starting / running / stopping.      | Built and tested on Linux    |
 | The access lists   | The whitelist and the blacklist at the door.  | Built, unit tested; hand checks open |
-| The protocol       | What Conductor and a client say to each other.| Version 2, written           |
+| The protocol       | What Conductor and a client say to each other.| Version 3, written           |

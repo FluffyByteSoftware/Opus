@@ -50,7 +50,7 @@ conductor-wgui/
 | GET    | `/Opus/settings`       | Every config file and setting: kind, comment, default, running value, waiting value.  Reads only |
 | POST   | `/Opus/wwwhook/settings/save?file=<name>` | SAVE on the Settings tab.  `key = value` lines in the body.  Needs `X-Opus: settings`.  400 with the complaints as JSON if a line is wrong, and nothing written; 500 the same way if the disk says no |
 | POST   | `/Opus/wwwhook/settings/discard?file=<name>` | DISCARD: throws the file's `.wait4server` away.  Needs `X-Opus: settings` |
-| POST   | `/Opus/wwwhook/tcp/kick?id=N` | KICK on the Connections tab: closes connection N at the door.  Needs `X-Opus: tcp`.  404 if it isn't open, 409 if TCP isn't listening |
+| POST   | `/Opus/wwwhook/tcp/kick?id=N` | KICK on the Connections tab: closes connection N at the door if it's open, or kicks the player its login became out of the world (`from_world` in the answer).  Needs `X-Opus: tcp`.  404 when nothing from the row is left, 409 if TCP isn't listening |
 | GET    | `/Opus/networking`     | Both access lists, for the Whitelist and Blacklist tabs.  Reads only; `running` is false with empty lists while the server is stopped |
 | POST   | `/Opus/wwwhook/networking/addip?list=<whitelist or blacklist>&entry=<address or range>` | ADD on a list tab, or the Connections tab's menu.  Takes at once; a blacklisting while the blacklist is on is a ban.  Needs `X-Opus: networking`.  400 with the reason in words for an entry that isn't one, 409 while networking isn't running |
 | POST   | `/Opus/wwwhook/networking/removeip?list=...&entry=...` | REMOVE on a list tab, the same way; off the whitelist while the whitelist is on, a ban too |
@@ -277,8 +277,8 @@ Recent, the newest five, and Historical, the whole run.  The ledger keeps up to 
 first.  The Listening tile also counts the players in the world and the tickets not yet used.  Each row:
 address, host (reverse DNS, or `--`),
 arrived (UTC) and seconds ago, where it is in words, and a three-dot button (greyed for `user`) that
-opens a small menu by the row: KICK on an open
-one (asks first), ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST (asks first, since it's a ban
+opens a small menu by the row: KICK (asks first; closes an open connection, or kicks the player a login
+became out of the world, and is greyed on a row with nothing left to kick), ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST (asks first, since it's a ban
 while the blacklist is on).  What the menu did shows in the panel's head.  A finished row is greyed and
 says how it ended; a logged-in one is green while its player is in the world, and reads "LINKDEAD:" and
 why, greyed, once they've left (a second login, Goodbye, the timeout, a ban, or a ticket never used).  No

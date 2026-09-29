@@ -184,6 +184,17 @@ because of the CPU cost.
   lock, and `with_book()` hands them to the ledger once that lock is let go, so the two locks are never
   held together.  STOP SERVER marks nothing: it wipes the ledger anyway.  Still by address: the account
   never goes on the row.
+- **KICK on any row** (the same evening), Jacob's ask: the three dots on a TCP row kick, whatever the
+  row is.  A login's TCP connection closes at the ticket, so KICK used to be there for a moment and
+  never for anybody playing.  Now `kick(id)` in `lib.rs` tries the door first (`tcp::kick()`, an open
+  connection closed where it stands, as before), and if that row's connection is gone, the book
+  (`sessions::kick_login()`) finds the login's player by its row number, a walk down the players since
+  an admin's click needn't be quick, and takes them out: told a Kicked with reason `4`, kicked by the
+  admin, and their row LINKDEAD "kicked by the admin".  A login whose ticket isn't used yet has the
+  ticket killed instead.  The same route, `/Opus/wwwhook/tcp/kick?id=N` (Jacob: "we can use the
+  existing ROUTE"), now answers 200 with `from_world` for a player, and 404 only when nothing from the
+  row is left.  The new reason took **the protocol to version 3**.  A kicked player can log straight
+  back in; a ban is what keeps somebody out.
 - **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file
   (`--cert`, `Content/certs/conductor.crt` by default; with neither it checks nothing and says so),
   prints every packet, and asks whether to log out the other session (`--leave-other-alone` answers no

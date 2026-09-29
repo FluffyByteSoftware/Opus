@@ -128,6 +128,8 @@ pub enum Gone {
     TicketRanOut,
     /// A newer login on the account got a ticket before they used theirs.
     TicketTaken,
+    /// The admin kicked them (or their unused ticket) from the web admin.
+    KickedByAdmin,
 }
 
 impl Gone {
@@ -140,6 +142,7 @@ impl Gone {
             Gone::Banned => "LINKDEAD: banned".to_string(),
             Gone::TicketRanOut => "LINKDEAD: never came over UDP; the ticket ran out".to_string(),
             Gone::TicketTaken => "LINKDEAD: never came over UDP; a newer login took the ticket".to_string(),
+            Gone::KickedByAdmin => "LINKDEAD: kicked by the admin".to_string(),
         }
     }
 }
@@ -532,7 +535,7 @@ mod tests {
     #[test]
     fn every_reason_for_linkdead_has_words() {
         let reasons = [Gone::Replaced { by: address("10.0.0.1:1") }, Gone::SaidGoodbye, Gone::WentQuiet,
-                       Gone::Banned, Gone::TicketRanOut, Gone::TicketTaken];
+                       Gone::Banned, Gone::TicketRanOut, Gone::TicketTaken, Gone::KickedByAdmin];
         for reason in reasons {
             assert!(reason.describe().starts_with("LINKDEAD: "));
         }

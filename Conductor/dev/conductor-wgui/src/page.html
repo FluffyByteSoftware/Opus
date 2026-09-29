@@ -233,6 +233,9 @@ OUT, sit at the bottom of the sidebar.
   }
   .menu button:hover { background: var(--panel-dark); }
   .menu button.kick { color: var(--red); }
+  .menu button:disabled, .menu button:disabled:hover {
+    color: var(--ink-faint); background: transparent; cursor: default;
+  }
   .menu .menu-address { padding: 6px 10px 4px; font-size: 11px; color: var(--ink-faint); }
   /* The Whitelist and Blacklist tabs: the ADD field sits in the panel's
      head, and REMOVE is KICK's twin. */
@@ -817,10 +820,13 @@ OUT, sit at the bottom of the sidebar.
           Historical is every one since START SERVER (past ten thousand, the oldest finished ones go).  Newest
           first, by address only: who logged in as what is in the log, on purpose.  Host is the
           address's name from reverse DNS, when it has one.  A finished connection is greyed and says how it
-          ended.  The three dots on a row open its menu: KICK closes an open connection where it stands (the
-          client sees the connection drop and nothing else), and the other two put the row's address on the
-          whitelist or the blacklist.  Adding to the blacklist while the blacklist is on is a ban: every
-          connection and player from that address is dropped then and there, the player with a Kicked.</div>
+          ended, and a login whose player has left the world reads LINKDEAD and why.  The three dots on a
+          row open its menu.  KICK closes an open connection where it stands (the client sees the connection
+          drop and nothing else), and on a login whose player is still in the world it kicks the player out
+          (they hear a Kicked, kicked by the admin); it's greyed when there's nothing left to kick.  The
+          other two put the row's address on the whitelist or the blacklist.  Adding to the blacklist while
+          the blacklist is on is a ban: every connection and player from that address is dropped then and
+          there, the player with a Kicked.</div>
       </div>
     </div>
     <div class="panel span-12 boxed">
@@ -1847,13 +1853,17 @@ function openRowMenu(button, c) {
   heading.textContent = c.address;
   menu.appendChild(heading);
 
-  if (!c.done) {
-    const kick = document.createElement("button");
-    kick.className = "kick";
-    kick.textContent = "KICK";
-    kick.addEventListener("click", () => { closeRowMenu(); kickConnection(c.id, c.address); });
-    menu.appendChild(kick);
-  }
+  // KICK is on every row, Jacob's ask: an open connection is closed at
+  // the door, and a login's player (or its unused ticket) is kicked out of
+  // the world.  A row with nothing left to kick has it greyed.
+  const kick = document.createElement("button");
+  kick.className = "kick";
+  kick.textContent = "KICK";
+  const live = !c.done || c.logged_in;
+  kick.disabled = !live;
+  if (!live) kick.title = "Nothing to kick: the connection is closed and nobody from it is in the world.";
+  kick.addEventListener("click", () => { closeRowMenu(); kickConnection(c); });
+  menu.appendChild(kick);
   const white = document.createElement("button");
   white.textContent = "ADD " + ip + " TO WHITELIST";
   white.addEventListener("click", () => { closeRowMenu(); listChange("whitelist", ip, "addip", "tcp-said"); });
@@ -1886,11 +1896,14 @@ document.addEventListener("keydown", event => {
   if (event.key === "Escape") closeRowMenu();
 });
 
-// KICK: the next status answer shows the connection as kicked.
-async function kickConnection(id, address) {
-  if (!confirm("Kick " + address + "?")) return;
+// KICK: the next status answer shows the connection as kicked, or the
+// login's row as LINKDEAD and its player gone from the UDP table.
+async function kickConnection(c) {
+  const asking = c.done ? "Kick the player who logged in from " + c.address + " out of the world?"
+    : "Kick " + c.address + "?";
+  if (!confirm(asking)) return;
   try {
-    const answer = await fetch("/Opus/wwwhook/tcp/kick?id=" + id, { method: "POST", headers: { "X-Opus": "tcp" } });
+    const answer = await fetch("/Opus/wwwhook/tcp/kick?id=" + c.id, { method: "POST", headers: { "X-Opus": "tcp" } });
     if (!answer.ok) alert("Conductor said no: " + await answer.text());
   } catch (e) {
     alert("The kick didn't go through: " + e);

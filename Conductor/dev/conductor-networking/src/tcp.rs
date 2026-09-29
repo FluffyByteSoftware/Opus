@@ -139,8 +139,12 @@ pub enum Kicked {
     /// The socket is shut.  The login thread finds out on its next read,
     /// or skips the connection if it was still queued.
     Yes,
-    /// No connection with that number is open: finished already, or
-    /// never was.
+    /// The connection had closed, but its login's player was in the world
+    /// (or its ticket not yet used), and they're out now.  `lib.rs`'s
+    /// `kick()` does that part.
+    FromWorld,
+    /// No connection with that number is open, and nothing from its login
+    /// is left in the world: finished already, or never was.
     NotOpen,
     /// The TCP side isn't running.
     NotListening,

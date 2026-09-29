@@ -26,7 +26,7 @@ import struct
 import sys
 import time
 
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 
 HELLO = 0x10
 LOGIN = 0x11
@@ -45,7 +45,7 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          KEEP_ALIVE: "KeepAlive", GOODBYE: "Goodbye", KICKED: "Kicked"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
-KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned"}
+KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin"}
 
 
 def put_string(text):

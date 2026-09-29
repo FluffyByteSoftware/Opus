@@ -11,9 +11,10 @@ client who has never seen Conductor's code.  Conductor's half is `conductor-netw
 and the Python test client beside it is the other half for now; when either disagrees with this document,
 it is the code that gets fixed.
 
-Protocol version **2**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 2 (2026-09-29)
-added reason `3`, banned, to Kicked; version 1 was everything before it.
+Protocol version **3**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 3 (2026-09-29)
+added reason `4`, kicked by the admin, to Kicked.  Version 2 (the same day) added reason `3`, banned;
+version 1 was everything before it.
 
 ## The shape of it
 
@@ -29,9 +30,9 @@ A session is two halves, over two transports.
 When the UDP session ends, for any reason, the player is gone.  There is no reconnect: the client goes back
 to the login screen and starts over from TCP.  The reasons it ends: the client sent a Goodbye, the client
 went quiet past the server's UDP timeout (40 seconds by default), the account logged in from somewhere
-else and chose to log this session out, the server stopped, or the admin banned the address (put it on
-the blacklist, or took it off the whitelist).  For the last three the client hears a Kicked first; for
-the timeout it hears nothing, and knows from its own silence.
+else and chose to log this session out, the server stopped, the admin banned the address (put it on
+the blacklist, or took it off the whitelist), or the admin kicked the player.  For the last four the
+client hears a Kicked first; for the timeout it hears nothing, and knows from its own silence.
 
 ### TLS
 
@@ -144,8 +145,8 @@ can't are short labels with no period.
 4. **Goodbye** from the client ends the session.  No answer.
 5. **Kicked** from the server ends the session: reason `1` the account logged in elsewhere and chose to
    log this session out, `2` the server is stopping, `3` the address was banned (the admin put it on the
-   blacklist, or took it off the whitelist; its next login is closed at the door).  The client goes back
-   to the login screen.
+   blacklist, or took it off the whitelist; its next login is closed at the door), `4` the admin kicked
+   them (nothing stops them logging in again).  The client goes back to the login screen.
 
 Anything else from an address the server knows counts as hearing from that player (the game's packets go
 here later).  Anything at all from an address it doesn't know, other than a Connect, gets no answer.

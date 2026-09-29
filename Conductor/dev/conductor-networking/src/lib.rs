@@ -154,11 +154,30 @@ pub fn status() -> Status {
              in_world: sessions::players(), access: access::mode(), whitelisted, blacklisted }
 }
 
-/// The admin kicked TCP connection `id` (its number in `status()`'s
-/// list) from the web admin's Connections tab.  The connection is closed
-/// where it stands; the client sees the connection drop and nothing else.
+/// The admin kicked row `id` (its number in `status()`'s list) from the
+/// web admin's Connections tab.  A connection still open at the door is
+/// closed where it stands, and the client sees it drop and nothing else.
+/// One that logged in closed long ago, so the kick goes to what it
+/// became: its player is told Kicked, kicked by the admin, and taken out
+/// of the world, or its unused ticket dies.  Jacob's ask, 2026-09-29: the
+/// three dots on a row kick, whatever the row is.
 pub fn kick(id: u64) -> Kicked {
-    tcp::kick(id)
+    match tcp::kick(id) {
+        Kicked::NotOpen => {}
+        other => return other,
+    }
+    match sessions::kick_login(id) {
+        sessions::AdminKick::Player(address, account) => {
+            udp::tell(address, &protocol::kicked(protocol::KickReason::KickedByAdmin));
+            scribe::info(Channel::Security, &format!("The admin kicked {account} at {address} out of the world."));
+            Kicked::FromWorld
+        }
+        sessions::AdminKick::Ticket(account) => {
+            scribe::info(Channel::Security, &format!("The admin kicked {account} before their ticket was used."));
+            Kicked::FromWorld
+        }
+        sessions::AdminKick::Nobody => Kicked::NotOpen,
+    }
 }
 
 /// Both access lists as they stand, for the web admin's Whitelist and
