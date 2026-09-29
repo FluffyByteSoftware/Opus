@@ -196,7 +196,7 @@ pub fn start(settings: &Settings, tls: Arc<ServerConfig>) -> Result<(), String> 
     let open: OpenSockets = Arc::new(Mutex::new(HashMap::new()));
 
     // A fresh ledger for a fresh run, and the name lookups behind it.
-    ledger::start(settings.remember_connections);
+    ledger::start();
     dns::start();
 
     // Rust note: a sync_channel holds at most that many arrivals.  The

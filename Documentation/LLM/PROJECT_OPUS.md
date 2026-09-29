@@ -73,7 +73,7 @@ Opus/
 │       │       ├── protocol.rs        # the packets, byte for byte; PROTOCOL.md is the other half
 │       │       ├── sessions.rs        # the book: tickets by token, players by address, accounts by name; players() for the page
 │       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login flow, the failure hold, the kick
-│       │       ├── ledger.rs          # the door's ledger: every TCP connection of the last five minutes and where it is
+│       │       ├── ledger.rs          # the door's ledger: every TCP connection since START SERVER and where it is
 │       │       ├── access.rs          # the whitelist and the blacklist: the two files, the entries and ranges, the verdict
 │       │       ├── dns.rs             # reverse DNS for the ledger, on its own thread; picks the file for the OS
 │       │       ├── dns/linux.rs       # getnameinfo from the C library

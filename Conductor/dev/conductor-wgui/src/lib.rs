@@ -24,8 +24,8 @@
 //! - `POST /Opus/logout` -- forgets the cookie's login.
 //! - `GET /Opus/status?after=N` -- where the server is at, who's logged
 //!   in, the monitor's latest look, the services, DiskMan's numbers,
-//!   networking's door (every TCP connection of the last five minutes,
-//!   every player in the world, and which access list is on), and
+//!   networking's door (every TCP connection since START SERVER, every
+//!   player in the world, and which access list is on), and
 //!   Scribe's lines after line N, as JSON.  The page asks once a second.
 //! - `GET /Opus/threads?pid=N` -- one process's threads, for when the admin
 //!   clicks it on the System tab.  It only reads, like the status.

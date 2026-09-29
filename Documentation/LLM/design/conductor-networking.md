@@ -29,7 +29,7 @@ conductor-networking/
     ├── sessions.rs      the book: tickets by token, players by address, each account's whereabouts
     │                      playing(), issue(), connect(), heard(), leave(), kick(), sweep(), clear(), counts(), players(),
     │                      drop_where()
-    ├── ledger.rs        the door's ledger: every connection of the last five minutes and its Stage; End; Connection
+    ├── ledger.rs        the door's ledger: every connection since START SERVER and its Stage; End; Connection
     │                      clear(), arrived(), set(), ended(), is_done(), snapshot()
     ├── access.rs        the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
     │                      start(mode, paths), stop(), verdict(ip), add(), remove(), snapshot(), counts()
@@ -120,9 +120,12 @@ because of the CPU cost.
   accept (the ones it closes at the door too, marked so), the login thread moves it a stage at a time
   (TLS, waiting for its Login, checking, in Security's line with `place()`'s numbers once a second,
   asked about another session), and every way out writes the ending.  A handful of lock touches per
-  login, never per byte.  A finished entry stays `connections_remember_seconds` (five minutes) from its
-  arrival, a setting since Jacob asked for one; one in progress stays whatever the clock says; past 1000 entries the oldest
-  finished ones go early.  The first ending written wins, so a kicked connection reads "kicked" and not
+  login, never per byte.  An entry stays until STOP SERVER, finished or not, since the access lists
+  session (2026-09-29), when Jacob asked for a Historical view of the whole run beside a Recent one of
+  the newest five; before that a finished entry went five minutes after it arrived
+  (`connections_remember_seconds`, a setting for one session, gone now).  Past 10,000 entries the
+  oldest finished ones go early; one in progress never does.  The first ending written wins, so a
+  kicked connection reads "kicked" and not
   the login thread's "hung up" a moment later.  A queued connection's place is a count of the queued
   entries ahead of it, worked out when the snapshot is taken.  Wiped on START SERVER and STOP SERVER.
 - **Reverse DNS on its own thread**, `net-dns` (`dns.rs`).  A lookup asks the OS's resolver and can take

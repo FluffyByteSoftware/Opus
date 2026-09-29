@@ -175,6 +175,9 @@ them.
   for; the account is the point there, unlike the door).  KICK moved into a three-dot menu on each row
   (his ask: "in style like a : colon"), with ADD TO WHITELIST and ADD TO BLACKLIST under it, on finished
   rows too; the menu lives outside the table, since the table is drawn again every second.  The
+  The TCP table got two views the same session, Recent (the newest five) and Historical (every
+  connection since START SERVER), so the ledger stopped forgetting after five minutes and the setting
+  for that went.  The
   Whitelist and Blacklist tabs are one card each: a tile saying whether that list is the one the door
   checks (`access_list` in networking.cfg, on the Settings tab) and what it means if not, the count, the
   entries with REMOVE on each, and an ADD field in the head.  A change takes at once, and the tab says
@@ -256,9 +259,11 @@ read (from disk and from memory), failures (failing now, given up on), the last 
 under way with a progress bar, and open streams.  The dot flashes red when DiskMan isn't running or a file
 is failing.
 
-**Connections**: two tiles, then TCP, every connection that reached the login door in the last five
-minutes, newest first: address, host (reverse DNS, or `--`), arrived (UTC) and seconds ago, where it is
-in words, and a three-dot button (greyed for `user`) that opens a small menu by the row: KICK on an open
+**Connections**: two tiles, then TCP, every connection that reached the login door since START SERVER,
+newest first, in two views picked by the small tabs in the panel's head (Jacob's ask, 2026-09-29):
+Recent, the newest five, and Historical, the whole run.  Each row: address, host (reverse DNS, or `--`),
+arrived (UTC) and seconds ago, where it is in words, and a three-dot button (greyed for `user`) that
+opens a small menu by the row: KICK on an open
 one (asks first), ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST (asks first, since it's a ban
 while the blacklist is on).  What the menu did shows in the panel's head.  A finished row is greyed and
 says how it ended; a logged-in one is green.  No account name on the TCP table.  Under it, UDP: every

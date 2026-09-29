@@ -32,7 +32,6 @@
 //!                "writes_done", "appends_done", "reads_done", "cache_hits", "bytes_written", "bytes_read",
 //!                "failures", "given_up", "last_failure": { "when", "what" }, "slowest_write_ms" },
 //!   "networking": { "tcp": "0.0.0.0:9997", "udp": "0.0.0.0:9998", "players": 1, "tickets": 0,
-//!                   "remember_seconds": 300,
 //!                   "connections": [ { "id": 7, "address": "192.168.1.20:51234", "host": "desk.lan",
 //!                                      "arrived": "...Z", "seconds_ago": 12, "stage": "in_line",
 //!                                      "text": "In Security's line: 2 ahead, about 400 ms",
@@ -68,8 +67,8 @@
 //!
 //! `networking` comes straight from the networking crate.  `tcp` and
 //! `udp` are where each side listens, `null` while it doesn't, and the
-//! TCP tab is locked until both are there.  `connections` is every
-//! connection that reached the TCP listener in the last `remember_seconds`,
+//! Network Admin tabs are locked until both are there.  `connections` is
+//! every connection that reached the TCP listener since START SERVER,
 //! newest first, and where each one is: `stage` is queued, handshake,
 //! login, checking, in_line, asked or done, and `text` says it in words
 //! (for in_line, how many are ahead and about how long; for done, how it
@@ -382,7 +381,6 @@ fn net(status: &NetStatus) -> String {
         .raw("udp", status.udp.map_or_else(null, |address| text(&address.to_string())))
         .whole("players", status.players as u64)
         .whole("tickets", status.tickets as u64)
-        .whole("remember_seconds", status.remember.as_secs())
         .raw("connections", array(status.connections.iter().map(connection)))
         .raw("in_world", array(status.in_world.iter().map(player)))
         .text("access", status.access.word())
@@ -644,8 +642,7 @@ mod tests {
     fn before_the_first_look_the_monitor_is_null() {
         let switch = ServerStatus { state: conductor_tools::server::State::Stopped, note: "x".to_string(),
                                     since: None };
-        let quiet = NetStatus { tcp: None, udp: None, players: 0, tickets: 0,
-                                remember: std::time::Duration::from_secs(300), connections: Vec::new(),
+        let quiet = NetStatus { tcp: None, udp: None, players: 0, tickets: 0, connections: Vec::new(),
                                 in_world: Vec::new(), access: conductor_networking::AccessMode::Off, whitelisted: 0,
                                 blacklisted: 0 };
         let answer = status(&switch, Role::User, None, &[], &conductor_tools::diskman::status(), &quiet, 0, &[], &[],
@@ -654,8 +651,7 @@ mod tests {
             \"login\":{\"name\":\"user\",\"can_change\":false},\
             \"monitor\":null,\"services\":[],\"diskman\":{\"running\":false,"));
         assert!(answer.contains("\"networking\":{\"tcp\":null,\"udp\":null,\"players\":0,\"tickets\":0,\
-            \"remember_seconds\":300,\"connections\":[],\"in_world\":[],\"access\":\"off\",\"whitelisted\":0,\
-            \"blacklisted\":0},"));
+            \"connections\":[],\"in_world\":[],\"access\":\"off\",\"whitelisted\":0,\"blacklisted\":0},"));
         assert!(answer.ends_with("\"notices\":{\"open\":0,\"newest\":[]},\"log\":{\"file\":null,\"lines\":[]}}"));
     }
 

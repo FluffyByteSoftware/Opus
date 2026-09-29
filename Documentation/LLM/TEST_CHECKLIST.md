@@ -52,11 +52,12 @@ does a real reverse lookup of `127.0.0.1`, which asks the resolver; it passes wi
 - [ ] A wrong password: the row ends as "Refused: wrong secret word, name or password", greyed.  The
       connection closed at the door two seconds later shows as "Closed at the door: on hold after a
       failed login".
-- [x] ~~Ago counts up once a second~~ 2026-09-29.  [ ] A finished row disappears five minutes after it
-      arrived.
-- [ ] The Settings tab shows `connections_remember_seconds` (300) on `networking.cfg`'s card.  Save it as
+- [x] ~~Ago counts up once a second~~ 2026-09-29.  ~~A finished row disappears five minutes after it
+      arrived.~~  2026-09-29: dropped, the ledger keeps the whole run now (the access lists session).
+- [x] ~~The Settings tab shows `connections_remember_seconds` (300) on `networking.cfg`'s card.  Save it as
       10, STOP SERVER and START SERVER, run the client once: its row goes ten seconds after it arrived,
-      and the tab's count says "in the last 10 seconds".  Put it back to 300 after.
+      and the tab's count says "in the last 10 seconds".  Put it back to 300 after.~~  2026-09-29: the
+      setting is gone with the five minutes.
 - [ ] KICK as `admin`: start the client with a long wait before it sends its Login (or Ctrl-Z it after
       TLS), press KICK on its row, confirm.  The row reads "Kicked by the admin", the client's connection
       drops, and the log has "The admin kicked ... at the door."  Pressing KICK again on a finished row
@@ -84,13 +85,17 @@ and clicked through (the three tabs, the row menu, ADD, REMOVE); that isn't Cond
       History, with Connections, Whitelist and Blacklist indented under it, all three greyed, then Log
       and Settings.  Nothing else in the sidebar moved.
 - [ ] The Settings tab shows three new settings on `networking.cfg`'s card: `access_list` (off),
-      `whitelist_file` (cfg/whitelist.cfg), `blacklist_file` (cfg/blacklist.cfg).
+      `whitelist_file` (cfg/whitelist.cfg), `blacklist_file` (cfg/blacklist.cfg), and
+      `connections_remember_seconds` is gone.  If your `networking.cfg` still has that line (a hand
+      edit), START SERVER warns about it once; take the line out.
 - [ ] START SERVER: the log has a Debug line "Access lists: off.  0 on the whitelist and 0 on the
       blacklist, neither looked at." and two "Read 0 entries from .../whitelist.cfg" lines (or "Wrote an
       empty ..." on a first run if the committed files aren't there).  The three tabs unlock with the
       TCP tab's old rule.
-- [ ] Connections: the TCP table as before, then a UDP table.  Run the client: its TCP row appears as
-      before, and once it's in the world a UDP row shows its address, `throwaway_01` in green, the
+- [ ] Connections: the TCP table with two small tabs in its head, Recent (on) and Historical, then a UDP
+      table.  Run the client six times: Recent shows the newest five and the count says "the newest 5
+      of 6 since START SERVER"; Historical shows all six.  A finished row stays as long as the server
+      runs.  Once the client is in the world a UDP row shows its address, `throwaway_01` in green, the
       connected stamp, playing for counting up as DD:HH:MM:SS, quiet for at 0 s or 1 s.  Goodbye (or
       `--leave-after 20`) takes the UDP row away.  The finished TCP row's "Logged in" reads green now
       (the CSS line from TODO.md went in with this).

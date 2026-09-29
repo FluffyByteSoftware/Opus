@@ -25,7 +25,6 @@
 //! happens here, and that is the ceiling on what a login can cost.
 
 use std::net::SocketAddr;
-use std::time::Duration;
 
 use conductor_tools::constellations;
 use conductor_tools::scribe::{self, Channel};
@@ -57,12 +56,9 @@ pub struct Status {
     pub players: usize,
     /// Tickets handed out and not yet used on UDP.
     pub tickets: usize,
-    /// How long a finished connection stays in `connections`
-    /// (`connections_remember_seconds` in networking.cfg).
-    pub remember: Duration,
-    /// Every connection that reached the TCP listener in the last
-    /// `remember`, newest first, and where each one is.  Empty while the
-    /// TCP side isn't running.
+    /// Every connection that reached the TCP listener since START SERVER,
+    /// newest first, and where each one is (the oldest finished ones go
+    /// past ten thousand).  Empty while the TCP side isn't running.
     pub connections: Vec<Connection>,
     /// Every player in the world over UDP, newest first.
     pub in_world: Vec<Player>,
@@ -154,9 +150,8 @@ pub fn stop() {
 pub fn status() -> Status {
     let (players, tickets) = sessions::counts();
     let (whitelisted, blacklisted) = access::counts();
-    Status { tcp: tcp::listening_on(), udp: udp::listening_on(), players, tickets, remember: ledger::remember_for(),
-             connections: ledger::snapshot(), in_world: sessions::players(), access: access::mode(), whitelisted,
-             blacklisted }
+    Status { tcp: tcp::listening_on(), udp: udp::listening_on(), players, tickets, connections: ledger::snapshot(),
+             in_world: sessions::players(), access: access::mode(), whitelisted, blacklisted }
 }
 
 /// The admin kicked TCP connection `id` (its number in `status()`'s

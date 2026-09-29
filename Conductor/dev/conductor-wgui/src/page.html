@@ -18,7 +18,7 @@ Once the server is running the tabs open up, and while the database isn't
 connected they're locked again and the page under the header is blurred.
 The three Network Admin tabs stay locked until both of networking's
 listeners are up.  Connections lists every connection that reached the
-login door in the last five minutes, by address and never by account,
+login door since START SERVER, by address and never by account,
 with where each one is and a menu for admin (KICK, whitelist,
 blacklist), then every player in the world over UDP, by account.  The
 Whitelist and Blacklist tabs are the two access lists, changed at once.
@@ -800,6 +800,10 @@ OUT, sit at the bottom of the sidebar.
         <div class="head-right">
           <div class="note list-said" id="tcp-said"></div>
           <div class="note mono" id="tcp-count"></div>
+          <div>
+            <button class="tab on" id="tab-tcp-recent">Recent</button>
+            <button class="tab" id="tab-tcp-history">Historical</button>
+          </div>
         </div>
       </div>
       <div class="tall-body" style="max-height: 50vh;">
@@ -809,8 +813,9 @@ OUT, sit at the bottom of the sidebar.
           </tr></thead>
           <tbody></tbody>
         </table>
-        <div class="note" id="tcp-note">Every connection that reached the login door in the last few minutes,
-          newest first, by address only: who logged in as what is in the log, on purpose.  Host is the
+        <div class="note" id="tcp-note">Recent is the newest five connections that reached the login door;
+          Historical is every one since START SERVER (past ten thousand, the oldest finished ones go).  Newest
+          first, by address only: who logged in as what is in the log, on purpose.  Host is the
           address's name from reverse DNS, when it has one.  A finished connection is greyed and says how it
           ended.  The three dots on a row open its menu: KICK closes an open connection where it stands (the
           client sees the connection drop and nothing else), and the other two put the row's address on the
@@ -1696,8 +1701,8 @@ function drawServices(services) {
   $("services-badge").hidden = down === 0 || !serverRunning;
 }
 
-// The Connections tab: the door, every connection that reached it lately,
-// and every player in the world.  The Network Admin tabs lock themselves
+// The Connections tab: the door, every connection that reached it this
+// run, and every player in the world.  The Network Admin tabs lock themselves
 // while either listener is down; if one was open, the page moves to the
 // default tab rather than sit on a locked one.
 let lastListCounts = null;
@@ -1720,11 +1725,12 @@ function drawTcp(n) {
   const inLine = open.filter(c => c.stage === "in_line").length;
   $("tcp-open").textContent = open.length + " open";
   $("tcp-open-note").textContent = queued + " waiting for a login thread, " + inLine + " in Security's line, "
-    + (n.connections.length - open.length) + " finished in the last " + remembered(n.remember_seconds);
+    + (n.connections.length - open.length) + " finished since START SERVER";
 
+  const shown = tcpRecent ? n.connections.slice(0, RECENT_CONNECTIONS) : n.connections;
   const body = $("tcp").tBodies[0];
   body.textContent = "";
-  for (const c of n.connections) {
+  for (const c of shown) {
     const row = body.insertRow();
     if (c.done) row.className = "over";
     cell(row, c.address, "nowrap");
@@ -1738,7 +1744,9 @@ function drawTcp(n) {
     last.appendChild(dotsButton(c));
     row.appendChild(last);
   }
-  $("tcp-count").textContent = n.connections.length + " in the last " + remembered(n.remember_seconds);
+  $("tcp-count").textContent = tcpRecent
+    ? "the newest " + shown.length + " of " + n.connections.length + " since START SERVER"
+    : n.connections.length + " since START SERVER";
 
   const players = $("udp").tBodies[0];
   players.textContent = "";
@@ -1768,12 +1776,20 @@ function drawTcp(n) {
   lastListCounts = counts;
 }
 
-// connections_remember_seconds in words: "5 minutes", or "45 seconds"
-// under a minute.
-function remembered(seconds) {
-  if (seconds < 60) return seconds + " seconds";
-  return Math.round(seconds / 60) + " minutes";
+// The TCP table's two views, Jacob's ask: Recent is the newest few,
+// Historical is the whole run.  The next status answer redraws it.
+const RECENT_CONNECTIONS = 5;
+let tcpRecent = true;
+
+function showTcpView(recent) {
+  tcpRecent = recent;
+  $("tab-tcp-recent").classList.toggle("on", recent);
+  $("tab-tcp-history").classList.toggle("on", !recent);
+  closeRowMenu();
 }
+
+$("tab-tcp-recent").addEventListener("click", () => showTcpView(true));
+$("tab-tcp-history").addEventListener("click", () => showTcpView(false));
 
 // What access_list means for the list whose tab this is.
 function modeWords(mode, list) {

@@ -60,6 +60,11 @@ address off the whitelist kicks anyone online it uncovers; and a Kicked reason f
 **the protocol is version 2** (reason `3`, banned; `KickReason::Banned`; PROTOCOL.md and the Python
 client say 2).
 
+Late in the session, his "further improvement": the TCP table in two views, Recent (the newest five)
+and Historical (everything since START SERVER).  So the ledger keeps the whole run now, capped at
+10,000 with the oldest finished going first, and `connections_remember_seconds` is gone from
+`networking.cfg` (the session's call: a setting nobody had tested, replaced by "since start").
+
 **Not built anywhere yet.**  The page was rendered headless with made-up numbers and clicked through
 (no script errors, the tabs unlock, the menu opens, ADD and REMOVE post the right paths and header);
 the Rust was read over by eye and no more.  `cargo build` and `cargo test` are Jacob's, on `testing`.
@@ -90,7 +95,8 @@ What we did:
   (`?list=&entry=`, `X-Opus: networking`, admin only, 400 with the reason for a bad entry, 409 while
   not running); `unescape()` for the `%2F` in a range; `json::access()`, `listed()`, `unlisted()`; the
   status shape grew (top of `json.rs`).  The page: a rule and the NETWORK ADMIN heading under
-  Notifications History, three indented tabs under the TCP tab's lock; Connections is the old TCP tab (renamed; its `tcp-*` ids kept) plus a UDP
+  Notifications History, three indented tabs under the TCP tab's lock; Recent and Historical on the
+  TCP table; Connections is the old TCP tab (renamed; its `tcp-*` ids kept) plus a UDP
   table; the three-dot menu (`#row-menu`, outside the table, closed on a click elsewhere, Escape or a
   tab change); the Whitelist and Blacklist tabs from one `drawList()`; `lockChanges()` greys the ADD
   fields for `user`.  The grey-not-green finished row from TODO.md got its one CSS line.
@@ -100,8 +106,9 @@ What we did:
   hand-edit caveat, two ideas), TEST_CHECKLIST.
 
 What Jacob decided (all 2026-09-29): the five answers above, the sidebar layout and its place, the
-whitelist removal as a ban, and the banned reason on the wire.  The session's own call, open to change:
-an entry on a list that isn't switched on is kept and does nothing.
+whitelist removal as a ban, the banned reason on the wire, and the two views.  The session's own calls,
+open to change: an entry on a list that isn't switched on is kept and does nothing; the five-minute
+setting went rather than staying unused; the ledger's cap is 10,000.
 
 ## What's waiting
 

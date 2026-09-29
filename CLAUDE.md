@@ -394,10 +394,12 @@ When I say we're wrapping up:
   goes on one of them, or is a new tab I agree to.
 - **The Connections tab** (2026-09-29; it was the TCP tab) is the door and
   the world, TCP first then UDP: every connection that reached the TCP
-  listener in the last five minutes, by address and DNS name, never by
-  account, with where each one is (the queue, TLS, Security's line with its
-  place, finished and how) and a three-dot menu for `admin` (KICK, add the
-  address to the whitelist, add it to the blacklist); then every player in
+  listener since START SERVER, by address and DNS name, never by account,
+  with where each one is (the queue, TLS, Security's line with its place,
+  finished and how) and a three-dot menu for `admin` (KICK, add the
+  address to the whitelist, add it to the blacklist), in two views, Recent
+  (the newest five) and Historical (the whole run; Jacob's ask,
+  2026-09-29); then every player in
   the world over UDP, by account, with when they connected and how quiet
   they are.  The character goes there once there is one.
 - **The Whitelist and Blacklist tabs** (2026-09-29) are the two access

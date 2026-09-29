@@ -311,14 +311,6 @@ pub static NETWORKING: ConfigFile = ConfigFile {
                     they're dropped.  Clients send a keep-alive every second.",
         },
         Setting {
-            key: "connections_remember_seconds",
-            kind: Kind::Number { low: 10, high: 86_400 },
-            default: "300",
-            about: "How long a finished connection stays on the web admin's Connections\n\
-                    tab, counted from when it arrived.  One still in progress stays\n\
-                    whatever this says.",
-        },
-        Setting {
             key: "access_list",
             kind: Kind::Text,
             default: "off",
