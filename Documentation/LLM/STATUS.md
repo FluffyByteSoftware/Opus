@@ -90,11 +90,12 @@ What Jacob decided:
 - **Make the TLS pair** with the command in README.md, then START SERVER, then the Python client.  With no
   account in the table every login ends in "Invalid Credentials", which still walks TLS, the framing,
   Archivist, Security's line and the hold.
-- **The throwaway account**, under discussion (Jacob said discuss before coding).  The proposal: an
-  `#[ignore]` test in `security.rs` that prints the Argon2 line for a password from an environment
-  variable (`OPUS_PASSWORD=... cargo test -p conductor-tools --release print_a_hash -- --ignored
-  --nocapture`), and one INSERT Jacob runs in psql with that line in it.  Nothing ever logged, nothing
-  new in the server.  Then the real account flow is its own session.
+- **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
+  settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`
+  with the password `Throwaway 1!`, a test row on a database that only listens on his machine.  The line
+  to run in psql is in the 2026-09-29 session's last reply; if it's lost, any Argon2id line at those
+  settings does, since the stored line carries its own settings.  The real account flow (making one
+  over the protocol) is its own session.
 - **Where the test client lives** and what it's called.  It's `Conductor/dev/conductor-networking/
   test_client.py` for now.
 - **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  One entry

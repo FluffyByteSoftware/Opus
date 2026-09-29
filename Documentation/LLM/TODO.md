@@ -27,8 +27,8 @@ Things that wait on a piece that doesn't exist yet.
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
 - Accounts: making one.  Logging in is built (networking, 2026-09-29) and reads the `accounts` table;
-  nothing writes a row yet.  Security's `hash_password()` and Fingerprinter's `new_uuid()` are ready.  How
-  the first throwaway account gets made is under discussion in STATUS.md.
+  nothing writes a row yet.  Security's `hash_password()` and Fingerprinter's `new_uuid()` are ready.  The
+  first throwaway account was inserted by hand (STATUS.md has the how).
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
   - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full
