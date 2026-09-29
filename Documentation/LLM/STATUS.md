@@ -52,9 +52,9 @@ KICK for `admin` on the list, and then a whitelist and blacklist with a switch i
 ability to manage TCP connections", which went to TODO.md under the one-feature rule.  He also asked for
 a rolling test checklist, which is `TEST_CHECKLIST.md` now.
 
-**Not built or tested yet on his machine.**  The session can't run cargo; `cargo build` and `cargo
-test` from `Conductor/dev` are the first thing, then the checklist.  The page's script was parsed with
-node (a syntax check, nothing more) and the JSON shape was worked out by hand.
+**Built and `cargo test` passed on his machine the same day**, from `testing`: clean build, no warnings,
+178 tests (15 monitor, 44 networking, 89 tools with the benchmark ignored, 30 web admin).  The run and
+the checklist are what's left.  The page's script was parsed with node (a syntax check, nothing more).
 
 What we did:
 
@@ -91,17 +91,16 @@ What Jacob decided:
 
 ## What's waiting
 
-- **Build and test this session's work**: `cargo build` and `cargo test` from `Conductor/dev`, then the
-  2026-09-29 section of `TEST_CHECKLIST.md`.  Nothing from it has run on Jacob's machine.  The kick and
-  the queue place have only unit tests behind them; the ledger and the DNS thread haven't been seen
-  running.
+- **Run this session's work**: the 2026-09-29 section of `TEST_CHECKLIST.md`.  The build and the tests
+  passed; the kick and the queue place have only unit tests behind them, and the ledger and the DNS
+  thread haven't been seen running.
 - **The UDP tab** (Jacob's spec in TODO.md): the account of every player, and the character once there
   is one.  `sessions.rs` needs a `players()` first.
 - **The whitelist and blacklist**, and a BAN on the TCP tab (TODO.md, with the questions).
 - The items below are unordered.
 - **The untried hand tests from the networking session** moved to the top of `TEST_CHECKLIST.md`: two
   clients on one account, `--go-quiet`, a wrong secret word, a wrong password and the hold, STOP SERVER
-  with a player in the world, the `user` account in a real run.  `cargo test` after networking too.
+  with a player in the world, the `user` account in a real run.
 - **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
   settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`
   with the password `Throwaway 1!`, a test row on a database that only listens on his machine.  The line

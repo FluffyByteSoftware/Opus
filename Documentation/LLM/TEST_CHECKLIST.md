@@ -19,8 +19,7 @@ Every command is one line, from `Conductor/dev`.
 
 Hand tests the networking session left untried (STATUS.md had them; they live here now):
 
-- [ ] `cargo test` from `Conductor/dev` after networking.  The build and the run passed; the tests haven't
-      been pasted back.
+- [x] ~~`cargo test` from `Conductor/dev` after networking.~~  2026-09-29: passed with the TCP tab's, 178 in all.
 - [ ] Two clients on one account: the second gets the kick-or-hang-up prompt (`--kick` and `--spare` on
       `test_client.py`); with `--kick` the first hears a Kicked over UDP.
 - [ ] `--go-quiet`: the player is dropped after the 40-second UDP timeout and the log says so.
@@ -35,6 +34,8 @@ Hand tests the networking session left untried (STATUS.md had them; they live he
 Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 5 in `ledger.rs`, 3 in
 `dns.rs`, 2 in `dns/linux.rs`, 2 in `json.rs`, 1 in the web admin's `lib.rs`.  One of the `dns.rs` tests
 does a real reverse lookup of `127.0.0.1`, which asks the resolver; it passes with a name or without one.
+~~Build and tests~~ 2026-09-29: `cargo clean && cargo build && cargo test` clean, 178 passed (15 monitor,
+44 networking, 89 tools with the benchmark ignored, 30 web admin), no warnings.
 
 - [ ] Before START SERVER: the TCP tab is greyed in the sidebar, like the other data tabs.
 - [ ] After START SERVER with the database connected: the TCP tab is clickable, and empty ("0 in the last
