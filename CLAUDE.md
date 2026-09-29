@@ -79,6 +79,7 @@ Opus/
         ├── PROJECT_OPUS.md# skeletal layout of the whole project
         ├── PROTOCOL.md    # server/client contract
         ├── WRITINGSTYLE.md# my voice for public docs and comments
+        ├── TEST_CHECKLIST.md # what's still to check on testing
         └── design/        # one markdown file per system or feature
 ```
 

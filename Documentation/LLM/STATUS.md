@@ -25,126 +25,72 @@ networking, the monitor, and whatever comes later) only starts when START SERVER
 admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  At the close of the documentation pass Jacob built
-`testing`, ran it (START SERVER, a Settings save and RESTART SERVER, the test client twice on one
-account), and `main` moved up to it.  Then his LINKDEAD catch and KICK on every row went onto `unstable`
-and `testing`, and he built them there: `cargo clean`, a clean build, 199 tests passed, and a run with
-three kicks and a second login.  `main` stays on the release before them until he says to move it.
+stable release, moved only when Jacob says.  At the close of the test run all three are on the same
+commit: Jacob said to merge everything to `main`.
 
-**Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
-build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
-benchmark ignored, 34 web admin).  The Python client did the whole login loop against a debug build, and
-the TCP tab was seen working.  The access lists' tabs haven't been looked at in a real run yet.  The
+**Built and tested on Linux (Nobara 44), 2026-09-29**: everything through KICK on any row, and the
+whole test run.  `cargo clean`, `cargo build` with no warnings, `cargo test` 199 passed (15 monitor, 59
+networking, 91 tools with the benchmark ignored, 34 web admin).  Every hand check in TEST_CHECKLIST.md
+passed on `testing`.  `main` moved up to `testing` at the close of this session, Jacob's word.  The
 Windows code has never been built.
 
-## Last session -- 2026-09-29, the documentation pass
+## Last session -- 2026-09-29, the test run
 
-Jacob's pick: prune and review `Documentation/LLM/`, update it to what's been built, and overhaul
-README.md.  Then, at Jacob's word, one fix to `page.html`, DiskMan noticing hand edits, and LINKDEAD
-rows on the Connections tab.
+Jacob's pick: go through every open check in TEST_CHECKLIST.md on `testing`.
 
 What we did:
 
-- **Every design doc and PROTOCOL.md read against the code.**  The launcher's doc had networking missing
-  from the start and stop order; the monitor's didn't say it's a server piece or that uptime counts from
-  START SERVER; the web admin's had the Settings and TCP tabs in their old places, "SHUT DOWN is the only
-  thing that works" under the database lock, and two cross-site checks where there are three; the tools
-  doc had Security's arena kept for Conductor's whole run (it goes with the server) and configs "read
-  once".  Networking's had a stop with no time limit (it has 2 seconds) and both services in trouble when
-  TCP fails (UDP says stopped).  PROTOCOL.md was right byte for byte; it gained what it never said: the
-  name rule, the 150 ms floor, which answers start the hold, and which Connects get no answer.  Still
-  version 2.
-- **README.md rewritten**: the program and the server, every tool by name, the monitor, the door and the
-  access lists, the web admin's tabs, what it needs, how to run it, the config files, the test client's
-  switches, and the layout.  The old one said Conductor runs on Windows; it's written for Windows and
-  never built there, and says so now.
-- **TODO.md**: the doc-session item out, the protocol version and the Control Panel item brought up to
-  date, and a list of stale words in code comments and one Warn, found reading the code, for whichever
-  session next touches those files.
-- **The page's greying, fixed** (Jacob: "fix it now").  `lockChanges()` only ever greyed, so `user`,
-  LOG OUT, then `admin` in the same page left SHUT DOWN, TEST NOTIFICATION, both ACK ALLs and the two
-  list ADD fields dead until a reload.  Now it sets each from the role both ways, SHUT DOWN stays greyed
-  while one is on its way, and the Settings and list tabs are asked for again when the role changes
-  while one is open.  Checked headless with made-up states only.
-- **DiskMan notices a hand edit** (Jacob's pick, after the question of whether to fix the soft files'
-  comment or DiskMan).  Every held file keeps its modified time and size from when the copy last matched
-  the disk, and a read of a clean copy asks the disk for those two first (on DiskMan's thread, never the
-  bytes): changed, and the file is read again.  A copy with a write of ours on its way still wins.  So
-  STOP SERVER, edit `postgres.cfg` or `networking.cfg` or a list or the TLS files, START SERVER, and the
-  edit is read.  `cache.rs` (`Stamp`, `Held`, `checks`, `after_check()`, `current()`,
-  `note_on_disk()`), `worker.rs` (the checks, the stamps after its own writes, streams), `diskman.rs`
-  (`read()`); two new tests.  Built and its tests pass; the hand checks are open.
-- **LINKDEAD** (Jacob's catch after the release, his word): a second login logged the first player out,
-  and the first login's row on the Connections tab still read green, "Logged in", as if it were live.
-  Tickets and players now carry their door row's number, and every way out of the world marks the row
-  "LINKDEAD:" with why (a second login from its address, Goodbye, the timeout, a ban, or a ticket never
-  used), greyed.  `ledger.rs` (`Gone`, `linkdead()`, `Connection::describe()`), `sessions.rs` (the row
-  numbers, `Book::gone`, `with_book()`), two lines in `tcp.rs`, `json.rs` (green only while the player
-  is in).  No protocol change, no page change.  Built; Jacob's screenshot showed the row.
-- **KICK on any row** (Jacob's ask once LINKDEAD was working, his screenshot of the three dots):
-  KICK is in every TCP row's menu.  An open connection is closed at the door, as before; a login whose
-  player is in the world has the player kicked out, told a Kicked with a new reason `4`, kicked by the
-  admin, so **the protocol is version 3**; an unused ticket dies; a row with nothing left is greyed.  The
-  same route, `/Opus/wwwhook/tcp/kick` (Jacob: "we can use the existing ROUTE").  `sessions.rs`
-  (`kick_login()`), `lib.rs` (`kick()` tries the door, then the book), `tcp.rs` (`Kicked::FromWorld`),
-  `protocol.rs` and `test_client.py` (reason 4, version 3), `ledger.rs` (LINKDEAD "kicked by the
-  admin"), the web admin's route and menu.  Built and run on his machine: the kick three ways, 199 tests.
-- **TEST_CHECKLIST.md**: the two-clients check named `--kick` and `--spare`, which the client never had.
-- PROJECT_OPUS.md: the tab count, the `.gitignore` line, the access lists as a named piece.
-
-## The session before -- 2026-09-29, the access lists
-
-It matters here because its hand checks are all open.  The whitelist and the blacklist (`access.rs`),
-`access_list` in `networking.cfg`, the Network Admin subsection on the page (Connections, Whitelist,
-Blacklist), the three-dot menu on a connection, Recent and Historical views of the door, and a ban that
-drops a player with a Kicked reason 3 (protocol version 2; version 3 came with KICK on any row).  A
-blacklisting with the blacklist on, or a whitelist removal with the whitelist on, drops everybody the
-door would now turn away.  The design is
-in `design/conductor-networking.md` and `design/conductor-wgui.md`.
+- **The checklist, by subsystem.**  Every open check gathered into one run in the order of the piece it
+  tests (the build, the page before START SERVER, Constellations and DiskMan, the TLS pair, the door,
+  leaving the world, KICK, the access lists, `user` and `admin`), with a one-line command each.  Checks
+  that no longer matched the build were rewritten: with the TLS files gone, TCP is in trouble and UDP
+  stopped (not both in trouble); KICK is on every row now; Ctrl-Z after TLS can't be caught; a hand
+  edit to a list file only needs the server stopped.
+- **`--pause-before-login N`** on `test_client.py` (Jacob's name): sits N seconds after TLS before the
+  Login, so the connection can be kicked or banned while open.  Past `login_deadline_seconds` (10) the
+  server hangs up first.  A hang-up during the login prints a line, not a traceback.
+- **The run.**  Everything passed.  Jacob's notes went into the web admin's design doc and README: before
+  login the page is only the login card; with the server stopped only the Control Panel, the Log and
+  the Settings open, for both accounts; `user` reads the Log and the Settings; the bell waits for START
+  SERVER, and a Warn from boot is in the Log tab meanwhile.
+- **Bug 1, fixed.**  After RESTART SERVER the Settings tab still said a change saved on it was waiting.
+  The server was right (clicking away and back cleared it): the tab was only drawn when opened, and
+  opened in the middle of the restart it kept a snapshot from before the stop swapped the change in.
+  `page.html` now asks again whenever the server's state, or when it got there, changes while the tab
+  is open.  Its check is the one left in TEST_CHECKLIST.md; the syntax was checked in the session, no
+  more.  Worth knowing: a change saved from the Settings tab and still waiting wins over a hand edit to
+  the same file, since it's swapped in over it at the stop.
+- **The TLS error's command** (Jacob's yes): `tls::make_pair()` builds it from the full paths
+  `networking.cfg` gives, in quotes, "from any folder".  The old relative one, pasted from
+  `Conductor/dev`, is what made a stray `Content` there once.
+- **TEST_CHECKLIST.md cleared** (Jacob: it's his reminder, not a history).  A passed check is taken out
+  now, not struck through; CLAUDE.md says so.  Left: the Settings tab's check, and the parked two (an
+  outside machine, the Windows build).
 
 ## What's waiting
 
-- **The 2026-09-29 access lists section of `TEST_CHECKLIST.md`**, everything after the build line.
-- **The rest of the TCP tab's checks** and **the untried networking hand tests** in the same file (two
-  clients on one account passed at the close).
-- **Going through the tests.**  Jacob said at the close that he wants the next session to go through the
-  tests: every open check in `TEST_CHECKLIST.md`, run on `testing` and struck as it passes.  The open
-  ones, oldest first: the networking hand tests (the quiet drop, a wrong secret word, the hold, STOP
-  SERVER with a player in, `user` in a real run), the TCP tab's (a wrong password on the tab, KICK on a
-  held-up connection, two clients in Security's line, `net-dns`, `user`), the access lists' (the sidebar,
-  both views, the menu, the list tabs, blacklist and whitelist modes, the ban, a range, `access_list =
-  potato`), the page's greying, DiskMan noticing a hand edit, LINKDEAD's Goodbye, quiet and ban rows, and
-  KICK's greyed, open-connection and `user` rows.
-- **Accounts, in the server code.**  Jacob's pick at the first close of the documentation pass, before he
-  asked for the tests first.
-  What's there to build on: the `accounts` table (`Content/psql/defaults/schemas/accounts.sql`, frozen, so
-  any change is a migration; `uuid` came with 0001), with Postgres checking the name (8 to 32 of `a-z`,
-  `0-9`, `_`) and the email itself; Security's `hash_password()` and `check_password_rules()` (Jacob's
-  rules: 8 to 128 printable ASCII, a digit, a capital, a symbol); Fingerprinter's `new_uuid()` for the
-  row's `uuid`; Archivist's `transaction()` for anything that takes more than one step; and the login,
-  which already reads `password_hash` by `account_username` and stamps `last_login_datetime`
-  (`tcp.rs`).  The one account today is `throwaway_01`, inserted by hand.  TODO.md has "Accounts: making
-  one" and the web admin's game account management (make, delete, list, finger, change password).  Open
-  until the session asks: who makes an account (a player over the protocol, which is a new packet and
-  protocol version 3, or the admin from the web admin, or both), and what each needs from the other.
-- **This session's code**: everything built clean and 199 tests passed on `testing`; its hand checks are
-  in the list above.
-- **Moving `main` up to `testing`**, when Jacob says: the one line is `git checkout main && git pull &&
-  git merge --ff-only testing && git push origin main`, or the session pushes it at his word.
+- **An accounts crate** (Jacob's pick at this close): a crate that holds a real structure for an
+  account, read from the database.  What's there to build on: the `accounts` table
+  (`Content/psql/defaults/schemas/accounts.sql`, frozen, so any change is a migration; `uuid` came with
+  0001), with Postgres checking the name (8 to 32 of `a-z`, `0-9`, `_`) and the email itself; Security's
+  `hash_password()` and `check_password_rules()` (8 to 128 printable ASCII, a digit, a capital, a
+  symbol); Fingerprinter's `new_uuid()`; Archivist's `transaction()` and `Pending`; and the login, which
+  today reads `password_hash` by `account_username` and stamps `last_login_datetime` straight from
+  `tcp.rs`.  Open until the session asks: the crate's name and that it's a lib; what the structure
+  holds; whether the login's two queries move into it; and who makes an account (a player over the
+  protocol, a new packet and a protocol version; the admin from the web admin; or both).  TODO.md has
+  "Accounts: making one" and the web admin's game account management.
+- **The Settings tab's check** in TEST_CHECKLIST.md (bug 1's fix, built on `main` but not looked at).
+- **The throwaway account.**  `throwaway_01` / `Throwaway 1!`, inserted by hand with an Argon2id line
+  made outside Conductor at Security's settings (64 MiB, one pass, one lane).
 - **The stale words in the code**, in TODO.md.
-- **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
-  settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`
-  with the password `Throwaway 1!`, a test row on a database that only listens on his machine.  Any
-  Argon2id line at those settings does, since the stored line carries its own settings.  The real account
-  flow (making one over the protocol) is its own session.
-- **Where the test client lives** and what it's called.  It's `Conductor/dev/conductor-networking/
-  test_client.py` for now.
 - **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  One entry
   moves in `files.rs`; `Settings` / `settings()` in `constellations.rs` and the launcher's
   `conductor_wgui::start(...)` call read it from `WGUI` instead; both committed `Content/cfg/` files
   change; the boot line "Settings from ..." and the docs follow.  Both files are hard, so nothing about
-  reboots changes.  A file that lacks the setting gets it appended with the default on the next load; the
-  stale line in `conductor_globals.cfg` would be Warned about once, so the committed file drops it.
+  reboots changes.
+- **Where the test client lives** and what it's called.  It's `Conductor/dev/conductor-networking/
+  test_client.py` for now.
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.
 - The Debug switch in `conductor_globals.cfg`.  Networking's chatter is already Debug; the launcher's
   start and stop lines and Archivist's aren't yet.

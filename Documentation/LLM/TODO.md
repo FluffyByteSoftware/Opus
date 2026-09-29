@@ -32,7 +32,8 @@ Things that wait on a piece that doesn't exist yet.
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
 - Accounts: making one.  Logging in is built (networking, 2026-09-29) and reads the `accounts` table;
-  nothing writes a row yet.  Security's `hash_password()` and Fingerprinter's `new_uuid()` are ready.  The
+  nothing writes a row yet.  Jacob's pick at the test run's close: an accounts crate holding a real
+  structure for an account from the database; STATUS.md has what's there to build on.  Security's `hash_password()` and Fingerprinter's `new_uuid()` are ready.  The
   first throwaway account was inserted by hand (STATUS.md has the how).
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
@@ -51,7 +52,7 @@ Things that wait on a piece that doesn't exist yet.
   reboot is a bother.
 - Networking: reverse DNS on macOS.  `dns/other.rs` hands back no name; macOS has `getnameinfo` with its
   own `sockaddr` layout (a length byte first).  Waits on a Mac, like the monitor.
-- Networking: the protocol version in the Hello is `2` and the client versions are a list in
+- Networking: the protocol version in the Hello is `3` and the client versions are a list in
   `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
   which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
