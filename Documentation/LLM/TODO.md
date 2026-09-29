@@ -70,10 +70,10 @@ Things that wait on a piece that doesn't exist yet.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
 - **Drop the `conductor-` from the crate folders** (Jacob, 2026-09-29: redundant now).  Its own session.
-  Folders only (`Conductor/dev/tools/`, still the crate `conductor-tools`) touches the workspace
-  `Cargo.toml`, every `path = "../conductor-..."`, the `File:` lines and the docs.  The crate names too
-  (`tools`, used as `tools::scribe`) touches every `use conductor_...` line besides.  Which one is
-  Jacob's call.
+  Jacob's pick: the folders only (`Conductor/dev/tools/`, `accounts/`, ...); every crate keeps its
+  `conductor` name, so code still says `conductor_tools::scribe`.  Touches the workspace `Cargo.toml`,
+  every `path = "../conductor-..."`, the `File:` lines, the `include_str!` paths that climb out of a
+  crate (same depth, so likely none), CLAUDE.md, PROJECT_OPUS.md and the design docs.
 - **Stale words in the code**, found the same day, for whichever session next touches each file:
   `access.rs` has a Warn the admin sees that says "the web admin's Networking tab" (the tabs are Whitelist
   and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs`, the web admin's `Cargo.toml` and a
