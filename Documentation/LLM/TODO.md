@@ -65,8 +65,9 @@ Things that wait on a piece that doesn't exist yet.
 - Web admin: game account management.  Jacob's list, 2026-09-29: create, list, delete, change an
   account's fields (the password included, typed twice), and write accounts to the database by hand;
   an account's profile is a card opened by clicking its name on the list.  `admin` only: `user` can't
-  see the list.  A password can't be touched while the server is running, so a change never waits in
-  Security's line behind a login.  Being built in its own session, 2026-09-29.  Not to be confused with
+  see the list.  Accounts are only changed while the server is running, since Security and Archivist
+  are server pieces (Jacob's redesign the same day, after first asking for passwords to be locked while
+  it runs).  Being built in its own session, 2026-09-29.  Not to be confused with
   the web admin's own two accounts, which are in `wgui.cfg` and built.
 - **Web admin: rethink the sidebar** (Jacob, 2026-09-29).  With Network Admin and now an accounts
   subsection, each with its own rule, a flat list of tabs with headings is getting cluttered: menus and
