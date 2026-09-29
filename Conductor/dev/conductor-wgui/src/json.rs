@@ -13,6 +13,7 @@
 //!
 //! ```text
 //! { "server": { "state": "stopped", "note": "...", "since": "...Z" },
+//!   "login": { "name": "admin", "can_change": true },
 //!   "monitor": { "taken_at": "...Z", "uptime_seconds": 61, "os": "...", "process_id": 4092,
 //!                "cores": 16, "measured": true, "cpu_percent": 1.25, "memory_bytes": 9437184,
 //!                "core_percents": [ 3.00, 12.50, ... ],
@@ -38,6 +39,11 @@
 //! `null` until the launcher has said anything.  While the server isn't
 //! running, `monitor` is `null` and the page shows the Control Panel and
 //! the log and nothing else.
+//!
+//! `login` is who this browser is logged in as: `user` or `admin`, and
+//! whether they can change anything (`user` can't, and the page greys
+//! every button that would).  `/Opus/login` answers with the same object
+//! on its own.
 //!
 //! Anything that couldn't be measured is `null`, and `monitor` itself is
 //! `null` for the second before its first look and while the server is
@@ -70,12 +76,35 @@
 //! `visible` is false, with no threads, when the process is gone or the OS
 //! won't let us look.  There's no percent in it: the page asks once a
 //! second and works that out from two answers.
+//!
+//! `/Opus/settings` has an answer of its own, every config file for the
+//! Settings tab, straight from Constellations' table:
+//!
+//! ```text
+//! { "files": [ { "name": "conductor_globals.cfg", "reboot": "hard",
+//!                "reboot_text": "a hard reboot (Conductor shut down and run again)",
+//!                "about": "...", "loaded": true, "waiting": false,
+//!                "settings": [ { "key": "wgui_port", "kind": "port", "low": 1, "high": 65535,
+//!                                "about": "...", "default": "9996", "running": "9996",
+//!                                "waiting": null } ] } ] }
+//! ```
+//!
+//! `kind` is text, secret, folder, port or number; `low` and `high` are
+//! the range for a port or a number and `null` for the rest.  `running`
+//! is what Conductor is running on, or, for a file that isn't `loaded`
+//! yet this run (`postgres.cfg` before the first START SERVER), what the
+//! file says, which is what the next start reads.  `waiting` on a setting
+//! is the value saved to the file's `.wait4server` and not yet applied,
+//! `null` when there's no such file; `waiting` on the file says whether
+//! there is one.  A secret goes out as it is: the page shows it (Jacob's
+//! call; nothing leaves the machine).
 
 use std::path::Path;
 
 use conductor_monitor::probe::{MachineMemory, ThreadReading};
 use conductor_monitor::{Disk, ProcessInUse, Snapshot, ThreadInUse};
 use conductor_tools::archivist::{SlowJob, Status};
+use conductor_tools::constellations::{ConfigFile, Kind, Reboot, Setting, Values};
 use conductor_tools::diskman::Status as DiskStatus;
 use conductor_tools::notices::Notice;
 use conductor_tools::scribe::RecentLine;
@@ -83,8 +112,11 @@ use conductor_tools::server::Status as ServerStatus;
 use conductor_tools::services::Service;
 use conductor_tools::threads::ThreadRecord;
 
+use crate::login::Role;
+
 /// The whole answer to `/Opus/status`.
 pub(crate) fn status(switch: &ServerStatus,
+                     role: Role,
                      snapshot: Option<&Snapshot>,
                      services: &[Service],
                      disk: &DiskStatus,
@@ -99,6 +131,7 @@ pub(crate) fn status(switch: &ServerStatus,
 
     Object::new()
         .raw("server", server(switch))
+        .raw("login", login(role))
         .raw("monitor", snapshot.map_or_else(null, monitor))
         .raw("services", array(services.iter().map(service)))
         .raw("diskman", diskman(disk))
@@ -107,6 +140,14 @@ pub(crate) fn status(switch: &ServerStatus,
             .raw("newest", array(newest_notices.iter().map(notice)))
             .done())
         .raw("log", log)
+        .done()
+}
+
+/// Who's logged in, for the status and for `/Opus/login`'s own answer.
+pub(crate) fn login(role: Role) -> String {
+    Object::new()
+        .text("name", role.name())
+        .flag("can_change", role.can_change())
         .done()
 }
 
@@ -300,6 +341,81 @@ fn line(line: &RecentLine) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// The settings
+// ---------------------------------------------------------------------------
+
+/// One config file as the Settings tab sees it: the table's entry, plus
+/// what's running and what's waiting.  `lib.rs` fills these in from
+/// Constellations.
+pub(crate) struct FileState {
+    pub(crate) file: &'static ConfigFile,
+    /// Whether `load()` has run for it this run.
+    pub(crate) loaded: bool,
+    /// Every setting's value: loaded, or from the file on disk when it
+    /// isn't loaded, or the defaults when there's no file either.
+    pub(crate) running: Values,
+    /// Every setting's value out of the `.wait4server`, if there is one.
+    pub(crate) waiting: Option<Values>,
+}
+
+/// The whole answer to `/Opus/settings`.
+pub(crate) fn settings(files: &[FileState]) -> String {
+    Object::new()
+        .raw("files", array(files.iter().map(file_state)))
+        .done()
+}
+
+fn file_state(state: &FileState) -> String {
+    let file = state.file;
+    let reboot = match file.reboot {
+        Reboot::Soft => "soft",
+        Reboot::Hard => "hard",
+    };
+    Object::new()
+        .text("name", file.name)
+        .text("reboot", reboot)
+        .text("reboot_text", file.reboot.describe())
+        .text("about", file.about)
+        .flag("loaded", state.loaded)
+        .flag("waiting", state.waiting.is_some())
+        .raw("settings", array(file.settings.iter().map(|setting| setting_state(setting, state))))
+        .done()
+}
+
+fn setting_state(setting: &Setting, state: &FileState) -> String {
+    let (kind, range) = match setting.kind {
+        Kind::Text => ("text", None),
+        Kind::Secret => ("secret", None),
+        Kind::Folder => ("folder", None),
+        Kind::Port => ("port", Some((1, u64::from(u16::MAX)))),
+        Kind::Number { low, high } => ("number", Some((low, high))),
+    };
+    let running = state.running.get(setting.key).map_or(setting.default, String::as_str);
+    let waiting = state.waiting.as_ref().and_then(|values| values.get(setting.key));
+    Object::new()
+        .text("key", setting.key)
+        .text("kind", kind)
+        .raw("low", range.map_or_else(null, |(low, _)| low.to_string()))
+        .raw("high", range.map_or_else(null, |(_, high)| high.to_string()))
+        .text("about", setting.about)
+        .text("default", setting.default)
+        .text("running", running)
+        .raw("waiting", waiting.map_or_else(null, |value| text(value)))
+        .done()
+}
+
+/// A failed save's complaints, for the page to put beside the fields:
+///
+/// ```text
+/// { "problems": [ "line 2: wgui_port is ...", ... ] }
+/// ```
+pub(crate) fn problems(problems: &[String]) -> String {
+    Object::new()
+        .raw("problems", array(problems.iter().map(|problem| text(problem))))
+        .done()
+}
+
+// ---------------------------------------------------------------------------
 // Writing JSON
 // ---------------------------------------------------------------------------
 
@@ -414,10 +530,35 @@ mod tests {
     fn before_the_first_look_the_monitor_is_null() {
         let switch = ServerStatus { state: conductor_tools::server::State::Stopped, note: "x".to_string(),
                                     since: None };
-        let answer = status(&switch, None, &[], &conductor_tools::diskman::status(), 0, &[], &[], None);
+        let answer = status(&switch, Role::User, None, &[], &conductor_tools::diskman::status(), 0, &[], &[], None);
         assert!(answer.starts_with("{\"server\":{\"state\":\"stopped\",\"note\":\"x\",\"since\":null},\
+            \"login\":{\"name\":\"user\",\"can_change\":false},\
             \"monitor\":null,\"services\":[],\"diskman\":{\"running\":false,"));
         assert!(answer.ends_with("\"notices\":{\"open\":0,\"newest\":[]},\"log\":{\"file\":null,\"lines\":[]}}"));
+    }
+
+    #[test]
+    fn a_config_file_goes_out_with_what_runs_and_what_waits() {
+        use conductor_tools::constellations::{self, GLOBALS};
+
+        let mut waiting = constellations::values(&GLOBALS);
+        waiting.insert("wgui_port", "9997".to_string());
+        let state = FileState { file: &GLOBALS, loaded: false, running: constellations::values(&GLOBALS),
+                                waiting: Some(waiting) };
+        let answer = settings(&[state]);
+        assert!(answer.starts_with("{\"files\":[{\"name\":\"conductor_globals.cfg\",\"reboot\":\"hard\",\
+            \"reboot_text\":\"a hard reboot (Conductor shut down and run again)\",\"about\":\""));
+        assert!(answer.contains("\"loaded\":false,\"waiting\":true,\"settings\":[{\"key\":\"scribe_log_dir\",\
+            \"kind\":\"folder\",\"low\":null,\"high\":null,"));
+        assert!(answer.contains("\"default\":\"logs\",\"running\":\"logs\",\"waiting\":\"logs\"}"));
+        assert!(answer.contains("{\"key\":\"wgui_port\",\"kind\":\"port\",\"low\":1,\"high\":65535,"));
+        assert!(answer.ends_with("\"default\":\"9996\",\"running\":\"9996\",\"waiting\":\"9997\"}]}]}"));
+
+        let state = FileState { file: &GLOBALS, loaded: true, running: constellations::values(&GLOBALS),
+                                waiting: None };
+        let answer = settings(&[state]);
+        assert!(answer.contains("\"loaded\":true,\"waiting\":false,"));
+        assert!(answer.ends_with("\"running\":\"9996\",\"waiting\":null}]}]}"));
     }
 
     #[test]

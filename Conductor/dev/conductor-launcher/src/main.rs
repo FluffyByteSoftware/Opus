@@ -55,11 +55,15 @@ fn main() {
     constellations::load(&constellations::GLOBALS);
     scribe::move_to(&constellations::log_dir());
 
+    // The web admin's own file: its two accounts.  Hard, like globals, so
+    // it's read here and never again.
+    constellations::load(&constellations::WGUI);
+
     scribe::info(Channel::System, "Conductor is starting.");
     scribe::info(Channel::System, &format!("Content folder: {}", constellations::content_dir().display()));
     scribe::info(Channel::System, &format!("Settings from {}", constellations::config_path().display()));
-    scribe::info(Channel::System, "A changed conductor_globals.cfg needs Conductor run again; a changed \
-        postgres.cfg needs STOP SERVER and START SERVER.");
+    scribe::info(Channel::System, "A changed conductor_globals.cfg or wgui.cfg needs Conductor run again; a \
+        changed postgres.cfg needs STOP SERVER and START SERVER.");
 
     server::set(State::Stopped, "Not started yet.  START SERVER on the Control Panel starts it.");
 

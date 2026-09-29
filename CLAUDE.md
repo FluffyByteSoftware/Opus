@@ -62,7 +62,7 @@ Opus/
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/ and logs/
 │   ├── Assets/            # purchased art -- never committed
-│   ├── cfg/               # config files (conductor_globals.cfg, postgres.cfg)
+│   ├── cfg/               # config files (conductor_globals.cfg, wgui.cfg, postgres.cfg)
 │   ├── logs/              # log files -- never committed
 │   └── psql/
 │       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
@@ -271,8 +271,9 @@ When I say we're wrapping up:
   files, and files are kept separate rather than one file with sections.
   Soft (`postgres.cfg`) is read on every START SERVER, so STOP SERVER and
   START SERVER applies a change.  Hard (`conductor_globals.cfg`: anything
-  about Constellations, Scribe or the web admin) is read at boot, so
-  Conductor is shut down and run again.  Nothing hot swaps.  Jacob's
+  about Constellations, Scribe or the web admin's port; `wgui.cfg`: the web
+  admin's accounts) is read at boot, so Conductor is shut down and run
+  again.  Nothing hot swaps.  Jacob's
   rules, 2026-09-29.  Adding a setting is one entry in the table and a
   line wherever it's read (`constellations::value()` and friends); a piece
   never reads a config file itself.  A change from the web admin goes to
@@ -332,17 +333,33 @@ When I say we're wrapping up:
   is added, make sure the CSS for it exists.
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
-- The page is seven tabs down the left sidebar, under the OP logo: Control
-  Panel, System, Conductor, Services, Storage, Notifications History, Log.
-  Anything new goes on one of them, or is a new tab I agree to.
-- The Control Panel and the Log are always clickable. Until the server is
-  running they're the only tabs that are, and the bell is hidden. The Control
-  Panel is the only place the server is started, restarted and stopped, and
-  the only place SHUT DOWN is; the header has no buttons but the bell.
+- The page is eight tabs down the left sidebar, under the OP logo: Control
+  Panel, System, Conductor, Services, Storage, Notifications History, Log,
+  Settings. Anything new goes on one of them, or is a new tab I agree to.
+- The Control Panel, the Log and the Settings are always clickable. Until
+  the server is running they're the only tabs that are, and the bell is
+  hidden. The Control Panel is the only place the server is started,
+  restarted and stopped, and the only place SHUT DOWN is; the header has no
+  buttons but the bell. LOG OUT is at the bottom of the sidebar.
 - While the server is running and the database isn't connected, the data
   tabs are blurred and locked. Anything new on the page sits under that lock;
-  only the header (the bell and its tray included), the Control Panel and the
-  Log stay above it.
+  only the header (the bell and its tray included), the Control Panel, the
+  Log and the Settings stay above it.
+- **The page has a login** (2026-09-29). Two accounts, fixed: `user` looks
+  and touches nothing, `admin` does everything. Their passwords are the two
+  settings in `wgui.cfg`, as they are, not hashed (Security only runs with
+  the server, and a login has to work before START SERVER). A login card
+  covers the page until you're in; every start of Conductor starts logged
+  out, and a page reload doesn't. Every route but the page and
+  `/Opus/login` needs the login's cookie (401 without), and every route
+  that changes something needs `admin` (403 to `user`): a new route that
+  changes anything goes behind `only_admin()` in `lib.rs`, and the page
+  greys its button for `user` in `lockChanges()`. `login.rs` holds it.
+- **The Settings tab is the config editor**, drawn from Constellations'
+  table through `/Opus/settings`, with `/Opus/wwwhook/settings/save` and
+  `/discard` behind it. A new config file or setting shows up there with
+  no page work. A save goes to `.wait4server` and takes at the file's
+  reboot; the tab never hot swaps anything.
 - When talking about the page, name the panel or tab ("the Log tab"), not the
   tool behind it. "Where does Scribe go?" read as moving the crate.
 - [FILL IN the tick rate once there is a game loop]

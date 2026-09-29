@@ -16,16 +16,17 @@ and stop the server and to shut Conductor down.  `conductor-launcher` (bin) boot
 the Control Panel.  Ensemble hasn't been started.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
-is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the monitor, and
+is up from the moment the launcher runs.  The web admin has a login: `admin` / `admin` does everything,
+`user` / `user` looks, both passwords in `wgui.cfg`.  The server (Fingerprinter, Security, Archivist, the monitor, and
 whatever comes later) only starts when START SERVER is pressed on the web admin's Control Panel, and STOP
 SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests (the session
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
-says.  He said so at the end of this session, so `main`, `testing` and `unstable` all sit on the same
-commit: the Constellations rebuild and everything before it.
+says.  `main` sits on the Constellations rebuild; `unstable` and `testing` carry this session on top.
 
-**Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `4a34aa3`.  `cargo build` clean
+**Last built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `4a34aa3`, before the
+login and the Settings tab; those are written and not yet built.  `cargo build` clean
 (the first test build failed on four lines in DiskMan's new tests, `status()` called on the test's own
 DiskMan instead of through its lock; fixed).  `cargo test` passed 119 tests (15 monitor, 88 tools with the
 benchmark ignored, 16 web admin), and a run did START SERVER, STOP SERVER and SHUT DOWN from the Control
@@ -33,70 +34,64 @@ Panel: `conductor_globals.cfg` loaded at boot and `postgres.cfg` at START SERVER
 Constellations, Archivist connected, shutdown clean.  The `.wait4server` swap ran only in the tests so
 far; nothing on the page writes one yet.  The Windows code has never been built.
 
-## Last session -- 2026-09-29 (the third that day)
+## Last session -- 2026-09-29 (the fourth that day)
 
-The config overhaul, tools side: Constellations rebuilt as the one owner of every config file, and DiskMan
-taught to swap a file in at the right moment.  This is the ground the web admin's config editor stands on;
-the routes and the Settings tab are the next piece and are laid out in TODO.md.
+Two pieces of the web admin, in this order at Jacob's say: **a login**, then **the config editor's web
+admin half**.  Written and checked in a headless browser against a stand-in for the routes with made-up
+numbers; **not built or run**, since that's Jacob's.
 
 What we did:
 
-- **`constellations/files.rs`**: the table.  Every config file (`GLOBALS` is `conductor_globals.cfg`,
-  `POSTGRES` is `postgres.cfg`) with its reboot, its channel, its comment and every setting: key, kind
-  (text, secret, folder, port, number with a range), default, comment.  `FILES` lists them.  Adding a
-  setting is one entry here.
-- **`constellations/text.rs`**: the one reader and writer, driven by the table.  `parse()` hands back the
-  good values, the complaints (never echoing a secret, never echoing a line that isn't `key = value`) and
-  the keys seen; `file_text()` writes a whole file with the reboot rule in its header; `missing_text()`
-  is what gets appended to a file that lacks a setting.  The tests from both old readers moved here and
-  run over every file in the table.
-- **`constellations.rs`**: the store.  A lock, not a `OnceLock`.  `load(file)` reads a file (writes it
-  with the defaults if it's missing, appends missing settings, Warns for bad lines), and first swaps in a
-  leftover `.wait4server` if one is there.  `value()`, `number()`, `port()`, `folder()`, `values()`; an
-  unloaded file reads as its defaults.  `save_waiting(file, text)` checks every line and writes
-  `name.cfg.wait4server` beside the live file, then asks DiskMan to swap it in at the file's reboot;
-  `waiting()` reads it back, `discard_waiting()` removes it.  `server_stopped()` is the launcher's call
-  once the server pieces are down.
-- **DiskMan** holds the swap list (Jacob's design): `swap(original, replacement, when)` with `when` now,
-  at the server's stop, or at shutdown; `run_swaps(ServerStop)` for the launcher, with a `Pending` that
-  answers once every due swap is done; the shutdown ones run as DiskMan's last act, and anything still in
-  the list runs then too.  A swap only runs when both files are quiet, and drops what was held for them.
-  `forget_swap()` and `remove()` for a discard.  Three tests for the worker, two for the cache.
-- **Archivist's `settings.rs`** is now only the typed view: `DbSettings::from_constellations()` after
-  `constellations::load(&POSTGRES)`.  Its reader, writer and tests went to Constellations.
-- **The launcher** loads `GLOBALS` at boot and calls `constellations::server_stopped()` at the end of
-  `stop_server()`.  A boot line says which file needs which reboot.
-- **The committed `Content/cfg/` files** were rewritten in the new header layout (the reboot rule is in
-  each one's comment).  `password = newpass` kept.  `Content/cfg/*.wait4server` is ignored by git.
-- CLAUDE.md: the `unstable` rule at line 1, questions at the bottom of the reply under a loud header, and
-  the config file rules.
+- **`wgui.cfg`**, a new hard config file in Constellations' table (`WGUI` in `files.rs`), the web admin's
+  own: `user_password` (`user`) and `admin_password` (`admin`), both `Text` so neither can be empty.  The
+  launcher loads it at boot right after globals.  The committed `Content/cfg/wgui.cfg` is in the same
+  layout as the other two.  `constellations::file_named(name)` finds a file by name for the routes, and
+  `file_values(file)` reads one as it sits on disk, for a file not loaded yet this run.
+- **`conductor-wgui/src/login.rs`**, new: the two accounts, `Role` (`User` looks, `Admin` acts), `log_in()`
+  checking the name and password against `wgui.cfg` and handing back a random token from Fingerprinter's
+  `new_token()` (works with the server stopped), the live tokens in a list in memory, `role_of(request)`
+  from the cookie, `log_out()`, the `Set-Cookie` lines (`HttpOnly; SameSite=Strict; Path=/Opus`, 30 days
+  on the browser's side).  The passwords are plain, not hashed: Security only runs with the server.
+- **`http.rs`** reads a body now, exactly `Content-Length` bytes, capped at 16 KB, with a loopback test.
+- **`lib.rs`**: `POST /Opus/login` and `/Opus/logout` (`X-Opus: login`); everything but `/`, the page and
+  the login needs the cookie and answers 401 without it; every route that changes something goes through
+  `only_admin()` and answers 403 to `user`.  `GET /Opus/settings`, `POST /Opus/wwwhook/settings/save?file=`
+  and `/discard?file=` (`X-Opus: settings`, admin only).  A save hands the body straight to
+  `constellations::save_waiting()`; a bad line is a 400 with the complaints as JSON, a disk failure a 500
+  the same way, and nothing is written either time.
+- **`json.rs`**: `login` in the status (`name`, `can_change`), `settings()` (every file: reboot, comment,
+  loaded, waiting; every setting: key, kind with its range, comment, default, running, waiting), and
+  `problems()`.  The shapes are at the top of the file.
+- **`page.html`**: a login card over the whole page on every 401 (the status loop stops until a login
+  starts it again); who's logged in and LOG OUT at the bottom of the sidebar; every changing button greyed
+  for `user`.  The **Settings** tab, eighth after Log, always clickable and outside the database lock: one
+  card per file, a field per setting, SAVE and DISCARD, a WAITING tag and "running on" lines after a
+  save, a complaint under the field it names after a failed one.
+- Tests: 4 in `login.rs`, 2 loopback ones in `http.rs`, the route tests reworked to log in first plus
+  new ones for the login, `user` being turned away, and the settings routes; 1 for the settings JSON; 1
+  for `file_named()`.  Not run yet.
+- Docs: the web admin and tools design docs, TODO, PROJECT_OPUS, README, and CLAUDE.md (the login rule,
+  eight tabs, `wgui.cfg`).
 
 What Jacob decided:
 
-- Every session pushes to `unstable`, never a session branch.  Said again, at line 1 of CLAUDE.md now.
-- A change from the page goes to `name.cfg.wait4server`, and DiskMan holds the list and swaps the file in
-  when the thing that reads it goes down.  The live file always says what's running.
-- Anything about Constellations or Scribe in `conductor_globals.cfg` is a hard reboot.  `scribe_log_dir`
-  was going to hot swap; it's hard now.  Files stay separate, as many as it takes.
-- The password can show on the page: Postgres is local and not reachable outside the machine.
-- A Settings tab, and save / discard routes under `/Opus/wwwhook/settings/`, are agreed to.
+- Login first, then the editor.  The Settings tab goes after Log.
+- The accounts live in `wgui.cfg`, the web admin's own file, not split into files of their own.
+- `user` is read only; `admin` can edit config files (and everything else).
+- A card over the full page until you log in; a login every time Conductor is started; one that survives
+  reloading the page.
 
-- No `cfg_dir`, ever: the config folder is `Content/cfg/`, fixed relative to Opus.
-
-## The session before -- 2026-09-29, the Control Panel
-
-The server's switch (`server.rs`), the launcher's `start_server()` / `stop_server()`, the three
-`/Opus/wwwhook/` routes and the Control Panel tab.  Built, tested and run from `testing`.  The details
-are in the web admin and launcher design docs.
+`wgui_port` stayed in `conductor_globals.cfg`; only the passwords went in `wgui.cfg`.  Say if it should
+move.
 
 ## What's waiting
 
-- **The config editor's web admin half**, Jacob's pick for the next conversation: the settings route, the
-  save and discard routes under `/Opus/wwwhook/settings/`, and the Settings tab.  Laid out under the
-  config editor item in TODO.md, and the tools side it calls (`save_waiting()`, `waiting()`,
-  `discard_waiting()`) is built and tested.  The first real `.wait4server` swap happens when that's
-  built; the log line to look for is "found ... and swapped it in" (a leftover at load) or nothing at all
-  (DiskMan swaps quietly on the way down and the next load reads the new file).
+- **Building and running this session's work**: `cargo build`, `cargo test`, then a run: log in as
+  `user` and see the buttons greyed, as `admin` and start the server, then the Settings tab: save a bad
+  port and see the complaint under the field, save a good one and see the WAITING tag, SHUT DOWN and look
+  at `Content/cfg/conductor_globals.cfg` for the new value (the first real `.wait4server` swap).  For
+  `postgres.cfg`, STOP SERVER is the swap.  The log line for a leftover at load is "found ... and swapped
+  it in"; the ordinary swap is quiet.
 - On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` and `testing_/charming-euler-jlyos7`.
   Jacob said he'd do it.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to

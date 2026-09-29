@@ -17,8 +17,10 @@ Things that wait on a piece that doesn't exist yet.
   Asked on 2026-09-28, not answered yet.
 - Monitor on macOS: `proc_pidinfo` / `proc_pid_rusage` from libproc for memory, CPU, disk and per-thread
   times.  Waits on a Mac to test it on.  Today macOS builds and runs and the page says "not measured".
-- Web admin: a login.  Anything on this machine can reach it today.  Security can hash the password now;
-  it matters most once the page has buttons that change things.
+- Web admin: hash the two passwords in `wgui.cfg` through Security instead of keeping them as they are.
+  Security is a server piece and only runs between START SERVER and STOP SERVER, and a login has to work
+  before START SERVER, so this waits on Security being up from boot, or a hash on the caller's thread.
+  Jacob's call when it matters; plain text is fine while the page only listens on this machine.
 - Web admin: HTTPS, once Security brings in TLS for the game.
 - Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
@@ -36,27 +38,8 @@ Things that wait on a piece that doesn't exist yet.
   which today is Fingerprinter, Security, Archivist and the monitor.  Networking and the game loop go in
   `start_server()` and `stop_server()` in the launcher when they exist, and come up and down with the
   rest.  (Was the launcher's S.)
-- Web admin: account management (make, delete, list, finger, change password).  Waits on accounts.
-- **Web admin: the config editor**, the rest of it.  The tools side was built on 2026-09-29 (Constellations
-  rebuilt: one table of every file and setting, one reader, `save_waiting()` / `waiting()` /
-  `discard_waiting()`, and DiskMan's swap list that puts a `.wait4server` file in place when its reboot
-  comes).  What's left is the web admin's half, agreed with Jacob the same day:
-  - `GET /Opus/settings`: every file, every setting (key, kind, comment, default, running value, the
-    waiting value if there is one, and the file's reboot).  The password goes out as it is: Postgres only
-    listens on this machine (Jacob's call).
-  - `POST /Opus/wwwhook/settings/save?file=<name>` with the `X-Opus` header, the body being `key = value`
-    lines in the file's own format, so the same reader checks it and no JSON reader is needed.  A bad line
-    means nothing is written and the complaints come back for the page to show beside the fields.
-    `http.rs` has to learn to read a body (`Content-Length`).
-  - `POST /Opus/wwwhook/settings/discard?file=<name>`, the same way.
-  - A **Settings** tab, reachable while the server is stopped and under the database lock like the Control
-    Panel and the Log.  One card per file: the reboot it needs in plain words, a field per setting with its
-    comment, SAVE and DISCARD, and "waiting on a soft / hard reboot" beside anything saved and not yet
-    applied.  No hot swapping: nothing changes until the reboot.
-  - The JSON shape at the top of `json.rs`, and the design docs.
-  - Once there is a login, only an admin can change them.
-  - No `cfg_dir` setting, ever: the config folder is `Content/cfg/`, fixed relative to Opus.  Jacob's
-    call, 2026-09-29.
+- Web admin: game account management (make, delete, list, finger, change password).  Waits on accounts.
+  Not to be confused with the web admin's own two accounts, which are in `wgui.cfg` and built.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
   on shutdown: Ctrl-C loses whatever it hasn't written yet.  Catching it on both Linux and Windows without a crate means a
   signal handler on one and a console handler on the other.
@@ -78,7 +61,7 @@ Things we thought of along the way.  None of them are promised.
 - Scribe: the caller shows the path Rust compiled with (`conductor-launcher/src/main.rs`).  Trim to the file
   name if that gets noisy.
 - Constellations: the Storage tab could show `swaps_waiting` from DiskMan's status (it's in the struct,
-  not in the JSON yet), once the Settings tab exists to explain it.
+  not in the JSON yet).  The Settings tab is there now to explain it.
 - Archivist: a password that starts or ends with a space loses the space, because every value is trimmed.
   Quotes around the value would fix it, if it ever matters.
 - Archivist: more than one worker, if one ever can't keep up.  Tried and taken out on 2026-09-28: with two,
@@ -101,8 +84,14 @@ Things we thought of along the way.  None of them are promised.
 - Web admin: keep the CPU and memory history on the server, so a page opened late still sees the last few
   minutes.
 - Web admin: a Debug on / off switch for the Log tab, once Scribe has its Debug switch.
-- Web admin: saved page layouts, per user, once the web admin has users.  Jacob's long-term idea from the
-  docking talk on 2026-09-28.  Today the only thing remembered is the last tab, in the browser.
+- Web admin: saved page layouts, per account.  Jacob's long-term idea from the docking talk on
+  2026-09-28.  The web admin has two accounts now (`user` and `admin`); today the only thing remembered is
+  the last tab, in the browser.
+- Web admin: a login that times out when idle.  Today one lasts until LOG OUT or Conductor shutting
+  down.  Jacob didn't ask for a timeout on 2026-09-29.
+- Web admin: more accounts than `user` and `admin`, with names of their own.  Two fixed ones were
+  Jacob's ask for now.
+- Web admin: the Settings tab could offer the default beside a field, and a "back to default" click.
 - Web admin: pin Conductor to the top of the System tab's process list, if busiest-first buries it.
 - Web admin: a setting in `conductor_globals.cfg` that starts the server on its own when Conductor boots,
   for a machine nobody sits at.  Today it always waits on START SERVER.

@@ -67,9 +67,10 @@ Opus/
 │       │   ├── Cargo.toml             # depends on conductor-tools and conductor-monitor
 │       │   └── src/
 │       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
-│       │       ├── http.rs            # just enough HTTP
-│       │       ├── json.rs            # the status answer, written by hand
-│       │       └── page.html          # the page, baked in: the Control Panel and six tabs, the bell, the locks
+│       │       ├── http.rs            # just enough HTTP: the head, then the body Content-Length says
+│       │       ├── login.rs           # the two accounts (user, admin) and the live logins, by cookie
+│       │       ├── json.rs            # the status, login, settings and problems answers, written by hand
+│       │       └── page.html          # the page, baked in: the login card, the Control Panel and seven tabs, the bell, the locks
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml
 │           └── src/
@@ -78,6 +79,7 @@ Opus/
 ├── Content/                           # committed, except Assets/ and logs/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
+│   ├── cfg/wgui.cfg                   # the web admin's two accounts: user's and admin's passwords (hard)
 │   ├── cfg/postgres.cfg               # where Postgres is, the login, the time limit, the slow-job limit (soft)
 │   ├── cfg/*.wait4server              # a change saved from the web admin, waiting for its reboot -- never committed
 │   ├── logs/YYYY_MM_DD.scribe.log     # one log file per UTC day -- never committed

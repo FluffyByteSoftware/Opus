@@ -29,15 +29,19 @@ cargo run -p conductor-launcher
 ```
 
 That starts Conductor.  The console shows the log as it's written and takes no input.  Everything else is
-done from the web admin at <http://127.0.0.1:9996/Opus>, in a browser on the same machine.  It opens on
-the Control Panel, where START SERVER brings the server up (the database connection and the monitor, and
-the game once there is one), STOP SERVER takes it back down, and SHUT DOWN closes Conductor.  Until the
-server is running, the only other tab that works is the log.  Once it is, there's a tab each for the
-machine and every process on it, Conductor's own CPU, memory, disk and threads, its services, the database
-and the disk manager, the open notifications, and the log.  Every warning and error lands on a bell in the
-corner and stays there until somebody acknowledges it.  While the database is offline, the page shows that
-and nothing else, since the game can't run without it.  It only listens on 127.0.0.1, so it can't be
-reached from anywhere else.  The port is `wgui_port` in `conductor_globals.cfg`.
+done from the web admin at <http://127.0.0.1:9996/Opus>, in a browser on the same machine.  It asks for
+a login first: `admin` (password `admin`) can do everything, `user` (password `user`) can look and change
+nothing, and both passwords are in `Content/cfg/wgui.cfg`.  It opens on the Control Panel, where START
+SERVER brings the server up (the database connection and the monitor, and the game once there is one),
+STOP SERVER takes it back down, and SHUT DOWN closes Conductor.  Until the server is running, the only
+other tabs that work are the log and the settings.  Once it is, there's a tab each for the machine and
+every process on it, Conductor's own CPU, memory, disk and threads, its services, the database and the
+disk manager, the open notifications, the log, and the settings, where every config file can be changed
+from the page and the change takes at the next restart of whatever reads it.  Every warning and error
+lands on a bell in the corner and stays there until somebody acknowledges it.  While the database is
+offline, the page shows that and nothing else, since the game can't run without it.  It only listens on
+127.0.0.1, so it can't be reached from anywhere else.  The port is `wgui_port` in
+`conductor_globals.cfg`.
 
 Conductor runs on Linux (Nobara and Fedora are what it's built on) and Windows.  macOS builds and runs, but
 the web admin can't measure CPU, memory or disk there yet.
@@ -56,6 +60,8 @@ OPUS_CONTENT=/path/to/Opus/Content cargo run -p conductor-launcher
 
 - `Content/cfg/conductor_globals.cfg` -- the program's settings (the log folder, the web admin's port).  Read
   once at boot, so a change means running Conductor again.
+- `Content/cfg/wgui.cfg` -- the web admin's two accounts, `user` and `admin`, and their passwords.  Read
+  once at boot too.
 - `Content/cfg/postgres.cfg` -- where Postgres is and how to log in.  Read every time the server starts, so a
   change means STOP SERVER and START SERVER on the web admin's Control Panel.
 - `Content/psql/` -- the tables as first made, and the numbered changes to them since.

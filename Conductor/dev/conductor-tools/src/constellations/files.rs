@@ -122,6 +122,43 @@ pub static GLOBALS: ConfigFile = ConfigFile {
     ],
 };
 
+/// `Content/cfg/wgui.cfg`: the web admin's own settings, which today are
+/// its two accounts.  The web admin reads it at boot, so it's hard.
+///
+/// The accounts are fixed: `user` can look at every tab and change
+/// nothing, `admin` can do everything.  Only their passwords are
+/// settings.  They're kept as they are, not hashed: Security only runs
+/// while the server does, and the login has to work before START SERVER.
+/// Fine while the page is only reachable from this machine, the same
+/// call as the Postgres password.  Jacob's design, 2026-09-29.
+pub static WGUI: ConfigFile = ConfigFile {
+    name: "wgui.cfg",
+    reboot: Reboot::Hard,
+    channel: Channel::System,
+    about: "The web admin's settings: the passwords of its two accounts.  One\n\
+            \"key = value\" a line, and \"#\" starts a comment.  The accounts are\n\
+            \"user\", who can look at everything and change nothing, and \"admin\", who\n\
+            can do everything.  The passwords are kept as they are, which is fine\n\
+            as long as the web admin only listens on this machine, which it does.",
+    settings: &[
+        Setting {
+            key: "user_password",
+            kind: Kind::Text,
+            default: "user",
+            about: "The password for \"user\", the account that can look and not touch.\n\
+                    It can't be empty.",
+        },
+        Setting {
+            key: "admin_password",
+            kind: Kind::Text,
+            default: "admin",
+            about: "The password for \"admin\", the account that can start and stop the\n\
+                    server, ACK notices, change settings and shut Conductor down.  It\n\
+                    can't be empty.",
+        },
+    ],
+};
+
 /// `Content/cfg/postgres.cfg`: where Archivist finds Postgres and how it
 /// runs.  Archivist reads it on every START SERVER, so it's soft.
 pub static POSTGRES: ConfigFile = ConfigFile {
@@ -180,7 +217,7 @@ pub static POSTGRES: ConfigFile = ConfigFile {
 
 /// Every config file, in the order the page lists them.  A new file goes
 /// here and nowhere else.
-pub static FILES: [&ConfigFile; 2] = [&GLOBALS, &POSTGRES];
+pub static FILES: [&ConfigFile; 3] = [&GLOBALS, &WGUI, &POSTGRES];
 
 #[cfg(test)]
 mod tests {

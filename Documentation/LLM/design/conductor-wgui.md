@@ -17,11 +17,15 @@ accents, a terminal box), redone in plain CSS.
 conductor-wgui/
 ├── Cargo.toml         depends on conductor-tools and conductor-monitor, nothing else
 └── src/
-    ├── lib.rs         start(port) -> bool, has_ended(); the thread, route(), server_command(), host_is_ours()
-    ├── http.rs        read_request(), parse_head(), respond(); struct Request
-    ├── json.rs        status(switch, snapshot, services, disk, open_notices, newest_notices, lines, log_file),
-    │                    notices(open), threads_of(pid, threads) -> String;
-    │                    a small Object builder, text() escaping
+    ├── lib.rs         start(port) -> bool, has_ended(); the thread, route(), log_in(), only_admin(),
+    │                    server_command(), settings_states(), settings_save(), settings_discard(), host_is_ours()
+    ├── http.rs        read_request() (head, then the body Content-Length says), parse_head(), respond();
+    │                    struct Request
+    ├── login.rs       the two accounts and the live logins: log_in(), role_of(), log_out(), the cookie lines,
+    │                    fields(); enum Role, enum Login
+    ├── json.rs        status(switch, role, snapshot, services, disk, open_notices, newest_notices, lines, log_file),
+    │                    login(role), notices(open), threads_of(pid, threads), settings(files), problems(list)
+    │                    -> String; a small Object builder, text() escaping
     └── page.html      the one page, baked in with include_str!
 ```
 
@@ -31,7 +35,9 @@ conductor-wgui/
 |--------|------------------------|---------------------------------------------------------------------|
 | GET    | `/`                    | Sends the browser to `/Opus`                                        |
 | GET    | `/Opus`                | The page                                                            |
-| GET    | `/Opus/status?after=N` | The server's switch, the monitor's look, the services, DiskMan, the notices, the log |
+| POST   | `/Opus/login`          | `name = ...` and `password = ...` lines in the body.  Needs `X-Opus: login`.  A good one sets the cookie; a wrong one is a 403 that doesn't say which half |
+| POST   | `/Opus/logout`         | Forgets the cookie's login.  Needs `X-Opus: login`                  |
+| GET    | `/Opus/status?after=N` | The server's switch, who's logged in, the monitor's look, the services, DiskMan, the notices, the log |
 | GET    | `/Opus/threads?pid=N`  | One process's threads, for the System tab.  Reads only.             |
 | GET    | `/Opus/notices`        | Every open notice, for the Notifications History tab.  Reads only.  |
 | POST   | `/Opus/notices/ack?id=N` | Clears one notice.  Needs `X-Opus: ack`                           |
@@ -40,9 +46,16 @@ conductor-wgui/
 | POST   | `/Opus/wwwhook/start`   | Asks the launcher to start the server.  Needs `X-Opus: server`.  409 if it isn't stopped |
 | POST   | `/Opus/wwwhook/stop`    | Asks the launcher to stop it.  Needs `X-Opus: server`.  409 if it isn't running |
 | POST   | `/Opus/wwwhook/restart` | Stop, then start.  Needs `X-Opus: server`.  409 if it isn't running |
+| GET    | `/Opus/settings`       | Every config file and setting: kind, comment, default, running value, waiting value.  Reads only |
+| POST   | `/Opus/wwwhook/settings/save?file=<name>` | SAVE on the Settings tab.  `key = value` lines in the body.  Needs `X-Opus: settings`.  400 with the complaints as JSON if a line is wrong, and nothing written; 500 the same way if the disk says no |
+| POST   | `/Opus/wwwhook/settings/discard?file=<name>` | DISCARD: throws the file's `.wait4server` away.  Needs `X-Opus: settings` |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
-The JSON shapes are written out at the top of `json.rs`.  The page's script is the other half of them.
+Everything but `/`, the page and `/Opus/login` needs the login cookie, and answers `401 Unauthorized`
+without it; the page shows its login card on any 401.  Every route that changes something (the ACKs, the
+test notice, the server buttons, the settings, SHUT DOWN) needs `admin`, and answers `403 Forbidden` to
+`user`.  The JSON shapes are written out at the top of `json.rs`.  The page's script is the other half of
+them.
 
 ## What we decided
 
@@ -101,15 +114,51 @@ The JSON shapes are written out at the top of `json.rs`.  The page's script is t
   from the first web admin session; Jacob had it go once the Control Panel had one.
 - **The bell is hidden while the server isn't running.**  Notices raised anyway (a config complaint at boot,
   say) are still there once it is, and in the log meanwhile.
+- **The login** (2026-09-29).  Two accounts, fixed: `user`, who can open every tab and change nothing, and
+  `admin`, who can do everything.  Their passwords are the two settings in `wgui.cfg`, Constellations'
+  and hard, read at boot; the defaults are `user` and `admin`.  Jacob's calls: the web admin gets its own
+  file rather than the accounts going in `conductor_globals.cfg` or a file of their own; `user` is read
+  only and `admin` edits config files; a card over the whole page until you're in; a login every time
+  Conductor is started, and one that survives reloading the page.  The passwords are kept as they are,
+  not hashed: Security is a server piece and only runs between START SERVER and STOP SERVER, and the
+  login has to work before START SERVER.  Fine while the page only listens on this machine, the same call
+  as the Postgres password.  A login is a random token from Fingerprinter's `new_token()` (it goes
+  straight to the OS, so it works with the server stopped) in an `HttpOnly; SameSite=Strict` cookie, kept
+  in `login.rs`'s list in memory, so Conductor shutting down forgets every login and a page reload
+  doesn't.  The cookie lasts 30 days on the browser's side, so closing the browser doesn't log you out
+  either while Conductor runs.  No idle timeout.  A wrong login says "Wrong name or password" whichever
+  half was wrong, and is an Info line in the log, not a Warn: a typo on a local page isn't a notice.  LOG
+  OUT sits at the bottom of the sidebar with who's logged in; the header still has no buttons but the
+  bell.  For `user`, every button that changes something is greyed, and Conductor turns the ask away
+  anyway.
+- **The Settings tab** (2026-09-29), the config editor's web admin half.  Eighth in the sidebar, after
+  Log (Jacob's pick), and always clickable like the Control Panel and the Log: it sits outside the
+  blurred content, so a setting can be changed while the server is stopped or the database is offline.
+  One card per file from Constellations' table, drawn from `/Opus/settings` when the tab opens and after
+  every SAVE or DISCARD, never once a second, so nothing redraws under somebody's typing.  A card says
+  what the file is for and which reboot it needs, in plain words, then a field per setting with the
+  key, its kind in words (a port 1 to 65535, a number with its range, a folder, text, a secret), and the
+  comment under it.  A file that hasn't been loaded this run (`postgres.cfg` before the first START
+  SERVER) shows the values in the file and says so.  The password shows as it is (Jacob's call).  SAVE
+  sends every field as `key = value` lines in the file's order, so Constellations' "line 3" complaint
+  lands beside the third field, and DISCARD (asks first) throws the waiting file away.  After a save the
+  card carries a yellow WAITING ON A HARD (or SOFT) REBOOT tag, each changed field says what's running
+  under it, and nothing changes until that reboot.  The page needed a body reader in `http.rs` for it,
+  which the login uses too.
 
 ## The page
 
-**Sidebar**: the OP logo, and seven tabs under it: Control Panel, System, Conductor, Services, Storage,
-Notifications History, Log.  The Control Panel shows whenever the server isn't running; once it is, the
-page moves to the tab the browser remembers, Conductor by default.  A locked tab is greyed and can't be
-clicked: with the server stopped that's everything but the Control Panel and the Log, and with it running
-the database lock decides.  The Services tab gets a flashing red dot when a service is down, only while the
-server is running (its pieces being down is the normal state before that).
+**The login card**: covers the whole page until Conductor says who's logged in.  Name, password, LOG IN,
+and what went wrong under them.  It's up on every 401: the first load, after LOG OUT, and after Conductor
+has been run again.  The status loop stops while it's up and a login starts it again.
+
+**Sidebar**: the OP logo, and eight tabs under it: Control Panel, System, Conductor, Services, Storage,
+Notifications History, Log, Settings.  The Control Panel shows whenever the server isn't running; once it
+is, the page moves to the tab the browser remembers, Conductor by default.  A locked tab is greyed and
+can't be clicked: with the server stopped that's everything but the Control Panel, the Log and the
+Settings, and with it running the database lock decides.  The Services tab gets a flashing red dot when a
+service is down, only while the server is running (its pieces being down is the normal state before
+that).  At the bottom: who's logged in, whether they can change things, and LOG OUT.
 
 **Header, on every tab**: the name; a status line (NOMINAL, or what's wrong: `DATABASE NOT CONNECTED`,
 `2 SERVICES DOWN`, or `SERVER STOPPED` while it is); a pill (DB ONLINE green, DB CONNECTING grey, DB OFFLINE
@@ -130,7 +179,8 @@ and an ACK button, and ACK ALL at the top (asks first).  Each card fades after 3
 stays open until it's ACKed.  Click the bell again to close the tray.
 
 **The database lock**: anything but DB ONLINE blurs and greys the data tabs under the header and locks
-their sidebar buttons (the keyboard too, with `inert`); the Control Panel and the Log stay clickable.  A card over it says "CONNECTING TO THE
+their sidebar buttons (the keyboard too, with `inert`); the Control Panel, the Log and the Settings stay
+clickable.  A card over it says "CONNECTING TO THE
 DATABASE", or, flashing red, "DATABASE OFFLINE -- the game can't run right now", what Archivist says, and
 when the page first saw it offline.  The browser tab's title turns to "DB OFFLINE".  For the first 10
 seconds after Conductor starts it's "connecting", not offline, to give Archivist its first try.
@@ -173,6 +223,12 @@ happened, and an ACK button.  ACK ALL (asks first) and TEST NOTIFICATION at the 
 staying at the bottom unless the admin has scrolled up.  Always open: with the server stopped and under
 the database lock both, so the admin can read why something went wrong.
 
+**Settings**: one card per config file, two to a row: the file's name (with a yellow WAITING tag when a
+change is saved and not yet applied), what it's for, the reboot it needs, a field per setting with its
+kind and comment, then SAVE and DISCARD.  A complaint from a failed save shows under the field it's about;
+one that isn't about a line (the disk saying no) shows under the card.  Read only for `user`: the fields
+and buttons are greyed and a line at the top says so.  Always open, like the Log.
+
 If Conductor stops answering, the page covers itself with a note and stops asking.  After SHUT DOWN it says
 Conductor is shutting down, that the server stops first if it's running, and that the console counts down
 while DiskMan finishes.
@@ -198,9 +254,11 @@ Archivist and the monitor are the server: expected until the first START SERVER,
 
 ## What's open
 
-- No login.  Anything running on this machine can reach it.  It matters more once there are buttons that
-  change things (accounts, config).
-- Accounts and config management, from the old launcher menu's plans, go here.  The settings shown and
-  changed live are planned in TODO.md.
+- The passwords in `wgui.cfg` are plain text.  Hashing them through Security means Security up from boot,
+  or a hash on the caller's thread; a decision for another day, in TODO.md.
+- Two accounts and no more.  A list of named accounts, and a timeout on an idle login, are ideas in
+  TODO.md.
+- Game account management (make, delete, list, finger, change password), from the old launcher menu's
+  plans, goes here once there are game accounts.
 - The lock can't lift until Archivist reconnects, and Archivist only tries when a job comes in.  TODO.md.
   A STOP SERVER and a START SERVER is the way round it today.

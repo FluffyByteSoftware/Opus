@@ -308,13 +308,14 @@ What we decided:
   keys in any case, the later of two wins (TOML would have cost a crate to read a handful of lines).  Every
   file is written down once in `constellations/files.rs`: its name, its reboot, its channel, its comment,
   and every setting with a kind (text, secret, folder, port, a number with a range), a default and the
-  comment above it.  `text.rs` reads and writes any file from that table, and it's what the page will draw
-  the editor from.  Adding a setting is one entry in the table and a line wherever it's read; adding a
-  file is one entry and a `load()` where its piece starts.
+  comment above it.  `text.rs` reads and writes any file from that table, and the web admin's Settings tab
+  draws every card from it (`/Opus/settings`), so a new file or setting shows up there with no page work.
+  Adding a setting is one entry in the table and a line wherever it's read; adding a file is one entry and
+  a `load()` where its piece starts.  `file_named(name)` finds a file by its name, for the routes.
 - **Every file lives in `Content/cfg/`** and is soft or hard as a whole, never a mix.  Soft
   (`postgres.cfg`): the server pieces read it on every START SERVER, so STOP SERVER and START SERVER is
-  the reboot.  Hard (`conductor_globals.cfg`: Constellations, Scribe and the web admin): read at boot, so
-  Conductor is shut down and run again.  A piece that needs both kinds gets two files.  Jacob's rule:
+  the reboot.  Hard (`conductor_globals.cfg`: Constellations, Scribe and the web admin's port; `wgui.cfg`:
+  the web admin's accounts): read at boot, so Conductor is shut down and run again.  A piece that needs both kinds gets two files.  Jacob's rule:
   anything about Constellations or Scribe is hard, and files are kept separate rather than one file with
   sections.  `scribe_log_dir` was going to hot swap through `scribe::move_to()`; Jacob made it hard.
 - **The store is a lock, not a `OnceLock`.**  `load(file)` reads the file (writes it with the defaults if
@@ -330,7 +331,10 @@ What we decided:
   for a hard one.  Jacob's design: the live file always says what Conductor is running on, and DiskMan
   holds the list and does the swap on the way down.  `waiting(file)` reads what's waiting, for the page;
   `discard_waiting(file)` throws it away.  `server_stopped()` is the launcher's call from `stop_server()`,
-  and it waits on the soft swaps so the next START SERVER reads the new files.
+  and it waits on the soft swaps so the next START SERVER reads the new files.  `file_values(file)` reads
+  a file as it sits on disk, for the Settings tab to show one that hasn't been loaded this run
+  (`postgres.cfg` before the first START SERVER) as the file says, since that is what the next start
+  reads.
 - **A leftover `.wait4server` is applied at the next load.**  If Conductor crashed before the swap, or the
   change was saved while the server was already stopped, `load()` finds the waiting file and swaps it in
   before reading.  The admin wanted it either way.
@@ -348,12 +352,16 @@ The files today:
 | File                     | Reboot | Read by     | Settings                                                   |
 |--------------------------|--------|-------------|------------------------------------------------------------|
 | `conductor_globals.cfg`  | hard   | the launcher at boot | `scribe_log_dir` (`logs`), `wgui_port` (`9996`)   |
+| `wgui.cfg`               | hard   | the launcher at boot; the web admin's login reads the values | `user_password` (`user`), `admin_password` (`admin`), both text, neither empty |
 | `postgres.cfg`           | soft   | Archivist on START SERVER | `address`, `port`, `database`, `username`, `password` (secret), `query_time_limit_seconds` (0 to 3600, 10), `slow_job_ms` (1 to 600000, 250) |
+
+The two passwords in `wgui.cfg` are kept as they are, not hashed (Jacob, 2026-09-29): Security only runs
+while the server does, and a login has to work before START SERVER.  They're `Text`, not `Secret`, so an
+empty one is refused; a `Text` complaint says the key is empty and never echoes the value, so nothing is
+lost by it.
 
 What's open:
 
-- The routes and the Settings tab that use `save_waiting()`, `waiting()` and `discard_waiting()`.  Planned
-  in TODO.md; the tools side is built.
 - Hand edits to a live file while Conductor holds it aren't seen (DiskMan serves the copy in memory).
   Today that only matters for `postgres.cfg` between one START SERVER and the next.
 

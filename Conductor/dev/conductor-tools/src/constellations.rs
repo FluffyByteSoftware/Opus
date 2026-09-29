@@ -12,8 +12,8 @@
 //! A file is **soft** or **hard** as a whole.  A soft file
 //! (`postgres.cfg`) is read every time the server starts, so STOP SERVER
 //! and START SERVER on the Control Panel is enough to pick up a change.
-//! A hard file (`conductor_globals.cfg`) is read once at boot, so Conductor
-//! has to be shut down and run again.
+//! A hard file (`conductor_globals.cfg`, `wgui.cfg`) is read once at boot,
+//! so Conductor has to be shut down and run again.
 //!
 //! A change from the web admin never touches the live file.  It's written
 //! to `name.cfg.wait4server` beside it, and DiskMan is told to rename that
@@ -45,7 +45,7 @@ use crate::diskman::{self, DiskError, SwapAt};
 use crate::scribe::{self, Channel};
 use crate::services::{self, State};
 
-pub use files::{ConfigFile, FILES, GLOBALS, Kind, POSTGRES, Reboot, Setting};
+pub use files::{ConfigFile, FILES, GLOBALS, Kind, POSTGRES, Reboot, Setting, WGUI};
 pub use text::Values;
 
 /// Where every config file lives, under the Content folder.
@@ -201,6 +201,20 @@ pub fn values(file: &ConfigFile) -> Values {
     loaded.get(file.name).cloned().unwrap_or_else(|| text::defaults(file))
 }
 
+/// The values in `file` as it sits on disk right now, over the defaults,
+/// or `None` when it can't be read (there isn't one yet, say).  For the
+/// Settings tab, which shows a file that hasn't been loaded this run
+/// (`postgres.cfg` before the first START SERVER) as the file says, since
+/// that is what the next start reads.  Nothing is kept and nothing is
+/// complained about here; `load()` is where the file's lines get their
+/// Warns.
+pub fn file_values(file: &ConfigFile) -> Option<Values> {
+    let contents = diskman::read(&path_of(file)).wait().and_then(|bytes| diskman::as_text(&bytes)).ok()?;
+    let mut values = text::defaults(file);
+    values.extend(text::parse(file, &contents).values);
+    Some(values)
+}
+
 /// True once `load()` has run for `file`, whether or not the file was there.
 pub fn is_loaded(file: &ConfigFile) -> bool {
     let loaded = LOADED.lock()
@@ -257,6 +271,13 @@ pub fn log_dir() -> PathBuf {
 /// The Content folder that was found (or will be made) at startup.
 pub fn content_dir() -> &'static Path {
     CONTENT_DIR.get_or_init(find_content_dir)
+}
+
+/// The file called `name` (`postgres.cfg`, say), for a caller that has
+/// the name as text: the web admin, whose routes name the file in the
+/// query.  `None` for a name that isn't in the table.
+pub fn file_named(name: &str) -> Option<&'static ConfigFile> {
+    FILES.iter().copied().find(|file| file.name == name)
 }
 
 /// The full path of `file`: `Content/cfg/<name>`.
@@ -404,6 +425,8 @@ mod tests {
         assert_eq!(value(&POSTGRES, "password"), "");
         assert_eq!(value(&POSTGRES, "no such key"), "");
         assert!(!is_loaded(&POSTGRES));
+        // DiskMan isn't running in the tests, so there is no file to read.
+        assert!(file_values(&POSTGRES).is_none());
     }
 
     #[test]
@@ -412,6 +435,13 @@ mod tests {
         assert_eq!(settings.wgui_port, 9996);
         assert_eq!(settings.scribe_log_dir, PathBuf::from("logs"));
         assert!(log_dir().ends_with("logs"));
+    }
+
+    #[test]
+    fn a_file_is_found_by_its_name() {
+        assert!(std::ptr::eq(file_named("wgui.cfg").expect("it's in the table"), &WGUI));
+        assert!(file_named("nope.cfg").is_none());
+        assert!(file_named("").is_none());
     }
 
     #[test]

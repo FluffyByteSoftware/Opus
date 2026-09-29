@@ -7,16 +7,27 @@ Author:     Jacob Chacko
 The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
-of that answer is written down at the top of json.rs.  Seven tabs down the
+of that answer is written down at the top of json.rs.  Eight tabs down the
 left side: the Control Panel, System, Conductor, Services, Storage,
-Notifications History and Scribe's log.  The Control Panel is where the
-server is started and stopped, and it's all there is until the server is
-running: the other tabs are locked, bar the log, and the bell is hidden.
+Notifications History, Scribe's log and Settings.  The Control Panel is
+where the server is started and stopped, and it's all there is until the
+server is running: the other tabs are locked, bar the log and the
+settings, and the bell is hidden.
 Once the server is running the tabs open up, and while the database isn't
 connected they're locked again and the page under the header is blurred.
-The Control Panel, the Log and the bell stay above that lock, so the
-server can still be stopped and the log read to see why.  SHUT DOWN is on
-the Control Panel, with the server buttons, and nowhere else.
+The Control Panel, the Log, the Settings and the bell stay above that
+lock, so the server can still be stopped and the log read to see why.
+SHUT DOWN is on the Control Panel, with the server buttons, and nowhere
+else.  The Settings tab is the config editor: one card per file, drawn
+from /Opus/settings, with SAVE and DISCARD.  A save goes to a .wait4server
+file and takes at the file's reboot; nothing changes before then.
+
+Before any of that, a login card covers the page.  Two accounts: user,
+who can look at everything and change nothing, and admin, who can do
+everything.  Conductor answers 401 to a browser that isn't logged in, and
+the page shows the card whenever it sees one.  Every start of Conductor
+starts logged out; reloading the page doesn't.  Who's logged in, and LOG
+OUT, sit at the bottom of the sidebar.
 -->
 <html lang="en">
 <head>
@@ -329,6 +340,46 @@ the Control Panel, with the server buttons, and nowhere else.
     background: rgba(0, 0, 0, 0.75); z-index: 10;
   }
   .gone .panel { max-width: 420px; text-align: center; }
+
+  /* The login card covers the whole page, above everything, until
+     Conductor says who's logged in. */
+  .login {
+    position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+    background: var(--page); z-index: 20;
+  }
+  .login.on { display: flex; }
+  .login .panel { width: 360px; display: flex; flex-direction: column; }
+  .login .logo { margin-bottom: 16px; }
+  .login h3 { text-align: center; }
+  .login label { display: block; margin: 12px 0 4px; }
+  input.field {
+    font: inherit; font-size: 13px; width: 100%; padding: 8px 10px; border-radius: 4px;
+    border: 1px solid var(--line); background: var(--panel-dark); color: var(--ink);
+  }
+  input.field:focus { outline: none; border-color: var(--green-deep); }
+  input.field:disabled { opacity: 0.6; }
+  .login-error { min-height: 16px; margin-top: 10px; font-size: 12px; }
+  .login .controls { margin-top: 12px; }
+
+  /* The Settings tab: one card per config file, a field per setting. */
+  #settings-note { margin-bottom: 16px; }
+  #settings-note:empty { display: none; }
+  .settings-card h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .settings-card h3 .tag { margin-left: 0; }
+  .settings-reboot { margin-top: 8px; }
+  .setting { margin-top: 16px; }
+  .setting .label { margin-bottom: 4px; }
+  .setting .field { font-family: var(--mono); }
+  .setting .note, .settings-problems { margin-top: 4px; }
+  .setting .note:empty, .settings-problems:empty, .settings-said:empty { display: none; }
+  .settings-card .controls { align-items: center; }
+  .tag.warn { color: var(--yellow); background: rgba(250, 204, 21, 0.12); border-color: rgba(250, 204, 21, 0.4); }
+
+  /* Who's logged in, at the bottom of the sidebar, with LOG OUT. */
+  .who { margin-top: auto; display: flex; flex-direction: column; gap: 8px; font-size: 11px; }
+  .who[hidden] { display: none; }
+  .who .name { font-family: var(--mono); font-size: 13px; color: var(--ink); }
+  .who button { padding: 6px 10px; font-size: 11px; letter-spacing: 0.08em; align-self: flex-start; }
 </style>
 </head>
 <body>
@@ -344,7 +395,16 @@ the Control Panel, with the server buttons, and nowhere else.
     <button class="maintab" role="tab" data-tab="storage" disabled>Storage</button>
     <button class="maintab" role="tab" data-tab="notices" disabled>Notifications History</button>
     <button class="maintab" role="tab" data-tab="log" disabled>Log</button>
+    <button class="maintab" role="tab" data-tab="settings" disabled>Settings</button>
   </nav>
+  <div class="who" id="who" hidden>
+    <div>
+      <div class="label">Logged in as</div>
+      <div class="name" id="who-name"></div>
+    </div>
+    <div class="note" id="who-note"></div>
+    <button class="tab" id="log-out">LOG OUT</button>
+  </div>
 </aside>
 
 <main>
@@ -414,6 +474,11 @@ the Control Panel, with the server buttons, and nowhere else.
       </div>
       <div class="tall-body terminal" id="terminal"></div>
     </div>
+  </section>
+
+  <section class="tabpage" id="page-settings">
+    <div class="note" id="settings-note"></div>
+    <div class="grid" id="settings-files"></div>
   </section>
 
   <div class="content locked" id="content" inert>
@@ -695,6 +760,20 @@ the Control Panel, with the server buttons, and nowhere else.
   <div class="tray-head"><button class="ack" id="tray-ack-all">ACK ALL</button></div>
 </div>
 
+<div class="login on" id="login">
+  <form class="panel" id="login-form">
+    <div class="logo">OP</div>
+    <h3>Opus Conductor</h3>
+    <div class="small">Log in to the web admin.  Every start of Conductor starts logged out.</div>
+    <label class="label" for="login-name">Name</label>
+    <input class="field" id="login-name" autocomplete="username" required>
+    <label class="label" for="login-password">Password</label>
+    <input class="field" id="login-password" type="password" autocomplete="current-password" required>
+    <div class="login-error bad-ink" id="login-error"></div>
+    <div class="controls"><button class="go" type="submit" id="login-go">LOG IN</button></div>
+  </form>
+</div>
+
 <div class="gone" id="gone">
   <div class="panel">
     <h3 id="gone-title">Conductor has shut down</h3>
@@ -712,7 +791,11 @@ const MOST_LINES = 500;
 
 // The tabs, and the one that opens first when the browser hasn't remembered
 // one.
-const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "notices", "log"];
+const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "notices", "log", "settings"];
+
+// The tabs that are always clickable: the server can always be stopped,
+// the log read to see why, and a setting changed for the next reboot.
+const OPEN_TABS = ["control", "log", "settings"];
 const DEFAULT_TAB = "conductor";
 
 // Conductor is "connecting" to the database, not "offline", for this many
@@ -1117,25 +1200,24 @@ function applyDbMode(mode, dbState, takenAt) {
   }
 }
 
-// Which sidebar tabs can be clicked.  The Control Panel and the Log
-// always: the server can always be stopped, and the log read to see why
-// something went wrong.  The rest only with the server running and the
-// database connected.
+// Which sidebar tabs can be clicked.  The Control Panel, the Log and the
+// Settings always (OPEN_TABS).  The rest only with the server running and
+// the database connected.
 let dbLocked = true;
 
 function lockTabs() {
   for (const tab of document.querySelectorAll(".maintab")) {
     const name = tab.dataset.tab;
-    tab.disabled = name === "control" || name === "log" ? false
+    tab.disabled = OPEN_TABS.includes(name) ? false
       : serverRunning ? dbLocked
       : true;
   }
 }
 
-// The database veil covers the data tabs, never the Control Panel or the
-// Log, which sit outside the blurred content.
+// The database veil covers the data tabs, never the always-open ones,
+// which sit outside the blurred content.
 function showVeil() {
-  const covered = currentTab !== "control" && currentTab !== "log";
+  const covered = !OPEN_TABS.includes(currentTab);
   $("veil").style.display = serverRunning && dbLocked && covered ? "block" : "none";
 }
 
@@ -1161,6 +1243,7 @@ function showMainTab(name) {
   if (name === "log") $("terminal").scrollTop = $("terminal").scrollHeight;
   if (name === "system" && lastMonitor) drawPicked(lastMonitor);
   if (name === "notices") askNotices();
+  if (name === "settings") askSettings();
   if (name !== "control") {
     try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
   }
@@ -1191,6 +1274,7 @@ function applyServerMode(server) {
   $("server-start").disabled = server.state !== "stopped";
   $("server-restart").disabled = !running;
   $("server-stop").disabled = !running;
+  lockChanges();
 
   // No bell while the server isn't running: nothing is up that could
   // raise a notice.  Anything raised anyway is there once it is.
@@ -1224,6 +1308,77 @@ function applyServerMode(server) {
     lockTabs();
     showVeil();
   }
+}
+
+// ---------------------------------------------------------------------------
+// The login
+// ---------------------------------------------------------------------------
+
+// Whether whoever is logged in may change anything.  `user` can't, and
+// every button that would is greyed for them.  False until the first
+// answer says.
+let canChange = false;
+
+// Shows the login card.  Conductor answered 401, or LOG OUT was pressed.
+// The status loop stops until a login starts it again.  `message` is what
+// to say on the card; leave it out to keep what's there.
+function showLogin(message) {
+  $("login").classList.add("on");
+  if (message !== undefined) $("login-error").textContent = message;
+  $("who").hidden = true;
+  $("login-name").focus();
+}
+
+// Every status answer says who's logged in.
+function drawWho(login) {
+  canChange = login.can_change;
+  $("who").hidden = false;
+  $("who-name").textContent = login.name;
+  $("who-note").textContent = canChange ? "Can change things." : "Read only: can look, can't touch.";
+  $("login").classList.remove("on");
+  lockChanges();
+}
+
+// Greys everything that changes something for `user`.  The server buttons
+// are set again on every answer, so applyServerMode() calls this too.
+function lockChanges() {
+  if (canChange) return;
+  for (const id of ["server-start", "server-restart", "server-stop", "control-shut-down", "send-test",
+                    "history-ack-all", "tray-ack-all"]) {
+    $(id).disabled = true;
+  }
+}
+
+// The login card's ask.  The body is two lines in the config files' own
+// format, and the X-Opus header is what says it came from this page.
+async function logIn(event) {
+  event.preventDefault();
+  $("login-go").disabled = true;
+  $("login-error").textContent = "";
+  const body = "name = " + $("login-name").value + "\npassword = " + $("login-password").value + "\n";
+  try {
+    const answer = await fetch("/Opus/login", {
+      method: "POST", headers: { "X-Opus": "login", "Content-Type": "text/plain; charset=utf-8" }, body,
+    });
+    if (!answer.ok) {
+      $("login-error").textContent = await answer.text();
+      return;
+    }
+    $("login-password").value = "";
+    $("login").classList.remove("on");
+    ask();
+  } catch (e) {
+    $("login-error").textContent = "The login didn't go through: " + e;
+  } finally {
+    $("login-go").disabled = false;
+  }
+}
+
+async function logOut() {
+  try {
+    await fetch("/Opus/logout", { method: "POST", headers: { "X-Opus": "login" } });
+  } catch (e) { /* the next ask finds out */ }
+  showLogin("Logged out.");
 }
 
 // The services, in short, on the Control Panel: the same list as the
@@ -1392,6 +1547,7 @@ function ackButton(id, gone) {
   const button = document.createElement("button");
   button.className = "ack";
   button.textContent = "ACK";
+  button.disabled = !canChange;
   button.addEventListener("click", async () => {
     button.disabled = true;
     try { await ack(id); } catch (e) { button.disabled = false; return; }
@@ -1470,11 +1626,214 @@ function drawHistory(open) {
   $("notices-count").textContent = open.length + " open";
 }
 
+// ---------------------------------------------------------------------------
+// The Settings tab: the config editor
+// ---------------------------------------------------------------------------
+
+// Asked for when the tab opens and after every SAVE or DISCARD, never
+// once a second: nothing redraws under somebody's typing.
+async function askSettings() {
+  try {
+    const answer = await fetch("/Opus/settings", { cache: "no-store" });
+    if (!answer.ok) throw new Error(answer.status + " " + answer.statusText);
+    drawSettings((await answer.json()).files);
+  } catch (e) {
+    $("settings-note").textContent = "Couldn't get the settings: " + e;
+  }
+}
+
+// What a setting has to be, in words, from its kind.
+function kindWords(setting) {
+  switch (setting.kind) {
+    case "port": return "a port, " + setting.low + " to " + setting.high;
+    case "number": return "a number, " + setting.low + " to " + setting.high;
+    case "folder": return "a folder, from Content unless it starts with /";
+    case "secret": return "kept as it is, can be empty";
+    default: return "text";
+  }
+}
+
+function drawSettings(files) {
+  $("settings-note").textContent = canChange ? ""
+    : "Read only: logged in as user.  Log in as admin to change a setting.";
+  const grid = $("settings-files");
+  grid.textContent = "";
+  for (const file of files) grid.appendChild(settingsCard(file));
+}
+
+// One config file: what it's for, the reboot it needs, a field per
+// setting, and SAVE and DISCARD.
+function settingsCard(file) {
+  const card = document.createElement("div");
+  card.className = "panel span-6 settings-card";
+  card.dataset.file = file.name;
+
+  const title = document.createElement("h3");
+  title.textContent = file.name;
+  if (file.waiting) {
+    const tag = document.createElement("span");
+    tag.className = "tag warn";
+    tag.textContent = "WAITING ON A " + file.reboot.toUpperCase() + " REBOOT";
+    title.appendChild(tag);
+  }
+  card.appendChild(title);
+
+  const about = document.createElement("div");
+  about.className = "small";
+  about.textContent = file.about;
+  card.appendChild(about);
+
+  const reboot = document.createElement("div");
+  reboot.className = "note settings-reboot";
+  reboot.textContent = "Every setting here needs " + file.reboot_text + ".  Nothing changes until then."
+    + (file.loaded ? "" : "  This file hasn't been read yet this run: these are the values in it, and the next"
+      + " START SERVER reads them.");
+  card.appendChild(reboot);
+
+  for (const setting of file.settings) card.appendChild(settingField(file, setting));
+
+  const problems = document.createElement("div");
+  problems.className = "note bad-ink settings-problems";
+  card.appendChild(problems);
+
+  const controls = document.createElement("div");
+  controls.className = "controls";
+  const save = document.createElement("button");
+  save.className = "go";
+  save.textContent = "SAVE";
+  save.disabled = !canChange;
+  save.addEventListener("click", () => saveSettings(file, card));
+  const discard = document.createElement("button");
+  discard.textContent = "DISCARD";
+  discard.disabled = !canChange || !file.waiting;
+  discard.addEventListener("click", () => {
+    if (confirm("Throw away the change waiting for " + file.name + "?")) discardSettings(file);
+  });
+  const said = document.createElement("span");
+  said.className = "note settings-said";
+  controls.append(save, discard, said);
+  card.appendChild(controls);
+  return card;
+}
+
+// One setting: its key and kind, the field, its comment, and what's
+// running when the field shows a saved value that hasn't taken yet.
+function settingField(file, setting) {
+  const box = document.createElement("div");
+  box.className = "setting";
+  const id = "setting-" + file.name + "-" + setting.key;
+
+  const label = document.createElement("label");
+  label.className = "label";
+  label.htmlFor = id;
+  label.textContent = setting.key + " (" + kindWords(setting) + ")";
+
+  const input = document.createElement("input");
+  input.className = "field";
+  input.id = id;
+  input.dataset.key = setting.key;
+  input.value = setting.waiting === null ? setting.running : setting.waiting;
+  input.disabled = !canChange;
+  input.spellcheck = false;
+
+  const about = document.createElement("div");
+  about.className = "note";
+  about.textContent = setting.about;
+  box.append(label, input, about);
+
+  if (setting.waiting !== null && setting.waiting !== setting.running) {
+    const waiting = document.createElement("div");
+    waiting.className = "note warn-ink";
+    waiting.textContent = "Saved, not applied yet.  Running on: "
+      + (setting.running === "" ? "(nothing)" : setting.running);
+    box.appendChild(waiting);
+  }
+
+  const problem = document.createElement("div");
+  problem.className = "note bad-ink setting-problem";
+  box.appendChild(problem);
+  return box;
+}
+
+// SAVE.  Every field goes, one line each in the file's order, so a
+// complaint about "line 3" lands beside the third field.  Constellations
+// checks every line before writing any, and the X-Opus header is what
+// says the ask came from this page.
+async function saveSettings(file, card) {
+  const inputs = [...card.querySelectorAll("input.field")];
+  for (const note of card.querySelectorAll(".setting-problem, .settings-problems, .settings-said")) {
+    note.textContent = "";
+  }
+  const body = inputs.map(input => input.dataset.key + " = " + input.value + "\n").join("");
+  for (const button of card.querySelectorAll("button")) button.disabled = true;
+  try {
+    const answer = await fetch("/Opus/wwwhook/settings/save?file=" + encodeURIComponent(file.name), {
+      method: "POST", headers: { "X-Opus": "settings", "Content-Type": "text/plain; charset=utf-8" }, body,
+    });
+    if (answer.ok) {
+      // Drawn again from Conductor, so the card shows the waiting values
+      // and the DISCARD button, then told what happens next.
+      await askSettings();
+      for (const drawn of document.querySelectorAll(".settings-card")) {
+        if (drawn.dataset.file === file.name) {
+          drawn.querySelector(".settings-said").textContent = "Saved.  It takes at " + file.reboot_text + ".";
+        }
+      }
+      return;
+    }
+    let problems;
+    try {
+      problems = (await answer.json()).problems;
+    } catch (e) {
+      problems = ["Conductor said no: " + answer.status + " " + answer.statusText];
+    }
+    for (const problem of problems) {
+      const at = /^line (\d+): /.exec(problem);
+      const input = at ? inputs[Number(at[1]) - 1] : null;
+      const target = input ? input.parentElement.querySelector(".setting-problem")
+        : card.querySelector(".settings-problems");
+      const words = at ? problem.slice(at[0].length) : problem;
+      target.textContent = target.textContent ? target.textContent + "  " + words : words;
+    }
+  } catch (e) {
+    card.querySelector(".settings-problems").textContent = "The save didn't go through: " + e;
+  } finally {
+    card.querySelector("button.go").disabled = !canChange;
+    card.querySelectorAll("button")[1].disabled = !canChange || !file.waiting;
+  }
+}
+
+// DISCARD.  The waiting file goes, and the card is drawn again from
+// what's running.
+async function discardSettings(file) {
+  try {
+    const answer = await fetch("/Opus/wwwhook/settings/discard?file=" + encodeURIComponent(file.name), {
+      method: "POST", headers: { "X-Opus": "settings" },
+    });
+    if (!answer.ok) alert("Conductor said no: " + await answer.text());
+  } catch (e) {
+    alert("The discard didn't go through: " + e);
+  }
+  askSettings();
+}
+
+// The timer for the next ask, so a login can't start a second loop
+// beside one that's still going.
+let askTimer = null;
+
 async function ask() {
+  clearTimeout(askTimer);
   if (stopped) return;
   try {
     const answer = await fetch("/Opus/status?after=" + lastLine, { cache: "no-store" });
+    // Not logged in: Conductor was run again since, or nobody has yet.
+    // The login starts the asking again.
+    if (answer.status === 401) {
+      showLogin();
+      return;
+    }
     const status = await answer.json();
+    drawWho(status.login);
     // The server's switch first: it decides which tabs there are.
     applyServerMode(status.server);
     drawPieces(status.services);
@@ -1490,7 +1849,7 @@ async function ask() {
     showGone("Conductor isn't answering", "It has shut down, or it crashed.  Reload the page once it's back.");
     return;
   }
-  setTimeout(ask, 1000);
+  askTimer = setTimeout(ask, 1000);
 }
 
 function showTab(inUse) {
@@ -1522,6 +1881,8 @@ async function shutDown() {
   }
 }
 
+$("login-form").addEventListener("submit", logIn);
+$("log-out").addEventListener("click", logOut);
 $("control-shut-down").addEventListener("click", shutDown);
 $("server-start").addEventListener("click", () => askServer("start"));
 $("server-restart").addEventListener("click", () => { if (confirm("Restart the server?")) askServer("restart"); });
@@ -1554,8 +1915,10 @@ for (const tab of document.querySelectorAll(".maintab")) {
 }
 
 // The Control Panel, with every other tab locked, until the first answer
-// says where the server is at.
+// says where the server is at.  The login card is up until that answer
+// comes, and stays up if it's a 401.
 showMainTab("control");
+$("login-name").focus();
 ask();
 </script>
 </body>
