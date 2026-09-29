@@ -22,7 +22,8 @@ SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests (the session
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
-says.  `main` and `testing` sit on the Control Panel commit; `unstable` is ahead of them by this session.
+says.  He said so at the end of this session, so `main`, `testing` and `unstable` all sit on the same
+commit: the Constellations rebuild and everything before it.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `4a34aa3`.  `cargo build` clean
 (the first test build failed on four lines in DiskMan's new tests, `status()` called on the test's own
