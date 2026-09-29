@@ -49,8 +49,8 @@ pub fn server_config(settings: &Settings) -> Result<Arc<ServerConfig>, String> {
         let _ = std::fs::create_dir_all(folder);
     }
 
-    let cert_pem = read(cert_path)?;
-    let key_pem = read(key_path)?;
+    let cert_pem = read(cert_path, settings)?;
+    let key_pem = read(key_path, settings)?;
 
     // A PEM file can hold a chain of certificates, ours first.  A
     // self-signed one is a chain of one.
@@ -79,31 +79,42 @@ pub fn server_config(settings: &Settings) -> Result<Arc<ServerConfig>, String> {
 
 /// One file's bytes, through DiskMan.  A file that isn't there gets the
 /// command that makes the pair, since that's what the admin does next.
-fn read(path: &Path) -> Result<Vec<u8>, String> {
+fn read(path: &Path, settings: &Settings) -> Result<Vec<u8>, String> {
     match diskman::read(path).wait() {
         Ok(contents) => Ok(contents.to_vec()),
         Err(e) if e.is_not_found() => Err(format!("{} isn't there.  Make the certificate and its key once, \
-            from the repo root, then STOP SERVER and START SERVER:  {}", path.display(), MAKE_PAIR)),
+            from any folder, then STOP SERVER and START SERVER:  {}", path.display(),
+            make_pair(&settings.certificate_file, &settings.private_key_file))),
         Err(e) => Err(format!("Couldn't read {}: {e}.", path.display())),
     }
 }
 
-/// The command that makes the pair.  One line for real; it's wrapped
-/// here to fit.  A P-256 key, ten years, and the names a client on this
+/// The one-line command that makes the pair, naming the two files where
+/// `networking.cfg` says they go, as full paths.  So it works pasted from
+/// any folder: with relative paths, pasted from `Conductor/dev` it made a
+/// second `Content` in there, and Conductor found that one first
+/// (2026-09-29).  A P-256 key, ten years, and the names a client on this
 /// machine would connect by.
-pub const MAKE_PAIR: &str = "mkdir -p Content/certs && openssl req -x509 -newkey ec \
-    -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout Content/certs/conductor.key \
-    -out Content/certs/conductor.crt -days 3650 -subj \"/CN=Opus Conductor\" \
-    -addext \"subjectAltName=DNS:localhost,IP:127.0.0.1\"";
+pub fn make_pair(cert_path: &Path, key_path: &Path) -> String {
+    let folder = |path: &Path| path.parent().map_or_else(|| ".".to_string(), |dir| dir.display().to_string());
+    format!("mkdir -p \"{}\" \"{}\" && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 \
+        -nodes -keyout \"{}\" -out \"{}\" -days 3650 -subj \"/CN=Opus Conductor\" \
+        -addext \"subjectAltName=DNS:localhost,IP:127.0.0.1\"",
+        folder(key_path), folder(cert_path), key_path.display(), cert_path.display())
+}
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn the_command_is_one_line_naming_both_files() {
-        assert!(!MAKE_PAIR.contains('\n'));
-        assert!(MAKE_PAIR.contains("Content/certs/conductor.key"));
-        assert!(MAKE_PAIR.contains("Content/certs/conductor.crt"));
+    fn the_command_is_one_line_naming_both_files_in_full() {
+        let command = make_pair(Path::new("/opt/Opus/Content/certs/conductor.crt"),
+                                Path::new("/opt/Opus/Content/certs/conductor.key"));
+        assert!(!command.contains('\n'));
+        assert!(command.starts_with("mkdir -p \"/opt/Opus/Content/certs\" "));
+        assert!(command.contains("-keyout \"/opt/Opus/Content/certs/conductor.key\""));
+        assert!(command.contains("-out \"/opt/Opus/Content/certs/conductor.crt\""));
+        assert!(!command.contains(" Content/"));
     }
 }

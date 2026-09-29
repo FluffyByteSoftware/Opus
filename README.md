@@ -175,13 +175,14 @@ there and the door can't look up names.
 Everything below is from the repo root.
 
 **The TLS certificate.**  Conductor doesn't make one.  Make it once; the key stays out of git, and the
-certificate goes in, since a client needs a copy to trust:
+certificate goes in, since a client needs a copy to trust.  From the `Opus` folder itself:
 
 ```
 mkdir -p Content/certs && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout Content/certs/conductor.key -out Content/certs/conductor.crt -days 3650 -subj "/CN=Opus Conductor" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 ```
 
-Without it Conductor still runs.  The network's two services show trouble and the log gives the command.
+Without it Conductor still runs.  The TCP side shows trouble, the UDP side stays stopped, and the log gives
+the same command with the full paths filled in, so it works pasted from any folder.
 
 **The database.**  Postgres wants a database `opusdb` and a role `opus_game` with a password that matches
 `password` in `Content/cfg/postgres.cfg`, allowed to create tables in the `public` schema.  Conductor makes

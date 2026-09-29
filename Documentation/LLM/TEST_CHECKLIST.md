@@ -37,12 +37,12 @@ The account is `throwaway_01` / `Throwaway 1!`.  The client is `conductor-networ
 Log in as `admin` first: before that the page is only the login card.  These are done logged in, with
 the server not started.  (Jacob's note, 2026-09-29.)
 
-- [ ] The sidebar: Control Panel, System, Conductor, Services, Storage, Notifications History, then a
+- [x] ~~The sidebar: Control Panel, System, Conductor, Services, Storage, Notifications History, then a
       rule and a NETWORK ADMIN heading with Connections, Whitelist and Blacklist indented under it, all
-      three greyed, then Log and Settings.
-- [ ] The Settings tab, `networking.cfg`'s card: `access_list` (off), `whitelist_file`
+      three greyed, then Log and Settings.~~  2026-09-29.
+- [x] ~~The Settings tab, `networking.cfg`'s card: `access_list` (off), `whitelist_file`
       (cfg/whitelist.cfg), `blacklist_file` (cfg/blacklist.cfg); no `connections_remember_seconds`.  If
-      your `networking.cfg` still has that line, START SERVER warns about it once; take the line out.
+      your `networking.cfg` still has that line, START SERVER warns about it once; take the line out.~~  2026-09-29.
 - [ ] The bell isn't there before START SERVER.  A Warn raised at boot (a leftover line in a config
       file, say) is in the Log tab.  After START SERVER, the same Warn is on the bell.  (Added from
       Jacob's notes, 2026-09-29: the first half seen, the bell after START SERVER still to check.)
@@ -54,7 +54,7 @@ the server not started.  (Jacob's note, 2026-09-29.)
       back after.~~  2026-09-29: STOP SERVER and START SERVER picks it up.
 - [ ] The same with RESTART SERVER in place of STOP and START: edit `slow_job_ms` by hand, RESTART SERVER,
       and the Settings tab shows the new value as running.  (Added from Jacob's notes.)  2026-09-29:
-      **failed**, the old value stayed; bug 1 in TODO.md.  Section 3 leans on RESTART SERVER too.
+      **failed**: the new value showed, but with the waiting warning still up; bug 1 in TODO.md.  Section 3 leans on RESTART SERVER too.
 - [x] ~~A list file: server stopped, add `10.0.0.1` to `Content/cfg/blacklist.cfg` by hand, START SERVER.
       The Blacklist tab shows it, and the log has the Debug line "Read 1 entry from .../blacklist.cfg."
       Take it out the same way.  (Rewritten: the old access-lists check wanted Conductor shut down for
@@ -65,39 +65,43 @@ the server not started.  (Jacob's note, 2026-09-29.)
 
 ### 3. Networking: the TLS pair
 
-- [ ] Move `Content/certs/conductor.key` away, STOP SERVER, START SERVER: the Services tab has
+- [x] ~~Move `Content/certs/conductor.key` away, STOP SERVER, START SERVER: the Services tab has
       Network (TCP) in trouble and Network (UDP) stopped ("Not started: the TCP side couldn't."), the
       log has an Error starting "NOBODY CAN LOG IN.", and the three Network Admin tabs stay greyed.  Put
-      the key back and RESTART SERVER: both running.  (Rewritten: the old check said both in trouble.)
+      the key back and RESTART SERVER: both running.  (Rewritten: the old check said both in trouble.)~~  2026-09-29.
+
+- [ ] The same, after the change to the error: the Error's command names both files by their full
+      paths, in quotes, and says "from any folder".  Pasted from `Conductor/dev` it makes the pair in
+      the real `Content/certs/` and no `Content` inside `dev/`.  (Added 2026-09-29, Jacob's pick.)
 
 ### 4. Networking: the door (TCP)
 
-- [ ] START SERVER: the log has the Debug line "Access lists: off.  0 on the whitelist and 0 on the
+- [x] ~~START SERVER: the log has the Debug line "Access lists: off.  0 on the whitelist and 0 on the
       blacklist, neither looked at." and two "Read 0 entries from ..." lines.  The three Network Admin
-      tabs unlock.
-- [ ] The Conductor tab's Threads, "Asked for": `net-dns` is there and running.
-- [ ] Run `python3 conductor-networking/test_client.py --leave-after 3 throwaway_01 'Throwaway 1!'` six
+      tabs unlock.~~  2026-09-29.
+- [x] ~~The Conductor tab's Threads, "Asked for": `net-dns` is there and running.~~  2026-09-29.
+- [x] ~~Run `python3 conductor-networking/test_client.py --leave-after 3 throwaway_01 'Throwaway 1!'` six
       times.  The Connections tab's Recent shows the newest five and the count says "the newest 5 of 6
       since START SERVER"; Historical shows all six.  Each reads "Logged in and handed a ticket for UDP"
-      while its player is in (in green), and the rows stay as long as the server runs.
-- [ ] While one is in the world (make it `--leave-after 20`), the UDP table shows its address,
+      while its player is in (in green), and the rows stay as long as the server runs.~~  2026-09-29.
+- [x] ~~While one is in the world (make it `--leave-after 20`), the UDP table shows its address,
       `throwaway_01` in green, the connected stamp, playing for counting up as DD:HH:MM:SS, quiet for at
-      0 s or 1 s.
-- [ ] A wrong password, then a right one straight after, in one line:
+      0 s or 1 s.~~  2026-09-29.
+- [x] ~~A wrong password, then a right one straight after, in one line:
       `python3 conductor-networking/test_client.py throwaway_01 wrong; python3 conductor-networking/test_client.py throwaway_01 'Throwaway 1!'`
       The first row ends "Refused: wrong secret word, name or password", greyed.  The second is
       "Closed at the door: on hold after a failed login", and the log's Debug line says how many ms of
-      the hold were left.
-- [ ] A wrong secret word: `python3 conductor-networking/test_client.py --secret wrong throwaway_01 'Throwaway 1!'`
-      Refused, and no Security line in the log (it never reached a hash).
-- [ ] Two in Security's line, started together in one line:
+      the hold were left.~~  2026-09-29.
+- [x] ~~A wrong secret word: `python3 conductor-networking/test_client.py --secret wrong throwaway_01 'Throwaway 1!'`
+      Refused, and no Security line in the log (it never reached a hash).~~  2026-09-29.
+- [x] ~~Two in Security's line, started together in one line:
       `python3 conductor-networking/test_client.py --leave-after 5 --leave-other-alone throwaway_01 'Throwaway 1!' & python3 conductor-networking/test_client.py --leave-after 5 --leave-other-alone throwaway_01 'Throwaway 1!'; wait`
       One of them prints an InLine ("1 ahead, about N ms"); its row may show "In Security's line" for a
       blink.  One gets in, the other is told the account is logged in and hangs up.  (Rewritten: two
-      terminals by hand are too slow to catch the line.)
-- [ ] STOP SERVER: the three tabs grey, `net-dns` reads finished on the Conductor tab, and on the next
-      START SERVER the Connections tab is empty.
-- [ ] Nothing else on the page changed: the Storage, Services and Settings tabs look as they did.
+      terminals by hand are too slow to catch the line.)~~  2026-09-29.
+- [x] ~~STOP SERVER: the three tabs grey, `net-dns` reads finished on the Conductor tab, and on the next
+      START SERVER the Connections tab is empty.~~  2026-09-29.
+- [x] ~~Nothing else on the page changed: the Storage, Services and Settings tabs look as they did.~~  2026-09-29.
 
 ### 5. Networking: leaving the world (UDP)
 

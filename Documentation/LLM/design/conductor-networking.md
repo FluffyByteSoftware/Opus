@@ -103,7 +103,8 @@ because of the CPU cost.
   player can hear it.  Nothing is kept for a reconnect: that's TODO, with the rest of client management.
 - **The certificate is made by hand, once, with openssl.**  Stratum made its own pair with the `rcgen`
   crate on first start; Opus stays a crate lighter and the log says the exact command when the files are
-  missing (`tls::MAKE_PAIR`).  An elliptic curve key (P-256), since the server signs on every handshake
+  missing (`tls::make_pair()`, with the full paths `networking.cfg` gives, so it can be pasted from any
+  folder; since 2026-09-29's test run, when the relative one had already made a stray `Content` once).  An elliptic curve key (P-256), since the server signs on every handshake
   and an EC signature costs a tenth of an RSA one.  The files live in `Content/certs/`; the `.key` is
   ignored by git and the `.crt` is committed, since clients need a copy.  Jacob's call on the folder.
 - **Everything is in `networking.cfg`, a soft file**: the address, both ports, the two file paths, the
