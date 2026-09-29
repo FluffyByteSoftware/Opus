@@ -15,7 +15,7 @@ accents, a terminal box), redone in plain CSS.
 
 ```
 conductor-wgui/
-├── Cargo.toml         depends on conductor-tools, conductor-monitor and conductor-networking (the TCP tab)
+├── Cargo.toml         depends on conductor-tools, conductor-monitor and conductor-networking (the Network Admin tabs)
 └── src/
     ├── lib.rs         start(port) -> bool, has_ended(); the thread, route(), log_in(), only_admin(),
     │                    server_command(), settings_states(), settings_save(), settings_discard(), tcp_kick(),
@@ -56,8 +56,10 @@ conductor-wgui/
 | POST   | `/Opus/wwwhook/networking/removeip?list=...&entry=...` | REMOVE on a list tab, the same way; off the whitelist while the whitelist is on, a ban too |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
-Everything but `/`, the page and `/Opus/login` needs the login cookie, and answers `401 Unauthorized`
-without it; the page shows its login card on any 401.  Every route that changes something (the ACKs, the
+A known path asked with the wrong method is a `405`, and anything else a `404`; `/Opus/` with the slash is
+the page too.  A route missing the number or name it needs (`id`, `pid`, `list`, `file`) is a `400`, or a
+`404` for a config file that isn't one.  Everything but `/`, the page and `/Opus/login` needs the login
+cookie, and answers `401 Unauthorized` without it; the page shows its login card on any 401.  Every route that changes something (the ACKs, the
 test notice, the server buttons, the settings, the kick, the lists, SHUT DOWN) needs `admin`, and answers `403 Forbidden` to
 `user`.  The JSON shapes are written out at the top of `json.rs`.  The page's script is the other half of
 them.
@@ -77,9 +79,12 @@ them.
   window kills it too (TODO.md has the ways around that).
 - If the web admin can't start (the port is taken), Conductor shuts straight back down with a capitals Error,
   since there would be no way to stop it cleanly.
-- Another web page open in the same browser could try to reach 127.0.0.1 too.  Two checks stop it: the `Host`
-  header must be `127.0.0.1:<port>` or `localhost:<port>`, and the shutdown needs an `X-Opus` header, which a
-  browser won't let another site's page add without asking us first (and we never say yes).
+- Another web page open in the same browser could try to reach 127.0.0.1 too.  Three checks stop it: the
+  `Host` header must be `127.0.0.1:<port>` or `localhost:<port>`, the login cookie is `SameSite=Strict`, and
+  every route that changes something (the login and LOG OUT included) needs an `X-Opus` header, which a
+  browser won't let another site's page add without asking us first (and we never say yes).  A SHUT DOWN,
+  a server button, a kick or a list change without the header is a Warn, so it reaches the bell; the
+  others are a plain 403.
 - The page draws everything with `textContent`, never `innerHTML` with our data, so a log line with `<` in it
   shows as text.
 - Mockup parts left out because there's nothing behind them yet: TPS, network streams, Argon2 load, "restart
@@ -90,8 +95,9 @@ them.
 - **The last tab picked is remembered by the browser** (`localStorage`), and nothing else.  A settings file in
   `Content/web/` was planned and dropped with docking.
 - **While the database isn't connected, the page shows nothing but that.**  "The whole point is to draw
-  attention to the user that the DB is offline and the game can't run right now."  SHUT DOWN is the only
-  thing that works.  The page keeps asking and drawing underneath, so it unlocks the moment Archivist
+  attention to the user that the DB is offline and the game can't run right now."  Only the header (the
+  bell and its tray included), the Control Panel, the Log and the Settings stay above the lock (the
+  bullets below say when each joined).  The page keeps asking and drawing underneath, so it unlocks the moment Archivist
   connects.
 - **Notices** (2026-09-28): every Warn and Error, and anything raised on purpose, waits on the bell until
   it's ACKed.  Jacob asked for them the same session as DiskMan, so a file DiskMan can't write reaches the
@@ -104,14 +110,15 @@ them.
 - **The Control Panel** (2026-09-29).  Jacob: the page Conductor greets you with is a control panel, with
   only the log reachable in the tabs, no notifications while nothing is started, and START / RESTART / STOP
   SERVER or SHUTDOWN; once the server is running, the pages as they were.  So the server (Fingerprinter,
-  Security, Archivist, the monitor, and whatever comes later) is off until START SERVER, and the tab is
+  Security, Archivist, networking, the monitor, and whatever comes later) is off until START SERVER, and the tab is
   first in the sidebar.  This is the "Manage System" screen the Security session's hand-off said was next;
   Jacob called it the control panel when it opened, so that's its name.  The three server routes answer at once and the launcher does the work, so the web admin's one
   thread is never stuck behind an Archivist that's finishing a long query on the way down; the page sees
   the state change through the status.  The state flips to starting or stopping in `server::ask()` itself,
   under its lock, so two clicks can't both get through.  The routes live under `/Opus/wwwhook/`, Jacob's
-  name for a path the page posts to that makes something happen (2026-09-29).  Only the three server
-  routes are there; SHUT DOWN and the ACKs kept their old paths.
+  name for a path the page posts to that makes something happen (2026-09-29).  The three server
+  routes were first; the settings, the kick and the access lists have joined them since.  SHUT DOWN, the
+  ACKs, the login and LOG OUT kept their old paths.
 - **The Control Panel and the Log stay above the database lock**, like the header and the bell, so the
   server can be stopped while the database is offline and the log read to see why.  Jacob's call, the same
   day: "stay open".  Both sections sit outside the blurred content block for that.
@@ -137,8 +144,8 @@ them.
   OUT sits at the bottom of the sidebar with who's logged in; the header still has no buttons but the
   bell.  For `user`, every button that changes something is greyed, and Conductor turns the ask away
   anyway.
-- **The Settings tab** (2026-09-29), the config editor's web admin half.  Eighth in the sidebar, after
-  Log (Jacob's pick), and always clickable like the Control Panel and the Log: it sits outside the
+- **The Settings tab** (2026-09-29), the config editor's web admin half.  Last in the sidebar, after
+  the Log (Jacob's pick), and always clickable like the Control Panel and the Log: it sits outside the
   blurred content, so a setting can be changed while the server is stopped or the database is offline.
   One card per file from Constellations' table, drawn from `/Opus/settings` when the tab opens and after
   every SAVE or DISCARD, never once a second, so nothing redraws under somebody's typing.  A card says
@@ -155,15 +162,15 @@ them.
   reached out to our listener in the last 5 minutes listed by IP address (and DNS if known), their
   position in the login queue (if not already logged in)", and no account information, "purely tracked
   by IP address".  Then, the same session, a KICK on each row for `admin`.  Sixth in the sidebar, after
-  Storage, and locked until the server is running, the database is connected and both of networking's
+  Storage, at first (it moved under Network Admin as Connections the session after), and locked until the server is running, the database is connected and both of networking's
   listeners are up (his words: after the TCP listener and the UDP listener are online), so it sits
   under the database lock like the other data tabs, with one lock more.  Drawn once a second from the
   `networking` part of the status: two tiles (where TCP and UDP listen, and how many connections are
-  open, waiting, in Security's line and finished lately), then the table, newest first, with the
+  open, waiting, in Security's line and finished since START SERVER), then the table, newest first, with the
   address, its reverse DNS name when one has come back, when it arrived and how long ago, where it is in
   words (a queued one says how many are ahead of it; one in Security's line says how many jobs are ahead
   and about how long; a finished one says how it ended, greyed, green if it logged in), and KICK on
-  every open one.  The ledger behind it, the DNS thread and the kick are networking's; see
+  every open one (in the row's three-dot menu since the session after).  The ledger behind it, the DNS thread and the kick are networking's; see
   `conductor-networking.md`.
 - **The Network Admin subsection** (2026-09-29, the session after): Jacob's layout, "a subsection on the
   left for Network Admin and underneath it: Connections (which will show TCP and UDP ordered by type on
@@ -175,7 +182,7 @@ them.
   for; the account is the point there, unlike the door).  KICK moved into a three-dot menu on each row
   (his ask: "in style like a : colon"), with ADD TO WHITELIST and ADD TO BLACKLIST under it, on finished
   rows too; the menu lives outside the table, since the table is drawn again every second.  The
-  The TCP table got two views the same session, Recent (the newest five) and Historical (every
+  TCP table got two views the same session, Recent (the newest five) and Historical (every
   connection since START SERVER), so the ledger stopped forgetting after five minutes and the setting
   for that went.  The
   Whitelist and Blacklist tabs are one card each: a tile saying whether that list is the one the door
@@ -191,8 +198,8 @@ them.
 ## The page
 
 **The login card**: covers the whole page until Conductor says who's logged in.  Name, password, LOG IN,
-and what went wrong under them.  It's up on every 401: the first load, after LOG OUT, and after Conductor
-has been run again.  The status loop stops while it's up and a login starts it again.
+and what went wrong under them.  It's up on every 401: the first load and after Conductor has been run
+again.  LOG OUT puts it up itself, with "Logged out." under it.  The status loop stops while it's up and a login starts it again.
 
 **Sidebar**: the OP logo, and eleven tabs under it: Control Panel, System, Conductor, Services, Storage,
 Notifications History, then a rule and a NETWORK ADMIN heading with Connections, Whitelist and Blacklist
@@ -227,7 +234,8 @@ their sidebar buttons (the keyboard too, with `inert`); the Control Panel, the L
 clickable.  A card over it says "CONNECTING TO THE
 DATABASE", or, flashing red, "DATABASE OFFLINE -- the game can't run right now", what Archivist says, and
 when the page first saw it offline.  The browser tab's title turns to "DB OFFLINE".  For the first 10
-seconds after Conductor starts it's "connecting", not offline, to give Archivist its first try.
+seconds after every START SERVER it's "connecting", not offline, to give Archivist its first try (the
+monitor's uptime, which starts over with the server).
 
 **System**: the whole machine's CPU (every core averaged), memory in use against the total, and how many
 processes there are and how many won't let Conductor read them.  Then every process, busiest first: name,
@@ -261,7 +269,9 @@ is failing.
 
 **Connections**: two tiles, then TCP, every connection that reached the login door since START SERVER,
 newest first, in two views picked by the small tabs in the panel's head (Jacob's ask, 2026-09-29):
-Recent, the newest five, and Historical, the whole run.  Each row: address, host (reverse DNS, or `--`),
+Recent, the newest five, and Historical, the whole run.  The ledger keeps up to 10,000; past that the oldest finished go
+first.  The Listening tile also counts the players in the world and the tickets not yet used.  Each row:
+address, host (reverse DNS, or `--`),
 arrived (UTC) and seconds ago, where it is in words, and a three-dot button (greyed for `user`) that
 opens a small menu by the row: KICK on an open
 one (asks first), ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST (asks first, since it's a ban
@@ -317,7 +327,8 @@ Built on 2026-09-28, Zabbix style, the way the TLP at Jacob's work does it.  The
 | Web admin      | It's listening                                | Never; if it can't listen, Conductor stops    |
 
 Any of them shows stopped once its thread has ended, whatever it last said.  Fingerprinter, Security,
-Archivist and the monitor are the server: expected until the first START SERVER, stopped after a STOP SERVER.
+Archivist, the two network services and the monitor are the server: expected until the first START SERVER,
+stopped after a STOP SERVER.
 
 ## What's open
 

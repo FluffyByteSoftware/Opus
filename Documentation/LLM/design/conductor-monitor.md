@@ -6,9 +6,11 @@ Author:     Jacob Chacko
 
 # conductor-monitor
 
-A lib crate.  Conductor's probe into itself.  Once a second, on a thread of its own, it looks at the process
-(and every other process on the machine) and keeps the latest look for whoever asks.  Jacob wanted it
-separate from the web admin: the monitor measures, the web admin shows.
+A lib crate, and a server piece: the launcher starts it last on START SERVER and stops it first on STOP
+SERVER, and it can stop and start again in the same run.  Conductor's probe into itself.  Once a second, on
+a thread of its own (`monitor`), it looks at the process (and every other process on the machine) and keeps
+the latest look for whoever asks.  Jacob wanted it separate from the web admin: the monitor measures, the
+web admin shows.
 
 ## Skeleton
 
@@ -17,7 +19,8 @@ conductor-monitor/
 ├── Cargo.toml         depends on conductor-tools, nothing else
 └── src/
     ├── lib.rs         start(), stop(), latest() -> Option<Snapshot>
-    │                    the thread: look, keep, check in with the services list, wait 1 s
+    │                    the thread: look, keep, check in with the services list, wait 1 s on a
+    │                    channel whose sender stop() drops
     ├── snapshot.rs    struct Snapshot, struct Disk, struct ThreadInUse, struct ProcessInUse
     │                    build(): two readings a second apart -> percents and speeds
     ├── probe.rs       struct Reading { cpu_time, memory_bytes, disk, threads, cores, machine_memory,
@@ -25,7 +28,7 @@ conductor-monitor/
     └── probe/
         ├── linux.rs   /proc/self/stat, status, io, task/*/stat; /proc/stat, /proc/meminfo;
         │                /proc/<pid>/stat for every process; threads_of(pid) from /proc/<pid>/task;
-        │                os_name() from /etc/os-release
+        │                os_name() from /etc/os-release and /proc/sys/kernel/osrelease
         ├── windows.rs kernel32: GetProcessTimes, K32GetProcessMemoryInfo, GetProcessIoCounters,
         │                Toolhelp32 (threads and processes) + GetThreadTimes, OpenProcess,
         │                GlobalMemoryStatusEx; ntdll: NtQuerySystemInformation for each core,
@@ -68,12 +71,15 @@ thread of its own.
   Jacob asked for a config switch first; it would have had nothing to switch, since a Linux build can't run
   Windows code anyway.
 - No crate.  Linux keeps it all in `/proc`, and Windows has it in kernel32, which every Windows program has
-  loaded already.  `sysconf` (for ticks per second) is the one C call on Linux.
+  loaded already.  `sysconf` is the one C call on Linux, asked twice: ticks per second, and the page size
+  (to turn a process's resident pages into bytes).
 - The first look has no percents or speeds, since there's nothing to compare it to.  They start with the
   second.
 - On an OS it can't measure, the snapshot still comes, with `measured: false`, and the database and our
   thread list still show.  One Info line says so.
-- It checks in with `services::seen("Monitor")` after every look, so a monitor that gets stuck shows on the
+- **It stops with the server** (2026-09-29).  `stop()` drops the latest look too, so the page never shows
+  numbers from before a STOP SERVER.  A `start()` while it's running is a Warn, and the running one stands.
+- It checks in with `services::seen(services::MONITOR)` after every look, so a monitor that gets stuck shows on the
   Services tab after 5 seconds.  It says "running" from its own thread, not from `start()`, so that can't
   land after "can't measure here" and hide it.
 - **Every process** (2026-09-28), for the System tab.  A process's CPU % is its share of the whole machine,
@@ -98,4 +104,6 @@ thread of its own.
 - macOS isn't measured.  It would be `proc_pidinfo` and friends from libproc.  Waiting on a Mac to test it.
 - The Windows probe was written without a Windows machine to build it on, and the process list and
   `threads_of` were added the same way.  First build there may need a fix.
-- Uptime counts from when the monitor started, a moment after Conductor did.
+- Uptime counts from when the monitor started, which is the last START SERVER, not when Conductor was
+  run.  It starts over on every STOP and START.  The page leans on that for its ten seconds of
+  "connecting" after a start.

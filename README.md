@@ -218,14 +218,16 @@ cargo test -p conductor-tools --release argon2_cost -- --ignored --nocapture
 All of them live in `Content/cfg/`.  Conductor writes any that's missing with its defaults.  Each can be
 edited by hand with Conductor down, or from the web page's Settings tab.
 
-| File                    | Reboot | What's in it |
-|-------------------------|--------|--------------|
-| `conductor_globals.cfg` | hard   | Where the log goes (`logs`) and the web admin's port (9996). |
-| `wgui.cfg`              | hard   | The web admin's two passwords, `user`'s and `admin`'s. |
-| `postgres.cfg`          | soft   | Where Postgres is and how to log in, the query time limit, and when a job counts as slow. |
-| `networking.cfg`        | soft   | The address and both ports, the TLS files, the secret word, the client versions let in, the login deadline, the pool and queue sizes, how long a ticket and a quiet player last, and which access list the door checks. |
-| `whitelist.cfg`         | --     | The whitelist: one address or range a line.  Read on every START SERVER; written by the page at once. |
-| `blacklist.cfg`         | --     | The blacklist, the same way. |
+| File                    | Reboot | What's in it                                                          |
+|-------------------------|--------|-----------------------------------------------------------------------|
+| `conductor_globals.cfg` | hard   | Where the log goes, and the web admin's port (9996)                   |
+| `wgui.cfg`              | hard   | The web admin's two passwords                                         |
+| `postgres.cfg`          | soft   | Where Postgres is, how to log in, the time limits                     |
+| `networking.cfg`        | soft   | Ports, TLS files, secret word, client versions, deadlines, which list |
+| `whitelist.cfg`         | --     | One address or range a line.  Read on START SERVER, written at once   |
+| `blacklist.cfg`         | --     | The same, for the blacklist                                           |
+
+Every setting's comment is in the file itself, and on the Settings tab.
 
 A hand edit to a file while Conductor is running isn't seen, even on a START SERVER, since DiskMan serves
 the copy it already holds.  Shut Conductor down first.
@@ -258,11 +260,11 @@ Unity 6000.6, in C#.  It's on my machine and not in the repo yet.
 Opus/
 ├── Conductor/
 │   ├── dev/                       a Cargo workspace
-│   │   ├── conductor-tools/       DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, and the rest
+│   │   ├── conductor-tools/       DiskMan, Scribe, Constellations, Security, Archivist and the rest
 │   │   ├── conductor-monitor/     looks at the process and the machine once a second
 │   │   ├── conductor-networking/  the login over TLS, the game over UDP, the access lists; test_client.py
 │   │   ├── conductor-wgui/        the web admin
-│   │   └── conductor-launcher/    the program: boots, then starts and stops the server on the Control Panel's say
+│   │   └── conductor-launcher/    the program: boots, then runs the server on the Control Panel's say
 │   └── build/                     compiled output, never committed
 ├── Ensemble/                      the client (on my machine, not in the repo yet)
 ├── Content/
