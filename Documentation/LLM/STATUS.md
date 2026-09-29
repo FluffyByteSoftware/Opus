@@ -25,8 +25,12 @@ SERVER takes it back down with Conductor still running.
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
 says.  `main` sits on the Constellations rebuild; `unstable` and `testing` carry this session on top.
 
-**Last built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `4a34aa3`, before the
-login and the Settings tab; those are written and not yet built.  `cargo build` clean
+**Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `c4cfd59`: the login and the
+Settings tab.  `cargo build` clean bar one warning (an unread error field, fixed after), `cargo test`
+passed 132 (15 monitor, 89 tools with the benchmark ignored, 28 web admin), and a run did the whole loop:
+admin logged in, START SERVER, a save of `wgui_port` on the Settings tab, STOP SERVER, SHUT DOWN, and the
+next run came up on the new port.  The first real `.wait4server` swap.  The Windows code has never been
+built.  `cargo build` clean
 (the first test build failed on four lines in DiskMan's new tests, `status()` called on the test's own
 DiskMan instead of through its lock; fixed).  `cargo test` passed 119 tests (15 monitor, 88 tools with the
 benchmark ignored, 16 web admin), and a run did START SERVER, STOP SERVER and SHUT DOWN from the Control
@@ -37,8 +41,8 @@ far; nothing on the page writes one yet.  The Windows code has never been built.
 ## Last session -- 2026-09-29 (the fourth that day)
 
 Two pieces of the web admin, in this order at Jacob's say: **a login**, then **the config editor's web
-admin half**.  Written and checked in a headless browser against a stand-in for the routes with made-up
-numbers; **not built or run**, since that's Jacob's.
+admin half**.  Checked in a headless browser against a stand-in for the routes with made-up numbers,
+then built, tested and run by Jacob (see above).
 
 What we did:
 
@@ -87,12 +91,9 @@ move.
 
 ## What's waiting
 
-- **Building and running this session's work**: `cargo build`, `cargo test`, then a run: log in as
-  `user` and see the buttons greyed, as `admin` and start the server, then the Settings tab: save a bad
-  port and see the complaint under the field, save a good one and see the WAITING tag, SHUT DOWN and look
-  at `Content/cfg/conductor_globals.cfg` for the new value (the first real `.wait4server` swap).  For
-  `postgres.cfg`, STOP SERVER is the swap.  The log line for a leftover at load is "found ... and swapped
-  it in"; the ordinary swap is quiet.
+- Jacob's test run left his `Content/cfg/conductor_globals.cfg` on `wgui_port = 9995`, so it shows as
+  modified in his `git status`.  The committed one says 9996.  His call which stands.
+- The `user` account hasn't been tried in a real run yet, only in the tests and the headless check.
 - On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` and `testing_/charming-euler-jlyos7`.
   Jacob said he'd do it.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to

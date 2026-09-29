@@ -363,8 +363,8 @@ fn log_in(request: &Request) -> (Answer, Next) {
             (answer, Next::KeepGoing)
         }
         Login::Wrong => (Answer::plain("403 Forbidden", "Wrong name or password."), Next::KeepGoing),
-        Login::NoToken(_) => (Answer::plain("500 Internal Server Error", "Conductor couldn't make a login token.  \
-            The log says why."), Next::KeepGoing),
+        Login::NoToken(e) => (Answer::plain("500 Internal Server Error", &format!("Conductor couldn't make a login \
+            token: {e}.  Nobody can log in until the OS gives out random bytes again.")), Next::KeepGoing),
     }
 }
 
