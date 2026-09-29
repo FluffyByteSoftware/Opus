@@ -75,6 +75,16 @@ they come up a lot.
 - **The clock** -- UTC dates and times, worked out by hand, since the standard library stops at seconds
   since 1970.  All time in Opus is UTC, and any time shown to a person ends with `Z`.
 
+### Accounts (`conductor-accounts`)
+
+An account as the server holds it: every column of the `accounts` table but the password hash, loaded
+from its row, changed in memory, and saved back.  A save with nothing changed doesn't touch the database.
+The login loads the account after the password checks out, and it goes with the player until they leave
+the world, however they leave, and it's saved then.  Its last login is the moment the player came in over
+UDP, not the TLS login before it, since that's when playing starts.  The hash stays out of it on purpose,
+so it can never end up in a log line.  New accounts are made by the admin on the web admin (not built
+yet); `Account::new()` and `create()` are ready for it.
+
 ### The monitor (`conductor-monitor`)
 
 Once a second, on its own thread, it looks at Conductor and at every process on the machine: CPU (for the
@@ -266,6 +276,7 @@ Opus/
 ├── Conductor/
 │   ├── dev/                       a Cargo workspace
 │   │   ├── conductor-tools/       DiskMan, Scribe, Constellations, Security, Archivist and the rest
+│   │   ├── conductor-accounts/    an account in memory, loaded from its row and saved back when let go
 │   │   ├── conductor-monitor/     looks at the process and the machine once a second
 │   │   ├── conductor-networking/  the login over TLS, the game over UDP, the access lists; test_client.py
 │   │   ├── conductor-wgui/        the web admin

@@ -8,12 +8,13 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor is five crates.  `conductor-tools` (lib) holds DiskMan, Scribe, Constellations, Fingerprinter,
+Conductor is six crates.  `conductor-tools` (lib) holds DiskMan, Scribe, Constellations, Fingerprinter,
 Security, Archivist, the notices, the clock, the thread list, the services list and the server's switch
-(`server.rs`).  `conductor-monitor` (lib) looks at the process and every process on the machine once a
-second.  `conductor-networking` (lib) is the front door: a login over TLS on TCP that hands a player a
-ticket for UDP, the UDP side the game will run on, a ledger of every connection at the door, and a
-whitelist and a blacklist of addresses checked at the door.  `conductor-wgui` (lib) is the web admin at
+(`server.rs`).  `conductor-accounts` (lib) is an account as the server holds it in memory.
+`conductor-monitor` (lib) looks at the process and every process on the machine once a second.
+`conductor-networking` (lib) is the front door: a login over TLS on TCP that hands a player a ticket for
+UDP, the UDP side the game will run on, a ledger of every connection at the door, and a whitelist and a
+blacklist of addresses checked at the door.  `conductor-wgui` (lib) is the web admin at
 `http://127.0.0.1:9996/Opus`, and the only way to start and stop the server and to shut Conductor down.
 `conductor-launcher` (bin) boots the program and waits on the Control Panel.  Ensemble is Unity 6000.6,
 on Jacob's machine, not in the repo.
@@ -25,62 +26,54 @@ networking, the monitor, and whatever comes later) only starts when START SERVER
 admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  At the close of the test run all three are on the same
-commit: Jacob said to merge everything to `main`.
+stable release, moved only when Jacob says.  At this close all three are on the same commit: Jacob said
+to merge to `main`.
 
-**Built and tested on Linux (Nobara 44), 2026-09-29**: everything through KICK on any row, and the
-whole test run.  `cargo clean`, `cargo build` with no warnings, `cargo test` 199 passed (15 monitor, 59
-networking, 91 tools with the benchmark ignored, 34 web admin).  Every hand check in TEST_CHECKLIST.md
-passed on `testing`.  `main` moved up to `testing` at the close of this session, Jacob's word.  The
-Windows code has never been built.
+**Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the accounts crate.
+`cargo build` with no warnings, `cargo test` 204 passed (4 accounts, 15 monitor, 60 networking, 91 tools
+with the benchmark ignored, 34 web admin).  Jacob cleared every open check.  The Windows code has never
+been built.
 
-## Last session -- 2026-09-29, the test run
+## Last session -- 2026-09-29, the account in memory
 
-Jacob's pick: go through every open check in TEST_CHECKLIST.md on `testing`.
+Jacob's pick: an accounts crate holding a real structure for an account from the database.
 
 What we did:
 
-- **The checklist, by subsystem.**  Every open check gathered into one run in the order of the piece it
-  tests (the build, the page before START SERVER, Constellations and DiskMan, the TLS pair, the door,
-  leaving the world, KICK, the access lists, `user` and `admin`), with a one-line command each.  Checks
-  that no longer matched the build were rewritten: with the TLS files gone, TCP is in trouble and UDP
-  stopped (not both in trouble); KICK is on every row now; Ctrl-Z after TLS can't be caught; a hand
-  edit to a list file only needs the server stopped.
-- **`--pause-before-login N`** on `test_client.py` (Jacob's name): sits N seconds after TLS before the
-  Login, so the connection can be kicked or banned while open.  Past `login_deadline_seconds` (10) the
-  server hangs up first.  A hang-up during the login prints a line, not a traceback.
-- **The run.**  Everything passed.  Jacob's notes went into the web admin's design doc and README: before
-  login the page is only the login card; with the server stopped only the Control Panel, the Log and
-  the Settings open, for both accounts; `user` reads the Log and the Settings; the bell waits for START
-  SERVER, and a Warn from boot is in the Log tab meanwhile.
-- **Bug 1, fixed.**  After RESTART SERVER the Settings tab still said a change saved on it was waiting.
-  The server was right (clicking away and back cleared it): the tab was only drawn when opened, and
-  opened in the middle of the restart it kept a snapshot from before the stop swapped the change in.
-  `page.html` now asks again whenever the server's state, or when it got there, changes while the tab
-  is open.  Its check is the one left in TEST_CHECKLIST.md; the syntax was checked in the session, no
-  more.  Worth knowing: a change saved from the Settings tab and still waiting wins over a hand edit to
-  the same file, since it's swapped in over it at the stop.
-- **The TLS error's command** (Jacob's yes): `tls::make_pair()` builds it from the full paths
-  `networking.cfg` gives, in quotes, "from any folder".  The old relative one, pasted from
-  `Conductor/dev`, is what made a stray `Content` there once.
-- **TEST_CHECKLIST.md cleared** (Jacob: it's his reminder, not a history).  A passed check is taken out
-  now, not struck through; CLAUDE.md says so.  Left: the Settings tab's check, and the parked two (an
-  outside machine, the Windows build).
+- **`conductor-accounts`, a lib.**  `Account` is the account in memory, Jacob's words: "our rust
+  representation of an account from the database", which can be dumped back to it.  Every column but the
+  password hash (left out so it can never be logged or shown): `id()`, `uuid()`, `username()`,
+  `created_at()` read only; `first_name`, `last_name`, `email`, `last_login` changeable.  `load(name)`,
+  `account.save()` (writes only if something changed since the row was read or written; "the same if
+  it's the same, don't even bother writing"), `password_hash(name)` for the login, and `Account::new()`
+  plus `create(account, hash)` for making one.  Everything hands back Archivist's `Pending`.
+- **The login moved onto it.**  `tcp.rs` has no SQL of its own now.  It reads the hash, checks the
+  password, deals with an account already in the world, then loads the `Account` (after the kick, so
+  the kicked session's save is in the row first: Archivist has one worker and goes in order).
+- **The book holds the account.**  In `sessions.rs` a ticket holds it, then the player.  Every way out of
+  the book (Goodbye, quiet, kicked, banned, replaced, a ticket that ran out, STOP SERVER) saves it once
+  the lock is let go.  `sweep_in()` lost its two `retain()`s for find-then-remove, through the new
+  `remove_ticket_in()` and the old `remove_player_in()`.
+- **The login time is the UDP connect** (Jacob: "it's their UDP connection time we want", for playtime
+  metrics later).  Stamped in memory when the ticket is used, written when the player leaves.  Checked:
+  the row read 20:02:25Z, the second the log said the player was in the world.  If Conductor dies
+  without a clean stop, the login times of everyone in the world are lost (Ctrl-C isn't caught yet).
+- **Security's 64 MiB**: Jacob saw 74 MB on the page with the server up and nobody in.  That's the
+  arena, touched at START SERVER on purpose; the accounts are a few hundred bytes each.
+- **The folder rename** asked for mid-session went to TODO.md: folders only, crates keep `conductor-`.
 
 ## What's waiting
 
-- **An accounts crate** (Jacob's pick at this close): a crate that holds a real structure for an
-  account, read from the database.  What's there to build on: the `accounts` table
-  (`Content/psql/defaults/schemas/accounts.sql`, frozen, so any change is a migration; `uuid` came with
-  0001), with Postgres checking the name (8 to 32 of `a-z`, `0-9`, `_`) and the email itself; Security's
-  `hash_password()` and `check_password_rules()` (8 to 128 printable ASCII, a digit, a capital, a
-  symbol); Fingerprinter's `new_uuid()`; Archivist's `transaction()` and `Pending`; and the login, which
-  today reads `password_hash` by `account_username` and stamps `last_login_datetime` straight from
-  `tcp.rs`.  Open until the session asks: the crate's name and that it's a lib; what the structure
-  holds; whether the login's two queries move into it; and who makes an account (a player over the
-  protocol, a new packet and a protocol version; the admin from the web admin; or both).  TODO.md has
-  "Accounts: making one" and the web admin's game account management.
-- **The Settings tab's check** in TEST_CHECKLIST.md (bug 1's fix, built on `main` but not looked at).
+- **The protogame library** (Jacob's pick at this close): what takes over after the login, holds a
+  reference to the player's account, and builds up the UDP session.  To build on: `sessions.rs` (the
+  book: tickets, players, each holding its `Account`, saved as it leaves), `udp.rs` (keep-alives,
+  Goodbye, the sweep), and conductor-accounts.  Open until the session asks: its name (a lib, by the
+  rule for server pieces), what moves out of networking into it, and whether the game loop starts here.
+- **Drop `conductor-` from the crate folders**, folders only; the crates keep their names.  In TODO.md.
+- **Playtime metrics**: a table of play sessions.  In TODO.md.
+- **Making accounts from the web admin** (game account management).  `Account::new()` and `create()` are
+  ready; the form, its route and the checks on the fields aren't.  Jacob: the admin makes accounts,
+  players don't.
 - **The throwaway account.**  `throwaway_01` / `Throwaway 1!`, inserted by hand with an Argon2id line
   made outside Conductor at Security's settings (64 MiB, one pass, one lane).
 - **The stale words in the code**, in TODO.md.

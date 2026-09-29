@@ -35,6 +35,10 @@ Things that wait on a piece that doesn't exist yet.
   calls them yet.  Jacob: accounts are managed by the server admin on the web admin, not made by
   players.  The form, its route, and checking the name, email and password (Security's
   `check_password_rules()`) before the table does, are the web admin's game account management below.
+- **The protogame library** (Jacob's pick at the 2026-09-29 close): what takes over after the login,
+  holds a reference to the player's account, and builds up the UDP session.  Today `sessions.rs` in
+  networking holds the account and the UDP side only keeps the player alive.  What moves where, what the
+  crate is called, and whether it's the game loop's start, are for that session to ask.
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
   - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full

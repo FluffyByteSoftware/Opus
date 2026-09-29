@@ -318,6 +318,16 @@ When I say we're wrapping up:
   one arena of memory kept for the server's life, one login hashed at a
   time, hard limit, with everybody else in line.  Nothing else calls the
   argon2 crate, and nothing ever logs a password.
+- **Every account goes through `conductor-accounts`** (2026-09-29).
+  `Account` is the account in memory, Jacob's words: the Rust version of
+  its row, loaded with `load()` and dumped back with `save()`, which
+  skips the write when nothing changed.  It never holds the password hash
+  (`password_hash()` reads that on its own).  Nothing else writes SQL for
+  the `accounts` table.  The server holds a player's `Account` from the
+  login until they leave the world, and saves it then, however they
+  leave.  Its last login is the UDP connect, not the TLS login (Jacob,
+  for playtime).  Accounts are made by the admin on the web admin, never
+  by players.
 - **Every Warn and Error becomes a notice** on the web admin's bell, and stays
   there until I ACK it. So a Warn is for something actually wrong, never
   chatter. Code can raise one on purpose with `notices::publish()`.

@@ -432,7 +432,8 @@ Tables today:
 `accounts`: `id` (from Postgres), `uuid` (migration 0001), `account_username` (8 to 32 of `a-z`, `0-9`, `_`, unique),
 `owner_first_name` and `owner_last_name` (as the owner capitalizes them), `owner_email` (loosely checked,
 one account per address ignoring case), `password_hash` (Security's Argon2 PHC string),
-`created_at`, `last_login_datetime` (empty until the first login).  Postgres checks the name and email
+`created_at`, `last_login_datetime` (empty until the first login; the moment the player last came in
+over UDP, written when they leave, by conductor-accounts).  Postgres checks the name and email
 itself, so even a bug in Conductor can't store a bad one.  `last_played_character` comes as a migration once
 there are characters.
 

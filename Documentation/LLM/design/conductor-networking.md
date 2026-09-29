@@ -90,6 +90,12 @@ because of the CPU cost.
 - **A ticket is a token from Fingerprinter, good once, for `token_deadline_seconds` (30).**  The first
   address to Connect with it is the player; the same address again gets the same answer (a lost reply);
   any other address is refused.  A second login for an account with an unused ticket replaces the ticket.
+- **The ticket holds the account, then the player does** (conductor-accounts, 2026-09-29).  The login
+  reads only the password hash for the check; once it's through, and any other session is logged out,
+  it loads the `Account`.  The ticket's Connect stamps its last login (the UDP time is the login time,
+  Jacob's call, for playtime later), and whenever a ticket or player leaves the book, however, its
+  account is saved once the book's lock is let go.  `clear()` saves everyone at STOP SERVER, before
+  Archivist stops.
 - **A player is known by their address.**  `sessions.rs` keeps three maps (tickets by token, players by
   address, accounts by name) so nothing is ever found by a search: a keep-alive is one map lookup and one
   send.  That's more memory per player for a cost that's the same with 5 or 5000.  Jacob's trade.
