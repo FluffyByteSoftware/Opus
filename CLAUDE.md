@@ -332,8 +332,7 @@ When I say we're wrapping up:
   **Every new route goes through `/Opus/wwwhook/`**, and when a reply says
   "route" it names the whole path (`/Opus/wwwhook/tcp/kick`), so it's clear
   that's what is meant: a web admin path, not a file or a function.  Jacob,
-  2026-09-29 (he wrote `Opus/Content/wwwhook/`; the paths are `/Opus/wwwhook/`).
-  Ask before adding one.
+  2026-09-29.  Ask before adding one.
 
 ### Networking (conductor-networking)
 
