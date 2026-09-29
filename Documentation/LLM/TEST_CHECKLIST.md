@@ -29,6 +29,20 @@ the session only for the script's syntax; nothing was run.
       is running again, the tab redraws on its own: the warning is gone and the new value is running,
       without clicking away.  Put the value back after.
 
+## 2026-09-29 -- The account in memory (conductor-accounts)
+
+Build: `cargo build` with no warnings; `cargo test` should come to 203 (4 new, in conductor-accounts).
+Written in the session, not built there.  To see the row, from any folder:
+`psql -h localhost -U opus_game -d opusdb -c "SELECT account_username, last_login_datetime FROM accounts;"`
+
+- [ ] A login still works, and the time lands when the player leaves.  Run:
+      `python3 conductor-networking/test_client.py throwaway_01 'Throwaway 1!' --leave-after 20`
+      While it's in, `last_login_datetime` in the row hasn't moved; once it says Goodbye, it's the time
+      of the login.
+- [ ] STOP SERVER with the client in the world (no `--leave-after`): the row has the new login time.
+- [ ] Log in from a second client and log the first one out: the row has the second login's time.
+- [ ] A wrong password still gets the one failure answer, and nothing in the row changes.
+
 ## Parked
 
 Nothing to run these on yet.

@@ -31,10 +31,10 @@ Things that wait on a piece that doesn't exist yet.
 - Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
-- Accounts: making one.  Logging in is built (networking, 2026-09-29) and reads the `accounts` table;
-  nothing writes a row yet.  Jacob's pick at the test run's close: an accounts crate holding a real
-  structure for an account from the database; STATUS.md has what's there to build on.  Security's `hash_password()` and Fingerprinter's `new_uuid()` are ready.  The
-  first throwaway account was inserted by hand (STATUS.md has the how).
+- Accounts: making one.  `conductor-accounts` (2026-09-29) has `Account::new()` and `create()`; nothing
+  calls them yet.  Jacob: accounts are managed by the server admin on the web admin, not made by
+  players.  The form, its route, and checking the name, email and password (Security's
+  `check_password_rules()`) before the table does, are the web admin's game account management below.
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
   - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full
@@ -69,6 +69,11 @@ Things that wait on a piece that doesn't exist yet.
   Ensemble's first session's call.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
+- **Drop the `conductor-` from the crate folders** (Jacob, 2026-09-29: redundant now).  Its own session.
+  Folders only (`Conductor/dev/tools/`, still the crate `conductor-tools`) touches the workspace
+  `Cargo.toml`, every `path = "../conductor-..."`, the `File:` lines and the docs.  The crate names too
+  (`tools`, used as `tools::scribe`) touches every `use conductor_...` line besides.  Which one is
+  Jacob's call.
 - **Stale words in the code**, found the same day, for whichever session next touches each file:
   `access.rs` has a Warn the admin sees that says "the web admin's Networking tab" (the tabs are Whitelist
   and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs`, the web admin's `Cargo.toml` and a

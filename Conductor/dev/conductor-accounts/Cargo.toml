@@ -1,0 +1,16 @@
+# File:       Opus/Conductor/dev/conductor-accounts/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# Accounts: an account as Conductor holds it in memory, read from its row
+# in the accounts table and written back to it.  A lib crate.  No
+# dependencies but our own tools: the database goes through Archivist and
+# the UUID comes from Fingerprinter.
+
+[package]
+name = "conductor-accounts"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-tools = { path = "../conductor-tools" }

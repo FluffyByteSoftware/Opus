@@ -30,14 +30,17 @@
 //! secret word, the username and the password in one Login, and we answer
 //! with a Ticket or a LoginResult.  An old version is told so before the
 //! password is looked at, and a wrong secret word or a name that couldn't
-//! be an account fails without a hash.  A name that could be one is
-//! looked up through Archivist, and its password checked through
-//! Security, in Security's line: a name with no account still costs a
-//! hash there, so a stopwatch can't tell the two apart.  Every failure
-//! gets the same answer, closes the connection, and makes the address
-//! wait FAILURE_HOLD before its next connection is taken at all.  The
-//! right password for an account already in the world gets asked what to
-//! do instead (sessions.rs); a right password otherwise gets a ticket.
+//! be an account fails without a hash.  A name that could be one has its
+//! password hash read (conductor-accounts), and its password checked
+//! through Security, in Security's line: a name with no account still
+//! costs a hash there, so a stopwatch can't tell the two apart.  Every
+//! failure gets the same answer, closes the connection, and makes the
+//! address wait FAILURE_HOLD before its next connection is taken at all.
+//! The right password for an account already in the world gets asked what
+//! to do instead (sessions.rs); a right password otherwise gets a ticket.
+//! The account itself is read then, with the login time put on it in
+//! memory, and the ticket holds it from there.  It's read after the other
+//! session is logged out, so whatever that one's save wrote is in the row.
 //!
 //! Every connection goes on the ledger (ledger.rs) as it's accepted, and
 //! moves along it a stage at a time, so the web admin's Connections tab
@@ -56,14 +59,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
+use conductor_accounts::Account;
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::security::{self, SecurityError, Ticket};
 use conductor_tools::services::{self, State};
-use conductor_tools::{archivist, threads};
+use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
 use crate::ledger::{self, End, Stage};
@@ -94,14 +98,6 @@ const PLACE_EVERY: Duration = Duration::from_secs(1);
 /// How much we ask TLS for in one read.  Bigger than any packet we take,
 /// so one read can hold a whole one.
 const READ_CHUNK: usize = 8192;
-
-/// The one row a login needs.
-const ACCOUNT_SQL: &str = "SELECT password_hash FROM accounts WHERE account_username = $1";
-
-/// Noted on the way in.  Not waited on: a login time we couldn't save
-/// isn't worth turning the player away over, and Archivist logs a failed
-/// job itself.
-const LOGIN_TIME_SQL: &str = "UPDATE accounts SET last_login_datetime = now() WHERE account_username = $1";
 
 /// The account name rule, the same one the accounts table checks: 8 to 32
 /// of `a-z`, `0-9` and `_`.
@@ -707,14 +703,23 @@ fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadli
         }
     }
 
-    match sessions::issue(&account, id) {
+    let account = match load_account(&account, peer) {
+        Some(account) => account,
+        None => {
+            let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
+            return End::Unavailable;
+        }
+    };
+    let name = account.username().to_string();
+
+    match sessions::issue(account, id) {
         Ok(token) => {
-            scribe::info(Channel::Security, &format!("{peer} logged in as {account} and has a ticket for UDP."));
+            scribe::info(Channel::Security, &format!("{peer} logged in as {name} and has a ticket for UDP."));
             let _ = send(stream, &protocol::ticket(&token, setup.udp_port));
             End::LoggedIn
         }
         Err(e) => {
-            scribe::error(Channel::Security, &format!("NO TICKET FOR {account}: Fingerprinter couldn't make a token \
+            scribe::error(Channel::Security, &format!("NO TICKET FOR {name}: Fingerprinter couldn't make a token \
                 ({e}).  Nobody can get past the login until the OS gives random bytes again."));
             let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
             End::Unavailable
@@ -766,9 +771,8 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
     // The account's row, waited for on this thread.  Archivist's worker
     // does the reading; we only sleep until it's done.
     ledger::set(id, Stage::Checking);
-    let params: Vec<archivist::Param> = vec![Box::new(account.clone())];
-    let stored: Option<String> = match archivist::query(ACCOUNT_SQL, params).wait() {
-        Ok(rows) => rows.first().map(|row| row.get("password_hash")),
+    let stored: Option<String> = match conductor_accounts::password_hash(&account).wait() {
+        Ok(stored) => stored,
         Err(e) => {
             // Archivist has already said what's wrong with it, and once.
             scribe::info(Channel::Security, &format!("Login from {peer} as {account} couldn't be checked: {e}."));
@@ -785,12 +789,7 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
 
     match verified {
         None => Outcome::Gone,
-        Some(Ok(true)) => {
-            // Not waited on: see LOGIN_TIME_SQL.
-            let params: Vec<archivist::Param> = vec![Box::new(account.clone())];
-            let _ = archivist::execute(LOGIN_TIME_SQL, params);
-            Outcome::In(account)
-        }
+        Some(Ok(true)) => Outcome::In(account),
         Some(Ok(false)) => {
             scribe::info(Channel::Security, &format!("Login from {peer} as {account} failed."));
             Outcome::Refused
@@ -803,6 +802,29 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
         // A stored line Security can't read.  It has logged the damaged
         // row; to the player it's a wrong password.
         Some(Err(SecurityError::Failed(_))) => Outcome::Refused,
+    }
+}
+
+/// Reads the account that just logged in, and puts the login time on it
+/// in memory.  It's written to the row when the account leaves the book.
+/// `None` if it couldn't be read, or its row went between the password
+/// check and here; either way the player can't be let in without it.
+fn load_account(name: &str, peer: SocketAddr) -> Option<Account> {
+    match conductor_accounts::load(name).wait() {
+        Ok(Some(mut account)) => {
+            account.last_login = Some(SystemTime::now());
+            Some(account)
+        }
+        Ok(None) => {
+            scribe::warn(Channel::Security, &format!("{peer} logged in as {name}, but the account was gone by the \
+                time it was read.  Not let in."));
+            None
+        }
+        Err(e) => {
+            scribe::info(Channel::Security, &format!("{peer} logged in as {name}, but the account couldn't be \
+                read: {e}.  Not let in."));
+            None
+        }
     }
 }
 

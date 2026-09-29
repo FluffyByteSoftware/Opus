@@ -54,6 +54,7 @@ Opus/
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
 │   │   ├── conductor-tools/    # lib: the tools (DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, ...)
+│   │   ├── conductor-accounts/ # lib: an account in memory, loaded from its row and saved back when let go
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── conductor-networking/ # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
