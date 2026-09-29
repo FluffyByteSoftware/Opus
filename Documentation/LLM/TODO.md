@@ -41,8 +41,11 @@ Things that wait on a piece that doesn't exist yet.
   SERVER on the Control Panel applies anything a server piece reads when it starts (`postgres.cfg`, and
   Security's and the network's settings if they get any), which is why a piece with settings of its own
   is a server piece.  The program's own settings (`scribe_log_dir`, `wgui_port`) either hot swap on the
-  spot or wait for the next boot, and the page should say which.  Showing them is small: a read-only route
-  and a Settings tab.  Changing them live needs:
+  spot or wait for the next boot, and the page should say which.  Jacob's words for the two (2026-09-29):
+  a **soft restart** is RESTART SERVER on the Control Panel (a tick rate, say); a **hard reboot** is the
+  launcher itself run again (where the log goes, the web admin's port).  Every setting gets tagged one or
+  the other when the editor is built, and the page says which it's waiting on.  Showing them is small: a
+  read-only route and a Settings tab.  Changing them live needs:
   - Constellations to stop being load-once.  Today the settings sit in a `OnceLock`, which can't change
     after it's set; it would become a lock around settings that can be swapped.
   - A route that changes things (`POST`, with the `X-Opus` header like Shut Down), which is Jacob's call
