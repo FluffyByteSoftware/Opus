@@ -87,8 +87,9 @@ What Jacob decided:
 
 ## What's waiting
 
-- Running Conductor with Security in it (from `testing`): the Services tab should show Security running with
-  "64 MiB arena, huge pages asked for.", and the log an Info line saying so.  Then `main`, when Jacob says.
+- `main`, when Jacob says.  Conductor ran from `testing` with Security in it on 2026-09-29: Security's row on
+  the Services tab running and checking in, "64 MiB arena, huge pages asked for.", and its Info line in the
+  log.  Everything else as before.
 - On GitHub, by hand: delete `developing`, `experimental` and `stable` (made and then renamed in the last
   minutes of the session; the session can't delete branches), and switch the default branch to `unstable`.
 - **The web admin: a "Manage System" screen at first boot, and further improvements.**  Jacob's pick for the
