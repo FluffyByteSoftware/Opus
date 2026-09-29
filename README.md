@@ -109,7 +109,7 @@ Opus/
 │       ├── conductor-networking/ the login over TLS, the game over UDP
 │       ├── conductor-wgui/       the web admin
 │       └── conductor-launcher/   the program: starts it all
-├── Ensemble/           the client (not started)
+├── Ensemble/           the client (on my machine, not in the repo yet)
 ├── Content/            configs, the TLS certificate, database schemas, logs
 └── Documentation/      design notes and working docs
 ```
