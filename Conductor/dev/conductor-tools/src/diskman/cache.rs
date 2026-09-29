@@ -20,13 +20,20 @@
 //! memory, so the disk only ever sees the newest.  Once an entry is on
 //! disk and clean, it can be unloaded whenever memory gets tight.  A dirty
 //! one is never unloaded, however big it is, because it's the only copy.
+//!
+//! A clean copy is only trusted while the disk agrees with it.  Each entry
+//! keeps the file's modified time and size as they were when the copy last
+//! matched the disk, and a read of a clean copy goes to the worker first
+//! to ask the disk for those two again.  If either has changed, somebody
+//! edited the file outside Conductor, and the copy is dropped for the
+//! file as it is now.
 
 use std::collections::{BTreeMap, VecDeque};
 use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::mpsc::{Sender, SyncSender};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use super::{Contents, DiskError, Piece, Status, SwapAt};
 use crate::clock::Utc;
@@ -59,6 +66,29 @@ pub(super) struct Limits {
     pub(super) clean_cache_bytes: usize,
 }
 
+/// A file's modified time and size, as the disk has them.  Two of these
+/// that differ mean the file changed in between.  The size is there as
+/// well as the time because some file systems only keep the time to the
+/// second, or coarser.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct Stamp {
+    pub(super) modified: SystemTime,
+    pub(super) len: u64,
+}
+
+/// What a read can have from memory, straight away.
+pub(super) enum Held {
+    /// A copy with something in it the disk hasn't got yet: a write or
+    /// appends still on their way.  Newer than the disk, whatever the disk
+    /// says, so it's the answer.
+    Newest(Contents),
+    /// A clean copy.  The worker asks the disk whether the file has changed
+    /// since, and answers with the copy or the file as it is now.
+    Check,
+    /// Nothing held.  The worker reads the disk.
+    Nothing,
+}
+
 /// One file DiskMan knows about.
 pub(super) struct Entry {
     /// The whole file, as far as we know.  `None` when all we've been
@@ -88,6 +118,10 @@ pub(super) struct Entry {
     pub(super) failed_tries: u32,
     /// Not before this, after a failure.
     pub(super) retry_at: Option<Instant>,
+    /// The file's time and size on disk as of when `content` last matched
+    /// it.  `None` when we can't say, and then a clean copy is read again
+    /// rather than trusted.
+    pub(super) on_disk: Option<Stamp>,
 }
 
 impl Entry {
@@ -104,6 +138,7 @@ impl Entry {
             for_scribe: false,
             failed_tries: 0,
             retry_at: None,
+            on_disk: None,
         }
     }
 
@@ -185,6 +220,9 @@ pub(super) struct State {
     pub(super) stopping: bool,
     pub(super) files: BTreeMap<PathBuf, Entry>,
     pub(super) reads: VecDeque<ReadJob>,
+    /// Reads of a clean copy, waiting on the worker to ask the disk whether
+    /// the file has changed since.
+    pub(super) checks: VecDeque<ReadJob>,
     pub(super) new_streams: Vec<StreamJob>,
     /// Every swap asked for and not yet done, whatever its `when`.
     pub(super) swaps: Vec<Swap>,
@@ -209,6 +247,7 @@ impl State {
             stopping: false,
             files: BTreeMap::new(),
             reads: VecDeque::new(),
+            checks: VecDeque::new(),
             new_streams: Vec::new(),
             swaps: Vec::new(),
             removes: VecDeque::new(),
@@ -292,26 +331,64 @@ impl State {
         }
     }
 
-    /// The file from memory, if we have all of it.
-    pub(super) fn read_hit(&mut self, path: &Path) -> Option<Contents> {
-        if !self.files.get(path).is_some_and(|entry| entry.content.is_some()) {
-            return None;
+    /// What a read of `path` can have straight away, if anything.
+    pub(super) fn held(&mut self, path: &Path) -> Held {
+        let Some(entry) = self.files.get(path) else {
+            return Held::Nothing;
+        };
+        let waiting = entry.waiting();
+        match entry.content.clone() {
+            Some(content) if waiting => {
+                self.totals.cache_hits += 1;
+                self.entry(path);
+                Held::Newest(content)
+            }
+            Some(_) => Held::Check,
+            None => Held::Nothing,
         }
-        self.totals.cache_hits += 1;
-        self.entry(path).content.clone()
+    }
+
+    /// The copy in memory, if it's still the newest there is: it has
+    /// something the disk hasn't got yet, or the disk says the same time
+    /// and size (`stamp`) as when the copy last matched it.
+    pub(super) fn current(&self, path: &Path, stamp: Option<Stamp>) -> Option<Contents> {
+        let entry = self.files.get(path)?;
+        let content = entry.content.as_ref()?;
+        let unchanged = stamp.is_some() && entry.on_disk == stamp;
+        (entry.waiting() || unchanged).then(|| Arc::clone(content))
+    }
+
+    /// The worker asked the disk about a file we hold a clean copy of, and
+    /// it said `stamp`.  The copy if it's still right; otherwise `None`, and
+    /// the copy is dropped so the worker reads the file as it is now.
+    pub(super) fn after_check(&mut self, path: &Path, stamp: Option<Stamp>) -> Option<Contents> {
+        if let Some(content) = self.current(path, stamp) {
+            self.totals.cache_hits += 1;
+            self.entry(path);
+            return Some(content);
+        }
+        // Edited outside Conductor, gone, or the disk won't say.  Either
+        // way the copy can't be trusted.
+        if let Some(entry) = self.files.get_mut(path) {
+            entry.content = None;
+            entry.on_disk = None;
+        }
+        None
     }
 
     /// The worker went to the disk for a read.  What the caller gets is the
     /// file on disk plus any tail that hasn't gone out yet, and that's kept
-    /// as the entry's content if it isn't too big to hold.
-    pub(super) fn after_disk_read(&mut self, path: &Path, from_disk: std::io::Result<Vec<u8>>)
-                                  -> Result<Contents, DiskError> {
+    /// as the entry's content if it isn't too big to hold.  `stamp` is the
+    /// file's time and size, asked for just before the bytes.
+    pub(super) fn after_disk_read(&mut self, path: &Path, from_disk: std::io::Result<Vec<u8>>,
+                                  stamp: Option<Stamp>) -> Result<Contents, DiskError> {
         // A write may have come in while the worker was reading.  It's
         // newer than the disk.
         if let Some(content) = self.files.get(path).and_then(|entry| entry.content.clone()) {
             return Ok(content);
         }
         let tail = self.files.get(path).map(|entry| entry.tail.clone()).unwrap_or_default();
+        let matches_disk = tail.is_empty();
 
         let mut bytes = match from_disk {
             Ok(bytes) => bytes,
@@ -328,6 +405,9 @@ impl State {
             let entry = self.entry(path);
             entry.content = Some(Arc::clone(&content));
             entry.dirty = false;
+            // With a tail on the end, the copy isn't what the disk has yet.
+            // It's stamped again once the tail is written.
+            entry.on_disk = if matches_disk { stamp } else { None };
         }
         Ok(content)
     }
@@ -511,6 +591,9 @@ impl State {
             entry.retry_at = None;
             Outcome::Written { recovered, for_scribe }
         } else {
+            // An append may have gone part way, so what's on disk is
+            // anybody's guess until the next good write.
+            entry.on_disk = None;
             entry.failed_tries += 1;
             if entry.failed_tries >= MOST_TRIES {
                 // Given up.  What's on disk is whatever the last good write
@@ -561,6 +644,15 @@ impl State {
         outcome
     }
 
+    /// A write of ours has landed, and the disk says `stamp` for the file
+    /// now.  Noted so the next read doesn't take our own write for somebody
+    /// else's edit.
+    pub(super) fn note_on_disk(&mut self, path: &Path, stamp: Option<Stamp>) {
+        if let Some(entry) = self.files.get_mut(path) {
+            entry.on_disk = stamp;
+        }
+    }
+
     /// Unloads clean files, the one used longest ago first, until what's
     /// held is under `clean_cache_bytes`.  Also drops entries with nothing
     /// left in them.
@@ -590,7 +682,8 @@ impl State {
     /// Nothing left to write or read.  Streams don't count: they're closed
     /// at shutdown rather than finished.
     pub(super) fn all_done(&self) -> bool {
-        self.reads.is_empty() && self.removes.is_empty() && self.files.values().all(|entry| !entry.waiting())
+        self.reads.is_empty() && self.checks.is_empty() && self.removes.is_empty()
+            && self.files.values().all(|entry| !entry.waiting())
     }
 
     /// Files that still have something to go out, for the shutdown notes.
@@ -607,7 +700,7 @@ impl State {
             files_loaded: 0,
             bytes_loaded: 0,
             files_failing: 0,
-            reads_waiting: self.reads.len(),
+            reads_waiting: self.reads.len() + self.checks.len(),
             streams_open: self.streams_open + self.new_streams.len(),
             swaps_waiting: self.swaps.len(),
             big_write: self.big_write.clone(),
@@ -718,9 +811,10 @@ mod tests {
     fn a_read_sees_the_tail_that_hasnt_gone_out() {
         let mut state = State::new(TINY);
         state.append(&path("log"), b"new", reply().0, false);
-        let read = state.after_disk_read(&path("log"), Ok(b"old ".to_vec())).expect("a good read");
+        let read = state.after_disk_read(&path("log"), Ok(b"old ".to_vec()), None).expect("a good read");
         assert_eq!(read.as_slice(), b"old new");
-        assert!(state.read_hit(&path("log")).is_some());
+        // The tail hasn't gone out, so the copy is newer than the disk.
+        assert!(matches!(state.held(&path("log")), Held::Newest(_)));
     }
 
     #[test]
@@ -750,8 +844,8 @@ mod tests {
     #[test]
     fn clean_files_unload_oldest_first_and_dirty_ones_stay() {
         let mut state = State::new(TINY);
-        state.after_disk_read(&path("old"), Ok(b"123456".to_vec())).expect("read");
-        state.after_disk_read(&path("new"), Ok(b"abcdef".to_vec())).expect("read");
+        state.after_disk_read(&path("old"), Ok(b"123456".to_vec()), None).expect("read");
+        state.after_disk_read(&path("new"), Ok(b"abcdef".to_vec()), None).expect("read");
         state.write(&path("dirty"), b"0123456789ABCDEF".to_vec(), reply().0);
         state.unload_extra();
 
@@ -799,6 +893,32 @@ mod tests {
 
         state.forget_swap(&path("a"));
         assert!(state.swaps.is_empty());
+    }
+
+    #[test]
+    fn a_clean_copy_is_checked_against_the_disk_and_ours_wins_while_it_waits() {
+        let mut state = State::new(TINY);
+        let then = Stamp { modified: SystemTime::UNIX_EPOCH, len: 3 };
+        state.after_disk_read(&path("a"), Ok(b"old".to_vec()), Some(then)).expect("a good read");
+        assert!(matches!(state.held(&path("a")), Held::Check));
+
+        // The disk says the same: the copy is the answer.
+        let same = state.after_check(&path("a"), Some(then)).expect("the copy");
+        assert_eq!(same.as_slice(), b"old");
+
+        // The disk says otherwise: somebody edited it, so the copy goes.
+        let later = Stamp { modified: SystemTime::UNIX_EPOCH + Duration::from_secs(1), len: 3 };
+        assert!(state.after_check(&path("a"), Some(later)).is_none());
+        assert!(matches!(state.held(&path("a")), Held::Nothing));
+
+        // The disk won't say (the file is gone, say): not trusted either.
+        state.after_disk_read(&path("b"), Ok(b"bee".to_vec()), Some(then)).expect("a good read");
+        assert!(state.after_check(&path("b"), None).is_none());
+
+        // A write of ours that hasn't gone out is newer than any disk.
+        state.write(&path("a"), b"ours".to_vec(), reply().0);
+        assert!(matches!(state.held(&path("a")), Held::Newest(_)));
+        assert!(state.current(&path("a"), Some(later)).is_some());
     }
 
     #[test]

@@ -105,6 +105,16 @@ What we decided:
   the disk, and everyone who was waiting hears back when it lands.
 - **Reads are cached.**  A file that's been read stays loaded, and the next read comes from memory.  A read
   of a file with appends still waiting gets the disk plus the appends.
+- **A hand edit is noticed** (2026-09-29, Jacob's pick).  Every entry keeps the file's modified time and
+  size as of when the copy last matched the disk (after a read, and after each of our own writes lands).
+  A read of a clean copy goes to the worker, which asks the disk for those two again, never the bytes: the
+  same, and the copy is the answer; different, gone, or the disk won't say, and the copy is dropped and the
+  file read again.  The time is asked for before the bytes, so a change in between is caught next time
+  rather than missed.  A copy with a write or appends of ours still on its way is newer than the disk and
+  answered straight away, so a hand edit made while one of ours waits is written over, the same as before.
+  Streams follow the same rule.  The cost is that a read of a held file waits one turn of the worker
+  instead of none; today every read is at boot or START SERVER, so nothing notices.  It's what makes the
+  soft files' "edit it by hand with the server stopped" true: STOP SERVER, edit, START SERVER.
 - **Clean files unload past 256 MB**, the one used longest ago first.  Dirty files don't count and are never
   unloaded, whatever their size: a few GB of world terrain is held until it's on disk.
 - **Whole writes never leave half a file**: temp file (`name.diskman-tmp`, same folder), flushed, renamed over
@@ -140,11 +150,6 @@ What we decided:
 
 What's open:
 
-- **Hand edits while running aren't seen** if DiskMan already holds the file.  The soft configs, the two
-  access lists (read on every START SERVER) and the schema and migration files (read on every connect)
-  are all read again while Conductor runs, and all come from memory the second time.  So a hand edit
-  between a STOP SERVER and a START SERVER isn't seen, whatever the soft files' own comments say.
-  Checking the file's modified time before trusting the copy would fix it (TODO.md, under DiskMan).
 - The Windows side (renaming over a file, no folder flush) hasn't been built there.
 - Nothing uses the big write or `stream()` for real yet: there's no terrain.  The tests cover them with tiny
   sizes.
@@ -370,10 +375,8 @@ while the server does, and a login has to work before START SERVER.  They're `Te
 empty one is refused; a `Text` complaint says the key is empty and never echoes the value, so nothing is
 lost by it.
 
-What's open:
-
-- Hand edits to a live file while Conductor holds it aren't seen (DiskMan serves the copy in memory).
-  Today that only matters for `postgres.cfg` between one START SERVER and the next.
+A hand edit to a live file is read on the next START SERVER (soft) or the next run (hard): DiskMan notices
+it (see DiskMan above).  An edit while the server runs isn't read until then, which is the rule anyway.
 
 ## Archivist
 

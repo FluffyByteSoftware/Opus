@@ -71,8 +71,7 @@ Things that wait on a piece that doesn't exist yet.
   (it's since START SERVER); `tcp.rs`'s header says a stop has no deadline (it has 2 seconds);
   `json.rs`'s notes and the Control Panel's note on the page leave out the Settings tab and networking;
   the header of `constellations.rs` names only `postgres.cfg` as soft; the monitor's `Cargo.toml` header
-  leaves out the process list.  And the comment Constellations writes into every soft file says a hand
-  edit is read on the next START SERVER, which DiskMan's cache makes untrue (the DiskMan idea below).
+  leaves out the process list.
 
 ## Ideas
 
@@ -102,12 +101,6 @@ Things we thought of along the way.  None of them are promised.
   once a few seconds, so it never waits on the database.
 - Monitor or the Storage tab: "last read / last write" by file.  DiskMan sees every file now, so this is
   ready whenever it's wanted.
-- DiskMan: notice hand edits.  A file it already holds is served from memory even if somebody edited it on
-  disk since.  Checking the modified time before trusting the copy would fix it.  The configs, and since
-  2026-09-29 the two access lists: `postgres.cfg` and `whitelist.cfg` are read on every START SERVER, so
-  a hand edit between two starts while Conductor runs isn't seen (Jacob's "you could edit them on disk"
-  holds with Conductor down, not between a STOP and a START).  A `.wait4server` file written by hand is,
-  since Constellations reads it fresh.
 - DiskMan: the `.wait4server` swap leans on `fs::rename` replacing a file, the same as its writes; on
   Windows that's the same untested spot.
 - DiskMan: the Windows build.  It leans on `fs::rename` replacing a file there, and skips flushing the folder.

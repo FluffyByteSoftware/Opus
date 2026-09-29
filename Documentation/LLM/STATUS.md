@@ -26,7 +26,8 @@ admin's Control Panel, and STOP SERVER takes it back down with Conductor still r
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
 stable release, moved only when Jacob says.  `main` sits on the access lists hand-off; `unstable` and
-`testing` are ahead of it by this session's documentation commits and one fix to `page.html`.
+`testing` are ahead of it by this session's documentation commits, one fix to `page.html`, and DiskMan
+noticing hand edits (not built yet).
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
 build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
@@ -37,7 +38,7 @@ Windows code has never been built.
 ## Last session -- 2026-09-29, the documentation pass
 
 Jacob's pick: prune and review `Documentation/LLM/`, update it to what's been built, and overhaul
-README.md.  Then, at Jacob's word, one fix to `page.html`.
+README.md.  Then, at Jacob's word, one fix to `page.html` and DiskMan noticing hand edits.
 
 What we did:
 
@@ -62,6 +63,14 @@ What we did:
   list ADD fields dead until a reload.  Now it sets each from the role both ways, SHUT DOWN stays greyed
   while one is on its way, and the Settings and list tabs are asked for again when the role changes
   while one is open.  Checked headless with made-up states only.
+- **DiskMan notices a hand edit** (Jacob's pick, after the question of whether to fix the soft files'
+  comment or DiskMan).  Every held file keeps its modified time and size from when the copy last matched
+  the disk, and a read of a clean copy asks the disk for those two first (on DiskMan's thread, never the
+  bytes): changed, and the file is read again.  A copy with a write of ours on its way still wins.  So
+  STOP SERVER, edit `postgres.cfg` or `networking.cfg` or a list or the TLS files, START SERVER, and the
+  edit is read.  `cache.rs` (`Stamp`, `Held`, `checks`, `after_check()`, `current()`,
+  `note_on_disk()`), `worker.rs` (the checks, the stamps after its own writes, streams), `diskman.rs`
+  (`read()`); two new tests.  Not built yet: Jacob builds.
 - **TEST_CHECKLIST.md**: the two-clients check named `--kick` and `--spare`, which the client never had.
 - PROJECT_OPUS.md: the tab count, the `.gitignore` line, the access lists as a named piece.
 
@@ -80,9 +89,7 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
 - **The rest of the TCP tab's checks** and **the untried networking hand tests** in the same file.
 - **The page's greying fix**: its check at the bottom of `TEST_CHECKLIST.md`.
 - **The stale words in the code**, in TODO.md.
-- **A hand edit to a config or list file between a STOP SERVER and a START SERVER isn't seen**: DiskMan
-  serves the copy it holds, whatever the soft files' own comments say.  With Conductor shut down it's
-  fine.  TODO.md under DiskMan.
+- **DiskMan noticing hand edits**: its checks at the bottom of `TEST_CHECKLIST.md`, and `cargo test`.
 - **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
   settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`
   with the password `Throwaway 1!`, a test row on a database that only listens on his machine.  Any

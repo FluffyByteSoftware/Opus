@@ -192,6 +192,3 @@ because of the CPU cost.
   `ConnectionReset` line in `udp.rs`, which is Windows telling us about a bounced packet.
 - **The web admin shows the door and the world** (the Connections tab, 2026-09-29): the players are listed by
   account; the character goes beside it once there is one.
-- **A hand edit to a list file while Conductor runs** isn't seen on the next START SERVER: DiskMan serves a
-  file it already holds from memory.  The same as the config files, in TODO.md under DiskMan.  A hand edit
-  with Conductor down is read fine.

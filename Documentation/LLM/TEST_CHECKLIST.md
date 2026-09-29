@@ -164,3 +164,19 @@ Conductor.
       open without leaving the tab.  The same on the Whitelist or Blacklist tab with an entry on it: its
       REMOVE opens.
 - [ ] LOG OUT, log in as `user` again: everything greys again.
+
+## 2026-09-29 -- DiskMan notices a hand edit
+
+Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 1 in `diskman.rs` (a
+write of ours, then a hand edit, then a hand delete) and 1 in `diskman/cache.rs`; two in `cache.rs`
+changed for the new argument.  Nothing was built in the session.
+
+- [ ] `cargo build` clean, no warnings; `cargo test` passes, 196 (91 tools) with the two new ones.
+- [ ] A soft file: START SERVER, STOP SERVER, change `slow_job_ms` in `Content/cfg/postgres.cfg` by hand
+      (Conductor still running), START SERVER.  The Settings tab shows the new value as running.  Before
+      this, it showed the old one until Conductor was run again.  Put it back after.
+- [ ] A list file: with the server stopped, add `10.0.0.1` to `Content/cfg/blacklist.cfg` by hand, START
+      SERVER: the Blacklist tab shows it, and the log has the Debug line "Read 1 entry from .../blacklist.cfg."
+      Take it out the same way.
+- [ ] Nothing else changed: STOP SERVER and START SERVER with no hand edits still come up clean, and the
+      Storage tab's cache hits count up the same as before.

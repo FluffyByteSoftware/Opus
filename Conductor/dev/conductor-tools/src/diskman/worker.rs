@@ -3,11 +3,13 @@
 //! Author:     Jacob Chacko
 //!
 //! DiskMan's one worker thread, and the only code in Conductor that
-//! touches the disk to write.  It goes round and round: answer the reads,
-//! write out every file that has something waiting, do the removes and
-//! the swaps that are due, move the big write on by one chunk, hand each
-//! open stream its next chunk, unload what memory can spare.  When there's nothing to do it sleeps until a caller wakes
-//! it, or a second passes and it checks in with the services list.
+//! touches the disk to write.  It goes round and round: answer the reads
+//! (asking the disk first whether a file it holds has changed), write out
+//! every file that has something waiting, do the removes and the swaps
+//! that are due, move the big write on by one chunk, hand each open stream
+//! its next chunk, unload what memory can spare.  When there's nothing to
+//! do it sleeps until a caller wakes it, or a second passes and it checks
+//! in with the services list.
 //!
 //! The lock is never held while the disk is being touched, or while
 //! anything is logged.  That's what lets callers keep handing DiskMan
@@ -28,7 +30,7 @@ use std::sync::mpsc::TrySendError;
 use std::sync::{Arc, MutexGuard};
 use std::time::{Duration, Instant};
 
-use super::cache::{Flush, Outcome, Reply, State};
+use super::cache::{Flush, Outcome, Reply, Stamp, State};
 use super::{Contents, DiskError, Piece, Shared, SwapAt};
 use crate::scribe::{self, Channel};
 use crate::services::{self, State as ServiceState};
@@ -113,6 +115,7 @@ impl Drop for Closing {
         let mut state = self.0.lock();
         state.running = false;
         state.reads.clear();
+        state.checks.clear();
         state.new_streams.clear();
         state.streams_open = 0;
         state.big_write = None;
@@ -203,13 +206,34 @@ fn run(shared: &'static Shared) {
 // Reads
 // ---------------------------------------------------------------------------
 
-/// Answers every read waiting on the disk.  True if there were any.
+/// Answers every read waiting on the worker.  A file we hold a clean copy
+/// of is checked first: if the disk still says the same time and size,
+/// the copy is the answer; if not, somebody changed the file outside
+/// Conductor (a hand edit to a config, say), and it's read again.  True if
+/// there were any.
 fn do_reads(shared: &Shared) -> bool {
-    let jobs: Vec<_> = shared.lock().reads.drain(..).collect();
-    let any = !jobs.is_empty();
-    for job in jobs {
-        let from_disk = fs::read(&job.path);
-        let answer = shared.lock().after_disk_read(&job.path, from_disk);
+    let (checks, mut from_disk): (Vec<_>, Vec<_>) = {
+        let mut state = shared.lock();
+        (state.checks.drain(..).collect(), state.reads.drain(..).collect())
+    };
+    let any = !checks.is_empty() || !from_disk.is_empty();
+
+    for job in checks {
+        let stamp = stamp_of(&job.path);
+        match shared.lock().after_check(&job.path, stamp) {
+            Some(content) => {
+                let _ = job.reply.send(Ok(content));
+            }
+            None => from_disk.push(job),
+        }
+    }
+    for job in from_disk {
+        // The time and size first, then the bytes.  If the file changes in
+        // between, the copy is newer than its stamp, and the next check
+        // reads it again.  The other way round, a change could be missed.
+        let stamp = stamp_of(&job.path);
+        let bytes = fs::read(&job.path);
+        let answer = shared.lock().after_disk_read(&job.path, bytes, stamp);
         let _ = job.reply.send(answer);
     }
     any
@@ -330,6 +354,11 @@ fn finish_write(shared: &Shared, path: &Path, flush: Flush, result: io::Result<(
         Flush::Whole { content, .. } => (content.len() as u64, true),
         Flush::Tail { bytes, .. } => (bytes.len() as u64, false),
     };
+    // What the disk says about the file now that our write is in it, so
+    // the next read doesn't take it for somebody else's edit.  An edit that
+    // lands in the moment between the write and this is missed, which is
+    // a window of microseconds.
+    let stamp = if result.is_ok() { stamp_of(path) } else { None };
     let outcome = {
         let mut state = shared.lock();
         if result.is_ok() {
@@ -340,7 +369,11 @@ fn finish_write(shared: &Shared, path: &Path, flush: Flush, result: io::Result<(
                 state.totals.appends_done += 1;
             }
         }
-        state.finish(path, flush, result.as_ref().map(|_| took).map_err(DiskError::from_io))
+        let outcome = state.finish(path, flush, result.as_ref().map(|_| took).map_err(DiskError::from_io));
+        if result.is_ok() {
+            state.note_on_disk(path, stamp);
+        }
+        outcome
     };
     report(path, &outcome, result.as_ref().err());
 }
@@ -478,13 +511,15 @@ fn step_big_write(shared: &Shared, big: &mut Option<BigWrite>) -> bool {
 fn open_streams(shared: &Shared, streams: &mut Vec<OpenStream>) {
     let jobs: Vec<_> = shared.lock().new_streams.drain(..).collect();
     for job in jobs {
-        // What we hold in memory is newer than the disk, so it's used when
-        // we have the whole file.  Otherwise it's the disk, plus the tail
+        // What we hold in memory is used when we have the whole file and
+        // it's still the newest: something in it hasn't gone out, or the
+        // disk hasn't changed since.  Otherwise it's the disk, plus the tail
         // that hasn't gone out.
+        let stamp = stamp_of(&job.path);
         let (held, tail) = {
             let state = shared.lock();
-            let entry = state.files.get(&job.path);
-            (entry.and_then(|entry| entry.content.clone()), entry.map(|entry| entry.tail.clone()))
+            let tail = state.files.get(&job.path).map(|entry| entry.tail.clone());
+            (state.current(&job.path, stamp), tail)
         };
         let tail = tail.filter(|tail| !tail.is_empty());
         let source = match (held, File::open(&job.path)) {
@@ -620,6 +655,15 @@ fn append_bytes(path: &Path, bytes: &[u8]) -> io::Result<()> {
     let mut file = OpenOptions::new().append(true).create(true).open(path)?;
     file.write_all(bytes)?;
     file.sync_data()
+}
+
+/// The file's modified time and size, as the disk has them.  `None` if the
+/// disk won't say: the file isn't there, or the OS keeps no times.  Only
+/// the file's details are read, never its bytes, so it costs next to
+/// nothing.
+fn stamp_of(path: &Path) -> Option<Stamp> {
+    let about = fs::metadata(path).ok()?;
+    Some(Stamp { modified: about.modified().ok()?, len: about.len() })
 }
 
 /// `name.cfg` -> `name.cfg.diskman-tmp`, in the same folder, since a

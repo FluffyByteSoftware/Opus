@@ -216,7 +216,7 @@ cargo test -p conductor-tools --release argon2_cost -- --ignored --nocapture
 ## The config files
 
 All of them live in `Content/cfg/`.  Conductor writes any that's missing with its defaults.  Each can be
-edited by hand with Conductor down, or from the web page's Settings tab.
+edited by hand, or from the web page's Settings tab.
 
 | File                    | Reboot | What's in it                                                          |
 |-------------------------|--------|-----------------------------------------------------------------------|
@@ -229,8 +229,8 @@ edited by hand with Conductor down, or from the web page's Settings tab.
 
 Every setting's comment is in the file itself, and on the Settings tab.
 
-A hand edit to a file while Conductor is running isn't seen, even on a START SERVER, since DiskMan serves
-the copy it already holds.  Shut Conductor down first.
+A hand edit takes at the file's reboot: STOP SERVER, edit, START SERVER for a soft one, and Conductor
+shut down and run again for a hard one.  DiskMan notices the file changed on disk and reads it again.
 
 ## Talking to it
 

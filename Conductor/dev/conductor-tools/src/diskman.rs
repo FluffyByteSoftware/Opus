@@ -16,8 +16,14 @@
 //! - A second `write()` to a file that hasn't gone out yet replaces the
 //!   first in memory, so only the newest ever reaches the disk.
 //! - A file that's been read stays loaded, so the next read of it never
-//!   touches the disk.  A write to a loaded file changes the copy in
-//!   memory and marks it dirty, and the worker writes it out.
+//!   reads its bytes again.  It only asks the disk for the file's modified
+//!   time and size: if either has changed, somebody edited the file
+//!   outside Conductor (a config, by hand, between a STOP SERVER and a
+//!   START SERVER), and the copy is dropped for the file as it is now.  A
+//!   copy with a write of ours still on its way is newer than the disk and
+//!   answered straight away.
+//! - A write to a loaded file changes the copy in memory and marks it
+//!   dirty, and the worker writes it out.
 //! - A clean file (one the disk already has) can be unloaded when memory
 //!   gets tight.  A dirty one is the only copy, so it stays however big
 //!   it is -- a few gigabytes of world terrain included -- until it's on
@@ -55,7 +61,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use cache::{Limits, ReadJob, RemoveJob, State, StreamJob, Swap};
+use cache::{Held, Limits, ReadJob, RemoveJob, State, StreamJob, Swap};
 
 use crate::clock::Utc;
 use crate::pending::NotRunning;
@@ -271,11 +277,14 @@ impl Shared {
         if !state.running {
             return Pending::ready(Err(DiskError::NotRunning));
         }
-        if let Some(content) = state.read_hit(path) {
-            return Pending::ready(Ok(content));
-        }
+        let queue = match state.held(path) {
+            Held::Newest(content) => return Pending::ready(Ok(content)),
+            // The worker asks the disk whether it has changed first.
+            Held::Check => &mut state.checks,
+            Held::Nothing => &mut state.reads,
+        };
         let (reply, pending) = Pending::new();
-        state.reads.push_back(ReadJob { path: path.to_path_buf(), reply });
+        queue.push_back(ReadJob { path: path.to_path_buf(), reply });
         drop(state);
         self.wake.notify_one();
         pending
@@ -430,9 +439,13 @@ pub(crate) fn append_for_scribe(path: &Path, bytes: &[u8]) {
     let _ = DISKMAN.append(path, bytes, true);
 }
 
-/// The whole file.  From memory, straight away, if DiskMan holds it,
-/// including a write that hasn't gone out yet.  Otherwise the worker reads
-/// it from the disk, and it stays loaded for next time.
+/// The whole file, as it is now.  From memory, straight away, if DiskMan
+/// holds a write or appends for it that haven't gone out yet.  From memory
+/// after one look at the disk if DiskMan holds a clean copy: the worker
+/// asks for the file's modified time and size, and if they've changed
+/// since the copy was taken (a hand edit), reads the file again.
+/// Otherwise the worker reads it from the disk, and it stays loaded for
+/// next time.
 ///
 /// ```text
 /// match diskman::read(&path).wait() {
@@ -583,6 +596,37 @@ mod tests {
         assert!(worker::start(diskman));
         let answer = diskman.read(&folder("missing").join("nope.cfg")).wait();
         assert!(answer.is_err_and(|e| e.is_not_found()));
+        stop_and_wait(diskman);
+    }
+
+    #[test]
+    fn a_hand_edit_is_noticed_and_our_own_write_isnt_taken_for_one() {
+        let diskman = own_diskman();
+        assert!(worker::start(diskman));
+        let path = folder("hand-edit").join("a.cfg");
+
+        diskman.write(&path, b"from conductor".to_vec()).wait().expect("the write should land");
+        let read = diskman.read(&path).wait().expect("the read should work");
+        assert_eq!(read.as_slice(), b"from conductor");
+        // Our own write, answered from memory: no read of the bytes.
+        assert_eq!(diskman.lock().status().reads_done, 0);
+
+        // Edited behind DiskMan's back, the way a person would with
+        // Conductor running.  A different length, so the test doesn't lean
+        // on how fine the file system's clock is.
+        fs::write(&path, b"by hand").expect("the hand edit");
+        let read = diskman.read(&path).wait().expect("the read should work");
+        assert_eq!(read.as_slice(), b"by hand");
+        assert_eq!(diskman.lock().status().reads_done, 1);
+
+        // Nothing changed since: from memory again.
+        let read = diskman.read(&path).wait().expect("the read should work");
+        assert_eq!(read.as_slice(), b"by hand");
+        assert_eq!(diskman.lock().status().reads_done, 1);
+
+        // Deleted by hand: the copy isn't trusted, and the read says so.
+        fs::remove_file(&path).expect("the hand delete");
+        assert!(diskman.read(&path).wait().is_err_and(|e| e.is_not_found()));
         stop_and_wait(diskman);
     }
 

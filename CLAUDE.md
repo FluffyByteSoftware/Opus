@@ -276,7 +276,9 @@ When I say we're wrapping up:
   `conductor-tools`), never `std::fs` directly: `write()` for a whole file
   (temp file and rename), `append()`, `read()`, and `stream()` for big ones.
   Only folders (making one, listing one) stay with `std::fs`. DiskMan starts
-  first and stops last.
+  first and stops last.  A file it holds is checked against the disk's
+  modified time and size on every read, so a hand edit is read (2026-09-29,
+  Jacob's pick over rewording the soft files' comment).
 - **DiskMan never logs routine work.** A log line is itself a DiskMan write, so
   a "wrote a file" line would loop forever. It logs failures only, and never
   while holding its own lock.
