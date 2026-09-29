@@ -91,8 +91,9 @@ const COUNTER_START_MAX: u16 = 0x07ff;
 static LAST: Mutex<Option<Stamp>> = Mutex::new(None);
 
 /// Asks the OS for 16 bytes once, so a machine that can't give them is
-/// caught at startup, not the first time a player makes an account.  The
-/// launcher calls this after Constellations and before Archivist.
+/// caught when the server starts, not the first time a player makes an
+/// account.  The launcher calls this first thing on a START SERVER,
+/// before Archivist.
 pub fn start() {
     services::set(services::FINGERPRINTER, State::Starting, "Asking the OS for random bytes.");
 
@@ -108,6 +109,14 @@ pub fn start() {
                 Nothing can be given a UUID or a token.");
         }
     }
+}
+
+/// The server is stopping.  There's no thread to end and nothing to let
+/// go of, and `new_uuid()` still works after this.  It only tells the
+/// Services tab, so Fingerprinter doesn't show as running while the rest
+/// of the server is stopped.
+pub fn stop() {
+    services::set(services::FINGERPRINTER, State::Stopped, "The server is stopped.");
 }
 
 /// A new UUID, in the usual form, that sorts after every one made before

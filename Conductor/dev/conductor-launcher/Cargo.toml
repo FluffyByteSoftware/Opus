@@ -2,8 +2,9 @@
 # Component:  Conductor
 # Author:     Jacob Chacko
 #
-# The program.  It starts the tools, the monitor and the web admin, and
-# shuts down when the web admin says to.  A bin crate.
+# The program.  It starts the tools and the web admin, starts and stops the
+# server when the web admin's Control Panel says to, and shuts down when
+# SHUT DOWN is pressed there.  A bin crate.
 
 [package]
 name = "conductor-launcher"

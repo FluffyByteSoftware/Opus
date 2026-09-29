@@ -49,8 +49,15 @@ static STOP: Mutex<Option<Sender<()>>> = Mutex::new(None);
 static MONITOR: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
 /// Starts the monitor's thread.  It comes straight back, and the first
-/// look is ready a moment later.
+/// look is ready a moment later.  The launcher calls this every time the
+/// server starts, and `stop()` every time it stops.
 pub fn start() {
+    if lock(&MONITOR).as_ref().is_some_and(|handle| !handle.is_finished()) {
+        scribe::warn(Channel::System, "The monitor was asked to start while it's already running.  \
+            The running one stands.");
+        return;
+    }
+
     let (stop, stopped) = mpsc::channel();
     match threads::spawn("monitor", move || run(stopped)) {
         Ok(handle) => {
@@ -67,7 +74,9 @@ pub fn start() {
 }
 
 /// Stops the monitor and waits for its thread to end, which is at most
-/// the time it takes to finish the look it's on.
+/// the time it takes to finish the look it's on.  The last look goes
+/// with it: with the server stopped there are no numbers, and the page
+/// shouldn't show old ones as if there were.
 pub fn stop() {
     lock(&STOP).take();
 
@@ -77,6 +86,7 @@ pub fn stop() {
             scribe::error(Channel::System, "The monitor's thread had already died.");
         }
     }
+    *lock(&LATEST) = None;
 }
 
 /// A copy of the latest look.  `None` before the first one.

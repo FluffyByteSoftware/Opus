@@ -2,13 +2,19 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! Entry point.  Brings everything up in order -- DiskMan, Scribe,
-//! Constellations, Fingerprinter, Archivist, the monitor, then the web
-//! admin -- and waits.  The console is only Scribe's output from here on,
-//! and typing in it does nothing.  The admin works through the web page,
-//! and when they press Shut Down there, the web admin stops, main wakes
-//! up, and Conductor shuts down.  DiskMan goes last, and shutdown waits
-//! on it to write out everything it's holding.
+//! Entry point.  Brings up the program -- DiskMan, Scribe, Constellations
+//! and the web admin -- and then waits on the web admin's Control Panel.
+//! The server itself (Fingerprinter, Archivist, the monitor, and whatever
+//! comes later) doesn't start until the admin presses START SERVER there,
+//! and STOP SERVER takes it back down while the program keeps running.
+//! The console is only Scribe's output, and typing in it does nothing.
+//! When the admin presses SHUT DOWN, the web admin stops, main wakes up,
+//! stops the server if it's running, and Conductor shuts down.  DiskMan
+//! goes last, and shutdown waits on it to write out everything it's
+//! holding.
+//!
+//! `start_server()` and `stop_server()` below are the list of what the
+//! server is.  A new piece goes in both.
 
 // Rust note: the tools, the monitor and the web admin live in their own
 // crates, and the `use` lines reach into them.  The crates are called
@@ -19,6 +25,7 @@ use std::time::{Duration, Instant};
 
 use conductor_tools::{archivist, constellations, diskman, fingerprinter, threads};
 use conductor_tools::scribe::{self, Channel};
+use conductor_tools::server::{self, Command, State};
 
 /// How long shutdown gives DiskMan before telling the admin to force quit.
 /// It keeps waiting after that; it just stops counting.
@@ -26,6 +33,10 @@ const DISKMAN_GRACE: Duration = Duration::from_secs(60);
 
 /// How often the countdown says where it's at.
 const COUNTDOWN_EVERY: Duration = Duration::from_secs(5);
+
+/// How long main waits for a command from the Control Panel before
+/// checking that the web admin is still there.
+const COMMAND_WAIT: Duration = Duration::from_millis(250);
 
 fn main() {
     // On the thread list as "main", like every thread we start.
@@ -47,34 +58,23 @@ fn main() {
     scribe::info(Channel::System, &format!("Content folder: {}", constellations::content_dir().display()));
     scribe::info(Channel::System, &format!("Settings from {}", constellations::config_path().display()));
 
-    // Fingerprinter, the UUID maker, checks the OS will give it random
-    // bytes before anything needs a UUID.
-    fingerprinter::start();
-
-    // Then the database.  This comes straight back, and Archivist connects
-    // on its own thread.  The log says how that went.
-    archivist::start();
-
-    // The monitor next, so it has a first look ready by the time the page
-    // asks for one.
-    conductor_monitor::start();
+    server::set(State::Stopped, "Not started yet.  START SERVER on the Control Panel starts it.");
 
     // Last, the web admin, and then we wait on it.  If it can't start,
     // there'd be no way to shut Conductor down short of killing it, so we
     // don't run without it.
     if conductor_wgui::start(constellations::settings().wgui_port) {
-        conductor_wgui::wait();
+        scribe::info(Channel::System, "Conductor is up.  The server waits on START SERVER from the Control Panel.");
+        take_commands();
     } else {
         scribe::error(Channel::System, "CONDUCTOR CAN'T RUN WITHOUT ITS WEB ADMIN.  \
             The line above says why.");
     }
 
     scribe::info(Channel::System, "Conductor is shutting down.");
-
-    conductor_monitor::stop();
-    // After the rest, so the jobs already in Archivist's mailbox get done
-    // first.
-    archivist::stop();
+    if server::status().state != State::Stopped {
+        stop_server();
+    }
 
     // DiskMan is last, since Archivist and everything before it may have
     // handed it files on the way out.
@@ -83,6 +83,61 @@ fn main() {
 
     // DiskMan has finished, so this one only reaches the console.
     scribe::info(Channel::System, "Conductor has shut down.");
+}
+
+/// Sits on the Control Panel's mailbox for as long as Conductor runs,
+/// doing what it asks: start, stop or restart the server.  Comes back
+/// once the web admin has ended, which is SHUT DOWN, or its thread dying.
+fn take_commands() {
+    loop {
+        if conductor_wgui::has_ended() {
+            return;
+        }
+        match server::next_command(COMMAND_WAIT) {
+            Some(Command::Start) => start_server(),
+            Some(Command::Stop) => stop_server(),
+            Some(Command::Restart) => {
+                stop_server();
+                start_server();
+            }
+            None => {}
+        }
+    }
+}
+
+/// Brings up everything that is the server, in order.  Fingerprinter
+/// checks the OS will give it random bytes before anything needs a UUID;
+/// Archivist comes straight back and connects on its own thread; the
+/// monitor starts looking once a second.  None of them can fail to the
+/// point of stopping this: each says how it went in the log and on the
+/// Services tab.
+fn start_server() {
+    server::set(State::Starting, "Starting Fingerprinter, Archivist and the monitor.");
+    scribe::info(Channel::System, "The server is starting.");
+
+    fingerprinter::start();
+    archivist::start();
+    conductor_monitor::start();
+
+    server::set(State::Running, "Fingerprinter, Archivist and the monitor were started.  \
+        The Services tab says how each one is doing.");
+    scribe::info(Channel::System, "The server is running.");
+}
+
+/// Takes the server back down, in the opposite order.  Archivist goes
+/// after the monitor so the jobs already in its mailbox get done first,
+/// and anything it hands DiskMan on the way out is written by the DiskMan
+/// that's still running.
+fn stop_server() {
+    server::set(State::Stopping, "Stopping the monitor, Archivist and Fingerprinter.");
+    scribe::info(Channel::System, "The server is stopping.");
+
+    conductor_monitor::stop();
+    archivist::stop();
+    fingerprinter::stop();
+
+    server::set(State::Stopped, "Stopped.  START SERVER on the Control Panel starts it again.");
+    scribe::info(Channel::System, "The server has stopped.");
 }
 
 /// Tells DiskMan to finish up and waits until it has.  If it takes more

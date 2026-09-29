@@ -100,15 +100,17 @@ pub type Pending<T> = crate::pending::Pending<T, ArchivistError>;
 
 /// Reads `postgres.cfg` and starts the worker.  It comes back right away.
 /// The first connect happens on the worker's thread, and the log says how
-/// it went.  main calls this once, after Constellations has loaded.
+/// it went.  The launcher calls this every time the server starts, and
+/// the file is read again each time.
 pub fn start() {
     worker::start(settings::load(&config_path()));
 }
 
 /// Stops taking jobs, finishes the ones already in the mailbox, closes
-/// the connection, and waits for the worker to end.  main calls this on
-/// the way out.  A long query holds up shutdown until it's done, or until
-/// the time limit in `postgres.cfg` cancels it.
+/// the connection, and waits for the worker to end.  The launcher calls
+/// this every time the server stops.  A long query holds up the stop
+/// until it's done, or until the time limit in `postgres.cfg` cancels it.
+/// `start()` after this starts a fresh worker.
 pub fn stop() {
     worker::stop();
 }

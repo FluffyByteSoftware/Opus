@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver, Sender};
-use std::sync::{Mutex, OnceLock};
+use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -66,22 +66,23 @@ pub(super) struct Job {
 static MAILBOX: Mutex<Option<Sender<Job>>> = Mutex::new(None);
 static WORKER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
-/// The settings, set once by `start()`.
-static SETTINGS: OnceLock<DbSettings> = OnceLock::new();
-
 /// How many jobs are in the mailbox that the worker hasn't picked up yet.
 static WAITING: AtomicUsize = AtomicUsize::new(0);
 
-/// Opens the mailbox and starts the worker.
+/// Opens the mailbox and starts the worker.  The settings go with the
+/// worker onto its thread, and are read again from the file on every
+/// start, so a STOP and a START from the web admin pick up a changed
+/// `postgres.cfg`.
 pub(super) fn start(settings: DbSettings) {
-    if SETTINGS.set(settings).is_err() {
-        scribe::warn(Channel::Database, "Archivist was asked to start twice.  The first one stands.");
+    if lock(&WORKER).as_ref().is_some_and(|handle| !handle.is_finished()) {
+        scribe::warn(Channel::Database, "Archivist was asked to start while it's already running.  \
+            The running one stands.");
         return;
     }
 
     services::set(services::ARCHIVIST, State::Starting, "Connecting to Postgres.");
     let (sender, receiver) = mpsc::channel();
-    let spawned = threads::spawn("archivist", move || run(receiver));
+    let spawned = threads::spawn("archivist", move || run(receiver, settings));
 
     match spawned {
         Ok(handle) => {
@@ -143,10 +144,7 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 // ---------------------------------------------------------------------------
 
 /// Everything from here down runs on the worker's own thread.
-fn run(mailbox: Receiver<Job>) {
-    let Some(settings) = SETTINGS.get() else {
-        return;
-    };
+fn run(mailbox: Receiver<Job>, settings: DbSettings) {
     let slow_limit = Duration::from_millis(settings.slow_job_ms);
     let mut link = Link { settings, client: None, failed_at: None, prepared: HashMap::new() };
 
@@ -174,7 +172,7 @@ fn run(mailbox: Receiver<Job>) {
 
 /// The connection, and what we need to make it again.
 pub(super) struct Link {
-    settings: &'static DbSettings,
+    settings: DbSettings,
     client: Option<Client>,
     /// When the last connect failed.  `None` while things are fine.
     failed_at: Option<Instant>,

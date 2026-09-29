@@ -7,11 +7,15 @@ Author:     Jacob Chacko
 The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
-of that answer is written down at the top of json.rs.  Six tabs down the
-left side: System, Conductor, Services, Storage, Notifications History and
-Scribe's log.  While the database isn't connected they're all locked and
-the page under the header is blurred.  The bell in the header's corner
-stays above the lock, and so does the tray it pulls out.
+of that answer is written down at the top of json.rs.  Seven tabs down the
+left side: the Control Panel, System, Conductor, Services, Storage,
+Notifications History and Scribe's log.  The Control Panel is where the
+server is started and stopped, and it's all there is until the server is
+running: the other tabs are locked, bar the log, and the bell is hidden.
+Once the server is running the tabs open up, and while the database isn't
+connected they're locked again and the page under the header is blurred.
+The Control Panel and the bell stay above that lock, so the server can
+still be stopped.
 -->
 <html lang="en">
 <head>
@@ -78,7 +82,7 @@ stays above the lock, and so does the tray it pulls out.
     background: rgba(248, 113, 113, 0.1); color: var(--red); border: 1px solid rgba(248, 113, 113, 0.5);
   }
   button:hover { background: rgba(248, 113, 113, 0.2); }
-  button:disabled { cursor: default; opacity: 0.5; }
+  button:disabled { cursor: default; opacity: 0.5; pointer-events: none; }
   .tab {
     padding: 4px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
     background: transparent; color: var(--ink-soft); border: 1px solid transparent;
@@ -234,10 +238,11 @@ stays above the lock, and so does the tray it pulls out.
   }
   @media (prefers-reduced-motion: reduce) { .pill.bad, .veil-card.bad, .dot.flash { animation: none; } }
 
-  /* The tabs, down the sidebar.  They and everything under the header (the
-     .content) get locked while the database isn't connected. */
-  .tabs { display: flex; flex-direction: column; gap: 4px; transition: opacity 0.3s; }
-  .tabs.locked { opacity: 0.35; filter: grayscale(1); pointer-events: none; }
+  /* The tabs, down the sidebar.  A locked one is disabled: greyed out and
+     unclickable.  Which ones are locked depends on whether the server is
+     running and whether the database is connected; see lockTabs(). */
+  .tabs { display: flex; flex-direction: column; gap: 4px; }
+  .maintab:disabled { opacity: 0.35; filter: grayscale(1); }
   .maintab {
     padding: 10px 12px; font-size: 12px; text-align: left; text-transform: uppercase; letter-spacing: 0.08em;
     background: transparent; color: var(--ink-soft);
@@ -308,6 +313,16 @@ stays above the lock, and so does the tray it pulls out.
   .l-Warn { color: var(--yellow); }
   .l-Error { color: var(--red); }
 
+  .bell[hidden] { display: none; }
+
+  /* The Control Panel's buttons: green to bring the server up, red to
+     take it down or to close Conductor. */
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+  .controls button { padding: 12px 20px; letter-spacing: 0.08em; }
+  .controls-note { margin-top: 16px; }
+  button.go { background: rgba(16, 185, 129, 0.1); color: var(--green); border-color: rgba(16, 185, 129, 0.5); }
+  button.go:hover { background: rgba(16, 185, 129, 0.2); }
+
   .gone {
     position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
     background: rgba(0, 0, 0, 0.75); z-index: 10;
@@ -319,14 +334,15 @@ stays above the lock, and so does the tray it pulls out.
 
 <aside>
   <div class="logo">OP</div>
-  <nav class="tabs locked" id="tabs" inert aria-orientation="vertical" role="tablist">
-    <button class="maintab" role="tab" data-tab="system">System</button>
-    <button class="maintab" role="tab" data-tab="conductor">Conductor</button>
-    <button class="maintab" role="tab" data-tab="services">Services<span class="dot bad flash" id="services-badge"
-      hidden></span></button>
-    <button class="maintab" role="tab" data-tab="storage">Storage</button>
-    <button class="maintab" role="tab" data-tab="notices">Notifications History</button>
-    <button class="maintab" role="tab" data-tab="log">Log</button>
+  <nav class="tabs" id="tabs" aria-orientation="vertical" role="tablist">
+    <button class="maintab" role="tab" data-tab="control">Control Panel</button>
+    <button class="maintab" role="tab" data-tab="system" disabled>System</button>
+    <button class="maintab" role="tab" data-tab="conductor" disabled>Conductor</button>
+    <button class="maintab" role="tab" data-tab="services" disabled>Services<span class="dot bad flash"
+      id="services-badge" hidden></span></button>
+    <button class="maintab" role="tab" data-tab="storage" disabled>Storage</button>
+    <button class="maintab" role="tab" data-tab="notices" disabled>Notifications History</button>
+    <button class="maintab" role="tab" data-tab="log" disabled>Log</button>
   </nav>
 </aside>
 
@@ -338,14 +354,14 @@ stays above the lock, and so does the tray it pulls out.
     </div>
     <div class="head-right">
       <div class="pill" id="db-pill">
-        <span class="dot idle" id="db-pill-dot"></span><span id="db-pill-text">DB CONNECTING</span>
+        <span class="dot idle" id="db-pill-dot"></span><span id="db-pill-text">WAITING</span>
       </div>
       <div class="clock">
         <div class="label">Uptime</div>
         <div class="mono good-ink" id="uptime">--:--:--:--</div>
       </div>
       <button id="shut-down">SHUT DOWN</button>
-      <button class="bell" id="bell" aria-label="Notifications">
+      <button class="bell" id="bell" aria-label="Notifications" hidden>
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path>
           <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path>
@@ -356,6 +372,40 @@ stays above the lock, and so does the tray it pulls out.
   </header>
 
   <div class="stage">
+  <section class="tabpage" id="page-control">
+  <div class="grid">
+    <div class="panel span-5">
+      <h3>Server</h3>
+      <div class="big" id="server-state">--</div>
+      <div class="small" id="server-note">Asking Conductor where the server is at.</div>
+      <div class="small mono" id="server-since"></div>
+      <div class="controls">
+        <button class="go" id="server-start" disabled>START SERVER</button>
+        <button class="go" id="server-restart" disabled>RESTART SERVER</button>
+        <button id="server-stop" disabled>STOP SERVER</button>
+        <button id="control-shut-down">SHUT DOWN</button>
+      </div>
+      <div class="note controls-note">START SERVER brings up Fingerprinter, Archivist and the monitor, and the
+        other tabs open once it's running.  STOP SERVER takes them down and leaves Conductor running.  SHUT DOWN
+        closes Conductor.</div>
+    </div>
+
+    <div class="panel span-7 boxed">
+      <div class="tall-head">
+        <h3>Services</h3>
+        <div class="note mono" id="pieces-count"></div>
+      </div>
+      <div class="tall-body" style="max-height: 360px;">
+        <table id="pieces">
+          <thead><tr><th>Service</th><th>State</th><th>What it says</th></tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note">The Services tab has since when and last seen, once the server is running.</div>
+      </div>
+    </div>
+  </div>
+  </section>
+
   <div class="content locked" id="content" inert>
 
   <section class="tabpage" id="page-conductor">
@@ -661,7 +711,7 @@ const MOST_LINES = 500;
 
 // The tabs, and the one that opens first when the browser hasn't remembered
 // one.
-const MAIN_TABS = ["system", "conductor", "services", "storage", "notices", "log"];
+const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "notices", "log"];
 const DEFAULT_TAB = "conductor";
 
 // Conductor is "connecting" to the database, not "offline", for this many
@@ -1047,9 +1097,9 @@ function applyDbMode(mode, dbState, takenAt) {
   content.classList.toggle("locked", mode !== "online");
   // `inert` keeps the keyboard out of it too, not just the mouse.
   content.inert = mode !== "online";
-  $("tabs").classList.toggle("locked", mode !== "online");
-  $("tabs").inert = mode !== "online";
-  $("veil").style.display = mode === "online" ? "none" : "block";
+  dbLocked = mode !== "online";
+  lockTabs();
+  showVeil();
   $("veil-card").className = "veil-card" + (mode === "offline" ? " bad" : "");
 
   if (mode === "offline") {
@@ -1057,7 +1107,8 @@ function applyDbMode(mode, dbState, takenAt) {
     $("veil-title").textContent = "DATABASE OFFLINE";
     $("veil-text").textContent = "The game can't run right now.  Archivist says Postgres is " + dbState +
       ".  Conductor is still running and keeps trying to connect.  Seen offline since " + offlineSince +
-      ".  The rest of this page comes back when the database does.";
+      ".  The rest of this page comes back when the database does.  The Control Panel still works, to stop " +
+      "the server or shut down.";
   } else {
     offlineSince = null;
     $("veil-title").textContent = "CONNECTING TO THE DATABASE";
@@ -1065,8 +1116,29 @@ function applyDbMode(mode, dbState, takenAt) {
   }
 }
 
-// The tab that was open last time is remembered by the browser, if it lets us.
-let currentTab = DEFAULT_TAB;
+// Which sidebar tabs can be clicked.  With the server stopped, only the
+// Control Panel and the Log.  With it running, the database lock decides
+// the rest, and the Control Panel stays open so the server can be stopped.
+let dbLocked = true;
+
+function lockTabs() {
+  for (const tab of document.querySelectorAll(".maintab")) {
+    const name = tab.dataset.tab;
+    tab.disabled = name === "control" ? false
+      : serverRunning ? dbLocked
+      : name !== "log";
+  }
+}
+
+// The database veil covers the data tabs, never the Control Panel.
+function showVeil() {
+  $("veil").style.display = serverRunning && dbLocked && currentTab !== "control" ? "block" : "none";
+}
+
+// The tab that was open last time is remembered by the browser, if it lets
+// us.  The Control Panel isn't remembered: it shows itself whenever the
+// server isn't running, and the remembered tab is for when it is.
+let currentTab = "control";
 
 function showMainTab(name) {
   if (!MAIN_TABS.includes(name)) name = DEFAULT_TAB;
@@ -1079,16 +1151,113 @@ function showMainTab(name) {
   for (const page of document.querySelectorAll(".tabpage")) {
     page.classList.toggle("on", page.id === "page-" + name);
   }
+  showVeil();
   // A hidden terminal can't be scrolled, so the log lands at its newest
   // line when its tab is opened.
   if (name === "log") $("terminal").scrollTop = $("terminal").scrollHeight;
   if (name === "system" && lastMonitor) drawPicked(lastMonitor);
   if (name === "notices") askNotices();
-  try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
+  if (name !== "control") {
+    try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
+  }
 }
 
 function savedMainTab() {
-  try { return localStorage.getItem("opus.tab") || DEFAULT_TAB; } catch (e) { return DEFAULT_TAB; }
+  try {
+    const name = localStorage.getItem("opus.tab");
+    return name && name !== "control" ? name : DEFAULT_TAB;
+  } catch (e) { return DEFAULT_TAB; }
+}
+
+// ---------------------------------------------------------------------------
+// The Control Panel: the server's switch
+// ---------------------------------------------------------------------------
+
+// Whether the server was running at the last answer.  null before the
+// first one, so the first answer always picks the tab.
+let serverRunning = null;
+
+function applyServerMode(server) {
+  const running = server.state === "running";
+  const state = $("server-state");
+  state.textContent = server.state.toUpperCase();
+  state.className = "big " + (running ? "good-ink" : server.state === "stopped" ? "" : "warn-ink");
+  $("server-note").textContent = server.note || "";
+  $("server-since").textContent = server.since ? "Since " + server.since : "";
+  $("server-start").disabled = server.state !== "stopped";
+  $("server-restart").disabled = !running;
+  $("server-stop").disabled = !running;
+
+  // No bell while the server isn't running: nothing is up that could
+  // raise a notice.  Anything raised anyway is there once it is.
+  $("bell").hidden = !running;
+  if (!running) closeTray();
+
+  if (running !== serverRunning) {
+    serverRunning = running;
+    if (running) {
+      // Over to the tabs.  Archivist gets its chance to connect first, the
+      // same as on a fresh start.
+      everConnected = false;
+      offlineSince = null;
+      applyDbMode("connecting", "", "");
+      showMainTab(savedMainTab());
+    } else {
+      showMainTab("control");
+    }
+  }
+
+  if (!running) {
+    const word = "SERVER " + server.state.toUpperCase();
+    $("db-pill").className = "pill";
+    $("db-pill-dot").className = "dot idle";
+    $("db-pill-text").textContent = word;
+    $("uptime").textContent = "--:--:--:--";
+    document.title = "Opus Conductor";
+    $("content").classList.remove("locked");
+    $("content").inert = false;
+    drawSummaryText(word, server.state === "stopped" ? "" : "warn-ink");
+    lockTabs();
+    showVeil();
+  }
+}
+
+// The services, in short, on the Control Panel: the same list as the
+// Services tab, which is locked until the server is running.  A piece
+// that's expected or stopped is grey while the server is down, since
+// that's how it should be, and red once the server is up.
+function drawPieces(services) {
+  const body = $("pieces").tBodies[0];
+  body.textContent = "";
+  for (const service of services) {
+    const row = body.insertRow();
+    const calm = !serverRunning && (service.state === "expected" || service.state === "stopped");
+    const name = document.createElement("td");
+    const dot = document.createElement("span");
+    dot.className = "dot " + (service.healthy ? "good"
+      : service.state === "starting" ? "warn"
+      : calm ? "idle" : "bad flash");
+    name.append(dot, service.name);
+    row.appendChild(name);
+    cell(row, service.state.toUpperCase());
+    cell(row, service.note || "--", "wrap");
+  }
+  const healthy = services.filter(service => service.healthy).length;
+  $("pieces-count").textContent = healthy + " of " + services.length + " running";
+}
+
+// The three server buttons carry X-Opus: server, the way Shut Down
+// carries its own.  See lib.rs.  The answer comes back before anything
+// starts or stops; the next status answer shows it happening, and sets
+// the buttons right again.
+async function askServer(what) {
+  for (const id of ["server-start", "server-restart", "server-stop"]) $(id).disabled = true;
+  try {
+    const answer = await fetch("/Opus/server/" + what, { method: "POST", headers: { "X-Opus": "server" } });
+    if (!answer.ok) alert("Conductor said no: " + await answer.text());
+  } catch (e) {
+    alert("The ask didn't go through: " + e);
+  }
 }
 
 function showGone(title, text) {
@@ -1108,10 +1277,14 @@ function drawSummary(m, services) {
   const down = services.filter(isDown).length;
   if (down > 0) wrong.push(down + (down === 1 ? " SERVICE DOWN" : " SERVICES DOWN"));
 
+  drawSummaryText(wrong.length === 0 ? "NOMINAL" : wrong.join(", "), wrong.length === 0 ? "good-ink" : "bad-ink");
+}
+
+function drawSummaryText(text, className) {
   $("summary").textContent = "system.status == ";
   const state = document.createElement("span");
-  state.className = wrong.length === 0 ? "good-ink" : "bad-ink";
-  state.textContent = wrong.length === 0 ? "NOMINAL" : wrong.join(", ");
+  state.className = className;
+  state.textContent = text;
   $("summary").append(state);
 }
 
@@ -1144,7 +1317,8 @@ function drawServices(services) {
   const down = services.filter(isDown).length;
   const healthy = services.filter(service => service.healthy).length;
   $("services-count").textContent = healthy + " of " + services.length + " healthy";
-  $("services-badge").hidden = down === 0;
+  // With the server stopped, its pieces being down is the normal state.
+  $("services-badge").hidden = down === 0 || !serverRunning;
 }
 
 // DiskMan's panel on the Storage tab.
@@ -1297,13 +1471,16 @@ async function ask() {
   try {
     const answer = await fetch("/Opus/status?after=" + lastLine, { cache: "no-store" });
     const status = await answer.json();
+    // The server's switch first: it decides which tabs there are.
+    applyServerMode(status.server);
+    drawPieces(status.services);
     drawMonitor(status.monitor);
     drawServices(status.services);
     drawDisk(status.diskman);
     drawBell(status.notices);
     // The whole history is only asked for while its tab is showing.
     if (currentTab === "notices") askNotices();
-    drawSummary(status.monitor, status.services);
+    if (serverRunning) drawSummary(status.monitor, status.services);
     drawLog(status.log);
   } catch (e) {
     showGone("Conductor isn't answering", "It has shut down, or it crashed.  Reload the page once it's back.");
@@ -1324,21 +1501,31 @@ $("tab-in-use").addEventListener("click", () => showTab(true));
 $("process-filter").addEventListener("input", () => { if (lastMonitor) drawSystem(lastMonitor); });
 $("tab-asked-for").addEventListener("click", () => showTab(false));
 
-$("shut-down").addEventListener("click", async () => {
+// SHUT DOWN, from the header or the Control Panel.  Both buttons do the
+// same thing.
+async function shutDown() {
   if (!confirm("Shut Conductor down?")) return;
   $("shut-down").disabled = true;
+  $("control-shut-down").disabled = true;
   try {
     // The X-Opus header is what makes the server believe the click came
     // from this page.  See lib.rs.
     const answer = await fetch("/Opus/shutdown", { method: "POST", headers: { "X-Opus": "shut-down" } });
     if (!answer.ok) throw new Error(answer.status);
-    showGone("Conductor is shutting down", "DiskMan writes out what it's holding last.  The console counts "
-      + "down if that takes more than a second, and ends once it's done.");
+    showGone("Conductor is shutting down", "The server stops first if it's running, then DiskMan writes out "
+      + "what it's holding.  The console counts down if that takes more than a second, and ends once it's done.");
   } catch (e) {
     $("shut-down").disabled = false;
+    $("control-shut-down").disabled = false;
     alert("The shut down didn't go through: " + e);
   }
-});
+}
+
+$("shut-down").addEventListener("click", shutDown);
+$("control-shut-down").addEventListener("click", shutDown);
+$("server-start").addEventListener("click", () => askServer("start"));
+$("server-restart").addEventListener("click", () => { if (confirm("Restart the server?")) askServer("restart"); });
+$("server-stop").addEventListener("click", () => { if (confirm("Stop the server?")) askServer("stop"); });
 
 $("bell").addEventListener("click", () => {
   if ($("tray").classList.contains("open")) closeTray(); else openTray();
@@ -1365,10 +1552,10 @@ $("history-ack-all").addEventListener("click", async () => {
 for (const tab of document.querySelectorAll(".maintab")) {
   tab.addEventListener("click", () => showMainTab(tab.dataset.tab));
 }
-showMainTab(savedMainTab());
 
-// Blurred and "connecting" until the first look says otherwise.
-applyDbMode("connecting", "", "");
+// The Control Panel, with every other tab locked, until the first answer
+// says where the server is at.
+showMainTab("control");
 ask();
 </script>
 </body>

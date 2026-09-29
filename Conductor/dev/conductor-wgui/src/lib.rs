@@ -3,8 +3,9 @@
 //! Author:     Jacob Chacko
 //!
 //! The web admin.  A small web server on a thread of its own that shows
-//! how Conductor is doing and is how the admin shuts it down.  The console
-//! is nothing but Scribe's output now, so this is the only way in.
+//! how Conductor is doing, and is how the admin starts and stops the
+//! server and shuts Conductor down.  The console is nothing but Scribe's
+//! output now, so this is the only way in.
 //!
 //! It listens on 127.0.0.1 and nowhere else, so it can't be reached from
 //! another machine, and it's plain HTTP.  HTTPS would mean a certificate,
@@ -14,9 +15,9 @@
 //! What it answers:
 //!
 //! - `GET /Opus` -- the page (`page.html`, baked in).  `/` sends you there.
-//! - `GET /Opus/status?after=N` -- the monitor's latest look, the services,
-//!   DiskMan's numbers, and Scribe's lines after line N, as JSON.  The page
-//!   asks once a second.
+//! - `GET /Opus/status?after=N` -- where the server is at, the monitor's
+//!   latest look, the services, DiskMan's numbers, and Scribe's lines after
+//!   line N, as JSON.  The page asks once a second.
 //! - `GET /Opus/threads?pid=N` -- one process's threads, for when the admin
 //!   clicks it on the System tab.  It only reads, like the status.
 //! - `GET /Opus/notices` -- every open notice, for the Notifications
@@ -25,6 +26,11 @@
 //! - `POST /Opus/notices/ack-all` -- clears every notice.
 //! - `POST /Opus/notices/test` -- raises a test notice, to see the bell
 //!   work.
+//! - `POST /Opus/server/start`, `/stop`, `/restart` -- the Control Panel's
+//!   buttons.  Each drops an ask in the server's mailbox (`server.rs` in
+//!   conductor-tools) for the launcher to act on, and answers straight
+//!   away.  Turned away with a 409 when it doesn't fit where the server is
+//!   (a start while it's running, say).
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -33,9 +39,9 @@
 //! Listening on 127.0.0.1 keeps other machines out, but not other web
 //! pages open in the admin's own browser.  Any site could have the browser
 //! send a POST to 127.0.0.1:9996/Opus/shutdown.  Two checks stop that.
-//! The `Host` header has to be this server's own address, and the shutdown
-//! and the ACKs have to carry an `X-Opus` header, which a browser won't let
-//! another site's page add.
+//! The `Host` header has to be this server's own address, and the shutdown,
+//! the server buttons and the ACKs have to carry an `X-Opus` header, which
+//! a browser won't let another site's page add.
 
 mod http;
 mod json;
@@ -48,6 +54,7 @@ use std::time::Duration;
 use conductor_tools::diskman;
 use conductor_tools::notices::{self, Level};
 use conductor_tools::scribe::{self, Channel};
+use conductor_tools::server::{self, Command};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
@@ -97,20 +104,24 @@ pub fn start(port: u16) -> bool {
     }
 }
 
-/// Waits until the web admin stops, which is when somebody presses Shut
-/// Down on the page.  main sits here for as long as Conductor runs.
-pub fn wait() {
-    let handle = {
-        let mut guard = SERVER.lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        guard.take()
-    };
-    if let Some(handle) = handle {
+/// True once the web admin has stopped: somebody pressed SHUT DOWN on the
+/// page, or its thread died.  main asks this between commands from the
+/// Control Panel, and shuts Conductor down when it says so.  The first
+/// time it's true the thread is joined, and a death gets a line in the
+/// log.
+pub fn has_ended() -> bool {
+    let mut guard = SERVER.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if guard.as_ref().is_some_and(|handle| !handle.is_finished()) {
+        return false;
+    }
+    if let Some(handle) = guard.take() {
         if handle.join().is_err() {
             scribe::error(Channel::System, "The web admin's thread died.  Conductor is shutting down, \
                 since there is no other way in.");
         }
     }
+    true
 }
 
 /// What to do after answering a request.
@@ -201,7 +212,8 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             let after = request.query_value("after").and_then(|after| after.parse().ok()).unwrap_or(0);
             let log_file = scribe::current_file();
             let (open_notices, newest_notices) = notices::newest(NEWEST_NOTICES);
-            let body = json::status(conductor_monitor::latest().as_ref(),
+            let body = json::status(&server::status(),
+                                    conductor_monitor::latest().as_ref(),
                                     &services::list(),
                                     &diskman::status(),
                                     open_notices,
@@ -248,6 +260,9 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             let id = notices::publish(Level::Notice, "Web admin", "Test notification from the web admin.");
             (Answer::new("200 OK", "application/json", format!("{{\"id\":{id}}}")), Next::KeepGoing)
         }
+        ("POST", "/Opus/server/start") => server_command(request, Command::Start),
+        ("POST", "/Opus/server/stop") => server_command(request, Command::Stop),
+        ("POST", "/Opus/server/restart") => server_command(request, Command::Restart),
         ("POST", "/Opus/shutdown") => {
             if request.header("x-opus") != Some("shut-down") {
                 scribe::warn(Channel::System, "The web admin turned away a shutdown that didn't come from its \
@@ -259,10 +274,40 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         }
         (_, "/") | (_, "/Opus") | (_, "/Opus/") | (_, "/Opus/status") | (_, "/Opus/threads")
         | (_, "/Opus/notices") | (_, "/Opus/notices/ack") | (_, "/Opus/notices/ack-all") | (_, "/Opus/notices/test")
+        | (_, "/Opus/server/start") | (_, "/Opus/server/stop") | (_, "/Opus/server/restart")
         | (_, "/Opus/shutdown") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
         _ => (Answer::plain("404 Not Found", "There's nothing here."), Next::KeepGoing),
+    }
+}
+
+/// START, STOP and RESTART SERVER from the Control Panel.  The launcher
+/// does the work; this only checks the ask came from the page and fits
+/// where the server is right now.  The answer is sent before anything
+/// starts or stops, and the page sees it happen through the status.
+fn server_command(request: &Request, command: Command) -> (Answer, Next) {
+    if request.header("x-opus") != Some("server") {
+        scribe::warn(Channel::System, "The web admin turned away a server command that didn't come from its \
+            own page.");
+        return (Answer::plain("403 Forbidden", "Start and stop the server from the page."), Next::KeepGoing);
+    }
+
+    let word = match command {
+        Command::Start => "start",
+        Command::Stop => "stop",
+        Command::Restart => "restart",
+    };
+    match server::ask(command) {
+        Ok(()) => {
+            scribe::info(Channel::System, &format!("Asked to {word} the server from the web admin."));
+            (Answer::new("200 OK", "application/json", format!("{{\"asked\":\"{word}\"}}")), Next::KeepGoing)
+        }
+        Err(state) => {
+            scribe::debug(Channel::System, &format!("The web admin was asked to {word} the server while it's \
+                {state}.  Not now."));
+            (Answer::plain("409 Conflict", &format!("Not now.  The server is {state}.")), Next::KeepGoing)
+        }
     }
 }
 
@@ -312,7 +357,7 @@ mod tests {
 
         let (answer, _) = route(&request("GET", "/Opus/status", &[HOST]), 9996);
         assert_eq!(answer.status, "200 OK");
-        assert!(answer.body.starts_with(b"{\"monitor\":"));
+        assert!(answer.body.starts_with(b"{\"server\":{\"state\":\""));
 
         let (answer, _) = route(&request("GET", "/", &[HOST]), 9996);
         assert_eq!(answer.status, "303 See Other");
@@ -365,6 +410,21 @@ mod tests {
             .parse()
             .expect("the answer should carry the new notice's id");
         assert!(notices::ack(id));
+    }
+
+    // Only the turned-away paths here.  The switch is one for the whole
+    // program, and server.rs's own test walks it through its states.
+    #[test]
+    fn a_server_command_needs_the_page_header_and_a_post() {
+        let (answer, next) = route(&request("POST", "/Opus/server/start", &[HOST]), 9996);
+        assert_eq!(answer.status, "403 Forbidden");
+        assert!(matches!(next, Next::KeepGoing));
+
+        let (answer, _) = route(&request("GET", "/Opus/server/stop", &[HOST, ("x-opus", "server")]), 9996);
+        assert_eq!(answer.status, "405 Method Not Allowed");
+
+        let (answer, _) = route(&request("POST", "/Opus/server/dance", &[HOST, ("x-opus", "server")]), 9996);
+        assert_eq!(answer.status, "404 Not Found");
     }
 
     #[test]

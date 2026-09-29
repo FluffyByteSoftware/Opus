@@ -2,16 +2,18 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! Turns the monitor's snapshot, DiskMan's numbers, the open notices and
-//! Scribe's recent lines into the JSON the page asks for once a second.  Written by hand rather than with a crate:
-//! it's one shape, it only ever goes out, and JSON is simple enough to
-//! write as long as the text is escaped properly.
+//! Turns the server's switch, the monitor's snapshot, DiskMan's numbers,
+//! the open notices and Scribe's recent lines into the JSON the page asks
+//! for once a second.  Written by hand rather than with a crate: it's one
+//! shape, it only ever goes out, and JSON is simple enough to write as
+//! long as the text is escaped properly.
 //!
 //! The shape, trimmed (the page's script is the other half of this, so a
 //! change here needs one there):
 //!
 //! ```text
-//! { "monitor": { "taken_at": "...Z", "uptime_seconds": 61, "os": "...", "process_id": 4092,
+//! { "server": { "state": "stopped", "note": "...", "since": "...Z" },
+//!   "monitor": { "taken_at": "...Z", "uptime_seconds": 61, "os": "...", "process_id": 4092,
 //!                "cores": 16, "measured": true, "cpu_percent": 1.25, "memory_bytes": 9437184,
 //!                "core_percents": [ 3.00, 12.50, ... ],
 //!                "machine_memory": { "total_bytes", "available_bytes" },
@@ -32,8 +34,14 @@
 //!   "log": { "file": "...", "lines": [ { "number": 12, "priority": "Info", "text": "..." } ] } }
 //! ```
 //!
+//! `server.state` is stopped, starting, running or stopping; `since` is
+//! `null` until the launcher has said anything.  While the server isn't
+//! running, `monitor` is `null` and the page shows the Control Panel and
+//! the log and nothing else.
+//!
 //! Anything that couldn't be measured is `null`, and `monitor` itself is
-//! `null` for the second before its first look.  `services` comes straight
+//! `null` for the second before its first look and while the server is
+//! stopped.  `services` comes straight
 //! from the services list, not from the monitor, so it still tells the
 //! truth if the monitor has died.  `state` is expected, starting, running,
 //! trouble or stopped; `since` is `null` while a service is still expected,
@@ -71,11 +79,13 @@ use conductor_tools::archivist::{SlowJob, Status};
 use conductor_tools::diskman::Status as DiskStatus;
 use conductor_tools::notices::Notice;
 use conductor_tools::scribe::RecentLine;
+use conductor_tools::server::Status as ServerStatus;
 use conductor_tools::services::Service;
 use conductor_tools::threads::ThreadRecord;
 
 /// The whole answer to `/Opus/status`.
-pub(crate) fn status(snapshot: Option<&Snapshot>,
+pub(crate) fn status(switch: &ServerStatus,
+                     snapshot: Option<&Snapshot>,
                      services: &[Service],
                      disk: &DiskStatus,
                      open_notices: usize,
@@ -88,6 +98,7 @@ pub(crate) fn status(snapshot: Option<&Snapshot>,
         .done();
 
     Object::new()
+        .raw("server", server(switch))
         .raw("monitor", snapshot.map_or_else(null, monitor))
         .raw("services", array(services.iter().map(service)))
         .raw("diskman", diskman(disk))
@@ -96,6 +107,14 @@ pub(crate) fn status(snapshot: Option<&Snapshot>,
             .raw("newest", array(newest_notices.iter().map(notice)))
             .done())
         .raw("log", log)
+        .done()
+}
+
+fn server(switch: &ServerStatus) -> String {
+    Object::new()
+        .text("state", &switch.state.to_string())
+        .text("note", &switch.note)
+        .raw("since", switch.since.map_or_else(null, |since| text(&since.line_stamp())))
         .done()
 }
 
@@ -393,8 +412,11 @@ mod tests {
 
     #[test]
     fn before_the_first_look_the_monitor_is_null() {
-        let answer = status(None, &[], &conductor_tools::diskman::status(), 0, &[], &[], None);
-        assert!(answer.starts_with("{\"monitor\":null,\"services\":[],\"diskman\":{\"running\":false,"));
+        let switch = ServerStatus { state: conductor_tools::server::State::Stopped, note: "x".to_string(),
+                                    since: None };
+        let answer = status(&switch, None, &[], &conductor_tools::diskman::status(), 0, &[], &[], None);
+        assert!(answer.starts_with("{\"server\":{\"state\":\"stopped\",\"note\":\"x\",\"since\":null},\
+            \"monitor\":null,\"services\":[],\"diskman\":{\"running\":false,"));
         assert!(answer.ends_with("\"notices\":{\"open\":0,\"newest\":[]},\"log\":{\"file\":null,\"lines\":[]}}"));
     }
 
