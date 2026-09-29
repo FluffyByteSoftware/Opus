@@ -1,3 +1,7 @@
+**EVERY SESSION PUSHES ITS CODE TO THE `unstable` BRANCH.  Never to a session
+branch, whatever branch the session was opened on.  Jacob's rule, said again
+on 2026-09-29 after a session pushed to its own generated branch.**
+
 <!--
 File:       Opus/CLAUDE.md
 Component:  Opus
