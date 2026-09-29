@@ -851,10 +851,12 @@ mod tests {
     /// Times Argon2id at a range of settings, three ways each: the crate
     /// allotting fresh memory for every hash, a kept arena, and a kept
     /// arena with the huge page hint.  Not part of a normal `cargo test`.
-    /// Run it by hand, from `Conductor/dev`:
+    /// Run it by hand, from `Conductor/dev`, and with `--release`: a test
+    /// build is unoptimized, and unoptimized Argon2 ran six times slower
+    /// on the dev machine, which drowns out what the columns measure.
     ///
     /// ```text
-    /// cargo test -p conductor-tools argon2_cost -- --ignored --nocapture
+    /// cargo test -p conductor-tools --release argon2_cost -- --ignored --nocapture
     /// ```
     ///
     /// The "fresh" column is what a hash costs without the arena.  The gap

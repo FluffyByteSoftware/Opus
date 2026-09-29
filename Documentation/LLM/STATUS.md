@@ -46,7 +46,7 @@ What we did:
   launcher starts it after Fingerprinter and stops it before Archivist.
 - Twelve tests, most at the cheapest Argon2 setting in an arena of their own, one at the real cost, one
   checking our PHC line is byte-for-byte what the crate's own hasher writes.  And the benchmark,
-  `cargo test -p conductor-tools argon2_cost -- --ignored --nocapture`: five memory settings at one and two
+  `cargo test -p conductor-tools --release argon2_cost -- --ignored --nocapture`: five memory settings at one and two
   passes, three ways each (fresh memory, the arena, the arena with huge pages).
 - The docs caught up on Fingerprinter, which the last hand-off predates: PROJECT_OPUS.md, the tools design
   doc and the web admin's services table.

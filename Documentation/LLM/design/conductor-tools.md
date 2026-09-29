@@ -167,7 +167,7 @@ What we decided:
   out of the build.
 - A wrong password is `Ok(false)`.  A stored line that can't be read is `Err` and an Error on the Security
   channel, without the line in it.  Nothing here ever logs a password.
-- The benchmark, `cargo test -p conductor-tools argon2_cost -- --ignored --nocapture`, times five memory
+- The benchmark, `cargo test -p conductor-tools --release argon2_cost -- --ignored --nocapture`, times five memory
   settings at one and two passes three ways: fresh memory each hash, the kept arena, and the arena with the
   huge page hint.  The gaps between the columns are the page faults and the TLB, measured.
 
