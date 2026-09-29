@@ -86,7 +86,7 @@ Opus/
 │           ├── Cargo.toml             # depends on the four libs
 │           └── src/
 │               └── main.rs            # boots the program, starts and stops the server on the Control Panel's say
-├── Ensemble/                          # the client -- not started
+├── Ensemble/                          # the client -- Unity, on Jacob's machine, not committed yet
 ├── Content/                           # committed, except Assets/ and logs/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
@@ -123,7 +123,7 @@ Where each one lives is in the tree above.
 | Name               | What it is                                    | State                        |
 |--------------------|-----------------------------------------------|------------------------------|
 | Conductor          | The server.  It owns the game state.          | Tools, monitor, web admin    |
-| Ensemble           | The client players run.                       | Not started, engine unpicked |
+| Ensemble           | The client players run.  Unity, C#.           | On Jacob's machine, uncommitted |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
 | conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |
 | conductor-networking | Lib crate: the login over TLS, the game over UDP. | Runs on Linux              |
