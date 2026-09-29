@@ -116,8 +116,8 @@ because of the CPU cost.
   accept (the ones it closes at the door too, marked so), the login thread moves it a stage at a time
   (TLS, waiting for its Login, checking, in Security's line with `place()`'s numbers once a second,
   asked about another session), and every way out writes the ending.  A handful of lock touches per
-  login, never per byte.  A finished entry stays five minutes from its arrival (`REMEMBER_FOR`, a
-  constant for now); one in progress stays whatever the clock says; past 1000 entries the oldest
+  login, never per byte.  A finished entry stays `connections_remember_seconds` (five minutes) from its
+  arrival, a setting since Jacob asked for one; one in progress stays whatever the clock says; past 1000 entries the oldest
   finished ones go early.  The first ending written wins, so a kicked connection reads "kicked" and not
   the login thread's "hung up" a moment later.  A queued connection's place is a count of the queued
   entries ahead of it, worked out when the snapshot is taken.  Wiped on START SERVER and STOP SERVER.

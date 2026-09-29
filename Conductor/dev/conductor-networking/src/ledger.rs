@@ -20,9 +20,10 @@
 //! they arrive and kept in that order, so "how many are ahead of me in
 //! the queue" is a count of the queued entries with smaller numbers, and
 //! the sweep drops from the front.  A finished connection stays for
-//! REMEMBER_FOR after it arrived, then goes; one still in progress stays
-//! whatever the clock says.  A flood is capped at MOST_KEPT, the oldest
-//! finished ones making room.
+//! `connections_remember_seconds` (networking.cfg, five minutes) after it
+//! arrived, then goes; one still in progress stays whatever the clock
+//! says.  A flood is capped at MOST_KEPT, the oldest finished ones making
+//! room.
 //!
 //! The work is done by functions on a `Ledger` handed to them, so the
 //! tests run on ledgers of their own and never touch the real one.
@@ -36,9 +37,9 @@ use conductor_tools::clock::Utc;
 
 use crate::dns;
 
-/// How long a connection stays on the ledger after it arrived, once it's
-/// finished.  Five minutes, Jacob's number.
-pub const REMEMBER_FOR: Duration = Duration::from_secs(5 * 60);
+/// What the ledger remembers for until `start()` says otherwise: the
+/// default of `connections_remember_seconds`.
+const REMEMBER_DEFAULT: Duration = Duration::from_secs(300);
 
 /// The most connections the ledger holds at once.  Past this, the oldest
 /// finished ones go early.  One in progress is never dropped.
@@ -185,25 +186,39 @@ struct Entry {
 struct Ledger {
     entries: BTreeMap<u64, Entry>,
     next: u64,
+    /// How long a finished entry stays after it arrived.
+    remember: Duration,
 }
 
 impl Ledger {
-    fn new() -> Ledger {
-        Ledger { entries: BTreeMap::new(), next: 1 }
+    fn new(remember: Duration) -> Ledger {
+        Ledger { entries: BTreeMap::new(), next: 1, remember }
     }
 }
 
-static LEDGER: LazyLock<Mutex<Ledger>> = LazyLock::new(|| Mutex::new(Ledger::new()));
+static LEDGER: LazyLock<Mutex<Ledger>> = LazyLock::new(|| Mutex::new(Ledger::new(REMEMBER_DEFAULT)));
 
 fn ledger() -> std::sync::MutexGuard<'static, Ledger> {
     LEDGER.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// Wipes the ledger.  Called on START SERVER and STOP SERVER, so a run
-/// starts with an empty tab.
+/// A fresh ledger for a fresh run, remembering finished connections for
+/// `remember` (`connections_remember_seconds`, read on START SERVER).
+pub fn start(remember: Duration) {
+    *ledger() = Ledger::new(remember);
+}
+
+/// Wipes the ledger on STOP SERVER, so nothing from this run shows on the
+/// next.
 pub fn clear() {
-    *ledger() = Ledger::new();
+    let mut ledger = ledger();
+    *ledger = Ledger::new(ledger.remember);
+}
+
+/// How long a finished connection stays, for the page to say.
+pub fn remember_for() -> Duration {
+    ledger().remember
 }
 
 /// A connection just reached the listener.  Its number, for the stage
@@ -267,11 +282,12 @@ fn set_in(ledger: &mut Ledger, id: u64, stage: Stage) {
     }
 }
 
-/// Drops finished entries older than REMEMBER_FOR, then the oldest
-/// finished ones past MOST_KEPT.
+/// Drops finished entries older than the ledger remembers for, then the
+/// oldest finished ones past MOST_KEPT.
 fn sweep_in(ledger: &mut Ledger, now: Instant) {
+    let remember = ledger.remember;
     ledger.entries.retain(|_, entry| {
-        !(entry.stage.is_done() && now.duration_since(entry.arrived_at) >= REMEMBER_FOR)
+        !(entry.stage.is_done() && now.duration_since(entry.arrived_at) >= remember)
     });
     if ledger.entries.len() > MOST_KEPT {
         let over = ledger.entries.len() - MOST_KEPT;
@@ -328,9 +344,13 @@ mod tests {
         Utc::from_unix(1_790_000_000)
     }
 
+    fn five_minutes() -> Ledger {
+        Ledger::new(Duration::from_secs(300))
+    }
+
     #[test]
     fn a_connection_moves_through_its_stages_and_is_listed_newest_first() {
-        let mut ledger = Ledger::new();
+        let mut ledger = five_minutes();
         let start = Instant::now();
         let first = arrive_in(&mut ledger, address("10.0.0.5:50000"), start, stamp());
         let second = arrive_in(&mut ledger, address("10.0.0.6:50001"), start + Duration::from_secs(1), stamp());
@@ -362,7 +382,7 @@ mod tests {
 
     #[test]
     fn queued_connections_know_how_many_are_ahead() {
-        let mut ledger = Ledger::new();
+        let mut ledger = five_minutes();
         let now = Instant::now();
         let first = arrive_in(&mut ledger, address("10.0.0.1:1"), now, stamp());
         arrive_in(&mut ledger, address("10.0.0.2:2"), now, stamp());
@@ -379,8 +399,8 @@ mod tests {
     }
 
     #[test]
-    fn the_sweep_forgets_finished_connections_after_five_minutes() {
-        let mut ledger = Ledger::new();
+    fn the_sweep_forgets_finished_connections_when_the_setting_says() {
+        let mut ledger = five_minutes();
         let start = Instant::now();
         let done = arrive_in(&mut ledger, address("10.0.0.1:1"), start, stamp());
         let stuck = arrive_in(&mut ledger, address("10.0.0.2:2"), start, stamp());
@@ -392,15 +412,22 @@ mod tests {
 
         // Five minutes on: the finished one is gone, the one in progress
         // stays whatever the clock says.
-        let listed = snapshot_in(&mut ledger, start + REMEMBER_FOR);
+        let listed = snapshot_in(&mut ledger, start + Duration::from_secs(300));
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].address, address("10.0.0.2:2"));
-        assert_eq!(snapshot_in(&mut ledger, start + REMEMBER_FOR * 10).len(), 1);
+        assert_eq!(snapshot_in(&mut ledger, start + Duration::from_secs(3000)).len(), 1);
+
+        // A shorter setting forgets sooner.
+        let mut ledger = Ledger::new(Duration::from_secs(10));
+        let done = arrive_in(&mut ledger, address("10.0.0.1:1"), start, stamp());
+        set_in(&mut ledger, done, Stage::Done(End::Refused));
+        assert_eq!(snapshot_in(&mut ledger, start + Duration::from_secs(9)).len(), 1);
+        assert_eq!(snapshot_in(&mut ledger, start + Duration::from_secs(10)).len(), 0);
     }
 
     #[test]
     fn a_flood_drops_the_oldest_finished_ones_first() {
-        let mut ledger = Ledger::new();
+        let mut ledger = five_minutes();
         let now = Instant::now();
         let live = arrive_in(&mut ledger, address("10.0.0.1:1"), now, stamp());
         for n in 0..MOST_KEPT as u64 {

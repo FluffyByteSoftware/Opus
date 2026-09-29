@@ -360,7 +360,7 @@ fn net(status: &NetStatus) -> String {
         .raw("udp", status.udp.map_or_else(null, |address| text(&address.to_string())))
         .whole("players", status.players as u64)
         .whole("tickets", status.tickets as u64)
-        .whole("remember_seconds", conductor_networking::REMEMBER_FOR.as_secs())
+        .whole("remember_seconds", status.remember.as_secs())
         .raw("connections", array(status.connections.iter().map(connection)))
         .done()
 }
@@ -578,7 +578,8 @@ mod tests {
     fn before_the_first_look_the_monitor_is_null() {
         let switch = ServerStatus { state: conductor_tools::server::State::Stopped, note: "x".to_string(),
                                     since: None };
-        let quiet = NetStatus { tcp: None, udp: None, players: 0, tickets: 0, connections: Vec::new() };
+        let quiet = NetStatus { tcp: None, udp: None, players: 0, tickets: 0,
+                                remember: std::time::Duration::from_secs(300), connections: Vec::new() };
         let answer = status(&switch, Role::User, None, &[], &conductor_tools::diskman::status(), &quiet, 0, &[], &[],
                             None);
         assert!(answer.starts_with("{\"server\":{\"state\":\"stopped\",\"note\":\"x\",\"since\":null},\

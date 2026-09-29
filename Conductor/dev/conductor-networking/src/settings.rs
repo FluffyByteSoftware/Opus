@@ -39,6 +39,8 @@ pub struct Settings {
     pub token_deadline: Duration,
     /// How long a player may go quiet over UDP.
     pub udp_timeout: Duration,
+    /// How long a finished connection stays on the web admin's TCP tab.
+    pub remember_connections: Duration,
 }
 
 impl Settings {
@@ -80,6 +82,7 @@ pub fn load() -> Settings {
         max_waiting_logins: constellations::number(&NETWORKING, "max_waiting_logins") as usize,
         token_deadline: seconds("token_deadline_seconds"),
         udp_timeout: seconds("udp_timeout_seconds"),
+        remember_connections: seconds("connections_remember_seconds"),
     }
 }
 
@@ -125,6 +128,7 @@ mod tests {
         assert_eq!(settings.max_waiting_logins, 64);
         assert_eq!(settings.token_deadline, Duration::from_secs(30));
         assert_eq!(settings.udp_timeout, Duration::from_secs(40));
+        assert_eq!(settings.remember_connections, Duration::from_secs(300));
         assert_eq!(settings.tcp_address().port(), 9997);
         assert_eq!(settings.udp_address().port(), 9998);
     }

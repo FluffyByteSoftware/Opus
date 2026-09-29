@@ -76,15 +76,17 @@ What we did:
   tiles and the table with KICK, and the page steps off it if a listener goes down while it's open.
 - Docs: CLAUDE.md (nine tabs, the TCP tab, the kick route, the checklist in the hand-off), the two
   design docs, PROJECT_OPUS, README, TODO (the UDP tab, the lists with the questions they raise,
-  `REMEMBER_FOR`, macOS DNS), and the new `TEST_CHECKLIST.md`.
+  macOS DNS), and the new `TEST_CHECKLIST.md`.  `connections_remember_seconds` in `networking.cfg` (the
+  five minutes as a setting, at his say) came last.
 
 What Jacob decided:
 
-- The TCP tab shows addresses, never accounts.  Both listeners up before it opens.  Five minutes.
-- KICK is admin's.  The route is `/Opus/wwwhook/tcp/kick`, under `wwwhook` like the server buttons (his
-  earlier naming; the path itself wasn't put to him, so it's his to move).
-- The whitelist and blacklist wait for a session of their own (the one-feature rule), with a BAN on the
-  tab as part of managing connections.  TODO.md has what it has to settle.
+- The TCP tab shows addresses, never accounts.  Both listeners up before it opens.  Five minutes, and
+  a setting for it (`connections_remember_seconds` in `networking.cfg`) at his say, the same session.
+- KICK is admin's.  The route is `/Opus/wwwhook/tcp/kick`, under `wwwhook` like the server buttons; he
+  OK'd the path.
+- The whitelist and blacklist are the next session, his call, with a BAN on the tab as part of managing
+  connections.  TODO.md has what it has to settle.
 - A rolling test checklist, kept across sessions: `TEST_CHECKLIST.md`.
 
 ## What's waiting

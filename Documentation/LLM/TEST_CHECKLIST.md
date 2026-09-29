@@ -50,6 +50,9 @@ does a real reverse lookup of `127.0.0.1`, which asks the resolver; it passes wi
       connection closed at the door two seconds later shows as "Closed at the door: on hold after a
       failed login".
 - [ ] Ago counts up once a second; a finished row disappears five minutes after it arrived.
+- [ ] The Settings tab shows `connections_remember_seconds` (300) on `networking.cfg`'s card.  Save it as
+      10, STOP SERVER and START SERVER, run the client once: its row goes ten seconds after it arrived,
+      and the tab's count says "in the last 10 seconds".  Put it back to 300 after.
 - [ ] KICK as `admin`: start the client with a long wait before it sends its Login (or Ctrl-Z it after
       TLS), press KICK on its row, confirm.  The row reads "Kicked by the admin", the client's connection
       drops, and the log has "The admin kicked ... at the door."  Pressing KICK again on a finished row

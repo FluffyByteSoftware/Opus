@@ -1560,8 +1560,7 @@ function drawTcp(n) {
   const inLine = open.filter(c => c.stage === "in_line").length;
   $("tcp-open").textContent = open.length + " open";
   $("tcp-open-note").textContent = queued + " waiting for a login thread, " + inLine + " in Security's line, "
-    + (n.connections.length - open.length) + " finished in the last " + Math.round(n.remember_seconds / 60)
-    + " minutes";
+    + (n.connections.length - open.length) + " finished in the last " + remembered(n.remember_seconds);
 
   const body = $("tcp").tBodies[0];
   body.textContent = "";
@@ -1579,8 +1578,14 @@ function drawTcp(n) {
     if (!c.done) last.appendChild(kickButton(c.id, c.address));
     row.appendChild(last);
   }
-  $("tcp-count").textContent = n.connections.length + " in the last " + Math.round(n.remember_seconds / 60)
-    + " minutes";
+  $("tcp-count").textContent = n.connections.length + " in the last " + remembered(n.remember_seconds);
+}
+
+// connections_remember_seconds in words: "5 minutes", or "45 seconds"
+// under a minute.
+function remembered(seconds) {
+  if (seconds < 60) return seconds + " seconds";
+  return Math.round(seconds / 60) + " minutes";
 }
 
 // KICK, on one row of the TCP tab.  Admin only; the button is greyed for

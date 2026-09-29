@@ -357,7 +357,7 @@ The files today:
 | `conductor_globals.cfg`  | hard   | the launcher at boot | `scribe_log_dir` (`logs`), `wgui_port` (`9996`)   |
 | `wgui.cfg`               | hard   | the launcher at boot; the web admin's login reads the values | `user_password` (`user`), `admin_password` (`admin`), both text, neither empty |
 | `postgres.cfg`           | soft   | Archivist on START SERVER | `address`, `port`, `database`, `username`, `password` (secret), `query_time_limit_seconds` (0 to 3600, 10), `slow_job_ms` (1 to 600000, 250) |
-| `networking.cfg`         | soft   | networking on START SERVER | `bind_address` (`0.0.0.0`), `tcp_port` (`9997`), `udp_port` (`9998`), `certificate_file` (`certs/conductor.crt`), `private_key_file` (`certs/conductor.key`), `secret_word` (`potato`), `client_versions` (`0.0.1`, a comma list), `login_deadline_seconds` (1 to 600, 10), `login_threads` (1 to 256, 8), `max_waiting_logins` (1 to 10000, 64), `token_deadline_seconds` (1 to 600, 30), `udp_timeout_seconds` (1 to 3600, 40) |
+| `networking.cfg`         | soft   | networking on START SERVER | `bind_address` (`0.0.0.0`), `tcp_port` (`9997`), `udp_port` (`9998`), `certificate_file` (`certs/conductor.crt`), `private_key_file` (`certs/conductor.key`), `secret_word` (`potato`), `client_versions` (`0.0.1`, a comma list), `login_deadline_seconds` (1 to 600, 10), `login_threads` (1 to 256, 8), `max_waiting_logins` (1 to 10000, 64), `token_deadline_seconds` (1 to 600, 30), `udp_timeout_seconds` (1 to 3600, 40), `connections_remember_seconds` (10 to 86400, 300) |
 
 The two passwords in `wgui.cfg` are kept as they are, not hashed (Jacob, 2026-09-29): Security only runs
 while the server does, and a login has to work before START SERVER.  They're `Text`, not `Secret`, so an

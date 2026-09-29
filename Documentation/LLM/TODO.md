@@ -58,8 +58,6 @@ Things that wait on a piece that doesn't exist yet.
   - Addresses only, or ranges (CIDR) too.  A ban on one home address is easy to step around.
   - Where the check sits: the acceptor, beside the failure hold, so a listed address costs nothing but
     an accept and a close, and the ledger says "closed at the door: blacklisted".
-- Networking: `REMEMBER_FOR`, how long a finished connection stays on the TCP tab (five minutes), is a
-  constant in `ledger.rs`.  A setting in `networking.cfg` if Jacob ever wants it longer.
 - Networking: reverse DNS on macOS.  `dns/other.rs` hands back no name; macOS has `getnameinfo` with its
   own `sockaddr` layout (a length byte first).  Waits on a Mac, like the monitor.
 - Networking: the protocol version in the Hello is `1` and the client versions are a list in

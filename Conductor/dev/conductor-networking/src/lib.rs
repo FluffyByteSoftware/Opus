@@ -25,6 +25,7 @@
 //! happens here, and that is the ceiling on what a login can cost.
 
 use std::net::SocketAddr;
+use std::time::Duration;
 
 use conductor_tools::constellations;
 use conductor_tools::scribe::{self, Channel};
@@ -39,7 +40,7 @@ mod tcp;
 mod tls;
 mod udp;
 
-pub use ledger::{Connection, End, Stage, REMEMBER_FOR};
+pub use ledger::{Connection, End, Stage};
 pub use tcp::Kicked;
 
 /// How networking is doing, for whoever asks (the web admin).
@@ -53,9 +54,12 @@ pub struct Status {
     pub players: usize,
     /// Tickets handed out and not yet used on UDP.
     pub tickets: usize,
+    /// How long a finished connection stays in `connections`
+    /// (`connections_remember_seconds` in networking.cfg).
+    pub remember: Duration,
     /// Every connection that reached the TCP listener in the last
-    /// REMEMBER_FOR, newest first, and where each one is.  Empty while
-    /// the TCP side isn't running.
+    /// `remember`, newest first, and where each one is.  Empty while the
+    /// TCP side isn't running.
     pub connections: Vec<Connection>,
 }
 
@@ -113,7 +117,8 @@ pub fn stop() {
 /// A copy of how networking is doing.
 pub fn status() -> Status {
     let (players, tickets) = sessions::counts();
-    Status { tcp: tcp::listening_on(), udp: udp::listening_on(), players, tickets, connections: ledger::snapshot() }
+    Status { tcp: tcp::listening_on(), udp: udp::listening_on(), players, tickets, remember: ledger::remember_for(),
+             connections: ledger::snapshot() }
 }
 
 /// The admin kicked TCP connection `id` (its number in `status()`'s
