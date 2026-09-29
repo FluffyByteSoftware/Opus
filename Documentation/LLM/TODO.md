@@ -37,29 +37,27 @@ Things that wait on a piece that doesn't exist yet.
   `start_server()` and `stop_server()` in the launcher when they exist, and come up and down with the
   rest.  (Was the launcher's S.)
 - Web admin: account management (make, delete, list, finger, change password).  Waits on accounts.
-- Web admin: the settings, shown and changed live (Jacob asked on 2026-09-28; on 2026-09-29 he made it the
-  next major revision: a config editor in the browser that hot swaps the new values in while the page is
-  running, saves to disk, and then a restart applies them).  Which restart is the open question: RESTART
-  SERVER on the Control Panel applies anything a server piece reads when it starts (`postgres.cfg`, and
-  Security's and the network's settings if they get any), which is why a piece with settings of its own
-  is a server piece.  The program's own settings (`scribe_log_dir`, `wgui_port`) either hot swap on the
-  spot or wait for the next boot, and the page should say which.  Jacob's words for the two (2026-09-29):
-  a **soft reboot** is the launcher stopping and starting the server pieces again, which is RESTART SERVER
-  on the Control Panel (a tick rate, say); a **hard reboot** is Conductor, the whole program, run again
-  (where the log goes, the web admin's port).  Every setting gets tagged one or the other when the editor
-  is built, and the page says which it's waiting on.  Showing them is small: a
-  read-only route and a Settings tab.  Changing them live needs:
-  - Constellations to stop being load-once.  Today the settings sit in a `OnceLock`, which can't change
-    after it's set; it would become a lock around settings that can be swapped.
-  - A route that changes things (`POST`, with the `X-Opus` header like Shut Down), which is Jacob's call
-    per CLAUDE.md.  Every value is checked before anything is written, and a bad one is turned away.
-  - Each setting saying what happens when it changes.  `scribe_log_dir` can switch on the spot
-    (`scribe::move_to()`); `wgui_port` means restarting the web admin on the new port, so the page has to
-    follow it there, or it waits for the next start.  Every setting added later says which kind it is.
-  - The file written back safely, through `diskman::write()`, which is ready for it.  It also needs
-    DiskMan to see hand edits (see Ideas), or a changed file on disk won't match what's loaded.
-  - Maybe `postgres.cfg` too, but it holds the password, and showing that on a page is Jacob's call.
+- **Web admin: the config editor**, the rest of it.  The tools side was built on 2026-09-29 (Constellations
+  rebuilt: one table of every file and setting, one reader, `save_waiting()` / `waiting()` /
+  `discard_waiting()`, and DiskMan's swap list that puts a `.wait4server` file in place when its reboot
+  comes).  What's left is the web admin's half, agreed with Jacob the same day:
+  - `GET /Opus/settings`: every file, every setting (key, kind, comment, default, running value, the
+    waiting value if there is one, and the file's reboot).  The password goes out as it is: Postgres only
+    listens on this machine (Jacob's call).
+  - `POST /Opus/wwwhook/settings/save?file=<name>` with the `X-Opus` header, the body being `key = value`
+    lines in the file's own format, so the same reader checks it and no JSON reader is needed.  A bad line
+    means nothing is written and the complaints come back for the page to show beside the fields.
+    `http.rs` has to learn to read a body (`Content-Length`).
+  - `POST /Opus/wwwhook/settings/discard?file=<name>`, the same way.
+  - A **Settings** tab, reachable while the server is stopped and under the database lock like the Control
+    Panel and the Log.  One card per file: the reboot it needs in plain words, a field per setting with its
+    comment, SAVE and DISCARD, and "waiting on a soft / hard reboot" beside anything saved and not yet
+    applied.  No hot swapping: nothing changes until the reboot.
+  - The JSON shape at the top of `json.rs`, and the design docs.
   - Once there is a login, only an admin can change them.
+  - Maybe: a `cfg_dir` setting in `conductor_globals.cfg` saying where the *other* config files live, if
+    Jacob wants the config folder movable (it can't point at its own folder).  Asked on 2026-09-29, not
+    settled.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
   on shutdown: Ctrl-C loses whatever it hasn't written yet.  Catching it on both Linux and Windows without a crate means a
   signal handler on one and a console handler on the other.
@@ -80,10 +78,8 @@ Things we thought of along the way.  None of them are promised.
   would get it back sooner after, say, a full disk is cleaned up.
 - Scribe: the caller shows the path Rust compiled with (`conductor-launcher/src/main.rs`).  Trim to the file
   name if that gets noisy.
-- Constellations: log a warning at startup for a key that is missing from the file and fell back to its
-  default, the way unknown keys are warned about today.
-- Archivist and Constellations each have their own `key = value` reader.  They're nearly the same code, and
-  could share one if a third config file shows up.
+- Constellations: the Storage tab could show `swaps_waiting` from DiskMan's status (it's in the struct,
+  not in the JSON yet), once the Settings tab exists to explain it.
 - Archivist: a password that starts or ends with a space loses the space, because every value is trimmed.
   Quotes around the value would fix it, if it ever matters.
 - Archivist: more than one worker, if one ever can't keep up.  Tried and taken out on 2026-09-28: with two,
@@ -95,8 +91,11 @@ Things we thought of along the way.  None of them are promised.
 - Monitor or the Storage tab: "last read / last write" by file.  DiskMan sees every file now, so this is
   ready whenever it's wanted.
 - DiskMan: notice hand edits.  A file it already holds is served from memory even if somebody edited it on
-  disk since.  Checking the modified time before trusting the copy would fix it.  Only configs today, and
-  they're read once at startup.
+  disk since.  Checking the modified time before trusting the copy would fix it.  Only configs today:
+  `postgres.cfg` is read on every START SERVER, so a hand edit between two starts while Conductor runs
+  isn't seen.  A `.wait4server` file written by hand is, since Constellations reads it fresh.
+- DiskMan: the `.wait4server` swap leans on `fs::rename` replacing a file, the same as its writes; on
+  Windows that's the same untested spot.
 - DiskMan: the Windows build.  It leans on `fs::rename` replacing a file there, and skips flushing the folder.
 - Notices: no cap.  They're kept since boot until ACKed, so a flood of Warns left alone for days keeps
   growing in memory.  A cap (the oldest dropped) if it ever matters.

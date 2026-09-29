@@ -30,6 +30,13 @@
 //! a config write or a log line.  `stream()` reads a big file back the
 //! same way, a chunk at a time, without loading all of it.
 //!
+//! Two more jobs, for the config files.  `swap()` renames one file over
+//! another -- now, or held in a list until the server stops or Conductor
+//! shuts down, which is how a change saved from the web admin waits for
+//! its reboot (Constellations writes `name.cfg.wait4server` and asks for
+//! the swap).  `remove()` deletes a file.  Both drop whatever DiskMan held
+//! for the files, so the next read goes to the disk.
+//!
 //! A crash is still the worst case.  Whatever was in memory and not yet
 //! on disk is gone, and no amount of care gets around that.  What DiskMan
 //! makes sure of is that a crash never leaves a file half written.
@@ -48,7 +55,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use cache::{Limits, ReadJob, State, StreamJob};
+use cache::{Limits, ReadJob, RemoveJob, State, StreamJob, Swap};
 
 use crate::clock::Utc;
 use crate::pending::NotRunning;
@@ -159,6 +166,19 @@ impl Stream {
     }
 }
 
+/// When a `swap()` happens.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SwapAt {
+    /// As soon as the worker gets to it.
+    Now,
+    /// When the launcher says the server pieces have stopped
+    /// (`run_swaps(SwapAt::ServerStop)`).  A soft config file.
+    ServerStop,
+    /// As DiskMan's last act at Conductor's shutdown, after everything
+    /// else is written.  A hard config file.
+    Shutdown,
+}
+
 /// How DiskMan is doing, for the web admin's Storage tab.
 #[derive(Debug, Clone)]
 pub struct Status {
@@ -177,6 +197,8 @@ pub struct Status {
     /// Reads waiting on the disk.
     pub reads_waiting: usize,
     pub streams_open: usize,
+    /// Swaps held for a server stop or Conductor's shutdown.
+    pub swaps_waiting: usize,
     /// The big write under way: the file, how many bytes are out, and of
     /// how many.
     pub big_write: Option<(PathBuf, u64, u64)>,
@@ -270,6 +292,52 @@ impl Shared {
         drop(state);
         self.wake.notify_one();
         Stream { pieces }
+    }
+
+    fn swap(&self, original: &Path, replacement: &Path, when: SwapAt) -> Pending<()> {
+        let mut state = self.lock();
+        if !state.running {
+            return Pending::ready(Err(DiskError::NotRunning));
+        }
+        let (reply, pending) = Pending::new();
+        state.add_swap(Swap {
+            original: original.to_path_buf(),
+            replacement: replacement.to_path_buf(),
+            when,
+            reply: Some(reply),
+        });
+        drop(state);
+        self.wake.notify_one();
+        pending
+    }
+
+    fn run_swaps(&self, when: SwapAt) -> Pending<()> {
+        let mut state = self.lock();
+        if !state.running {
+            return Pending::ready(Err(DiskError::NotRunning));
+        }
+        state.release_swaps(when);
+        let (reply, pending) = Pending::new();
+        state.swap_fences.push(reply);
+        drop(state);
+        self.wake.notify_one();
+        pending
+    }
+
+    fn forget_swap(&self, original: &Path) {
+        self.lock().forget_swap(original);
+    }
+
+    fn remove(&self, path: &Path) -> Pending<()> {
+        let mut state = self.lock();
+        if !state.running {
+            return Pending::ready(Err(DiskError::NotRunning));
+        }
+        let (reply, pending) = Pending::new();
+        state.removes.push_back(RemoveJob { path: path.to_path_buf(), reply });
+        drop(state);
+        self.wake.notify_one();
+        pending
     }
 
     fn stop(&self) {
@@ -382,6 +450,49 @@ pub fn read(path: &Path) -> Pending<Contents> {
 /// the file is, the same as `read()`.
 pub fn stream(path: &Path) -> Stream {
     DISKMAN.stream(path)
+}
+
+/// Renames `replacement` over `original`, so the file at `original` is
+/// what `replacement` held and `replacement` is gone.  `when` says when:
+/// now, when the server stops, or at Conductor's shutdown.  Whatever
+/// DiskMan held for either file is dropped when it happens, so the next
+/// read sees the new file.  A second swap for the same `original`
+/// replaces the first in the list.  If `replacement` isn't there when the
+/// time comes (it was discarded), nothing happens and that counts as done.
+///
+/// The `Pending` answers when the swap has happened.  For a held one that
+/// can be a long time, and the caller needn't wait on it: DiskMan says so
+/// in the log if a swap fails.  A read asked for straight after a swap
+/// should wait on the swap first, or it may still see the old file.
+///
+/// ```text
+/// diskman::swap(&live, &waiting, SwapAt::Now).wait()?;   // then read `live`
+/// diskman::swap(&live, &waiting, SwapAt::Shutdown);       // and forget about it
+/// ```
+pub fn swap(original: &Path, replacement: &Path, when: SwapAt) -> Pending<()> {
+    DISKMAN.swap(original, replacement, when)
+}
+
+/// Runs every swap held for `when` now.  The launcher calls this with
+/// `SwapAt::ServerStop` once the server pieces are down, and waits on the
+/// answer, so the next START SERVER reads the swapped files.  The
+/// `SwapAt::Shutdown` ones run on their own as DiskMan stops, and so does
+/// anything else still in the list then: a hard reboot applies the lot.
+/// The `Pending` answers once every swap that was due has happened.
+pub fn run_swaps(when: SwapAt) -> Pending<()> {
+    DISKMAN.run_swaps(when)
+}
+
+/// Takes the swap for `original` out of the list, if there is one.  For
+/// a change that was discarded.
+pub fn forget_swap(original: &Path) {
+    DISKMAN.forget_swap(original);
+}
+
+/// Deletes the file, and drops whatever DiskMan held for it.  A file
+/// that isn't there counts as removed.
+pub fn remove(path: &Path) -> Pending<()> {
+    DISKMAN.remove(path)
 }
 
 /// The bytes as text, for the files that are text (configs, SQL).  Bytes
@@ -499,6 +610,81 @@ mod tests {
         }
         assert_eq!(back, bytes);
         stop_and_wait(diskman);
+    }
+
+    #[test]
+    fn a_swap_now_puts_the_replacement_in_place() {
+        let diskman = own_diskman();
+        assert!(worker::start(diskman));
+        let folder = folder("swap-now");
+        let live = folder.join("a.cfg");
+        let waiting = folder.join("a.cfg.wait4server");
+        diskman.write(&live, b"old".to_vec()).wait().expect("the live file should land");
+        diskman.write(&waiting, b"new".to_vec()).wait().expect("the waiting file should land");
+        // Both are held in memory now.  The swap has to drop them.
+        assert_eq!(diskman.read(&live).wait().expect("a read").as_slice(), b"old");
+
+        diskman.swap(&live, &waiting, SwapAt::Now).wait().expect("the swap should happen");
+        assert_eq!(diskman.read(&live).wait().expect("a read").as_slice(), b"new");
+        assert!(!waiting.exists());
+        assert_eq!(diskman.status().swaps_waiting, 0);
+
+        // Nothing waiting is fine: the swap counts as done.
+        diskman.swap(&live, &waiting, SwapAt::Now).wait().expect("nothing to swap is fine");
+        assert_eq!(fs::read(&live).expect("still there"), b"new");
+        stop_and_wait(diskman);
+    }
+
+    #[test]
+    fn a_held_swap_waits_for_its_moment() {
+        let diskman = own_diskman();
+        assert!(worker::start(diskman));
+        let folder = folder("swap-held");
+        let soft = folder.join("soft.cfg");
+        let hard = folder.join("hard.cfg");
+        for (path, text) in [(&soft, "old soft"), (&hard, "old hard")] {
+            diskman.write(path, text.as_bytes().to_vec()).wait().expect("the file should land");
+            diskman.write(&path.with_extension("cfg.wait4server"), format!("new {text}").into_bytes())
+                .wait()
+                .expect("the waiting file should land");
+        }
+        diskman.swap(&soft, &soft.with_extension("cfg.wait4server"), SwapAt::ServerStop);
+        diskman.swap(&hard, &hard.with_extension("cfg.wait4server"), SwapAt::Shutdown);
+        // A second swap for the same file replaces the first.
+        diskman.swap(&hard, &hard.with_extension("cfg.wait4server"), SwapAt::Shutdown);
+        assert_eq!(diskman.status().swaps_waiting, 2);
+        assert_eq!(fs::read(&soft).expect("there"), b"old soft");
+
+        diskman.run_swaps(SwapAt::ServerStop).wait().expect("the server-stop swaps should run");
+        assert_eq!(diskman.read(&soft).wait().expect("a read").as_slice(), b"new old soft");
+        assert_eq!(fs::read(&hard).expect("there"), b"old hard");
+        assert_eq!(diskman.status().swaps_waiting, 1);
+
+        stop_and_wait(diskman);
+        assert_eq!(fs::read(&hard).expect("there"), b"new old hard");
+        assert!(!hard.with_extension("cfg.wait4server").exists());
+    }
+
+    #[test]
+    fn a_forgotten_swap_never_happens_and_a_remove_deletes() {
+        let diskman = own_diskman();
+        assert!(worker::start(diskman));
+        let folder = folder("swap-forget");
+        let live = folder.join("a.cfg");
+        let waiting = folder.join("a.cfg.wait4server");
+        diskman.write(&live, b"old".to_vec()).wait().expect("the live file should land");
+        diskman.write(&waiting, b"new".to_vec()).wait().expect("the waiting file should land");
+        diskman.swap(&live, &waiting, SwapAt::Shutdown);
+        diskman.forget_swap(&live);
+        assert_eq!(diskman.status().swaps_waiting, 0);
+
+        diskman.remove(&waiting).wait().expect("the remove should happen");
+        assert!(!waiting.exists());
+        assert!(diskman.read(&waiting).wait().is_err_and(|e| e.is_not_found()));
+        diskman.remove(&waiting).wait().expect("removing what isn't there is fine");
+
+        stop_and_wait(diskman);
+        assert_eq!(fs::read(&live).expect("there"), b"old");
     }
 
     #[test]

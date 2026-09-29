@@ -54,9 +54,10 @@ it there:
 OPUS_CONTENT=/path/to/Opus/Content cargo run -p conductor-launcher
 ```
 
-- `Content/cfg/conductor_globals.cfg` -- the settings (the log folder, the web admin's port).  Edit it with
-  the server stopped.
-- `Content/cfg/postgres.cfg` -- where Postgres is and how to log in.
+- `Content/cfg/conductor_globals.cfg` -- the program's settings (the log folder, the web admin's port).  Read
+  once at boot, so a change means running Conductor again.
+- `Content/cfg/postgres.cfg` -- where Postgres is and how to log in.  Read every time the server starts, so a
+  change means STOP SERVER and START SERVER on the web admin's Control Panel.
 - `Content/psql/` -- the tables as first made, and the numbered changes to them since.
 - `Content/logs/` -- one log file per day, named for the UTC date.
 

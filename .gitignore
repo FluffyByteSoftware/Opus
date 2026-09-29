@@ -16,6 +16,9 @@ Ensemble/build/
 # for now.
 Content/Assets/
 Content/logs/
+# A change saved from the web admin, waiting for its reboot.  It's this
+# machine's, not the repo's.
+Content/cfg/*.wait4server
 
 # Rust, in case target/ ever lands in dev/
 **/target/

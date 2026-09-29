@@ -14,9 +14,10 @@
 //! sent.
 //!
 //! This file is the front door.  The rest is in `archivist/`:
-//! `settings.rs` reads `postgres.cfg`, `worker.rs` runs the worker and its
-//! connection, `schemas.rs` gets the database into shape when it connects,
-//! and `status.rs` keeps the running totals.
+//! `settings.rs` is `postgres.cfg` as Archivist reads it (the file itself
+//! is Constellations'), `worker.rs` runs the worker and its connection,
+//! `schemas.rs` gets the database into shape when it connects, and
+//! `status.rs` keeps the running totals.
 //!
 //! Nothing in here can stop the server either.  If Postgres isn't there,
 //! the jobs come back as errors, and the worker tries again on the next job.
@@ -98,12 +99,13 @@ pub type Pending<T> = crate::pending::Pending<T, ArchivistError>;
 // Starting and stopping
 // ---------------------------------------------------------------------------
 
-/// Reads `postgres.cfg` and starts the worker.  It comes back right away.
-/// The first connect happens on the worker's thread, and the log says how
-/// it went.  The launcher calls this every time the server starts, and
-/// the file is read again each time.
+/// Has Constellations read `postgres.cfg` again and starts the worker.  It
+/// comes back right away.  The first connect happens on the worker's
+/// thread, and the log says how it went.  The launcher calls this every
+/// time the server starts, and the file is read again each time, so a
+/// change to it only needs a STOP SERVER and a START SERVER.
 pub fn start() {
-    worker::start(settings::load(&config_path()));
+    worker::start(settings::load());
 }
 
 /// Stops taking jobs, finishes the ones already in the mailbox, closes

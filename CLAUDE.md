@@ -261,6 +261,23 @@ When I say we're wrapping up:
 - **DiskMan never logs routine work.** A log line is itself a DiskMan write, so
   a "wrote a file" line would loop forever. It logs failures only, and never
   while holding its own lock.
+- **Every config file is Constellations'** (`constellations.rs` and `constellations/`
+  in `conductor-tools`).  All of them live in `Content/cfg/`, in one format
+  (`key = value`, `#` comments), and every one is written down once in
+  `constellations/files.rs`: its settings, their kinds, defaults and
+  comments, and whether the file is **soft** or **hard**.  A file is one or
+  the other as a whole, never a mix; a piece that needs both gets two
+  files, and files are kept separate rather than one file with sections.
+  Soft (`postgres.cfg`) is read on every START SERVER, so STOP SERVER and
+  START SERVER applies a change.  Hard (`conductor_globals.cfg`: anything
+  about Constellations, Scribe or the web admin) is read at boot, so
+  Conductor is shut down and run again.  Nothing hot swaps.  Jacob's
+  rules, 2026-09-29.  Adding a setting is one entry in the table and a
+  line wherever it's read (`constellations::value()` and friends); a piece
+  never reads a config file itself.  A change from the web admin goes to
+  `name.cfg.wait4server` beside the live file (`save_waiting()`), and
+  DiskMan swaps it in when the reboot comes; the live file always says what
+  Conductor is running on.
 - **Every password hash goes through Security** (`security.rs` in
   `conductor-tools`): `hash_password()`, `verify_password()` and
   `verify_no_account()`, each handing back a `Ticket` (the `Pending`, plus

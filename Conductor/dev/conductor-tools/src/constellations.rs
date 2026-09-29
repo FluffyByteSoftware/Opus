@@ -2,41 +2,69 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! Constellations loads `Content/cfg/conductor_globals.cfg` once at startup
-//! and holds the settings where the rest of the server can read them.  The
-//! file is plain `key = value` lines with `#` comments, so it can be edited
-//! by hand with the server stopped.
+//! Constellations, the settings.  Every config file Conductor has lives in
+//! `Content/cfg/`, is written down once in `constellations/files.rs` (its
+//! settings, their kinds, defaults and comments), and is read and written
+//! by the one reader in `constellations/text.rs`.  This file is the store:
+//! it loads a file when its piece starts, holds the values where the rest
+//! of the server can read them, and handles a change from the web admin.
+//!
+//! A file is **soft** or **hard** as a whole.  A soft file
+//! (`postgres.cfg`) is read every time the server starts, so STOP SERVER
+//! and START SERVER on the Control Panel is enough to pick up a change.
+//! A hard file (`conductor_globals.cfg`) is read once at boot, so Conductor
+//! has to be shut down and run again.
+//!
+//! A change from the web admin never touches the live file.  It's written
+//! to `name.cfg.wait4server` beside it, and DiskMan is told to rename that
+//! over the live file at the right moment: when the server stops for a
+//! soft file, when Conductor shuts down for a hard one.  The next start
+//! or boot then reads the new file the ordinary way.  If Conductor didn't
+//! get to the swap (it crashed, or the change was saved while the server
+//! was already stopped), `load()` finds the waiting file and swaps it in
+//! before reading.  Jacob's design, 2026-09-29.
 //!
 //! Nothing in here can stop the server.  A missing file gets written with
 //! the defaults -- a fresh checkout has no `Content/` folder at all, and
-//! that must never be a crash.  A line we can't make sense of is a Warn in
-//! the log, and that setting keeps its default.  A file we can't read at
-//! all is an Error, and we run on the defaults.
+//! that must never be a crash.  A line we can't make sense of is a Warn
+//! in the log, and that setting keeps its default.  A file we can't read
+//! at all is an Error, and we run on the defaults.
 //!
-//! Adding a setting means touching four places, all in this file: the
-//! Settings struct, default_settings(), apply_setting() and file_text().
+//! Adding a setting is one entry in `files.rs` and a line wherever it's
+//! read.  Adding a file is one entry in `files.rs` and a `load()` where
+//! its piece starts.
 
-use std::collections::HashMap;
+mod files;
+mod text;
+
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 
-use crate::diskman;
+use crate::diskman::{self, DiskError, SwapAt};
 use crate::scribe::{self, Channel};
 use crate::services::{self, State};
 
-/// Where the config lives, under the Content folder.
-const CONFIG_FILE: &str = "cfg/conductor_globals.cfg";
+pub use files::{ConfigFile, FILES, GLOBALS, Kind, POSTGRES, Reboot, Setting};
+pub use text::Values;
+
+/// Where every config file lives, under the Content folder.
+const CFG_DIR: &str = "cfg";
+
+/// What goes on the end of a file's name for the copy waiting to replace
+/// it.  Jacob's name.
+const WAITING_SUFFIX: &str = ".wait4server";
 
 /// The environment variable that points at the Content folder when the
 /// walk-up search would land in the wrong place.
 const CONTENT_ENV: &str = "OPUS_CONTENT";
 
-/// Every setting the config file can hold.  The field names are the keys in
-/// the file.
+/// `conductor_globals.cfg` as the launcher reads it: the typed view of the
+/// file's values.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
-    /// The folder Scribe writes its daily log files into, as written in the
-    /// file.  A relative path is taken from the Content folder, so the
+    /// The folder Scribe writes its daily log files into, as written in
+    /// the file.  A relative path is taken from the Content folder, so the
     /// default of `logs` means `Content/logs`.  `log_dir()` does that.
     pub scribe_log_dir: PathBuf,
     /// The port the web admin listens on.  It only ever listens on
@@ -44,89 +72,207 @@ pub struct Settings {
     pub wgui_port: u16,
 }
 
-/// The built-in values.  These go into a freshly written config file, and a
-/// setting falls back to them when the file has a bad value for it or none
-/// at all.
-fn default_settings() -> Settings {
-    Settings {
-        scribe_log_dir: PathBuf::from("logs"),
-        wgui_port: 9996,
-    }
-}
-
 // Rust note: `OnceLock` is a global that can be written exactly once and
-// read from anywhere after that.  It is how Rust does a "set at startup,
-// read forever" global without `unsafe`.
+// read from anywhere after that.  The Content folder is found once and
+// never moves, so it fits.  The values don't: they change on every load,
+// so they sit behind a plain lock.
 static CONTENT_DIR: OnceLock<PathBuf> = OnceLock::new();
-static SETTINGS: OnceLock<Settings> = OnceLock::new();
 
-/// Reads the config file, or writes one with the defaults if there isn't
-/// one, and keeps the settings for `settings()`.  main calls this once,
-/// right after Scribe has started, so the complaints have somewhere to go.
+/// The values of every file that has been loaded, by the file's name.  A
+/// file that isn't in here hasn't been loaded, and reads as its defaults.
+static LOADED: Mutex<BTreeMap<&'static str, Values>> = Mutex::new(BTreeMap::new());
+
+// ---------------------------------------------------------------------------
+// Loading
+// ---------------------------------------------------------------------------
+
+/// Reads `file`, or writes one with the defaults if there isn't one, and
+/// keeps the values for `value()` and friends.  The launcher calls this
+/// for `GLOBALS` at boot, right after Scribe has started so the
+/// complaints have somewhere to go, and each server piece calls it for
+/// its own file when it starts.  Calling it again reads the file again.
 /// The file comes through DiskMan, and this waits on it, which is fine at
-/// startup.
-pub fn load() {
-    let path = config_path();
-    let mut settings = default_settings();
+/// a start.
+pub fn load(file: &'static ConfigFile) {
+    let path = path_of(file);
+    apply_leftover(file, &path);
 
+    let mut values = text::defaults(file);
     match diskman::read(&path).wait().and_then(|bytes| diskman::as_text(&bytes)) {
-        Ok(text) => {
-            let problems = parse_text(&text, &mut settings);
-            for problem in &problems {
-                scribe::warn(Channel::System, &format!("{}, {problem}", path.display()));
+        Ok(contents) => {
+            let parsed = text::parse(file, &contents);
+            for problem in &parsed.problems {
+                scribe::warn(file.channel, &format!("{}, {problem}", path.display()));
             }
-            scribe::info(Channel::System, &format!("Constellations loaded {}", path.display()));
+            values.extend(parsed.values);
+            add_missing(file, &path, &parsed.seen);
+            scribe::debug(file.channel, &format!("Constellations loaded {}", path.display()));
             // A line it couldn't use is a Warn in the log, not trouble:
             // that one setting runs on its default and the rest are fine.
-            let note = match problems.len() {
-                0 => format!("Loaded {}", path.display()),
-                count => format!("Loaded {}, with {count} line(s) it couldn't use (see the log)", path.display()),
+            let note = match parsed.problems.len() {
+                0 => format!("Loaded {}", file.name),
+                count => format!("Loaded {}, with {count} line(s) it couldn't use (see the log)", file.name),
             };
             services::set(services::CONSTELLATIONS, State::Running, &note);
         }
-        Err(e) if e.is_not_found() => write_default_file(&path),
+        Err(e) if e.is_not_found() => write_default_file(file, &path),
         Err(e) => {
             // The file is there and we can't read it (permissions, most
             // likely, or it isn't text).  We don't write over it either.
             // Somebody's settings are in there.
-            scribe::error_with(Channel::System, &e, &format!("Constellations can't read {}.  \
+            scribe::error_with(file.channel, &e, &format!("Constellations can't read {}.  \
                 Running on the built-in defaults.", path.display()));
             services::set(services::CONSTELLATIONS, State::Trouble, &format!("Can't read {}: {e}.  \
-                Running on the built-in defaults.", path.display()));
+                Running on the built-in defaults.", file.name));
         }
     }
 
-    if SETTINGS.set(settings).is_err() {
-        scribe::warn(Channel::System, "Constellations was asked to load twice.  The first load stands.");
+    let mut loaded = LOADED.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    loaded.insert(file.name, values);
+}
+
+/// A `.wait4server` file that is still there when its file is about to be
+/// read is one Conductor didn't get to on the way down, or one saved while
+/// the server was already stopped.  Either way the admin wanted it, so it
+/// goes in now, before the read.
+fn apply_leftover(file: &ConfigFile, path: &Path) {
+    let waiting = waiting_path(file);
+    match diskman::read(&waiting).wait() {
+        Ok(_) => match diskman::swap(path, &waiting, SwapAt::Now).wait() {
+            Ok(()) => scribe::info(file.channel, &format!("Constellations found {} and swapped it in over {}.",
+                                                          waiting.display(),
+                                                          path.display())),
+            Err(e) => scribe::warn_with(file.channel, &e, &format!("Constellations found {} but couldn't swap \
+                it in over {}.  Running on the old file.", waiting.display(), path.display())),
+        },
+        Err(e) if e.is_not_found() => {}
+        Err(e) => scribe::warn_with(file.channel, &e, &format!("Constellations couldn't look for {}.",
+                                                              waiting.display())),
     }
 }
 
-/// The loaded settings.  Panics if `load()` hasn't run, because that is a
-/// bug in startup order, not something to limp past.
-pub fn settings() -> &'static Settings {
-    SETTINGS.get().expect("constellations::load must run before the settings are read")
+/// Adds any setting the file doesn't have to the end of it, with its
+/// default.  Nothing already in the file gets touched.
+fn add_missing(file: &ConfigFile, path: &Path, seen: &std::collections::HashSet<String>) {
+    let Some(added) = text::missing_text(file, seen) else {
+        return;
+    };
+    match diskman::append(path, added.as_bytes()).wait() {
+        Ok(()) => scribe::debug(file.channel, &format!("Constellations added the settings missing from {}, \
+            with their defaults.", path.display())),
+        Err(e) => scribe::warn_with(file.channel, &e, &format!("Constellations couldn't add the missing \
+            settings to {}.  They run on their defaults.", path.display())),
+    }
+}
+
+/// There was no file, so we write one with the defaults.  If that fails
+/// too we say so and move on.  The server runs on the same defaults either
+/// way, it just doesn't have a file to show for it.  DiskMan makes the
+/// folder if it has to.
+fn write_default_file(file: &ConfigFile, path: &Path) {
+    let contents = text::file_text(file, &text::defaults(file));
+    match diskman::write(path, contents.into_bytes()).wait() {
+        Ok(()) => {
+            scribe::info(file.channel, &format!("No {}, so Constellations wrote one with the defaults: {}",
+                                                file.name,
+                                                path.display()));
+            services::set(services::CONSTELLATIONS, State::Running, &format!("Wrote {} with the defaults",
+                                                                             file.name));
+        }
+        Err(e) => {
+            scribe::error_with(file.channel, &e, &format!("No {}, and Constellations can't write one at {}.  \
+                Running on the built-in defaults.", file.name, path.display()));
+            services::set(services::CONSTELLATIONS, State::Trouble, &format!("Can't write {}: {e}.  \
+                Running on the built-in defaults.", file.name));
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Reading the values
+// ---------------------------------------------------------------------------
+
+/// Every value in `file`: the loaded ones, or the defaults if it hasn't
+/// been loaded.  Every key in the file's table is in here.
+pub fn values(file: &ConfigFile) -> Values {
+    let loaded = LOADED.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    loaded.get(file.name).cloned().unwrap_or_else(|| text::defaults(file))
+}
+
+/// True once `load()` has run for `file`, whether or not the file was there.
+pub fn is_loaded(file: &ConfigFile) -> bool {
+    let loaded = LOADED.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    loaded.contains_key(file.name)
+}
+
+/// One value, as written in the file.  A key that isn't in the file's
+/// table is a bug in the caller, and comes back empty rather than
+/// stopping anything.
+pub fn value(file: &ConfigFile, key: &str) -> String {
+    values(file).remove(key).unwrap_or_default()
+}
+
+/// A `Number` setting.  The value was checked when the file was read, so
+/// this can't fail for a key in the table; a key that isn't falls back to
+/// 0.
+pub fn number(file: &ConfigFile, key: &str) -> u64 {
+    value(file, key).parse().unwrap_or(0)
+}
+
+/// A `Port` setting, the same way.
+pub fn port(file: &ConfigFile, key: &str) -> u16 {
+    value(file, key).parse().unwrap_or(0)
+}
+
+/// A `Folder` setting as a full path: a relative one is taken from the
+/// Content folder.
+pub fn folder(file: &ConfigFile, key: &str) -> PathBuf {
+    // Rust note: `join` with a path that starts with `/` hands back that
+    // path as it is, so an absolute folder in the config file just works.
+    content_dir().join(value(file, key))
+}
+
+/// `conductor_globals.cfg` as a struct.  Before `load(&GLOBALS)` it's the
+/// defaults.
+pub fn settings() -> Settings {
+    Settings {
+        scribe_log_dir: PathBuf::from(value(&GLOBALS, "scribe_log_dir")),
+        wgui_port: port(&GLOBALS, "wgui_port"),
+    }
 }
 
 /// The folder Scribe's logs go in, as a full path.  Before `load()` it is
 /// the default one, which is what lets main start Scribe first.
 pub fn log_dir() -> PathBuf {
-    let from_file = match SETTINGS.get() {
-        Some(settings) => settings.scribe_log_dir.clone(),
-        None => default_settings().scribe_log_dir,
-    };
-    // Rust note: `join` with a path that starts with `/` hands back that
-    // path as it is, so an absolute folder in the config file just works.
-    content_dir().join(from_file)
+    folder(&GLOBALS, "scribe_log_dir")
 }
+
+// ---------------------------------------------------------------------------
+// Where things are
+// ---------------------------------------------------------------------------
 
 /// The Content folder that was found (or will be made) at startup.
 pub fn content_dir() -> &'static Path {
     CONTENT_DIR.get_or_init(find_content_dir)
 }
 
-/// The full path of the config file.
+/// The full path of `file`: `Content/cfg/<name>`.
+pub fn path_of(file: &ConfigFile) -> PathBuf {
+    content_dir().join(CFG_DIR).join(file.name)
+}
+
+/// The full path of the copy waiting to replace `file`:
+/// `Content/cfg/<name>.wait4server`.
+pub fn waiting_path(file: &ConfigFile) -> PathBuf {
+    content_dir().join(CFG_DIR).join(format!("{}{WAITING_SUFFIX}", file.name))
+}
+
+/// The full path of `conductor_globals.cfg`, for the boot lines.
 pub fn config_path() -> PathBuf {
-    content_dir().join(CONFIG_FILE)
+    path_of(&GLOBALS)
 }
 
 /// Works out where `Content/` is.  `OPUS_CONTENT` wins if it is set.
@@ -151,130 +297,97 @@ fn find_content_dir() -> PathBuf {
 }
 
 // ---------------------------------------------------------------------------
-// Reading the file
+// Changing a file
 // ---------------------------------------------------------------------------
 
-/// Goes through the file a line at a time and puts every good value into
-/// `settings`.  Anything it didn't like comes back as a complaint, one per
-/// line, and the setting on that line is left alone.
+/// A change from the web admin.  `contents` is `key = value` lines, the
+/// same as the file itself, holding the settings to change; any setting it
+/// leaves out keeps the value it has now.  Every line is checked first,
+/// and if any is wrong nothing is written and the complaints come back,
+/// one per line, for the page to show.
 ///
-/// It doesn't log and doesn't touch the disk, which is what lets the tests
-/// run it.
-///
-/// The rules: blank lines and lines starting with `#` are skipped.  The rest
-/// are split at the first `=`, and the spaces around both halves are thrown
-/// away.  Keys can be in any case.  If a key shows up twice the later one
-/// wins, and it gets a complaint of its own so a forgotten line higher up
-/// doesn't go unnoticed.
-fn parse_text(text: &str, settings: &mut Settings) -> Vec<String> {
-    let mut problems = Vec::new();
-    // The line each key was last set on.
-    let mut set_on: HashMap<String, usize> = HashMap::new();
+/// A good one is written whole, comments and all, to the file's
+/// `.wait4server` beside it, and DiskMan is asked to rename it over the
+/// live file when the file's reboot comes: the server stopping for a soft
+/// file, Conductor shutting down for a hard one.  The live file and the
+/// running values don't change until then.
+pub fn save_waiting(file: &'static ConfigFile, contents: &str) -> Result<(), Vec<String>> {
+    let parsed = text::parse(file, contents);
+    if !parsed.problems.is_empty() {
+        return Err(parsed.problems);
+    }
+    let mut values = values(file);
+    values.extend(parsed.values);
 
-    for (index, raw) in text.lines().enumerate() {
-        let number = index + 1;
-        let line = raw.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
-        }
-
-        let Some((key, value)) = line.split_once('=') else {
-            problems.push(format!("line {number}: \"{line}\" isn't a \"key = value\" line.  Ignored."));
-            continue;
-        };
-        let key = key.trim().to_ascii_lowercase();
-
-        match apply_setting(settings, &key, value.trim()) {
-            Ok(()) => {
-                if let Some(earlier) = set_on.get(&key) {
-                    problems.push(format!("line {number}: {key} was already set on line {earlier}.  \
-                        This one wins."));
-                }
-                set_on.insert(key, number);
-            }
-            Err(problem) => problems.push(format!("line {number}: {problem}  Ignored.")),
-        }
+    let waiting = waiting_path(file);
+    if let Err(e) = diskman::write(&waiting, text::file_text(file, &values).into_bytes()).wait() {
+        scribe::error_with(file.channel, &e, &format!("Constellations couldn't write {}.  The change is lost.",
+                                                     waiting.display()));
+        return Err(vec![format!("Couldn't write {}: {e}", waiting.display())]);
     }
 
-    problems
-}
-
-/// Puts one value into the settings, if the key is one we know and the value
-/// makes sense for it.  If not, the settings are left alone and the reason
-/// comes back as the error.
-// Rust note: the `?` on the end means "if that failed, return its error
-// right here", so a bad value never gets as far as the assignment.
-fn apply_setting(settings: &mut Settings, key: &str, value: &str) -> Result<(), String> {
-    match key {
-        "scribe_log_dir" => settings.scribe_log_dir = parse_folder(key, value)?,
-        "wgui_port" => settings.wgui_port = parse_port(key, value)?,
-        _ => return Err(format!("There is no setting called {key}.")),
-    }
+    let when = match file.reboot {
+        Reboot::Soft => SwapAt::ServerStop,
+        Reboot::Hard => SwapAt::Shutdown,
+    };
+    // The answer isn't waited on: the swap happens later, and DiskMan
+    // says so in the log if it can't.
+    diskman::swap(&path_of(file), &waiting, when);
+    scribe::info(file.channel, &format!("Constellations saved {}.  It replaces {} at {}.",
+                                        waiting.display(),
+                                        file.name,
+                                        file.reboot.describe()));
     Ok(())
 }
 
-/// A folder.  Anything goes except nothing at all.
-fn parse_folder(key: &str, value: &str) -> Result<PathBuf, String> {
-    if value.is_empty() {
-        return Err(format!("{key} is empty, and it needs a folder, like logs or /var/log/opus."));
-    }
-    Ok(PathBuf::from(value))
-}
-
-/// A port.  1 to 65535, since 0 would mean "any port the OS likes" and
-/// nobody would know where to point the browser.
-fn parse_port(key: &str, value: &str) -> Result<u16, String> {
-    match value.parse::<u16>() {
-        Ok(port) if port > 0 => Ok(port),
-        _ => Err(format!("{key} is \"{value}\", and it needs a port from 1 to 65535, like 9996.")),
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Writing the file
-// ---------------------------------------------------------------------------
-
-/// The whole text of a config file holding these settings, comments and
-/// all.  Whatever this writes, parse_text() has to read back without a
-/// complaint, and there is a test that holds us to it.
-fn file_text(settings: &Settings) -> String {
-    format!("\
-# Conductor's settings.  One \"key = value\" a line, and \"#\" starts a comment.
-# Paths are relative to the Content folder unless they start with \"/\".
-# Conductor wrote this file with its defaults because there wasn't one.
-# Stop the server before editing it; it is only read at startup.  A line
-# Conductor can't make sense of is logged and skipped, and that setting
-# keeps its default.
-
-# The folder Scribe writes its logs into.  One file a day, named by the
-# UTC date, rolling over at midnight UTC.
-scribe_log_dir = {}
-
-# The port the web admin listens on.  It only listens on 127.0.0.1, so it
-# can't be reached from another machine.  Open http://127.0.0.1:<port>/Opus
-# in a browser on this one.
-wgui_port = {}
-", settings.scribe_log_dir.display(), settings.wgui_port)
-}
-
-/// There was no config file, so we write one with the defaults.  If that
-/// fails too we say so and move on.  The server runs on the same defaults
-/// either way, it just doesn't have a file to show for it.  DiskMan makes
-/// the folder if it has to.
-fn write_default_file(path: &Path) {
-    match diskman::write(path, file_text(&default_settings()).into_bytes()).wait() {
-        Ok(()) => {
-            scribe::info(Channel::System, &format!("No config file, so Constellations wrote one with the \
-                defaults: {}", path.display()));
-            services::set(services::CONSTELLATIONS, State::Running, &format!("Wrote {} with the defaults",
-                                                                             path.display()));
+/// The values waiting in `file`'s `.wait4server`, or `None` when there
+/// isn't one.  For the page, so it can show what's saved next to what's
+/// running.  A hand-written one with lines it can't use is read like any
+/// file: those lines are Warns and the rest stand.
+pub fn waiting(file: &ConfigFile) -> Option<Values> {
+    let waiting = waiting_path(file);
+    match diskman::read(&waiting).wait().and_then(|bytes| diskman::as_text(&bytes)) {
+        Ok(contents) => {
+            let parsed = text::parse(file, &contents);
+            for problem in &parsed.problems {
+                scribe::warn(file.channel, &format!("{}, {problem}", waiting.display()));
+            }
+            let mut values = values(file);
+            values.extend(parsed.values);
+            Some(values)
         }
+        Err(e) if e.is_not_found() => None,
         Err(e) => {
-            scribe::error_with(Channel::System, &e, &format!("No config file, and Constellations \
-                can't write one at {}.  Running on the built-in defaults.", path.display()));
-            services::set(services::CONSTELLATIONS, State::Trouble, &format!("Can't write {}: {e}.  \
-                Running on the built-in defaults.", path.display()));
+            scribe::warn_with(file.channel, &e, &format!("Constellations can't read {}.", waiting.display()));
+            None
         }
+    }
+}
+
+/// Throws away the change waiting for `file`, if there is one.  The live
+/// file stands as it is.
+pub fn discard_waiting(file: &ConfigFile) -> Result<(), DiskError> {
+    let waiting = waiting_path(file);
+    diskman::forget_swap(&path_of(file));
+    let result = diskman::remove(&waiting).wait();
+    match &result {
+        Ok(()) => scribe::info(file.channel, &format!("Constellations discarded {}.", waiting.display())),
+        Err(e) => scribe::warn_with(file.channel, e, &format!("Constellations couldn't discard {}.",
+                                                              waiting.display())),
+    }
+    result
+}
+
+/// The server pieces have stopped.  The launcher calls this from
+/// `stop_server()`, once they're down, and it waits while DiskMan renames
+/// every soft file's `.wait4server` over the live file, so the next
+/// START SERVER reads the new ones.  The hard files' swaps wait for
+/// DiskMan's own stop, at Conductor's shutdown.
+pub fn server_stopped() {
+    if let Err(e) = diskman::run_swaps(SwapAt::ServerStop).wait() {
+        scribe::warn_with(Channel::System, &e, "Constellations couldn't swap in the config files waiting on \
+            the server stopping.  Whatever is still waiting is picked up when the server starts, if the disk \
+            allows it then.");
     }
 }
 
@@ -283,82 +396,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn what_we_write_we_can_read() {
-        // Different from the default, or a line that silently failed to
-        // parse would still "match".
-        let written = Settings {
-            scribe_log_dir: PathBuf::from("/tmp/somewhere else/logs"),
-            wgui_port: 12345,
-        };
-
-        let mut read_back = default_settings();
-        let problems = parse_text(&file_text(&written), &mut read_back);
-
-        assert!(problems.is_empty(), "complaints: {problems:?}");
-        assert_eq!(read_back, written);
+    fn an_unloaded_file_reads_as_its_defaults() {
+        // Nothing in the tests loads a file, so every read is a default.
+        assert_eq!(value(&POSTGRES, "port"), "5432");
+        assert_eq!(number(&POSTGRES, "slow_job_ms"), 250);
+        assert_eq!(port(&POSTGRES, "port"), 5432);
+        assert_eq!(value(&POSTGRES, "password"), "");
+        assert_eq!(value(&POSTGRES, "no such key"), "");
+        assert!(!is_loaded(&POSTGRES));
     }
 
     #[test]
-    fn the_default_file_reads_clean() {
-        let mut settings = default_settings();
-        assert!(parse_text(&file_text(&default_settings()), &mut settings).is_empty());
-        assert_eq!(settings, default_settings());
+    fn the_typed_view_matches_the_table() {
+        let settings = settings();
+        assert_eq!(settings.wgui_port, 9996);
+        assert_eq!(settings.scribe_log_dir, PathBuf::from("logs"));
+        assert!(log_dir().ends_with("logs"));
     }
 
     #[test]
-    fn a_bad_value_keeps_the_default() {
-        let mut settings = default_settings();
-        let problems = parse_text("scribe_log_dir =\n", &mut settings);
-
-        assert_eq!(problems.len(), 1);
-        assert!(problems[0].starts_with("line 1:"));
-        assert_eq!(settings, default_settings());
-    }
-
-    #[test]
-    fn a_port_has_to_be_a_real_one() {
-        for bad in ["0", "65536", "-1", "port", ""] {
-            let mut settings = default_settings();
-            let problems = parse_text(&format!("wgui_port = {bad}\n"), &mut settings);
-            assert_eq!(problems.len(), 1, "{bad} should be a complaint");
-            assert_eq!(settings, default_settings());
-        }
-
-        let mut settings = default_settings();
-        assert!(parse_text("wgui_port = 8080\n", &mut settings).is_empty());
-        assert_eq!(settings.wgui_port, 8080);
-    }
-
-    #[test]
-    fn an_unknown_key_is_a_complaint() {
-        let mut settings = default_settings();
-        let problems = parse_text("# a comment\n\ntypo = 1\n", &mut settings);
-
-        assert_eq!(problems.len(), 1);
-        assert!(problems[0].starts_with("line 3:"));
-        assert!(problems[0].contains("typo"));
-        assert_eq!(settings, default_settings());
-    }
-
-    #[test]
-    fn the_later_one_wins() {
-        let mut settings = default_settings();
-        let problems = parse_text("scribe_log_dir = first\nscribe_log_dir = second\n", &mut settings);
-
-        assert_eq!(problems.len(), 1);
-        assert!(problems[0].starts_with("line 2:"));
-        assert_eq!(settings.scribe_log_dir, PathBuf::from("second"));
-    }
-
-    #[test]
-    fn a_bad_line_does_not_spoil_the_good_ones() {
-        // Also: keys in any case, spaces around both halves, a Windows line
-        // ending, and an `=` inside a value.
-        let mut settings = default_settings();
-        let problems = parse_text("this line is broken\n  SCRIBE_LOG_DIR =  /tmp/a=b  \r\n", &mut settings);
-
-        assert_eq!(problems.len(), 1);
-        assert!(problems[0].starts_with("line 1:"));
-        assert_eq!(settings.scribe_log_dir, PathBuf::from("/tmp/a=b"));
+    fn the_waiting_file_sits_beside_the_live_one() {
+        let live = path_of(&GLOBALS);
+        let waiting = waiting_path(&GLOBALS);
+        assert_eq!(live.parent(), waiting.parent());
+        assert_eq!(waiting.file_name().and_then(|name| name.to_str()), Some("conductor_globals.cfg.wait4server"));
+        assert_eq!(config_path(), live);
     }
 }

@@ -28,7 +28,7 @@ use std::sync::Arc;
 use std::sync::mpsc::{Sender, SyncSender};
 use std::time::{Duration, Instant};
 
-use super::{Contents, DiskError, Piece, Status};
+use super::{Contents, DiskError, Piece, Status, SwapAt};
 use crate::clock::Utc;
 
 /// Someone waiting to hear that their write or append is on disk.
@@ -140,6 +140,21 @@ pub(super) struct StreamJob {
     pub(super) reply: SyncSender<Piece>,
 }
 
+/// A file to rename over another, and when.
+pub(super) struct Swap {
+    pub(super) original: PathBuf,
+    pub(super) replacement: PathBuf,
+    pub(super) when: SwapAt,
+    /// Whoever asked, if they're still listening.
+    pub(super) reply: Option<Reply>,
+}
+
+/// A file to delete.
+pub(super) struct RemoveJob {
+    pub(super) path: PathBuf,
+    pub(super) reply: Reply,
+}
+
 /// What the worker should do next for one file.
 pub(super) enum Flush {
     /// Write the whole file.  `version` is the one being written.
@@ -171,6 +186,11 @@ pub(super) struct State {
     pub(super) files: BTreeMap<PathBuf, Entry>,
     pub(super) reads: VecDeque<ReadJob>,
     pub(super) new_streams: Vec<StreamJob>,
+    /// Every swap asked for and not yet done, whatever its `when`.
+    pub(super) swaps: Vec<Swap>,
+    pub(super) removes: VecDeque<RemoveJob>,
+    /// Waiting to hear that every swap due now has happened.
+    pub(super) swap_fences: Vec<Reply>,
     /// For the page: streams the worker has open.
     pub(super) streams_open: usize,
     /// For the page: the big write under way, how far along, out of how
@@ -190,6 +210,9 @@ impl State {
             files: BTreeMap::new(),
             reads: VecDeque::new(),
             new_streams: Vec::new(),
+            swaps: Vec::new(),
+            removes: VecDeque::new(),
+            swap_fences: Vec::new(),
             streams_open: 0,
             big_write: None,
             uses: 0,
@@ -307,6 +330,92 @@ impl State {
             entry.dirty = false;
         }
         Ok(content)
+    }
+
+    /// Puts a swap in the list.  One already there for the same original
+    /// is replaced, and whoever asked for it hears that it's done, since
+    /// the newer one carries what they wanted.
+    pub(super) fn add_swap(&mut self, swap: Swap) {
+        if let Some(at) = self.swaps.iter().position(|held| held.original == swap.original) {
+            let old = self.swaps.remove(at);
+            if let Some(reply) = old.reply {
+                let _ = reply.send(Ok(()));
+            }
+        }
+        self.swaps.push(swap);
+    }
+
+    /// Every swap held for `when` is due now.
+    pub(super) fn release_swaps(&mut self, when: SwapAt) {
+        for swap in self.swaps.iter_mut().filter(|swap| swap.when == when) {
+            swap.when = SwapAt::Now;
+        }
+    }
+
+    /// Takes the swap for `original` out of the list.  Whoever asked hears
+    /// that it's done, in the sense that nothing more will happen to it.
+    pub(super) fn forget_swap(&mut self, original: &Path) {
+        if let Some(at) = self.swaps.iter().position(|held| held.original == original) {
+            if let Some(reply) = self.swaps.remove(at).reply {
+                let _ = reply.send(Ok(()));
+            }
+        }
+    }
+
+    /// True while a swap is due now and not yet done.
+    pub(super) fn swaps_due(&self) -> bool {
+        self.swaps.iter().any(|swap| swap.when == SwapAt::Now)
+    }
+
+    /// Takes every swap due now whose two files have nothing waiting to
+    /// go out, so the rename never races a write.  One with a write still
+    /// waiting stays for the next round.
+    pub(super) fn take_due_swaps(&mut self) -> Vec<Swap> {
+        let quiet = |files: &BTreeMap<PathBuf, Entry>, path: &Path| {
+            files.get(path).is_none_or(|entry| !entry.waiting())
+        };
+        let mut due = Vec::new();
+        let mut kept = Vec::new();
+        for swap in self.swaps.drain(..) {
+            let files_quiet = quiet(&self.files, &swap.original) && quiet(&self.files, &swap.replacement);
+            if swap.when == SwapAt::Now && files_quiet {
+                due.push(swap);
+            } else {
+                kept.push(swap);
+            }
+        }
+        self.swaps = kept;
+        due
+    }
+
+    /// Takes every remove whose file has nothing in flight.  Whatever was
+    /// held for the file goes with it, and anyone waiting on a write to it
+    /// hears that it's done: the file was removed on purpose after it.
+    pub(super) fn take_removes(&mut self) -> Vec<RemoveJob> {
+        let mut due = Vec::new();
+        let mut kept = VecDeque::new();
+        for job in self.removes.drain(..) {
+            if self.files.get(&job.path).is_some_and(|entry| entry.in_flight) {
+                kept.push_back(job);
+                continue;
+            }
+            if let Some(entry) = self.files.remove(&job.path) {
+                for waiter in entry.write_waiters.into_iter().chain(entry.tail_waiters) {
+                    let _ = waiter.send(Ok(()));
+                }
+            }
+            due.push(job);
+        }
+        self.removes = kept;
+        due
+    }
+
+    /// The files a swap touched are whatever the disk has now, so nothing
+    /// held for them is right any more.  Nothing was waiting on them
+    /// (`take_due_swaps()` saw to that), so there's nobody to tell.
+    pub(super) fn forget_files(&mut self, original: &Path, replacement: &Path) {
+        self.files.remove(original);
+        self.files.remove(replacement);
     }
 
     // -----------------------------------------------------------------------
@@ -481,7 +590,7 @@ impl State {
     /// Nothing left to write or read.  Streams don't count: they're closed
     /// at shutdown rather than finished.
     pub(super) fn all_done(&self) -> bool {
-        self.reads.is_empty() && self.files.values().all(|entry| !entry.waiting())
+        self.reads.is_empty() && self.removes.is_empty() && self.files.values().all(|entry| !entry.waiting())
     }
 
     /// Files that still have something to go out, for the shutdown notes.
@@ -500,6 +609,7 @@ impl State {
             files_failing: 0,
             reads_waiting: self.reads.len(),
             streams_open: self.streams_open + self.new_streams.len(),
+            swaps_waiting: self.swaps.len(),
             big_write: self.big_write.clone(),
             writes_done: self.totals.writes_done,
             appends_done: self.totals.appends_done,
@@ -648,6 +758,47 @@ mod tests {
         assert!(!state.files.contains_key(&path("old")));
         assert!(state.files.contains_key(&path("new")));
         assert!(state.files.contains_key(&path("dirty")));
+    }
+
+    #[test]
+    fn a_swap_waits_for_its_files_to_be_quiet() {
+        let mut state = State::new(TINY);
+        state.write(&path("live"), b"old".to_vec(), reply().0);
+        let (asked, hears) = reply();
+        state.add_swap(Swap {
+            original: path("live"),
+            replacement: path("live.wait4server"),
+            when: SwapAt::ServerStop,
+            reply: Some(asked),
+        });
+
+        // Not due yet, and then due but the live file is still waiting.
+        assert!(state.take_due_swaps().is_empty());
+        state.release_swaps(SwapAt::ServerStop);
+        assert!(state.swaps_due());
+        assert!(state.take_due_swaps().is_empty());
+
+        let flush = state.take_flush(&path("live"), true).expect("the write");
+        state.finish(&path("live"), flush, Ok(Duration::ZERO));
+        let due = state.take_due_swaps();
+        assert_eq!(due.len(), 1);
+        assert!(!state.swaps_due());
+        assert!(hears.try_recv().is_err(), "nobody has answered yet: the worker does that");
+    }
+
+    #[test]
+    fn a_second_swap_for_the_same_file_replaces_the_first() {
+        let mut state = State::new(TINY);
+        let (first, first_hears) = reply();
+        let shutdown = SwapAt::Shutdown;
+        state.add_swap(Swap { original: path("a"), replacement: path("a.1"), when: shutdown, reply: Some(first) });
+        state.add_swap(Swap { original: path("a"), replacement: path("a.2"), when: shutdown, reply: None });
+        assert_eq!(state.swaps.len(), 1);
+        assert_eq!(state.swaps[0].replacement, path("a.2"));
+        assert!(first_hears.try_recv().is_ok_and(|answer| answer.is_ok()));
+
+        state.forget_swap(&path("a"));
+        assert!(state.swaps.is_empty());
     }
 
     #[test]

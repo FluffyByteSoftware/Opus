@@ -17,12 +17,13 @@ conductor-launcher/
 ├── Cargo.toml         depends on conductor-tools, conductor-monitor, conductor-wgui
 └── src/
     └── main.rs        threads::name_this_thread("main")
-                       -> diskman::start -> scribe::start -> constellations::load -> scribe::move_to
+                       -> diskman::start -> scribe::start -> constellations::load(&GLOBALS) -> scribe::move_to
                        -> server::set(Stopped) -> wgui::start -> take_commands()
                             loop: wgui::has_ended()?  server::next_command() -> start_server() / stop_server()
                        -> stop_server() if running -> diskman::stop + wait_on_diskman()
                        start_server(): fingerprinter::start -> security::start -> archivist::start -> monitor::start
                        stop_server():  monitor::stop -> security::stop -> archivist::stop -> fingerprinter::stop
+                                       -> constellations::server_stopped()
 ```
 
 ## What we decided
@@ -49,6 +50,10 @@ conductor-launcher/
   seconds.  At zero: `SHOULD BE CLOSED, IF STILL RUNNING PLEASE FORCE QUIT`, with the files that would be
   lost, again every 30 seconds.  It never quits on its own; force quitting is the admin's call.
 - The last line, "Conductor has shut down.", comes after DiskMan has finished, so it only reaches the console.
+- **`stop_server()` ends with `constellations::server_stopped()`** (2026-09-29): with every server piece
+  down, DiskMan swaps any `postgres.cfg.wait4server` saved from the web admin over the live file, and the
+  launcher waits on it, so a RESTART SERVER reads the new file.  The hard files' swaps happen inside
+  DiskMan's own stop at shutdown; the launcher does nothing for them.
 - Every server start and stop is four Info lines (starting, running, stopping, stopped).  They'll want the
   Debug switch like everything else.
 - Ctrl-C still kills it outright, and now that can lose what DiskMan is holding.  TODO.md has catching it.

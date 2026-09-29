@@ -9,117 +9,105 @@ Author:     Jacob Chacko
 ## Where things stand
 
 Conductor is four crates.  `conductor-tools` (lib) holds DiskMan, Scribe, Constellations, Fingerprinter,
-Security, Archivist, the notices, the clock, the thread list, the services list and, new this session, the
-server's switch (`server.rs`).  `conductor-monitor` (lib) looks at the process and every process on the
-machine once a second.  `conductor-wgui` (lib) is the web admin at `http://127.0.0.1:9996/Opus`, and the
-only way to start and stop the server and to shut Conductor down.  `conductor-launcher` (bin) boots the
-program and waits on the Control Panel.  Ensemble hasn't been started.
+Security, Archivist, the notices, the clock, the thread list, the services list and the server's switch
+(`server.rs`).  `conductor-monitor` (lib) looks at the process and every process on the machine once a
+second.  `conductor-wgui` (lib) is the web admin at `http://127.0.0.1:9996/Opus`, and the only way to start
+and stop the server and to shut Conductor down.  `conductor-launcher` (bin) boots the program and waits on
+the Control Panel.  Ensemble hasn't been started.
 
-**Conductor and the server are two things now.**  The program (DiskMan, Scribe, Constellations, the web
-admin) is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the
-monitor, and whatever comes later) only starts when START SERVER is pressed on the web admin's Control
-Panel, and STOP SERVER takes it back down with Conductor still running.
+**Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
+is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the monitor, and
+whatever comes later) only starts when START SERVER is pressed on the web admin's Control Panel, and STOP
+SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests (the session
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
-says.  He said so at the end of this session, so `main`, `testing` and `unstable` all sit on the same
-commit: the Control Panel, Security, everything.  This session was cut from `main` by mistake, before
-Security and the branch change reached it, and merged `testing` back in; the session branch
-`claude/gracious-ramanujan-j5ojyq` is history and waits on Jacob to delete it.
+says.  `main` and `testing` sit on the Control Panel commit; `unstable` is ahead of them by this session.
 
-**Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `9577f03`.  `cargo build` clean,
-`cargo test` passed 108 tests (15 monitor, 76 tools with the benchmark ignored, 16 web admin), and a run
-did START, RESTART, STOP, START, STOP and SHUT DOWN from the Control Panel: Archivist reconnected to
-Postgres and Security re-allotted its arena on every start, and shutdown was clean.  The Windows code has
-never been built.
+**Last built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `9577f03`: the Control Panel,
+108 tests, START / RESTART / STOP / SHUT DOWN from the page.  **This session's code hasn't been built yet.**
+The Windows code has never been built.
 
-**The tools are done**, as far as anything is done.  What comes next is the server proper, starting with
-networking, which goes in `start_server()` and `stop_server()` like the rest.
+## Last session -- 2026-09-29 (the third that day)
 
-## Last session -- 2026-09-29 (the second that day)
-
-The Control Panel: the page Conductor greets you with, and the server's switch.  This is the "Manage
-System" screen the Security session's hand-off said was next; Jacob called it the control panel when it
-opened, so that's its name.
+The config overhaul, tools side: Constellations rebuilt as the one owner of every config file, and DiskMan
+taught to swap a file in at the right moment.  This is the ground the web admin's config editor stands on;
+the routes and the Settings tab are the next piece and are laid out in TODO.md.
 
 What we did:
 
-- **`server.rs`** in `conductor-tools`: the server's state (stopped, starting, running, stopping, with a
-  note and since when) and a mailbox.  `ask(Start | Stop | Restart)` is the web admin's side: it checks the
-  ask fits the state, flips it to starting or stopping on the spot (so a second click is turned away), and
-  posts the command.  `next_command()` is the launcher's side.  `set()` is the launcher saying where it
-  got to.
-- **The launcher** now boots DiskMan, Scribe, Constellations and the web admin, then sits on the mailbox.
-  `start_server()` is Fingerprinter, Security, Archivist, the monitor; `stop_server()` is the same in
-  reverse.  Those two functions are the list of what the server is.  SHUT DOWN ends the web admin's thread
-  as before; main sees that (`conductor_wgui::has_ended()` replaces `wait()`), stops the server if it's
-  running, and waits on DiskMan.
-- **Archivist and the monitor can stop and start again.**  Archivist's settings used to sit in a write-once
-  `OnceLock`; now they ride with the worker onto its thread, and `postgres.cfg` is read again on every start.
-  A start while already running is a Warn and does nothing.  The monitor's stop drops its last look, so the
-  page has no numbers while the server is stopped.  Fingerprinter got a `stop()` that only tells the
-  Services tab.  Security could already do it, so it went in as it was: its arena comes and goes with the
-  server.
-- **Three routes**: `POST /Opus/wwwhook/start`, `/stop`, `/restart`, needing `X-Opus: server`.  Each answers
-  right away (200, or 409 with "Not now.  The server is running.") and the launcher does the work.  The
-  status JSON starts with `"server": { "state", "note", "since" }`.
-- **The Control Panel tab**, first in the sidebar: the state big, the note, since when, START SERVER,
-  RESTART SERVER, STOP SERVER and SHUT DOWN, and a short services list beside it.  While the server isn't
-  running only the Control Panel and the Log can be clicked, the bell is hidden, and the header pill reads
-  SERVER STOPPED.  When it turns running the page moves to the remembered tab (Conductor by default) and
-  everything works as before, database lock included.  The Control Panel and the Log sit outside that
-  lock, so the server can be stopped while the database is offline and the log read to see why.
-- **SHUT DOWN is on the Control Panel only.**  The header's button went.
-- **Rendered in a headless browser with made-up numbers first**, every transition, then built and run by
-  Jacob (above).
-
-What fought back:
-
-- The session was cut from `main`, which was eleven commits behind `testing` (the whole Security session
-  and the new branch rules).  Jacob saw the old page on his machine and said so.  Merged `testing` in:
-  eight files conflicted, all of them the two sessions adding lines next to each other, and Security went
-  into `start_server()` and `stop_server()` where the old main had started it at boot.
-- The database lock used to lock the whole sidebar with one class and `inert`.  It's per tab now
-  (`lockTabs()`), since the Control Panel and the Log have to stay clickable under it while the others don't.
-- The header already had SHUT DOWN, and the Control Panel got one too.  Jacob picked the Control Panel's,
-  and the header's went.
+- **`constellations/files.rs`**: the table.  Every config file (`GLOBALS` is `conductor_globals.cfg`,
+  `POSTGRES` is `postgres.cfg`) with its reboot, its channel, its comment and every setting: key, kind
+  (text, secret, folder, port, number with a range), default, comment.  `FILES` lists them.  Adding a
+  setting is one entry here.
+- **`constellations/text.rs`**: the one reader and writer, driven by the table.  `parse()` hands back the
+  good values, the complaints (never echoing a secret, never echoing a line that isn't `key = value`) and
+  the keys seen; `file_text()` writes a whole file with the reboot rule in its header; `missing_text()`
+  is what gets appended to a file that lacks a setting.  The tests from both old readers moved here and
+  run over every file in the table.
+- **`constellations.rs`**: the store.  A lock, not a `OnceLock`.  `load(file)` reads a file (writes it
+  with the defaults if it's missing, appends missing settings, Warns for bad lines), and first swaps in a
+  leftover `.wait4server` if one is there.  `value()`, `number()`, `port()`, `folder()`, `values()`; an
+  unloaded file reads as its defaults.  `save_waiting(file, text)` checks every line and writes
+  `name.cfg.wait4server` beside the live file, then asks DiskMan to swap it in at the file's reboot;
+  `waiting()` reads it back, `discard_waiting()` removes it.  `server_stopped()` is the launcher's call
+  once the server pieces are down.
+- **DiskMan** holds the swap list (Jacob's design): `swap(original, replacement, when)` with `when` now,
+  at the server's stop, or at shutdown; `run_swaps(ServerStop)` for the launcher, with a `Pending` that
+  answers once every due swap is done; the shutdown ones run as DiskMan's last act, and anything still in
+  the list runs then too.  A swap only runs when both files are quiet, and drops what was held for them.
+  `forget_swap()` and `remove()` for a discard.  Three tests for the worker, two for the cache.
+- **Archivist's `settings.rs`** is now only the typed view: `DbSettings::from_constellations()` after
+  `constellations::load(&POSTGRES)`.  Its reader, writer and tests went to Constellations.
+- **The launcher** loads `GLOBALS` at boot and calls `constellations::server_stopped()` at the end of
+  `stop_server()`.  A boot line says which file needs which reboot.
+- **The committed `Content/cfg/` files** were rewritten in the new header layout (the reboot rule is in
+  each one's comment).  `password = newpass` kept.  `Content/cfg/*.wait4server` is ignored by git.
+- CLAUDE.md: the `unstable` rule at line 1, questions at the bottom of the reply under a loud header, and
+  the config file rules.
 
 What Jacob decided:
 
-- A control panel page is what the web admin greets you with.  Only the log is reachable in the tabs until
-  the server is running.  No notifications while nothing is started.  START / RESTART / STOP SERVER and
-  SHUTDOWN.  When the server is running, the page is the pages as they were.
-- The Log stays open under the database lock too.  The header's SHUT DOWN goes; the Control Panel is
-  where STOP and SHUT DOWN live.
-- The three server routes live under `/Opus/wwwhook/`, his name for a path the page posts to that makes
-  something happen.  SHUT DOWN and the ACKs stay where they were.
-- Security comes and goes with the server, since a piece with settings of its own has to be restartable
-  without a hard reboot.  Soft reboot is RESTART SERVER; hard reboot is Conductor run again.
+- Every session pushes to `unstable`, never a session branch.  Said again, at line 1 of CLAUDE.md now.
+- A change from the page goes to `name.cfg.wait4server`, and DiskMan holds the list and swaps the file in
+  when the thing that reads it goes down.  The live file always says what's running.
+- Anything about Constellations or Scribe in `conductor_globals.cfg` is a hard reboot.  `scribe_log_dir`
+  was going to hot swap; it's hard now.  Files stay separate, as many as it takes.
+- The password can show on the page: Postgres is local and not reachable outside the machine.
+- A Settings tab, and save / discard routes under `/Opus/wwwhook/settings/`, are agreed to.
 
-## The session before -- 2026-09-29, Security
+What's not settled:
 
-Security (`security.rs`): Argon2id on one worker thread with a 64 MiB arena kept for the server's life,
-one pass, one login hashed at a time with everybody else in line and told their place (`Ticket`).  30 ms a
-login in release.  Jacob called the tools done at the end of it, and changed the branches to `unstable`,
-`testing` and `main` (the rules are in CLAUDE.md).  The details are in the tools design doc.
+- Whether `conductor_globals.cfg` gets a `cfg_dir` pointing at where the other config files live.  Jacob's
+  answer read as "a change to where the config comes from is hard", not as asking for the setting.  Not
+  added.  In TODO.
+
+## The session before -- 2026-09-29, the Control Panel
+
+The server's switch (`server.rs`), the launcher's `start_server()` / `stop_server()`, the three
+`/Opus/wwwhook/` routes and the Control Panel tab.  Built, tested and run from `testing`.  The details
+are in the web admin and launcher design docs.
 
 ## What's waiting
 
-- **The config editor**, Jacob's pick for the next conversation: edit the config files from the page, hot
-  swap the values in, save to disk, and tag each setting soft reboot or hard reboot.  The plan so far is
-  under the settings item in TODO.md.
-- On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` once this is on `unstable` and `testing`.
+- **Build and test this session**: `cargo build`, `cargo test`, then a run that starts and stops the
+  server, and a hand-written `Content/cfg/postgres.cfg.wait4server` to see it swapped in at STOP SERVER
+  (and a `conductor_globals.cfg.wait4server` swapped in at SHUT DOWN).  Commands in the session's last
+  reply.
+- **The config editor's web admin half**: the settings route, the save and discard routes, the Settings
+  tab.  Laid out in TODO.md.
+- On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` and `testing_/charming-euler-jlyos7`.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
   the client), PROTOCOL.md filled in.  The first piece of the server proper, started and stopped from the
-  Control Panel with the rest.  Its name is Jacob's to give.
+  Control Panel with the rest.  Its name is Jacob's to give.  Its settings would be a soft file of its own.
 - Accounts: making, checking and logging in.  Security and Fingerprinter are ready for it; the login itself
   waits on networking.
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.  A STOP SERVER
   and a START SERVER is the way round it today.
 - DiskMan: seeing hand edits to a file it already holds.  In TODO.
 - The Windows build, whenever getting to that machine is less of a hassle.
-- The Debug switch in `conductor_globals.cfg`, and moving the routine log lines to Debug.  Every server
-  start and stop adds a few Info lines now.
+- The Debug switch in `conductor_globals.cfg`, and moving the routine log lines to Debug.  Constellations'
+  own "loaded" and "added the missing settings" lines are Debug already.
 - Catching Ctrl-C.
 - `\dt` in psql to confirm `archivist_migrations` exists, and that `0001_uuid_on_every_table.sql` ran.
 - Picking Ensemble's engine.

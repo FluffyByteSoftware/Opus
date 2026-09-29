@@ -4,9 +4,9 @@
 //!
 //! DiskMan's one worker thread, and the only code in Conductor that
 //! touches the disk to write.  It goes round and round: answer the reads,
-//! write out every file that has something waiting, move the big write on
-//! by one chunk, hand each open stream its next chunk, unload what memory
-//! can spare.  When there's nothing to do it sleeps until a caller wakes
+//! write out every file that has something waiting, do the removes and
+//! the swaps that are due, move the big write on by one chunk, hand each
+//! open stream its next chunk, unload what memory can spare.  When there's nothing to do it sleeps until a caller wakes
 //! it, or a second passes and it checks in with the services list.
 //!
 //! The lock is never held while the disk is being touched, or while
@@ -22,13 +22,14 @@
 
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, Read, Write};
+use std::mem;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::TrySendError;
 use std::sync::{Arc, MutexGuard};
 use std::time::{Duration, Instant};
 
 use super::cache::{Flush, Outcome, Reply, State};
-use super::{Contents, DiskError, Piece, Shared};
+use super::{Contents, DiskError, Piece, Shared, SwapAt};
 use crate::scribe::{self, Channel};
 use crate::services::{self, State as ServiceState};
 use crate::threads;
@@ -115,6 +116,9 @@ impl Drop for Closing {
         state.new_streams.clear();
         state.streams_open = 0;
         state.big_write = None;
+        state.swaps.clear();
+        state.removes.clear();
+        state.swap_fences.clear();
         for entry in state.files.values_mut() {
             entry.write_waiters.clear();
             entry.tail_waiters.clear();
@@ -135,6 +139,8 @@ fn run(shared: &'static Shared) {
 
         let mut busy = do_reads(shared);
         busy |= flush_files(shared, &mut big);
+        busy |= do_removes(shared);
+        busy |= do_swaps(shared);
         busy |= step_big_write(shared, &mut big);
         open_streams(shared, &mut streams);
         if shared.lock().stopping {
@@ -166,6 +172,16 @@ fn run(shared: &'static Shared) {
             continue;
         }
         if state.stopping && state.all_done() && big.is_none() {
+            if !state.swaps.is_empty() {
+                // Everything is written, so the swaps held for shutdown
+                // go now -- and so does anything held for a server stop
+                // that never came, since a hard reboot applies the lot.
+                // One more round does them and flushes any line they log.
+                state.release_swaps(SwapAt::ServerStop);
+                state.release_swaps(SwapAt::Shutdown);
+                drop(state);
+                continue;
+            }
             // Turned away from here on, under the same lock that saw
             // nothing left, so no log line can slip in behind the check
             // and be lost.
@@ -195,6 +211,67 @@ fn do_reads(shared: &Shared) -> bool {
         let from_disk = fs::read(&job.path);
         let answer = shared.lock().after_disk_read(&job.path, from_disk);
         let _ = job.reply.send(answer);
+    }
+    any
+}
+
+// ---------------------------------------------------------------------------
+// Removes and swaps
+// ---------------------------------------------------------------------------
+
+/// Deletes every file a remove is waiting on.  A file that isn't there
+/// counts as removed.  True if there were any.
+fn do_removes(shared: &Shared) -> bool {
+    let jobs = shared.lock().take_removes();
+    let any = !jobs.is_empty();
+    for job in jobs {
+        let result = match fs::remove_file(&job.path) {
+            Err(e) if e.kind() != io::ErrorKind::NotFound => Err(DiskError::from_io(&e)),
+            _ => Ok(()),
+        };
+        if let Err(e) = &result {
+            scribe::error(Channel::System, &format!("DiskMan couldn't remove {}: {e}.", job.path.display()));
+        }
+        let _ = job.reply.send(result);
+    }
+    any
+}
+
+/// Does every swap that is due and whose files are quiet: the replacement
+/// is renamed over the original, the folder is flushed, and whatever was
+/// held for either file is dropped.  A replacement that isn't there any
+/// more (discarded) is nothing to do, and counts as done.  Then anyone
+/// waiting on `run_swaps()` hears back, once no swap due now is left.
+/// True if any swap happened.
+fn do_swaps(shared: &Shared) -> bool {
+    let due = shared.lock().take_due_swaps();
+    let any = !due.is_empty();
+    for swap in due {
+        let result = match fs::rename(&swap.replacement, &swap.original) {
+            Ok(()) => {
+                sync_folder(&swap.original);
+                Ok(())
+            }
+            Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(e) => Err(DiskError::from_io(&e)),
+        };
+        shared.lock().forget_files(&swap.original, &swap.replacement);
+        if let Err(e) = &result {
+            scribe::error(Channel::System, &format!("DISKMAN COULDN'T SWAP {} IN OVER {}: {e}.  The old file \
+                stands, and the new one is still there beside it.", swap.replacement.display(),
+                swap.original.display()));
+        }
+        if let Some(reply) = swap.reply {
+            let _ = reply.send(result);
+        }
+    }
+
+    let fences = {
+        let mut state = shared.lock();
+        if state.swaps_due() { Vec::new() } else { mem::take(&mut state.swap_fences) }
+    };
+    for fence in fences {
+        let _ = fence.send(Ok(()));
     }
     any
 }

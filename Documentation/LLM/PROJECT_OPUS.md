@@ -24,16 +24,19 @@ Opus/
 │       │       ├── lib.rs             # lists the tools
 │       │       ├── archivist.rs       # the database: the job functions, start and stop
 │       │       ├── archivist/
-│       │       │   ├── settings.rs    # reads postgres.cfg, adds settings it's missing
+│       │       │   ├── settings.rs    # postgres.cfg as Archivist reads it; the file itself is Constellations'
 │       │       │   ├── worker.rs      # the one worker thread, its mailbox and connection
 │       │       │   ├── schemas.rs     # runs the schemas, then the migrations, on every connect
 │       │       │   └── status.rs      # running totals and slow jobs
 │       │       ├── clock.rs           # UTC date and time, calendar math by hand
-│       │       ├── constellations.rs  # the config: finds Content/, reads and checks conductor_globals.cfg
+│       │       ├── constellations.rs  # the settings store: loads a config file, holds its values, saves a change
+│       │       ├── constellations/
+│       │       │   ├── files.rs       # the table of every config file and every setting in it
+│       │       │   └── text.rs        # the one reader and writer for the key = value format
 │       │       ├── diskman.rs     # DiskMan: every file read and write goes through it
 │       │       ├── diskman/
-│       │       │   ├── cache.rs   # the files held in memory: dirty, clean, appends waiting; the rules
-│       │       │   └── worker.rs  # its one thread: temp-and-rename writes, chunks, streams
+│       │       │   ├── cache.rs   # the files held in memory: dirty, clean, appends waiting, the swap list; the rules
+│       │       │   └── worker.rs  # its one thread: temp-and-rename writes, chunks, streams, removes, swaps
 │       │       ├── fingerprinter.rs   # Fingerprinter: version 7 UUIDs and login tokens; random_bytes()
 │       │       ├── fingerprinter/
 │       │       │   ├── linux.rs       # getrandom() from the C library
@@ -74,8 +77,9 @@ Opus/
 ├── Ensemble/                          # the client -- not started
 ├── Content/                           # committed, except Assets/ and logs/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
-│   ├── cfg/conductor_globals.cfg      # Conductor's settings: the log folder, the web admin's port
-│   ├── cfg/postgres.cfg               # where Postgres is, the login, the time limit, the slow-job limit
+│   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
+│   ├── cfg/postgres.cfg               # where Postgres is, the login, the time limit, the slow-job limit (soft)
+│   ├── cfg/*.wait4server              # a change saved from the web admin, waiting for its reboot -- never committed
 │   ├── logs/YYYY_MM_DD.scribe.log     # one log file per UTC day -- never committed
 │   └── psql/
 │       ├── defaults/schemas/accounts.sql  # the accounts table as first made
@@ -108,7 +112,7 @@ Where each one lives is in the tree above.
 | conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
 | conductor-launcher | Bin crate: the program.  Boots, then waits on the Control Panel. | Runs on Linux |
 | Scribe             | The log.                                      | Built and tested             |
-| Constellations     | The config file and the settings it holds.    | Built and tested             |
+| Constellations     | Every config file, and the settings they hold.| Rebuilt 2026-09-29, unbuilt  |
 | Archivist          | The database: PostgreSQL on its own thread.   | Built and tested             |
 | The clock          | UTC date and time.                            | Built and tested             |
 | Threads            | The list of threads we started.               | Runs on Linux                |

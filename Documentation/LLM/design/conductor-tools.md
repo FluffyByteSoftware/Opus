@@ -26,7 +26,7 @@ conductor-tools/
     │                        batch(sql) -> Pending<()>, transaction(name, |tx| ...) -> Pending<T>
     │                        type Pending<T> (from pending.rs), enum ArchivistError, type Param
     ├── archivist/
-    │   ├── settings.rs    postgres.cfg: struct DbSettings, load(), adds missing settings to the file
+    │   ├── settings.rs    postgres.cfg as Archivist reads it: struct DbSettings, load() (via Constellations)
     │   ├── worker.rs      the one worker thread, its mailbox, struct Link (the connection, prepared statements)
     │   ├── schemas.rs     get_in_shape(): default schemas, then migrations
     │   └── status.rs      struct Status, struct SlowJob, enum JobKind (read, write, other), the totals
@@ -42,10 +42,12 @@ conductor-tools/
     ├── diskman.rs         the front door: start(), stop(), finished(), status(), waiting_files()
     │                        write(path, bytes) -> Pending<()>, append(path, bytes) -> Pending<()>
     │                        read(path) -> Pending<Contents>, stream(path) -> Stream, as_text(bytes)
-    │                        type Contents = Arc<Vec<u8>>, enum DiskError, enum Piece, struct Status
+    │                        swap(original, replacement, SwapAt) -> Pending<()>, run_swaps(SwapAt),
+    │                        forget_swap(original), remove(path) -> Pending<()>
+    │                        type Contents = Arc<Vec<u8>>, enum DiskError, enum Piece, enum SwapAt, struct Status
     ├── diskman/
-    │   ├── cache.rs       struct State, struct Entry (whole file, dirty, tail), the rules; Limits
-    │   └── worker.rs      the one worker thread: reads, writes, the big write, streams; the disk calls
+    │   ├── cache.rs       struct State, struct Entry (whole file, dirty, tail), the swap list, the rules; Limits
+    │   └── worker.rs      the one worker thread: reads, writes, removes, swaps, the big write, streams
     ├── fingerprinter.rs   start(), new_uuid() -> io::Result<String>, new_token(), random_bytes(buffer)
     │                        looks_like_uuid(text), uuid_time(text) -> Option<Utc>
     ├── fingerprinter/     fill(bytes) per OS: linux.rs (getrandom), windows.rs (BCryptGenRandom), other.rs
@@ -60,8 +62,15 @@ conductor-tools/
     ├── notices.rs         enum Level { Notice, Warn, Error }, struct Notice { id, when, level, source, text }
     │                        publish(level, source, text) -> id, newest(n), all(), ack(id), ack_all()
     ├── pending.rs         Pending<T, E> { check() never waits, wait() does }, trait NotRunning
-    ├── constellations.rs  struct Settings { scribe_log_dir, wgui_port }
-    │                        load(), settings(), log_dir(), content_dir(), config_path()
+    ├── constellations.rs  the store: load(file), value / number / port / folder (file, key), values(file)
+    │                        settings() -> Settings { scribe_log_dir, wgui_port }, log_dir(), content_dir()
+    │                        path_of(file), waiting_path(file), config_path()
+    │                        save_waiting(file, text), waiting(file), discard_waiting(file), server_stopped()
+    ├── constellations/
+    │   ├── files.rs       the table: enum Reboot { Soft, Hard }, enum Kind, struct Setting, struct ConfigFile
+    │                        GLOBALS (conductor_globals.cfg, hard), POSTGRES (postgres.cfg, soft), FILES
+    │   └── text.rs        the one reader and writer: parse(file, text) -> Parsed, check(setting, value)
+    │                        file_text(file, values), missing_text(file, seen), defaults(file); type Values
     ├── server.rs          enum State { Stopped, Starting, Running, Stopping }, enum Command { Start, Stop, Restart }
     │                        ask(command) -> Result<(), State>, next_command(wait) -> Option<Command>
     │                        set(state, note), status() -> Status { state, note, since }
@@ -114,6 +123,16 @@ What we decided:
   lists what would be lost, again every 30 seconds, while it keeps waiting.  Jacob's wording.
 - Folders aren't DiskMan's: making the empty migrations folder and listing a folder stay with `std::fs`.
 - Paths go in full (from `content_dir()`); the same file under two spellings would be two files to it.
+- **Swaps and removes** (2026-09-29, for the config editor).  `swap(original, replacement, when)` renames
+  one file over another: now, when the launcher says the server has stopped (`run_swaps(ServerStop)`,
+  which it waits on), or as DiskMan's last act at shutdown, once everything else is written.  DiskMan
+  holds the list, Jacob's design: a change saved from the web admin sits in `name.cfg.wait4server` until
+  its reboot, and DiskMan puts it in place on the way down.  A swap only runs once both files have
+  nothing waiting to go out, and it drops whatever was held for them, so the next read goes to the disk.
+  A replacement that isn't there any more (discarded) is nothing to do.  At shutdown every swap still in
+  the list runs, the server-stop ones included: a hard reboot applies the lot.  A second swap for the
+  same original replaces the first.  `remove(path)` deletes a file and drops what was held for it.
+  Neither logs when it works; a failed swap is a capitals Error, and the old file stands.
 
 What's open:
 
@@ -279,31 +298,64 @@ What's open:
 
 ## Constellations
 
+Rebuilt on 2026-09-29 as the one owner of every config file, for the config editor that's coming to the
+web admin.  Before that it was `conductor_globals.cfg` alone, loaded once into a `OnceLock`, and Archivist
+had a reader of its own for `postgres.cfg` that was nearly the same code.
+
 What we decided:
 
-- `Content/cfg/conductor_globals.cfg`, plain `key = value` lines, `#` for comments, keys in any case.
-  TOML would have cost a crate to read a handful of lines.
+- **One format, one reader, one table.**  Every config file is plain `key = value` lines with `#` comments,
+  keys in any case, the later of two wins (TOML would have cost a crate to read a handful of lines).  Every
+  file is written down once in `constellations/files.rs`: its name, its reboot, its channel, its comment,
+  and every setting with a kind (text, secret, folder, port, a number with a range), a default and the
+  comment above it.  `text.rs` reads and writes any file from that table, and it's what the page will draw
+  the editor from.  Adding a setting is one entry in the table and a line wherever it's read; adding a
+  file is one entry and a `load()` where its piece starts.
+- **Every file lives in `Content/cfg/`** and is soft or hard as a whole, never a mix.  Soft
+  (`postgres.cfg`): the server pieces read it on every START SERVER, so STOP SERVER and START SERVER is
+  the reboot.  Hard (`conductor_globals.cfg`: Constellations, Scribe and the web admin): read at boot, so
+  Conductor is shut down and run again.  A piece that needs both kinds gets two files.  Jacob's rule:
+  anything about Constellations or Scribe is hard, and files are kept separate rather than one file with
+  sections.  `scribe_log_dir` was going to hot swap through `scribe::move_to()`; Jacob made it hard.
+- **The store is a lock, not a `OnceLock`.**  `load(file)` reads the file (writes it with the defaults if
+  it's missing, appends any setting it lacks with the default, logs the lines it can't use as Warns) and
+  keeps the values by the file's name.  `value()`, `number()`, `port()` and `folder()` read one; a file
+  that hasn't been loaded reads as its defaults, which is what lets Scribe start on the default folder
+  before the file is read.  The launcher loads `GLOBALS` at boot; Archivist's `start()` loads `POSTGRES`,
+  so every START SERVER reads it again.
+- **A change from the web admin never touches the live file.**  `save_waiting(file, text)` checks every
+  line first (a wrong one means nothing is written and the complaints come back for the page), writes the
+  whole file, comments and all, to `name.cfg.wait4server` beside the live one, and asks DiskMan to rename
+  it over the live file when the reboot comes: the server stopping for a soft file, Conductor's shutdown
+  for a hard one.  Jacob's design: the live file always says what Conductor is running on, and DiskMan
+  holds the list and does the swap on the way down.  `waiting(file)` reads what's waiting, for the page;
+  `discard_waiting(file)` throws it away.  `server_stopped()` is the launcher's call from `stop_server()`,
+  and it waits on the soft swaps so the next START SERVER reads the new files.
+- **A leftover `.wait4server` is applied at the next load.**  If Conductor crashed before the swap, or the
+  change was saved while the server was already stopped, `load()` finds the waiting file and swaps it in
+  before reading.  The admin wanted it either way.
+- **Nothing in here stops the server.**  A file that can't be read is an Error and we run on the defaults,
+  without writing over it.  A `.wait4server` that can't be swapped in is a Warn and the old file stands.
 - `Content/` is found through `OPUS_CONTENT`, then by walking up from the working directory, then
-  `./Content`.  No drive path is ever hardcoded, so a fresh checkout anywhere runs.
-- A checked struct: every key has a type and a check.  A bad line is a Warn with its line number, and that
-  setting keeps its default.  An unknown key is a complaint too, so a typo doesn't go silent.  If a key
-  shows up twice the later one wins, with a complaint.
-- **Nothing in here stops the server.**  A missing file gets written with the defaults, through DiskMan.  A file that can't
-  be read is an Error and we run on the defaults, without writing over it.
-- Loaded once, at startup.  A relative path in the file is taken from `Content/`.
-- A new setting touches four places, all in `constellations.rs`: the struct, `default_settings()`,
-  `apply_setting()` and `file_text()`.
+  `./Content`.  No drive path is ever hardcoded, so a fresh checkout anywhere runs.  A relative folder in
+  a file is taken from `Content/`.
+- A complaint never echoes a `Secret`'s value, and a line that isn't `key = value` is never echoed at all,
+  since it might be the password line with the `=` forgotten.  The password can still be shown on the page
+  (Jacob, 2026-09-29: Postgres only listens on this machine), but it never reaches the log.
 
-Settings today:
+The files today:
 
-| Key              | Default | What it is                                   |
-|------------------|---------|----------------------------------------------|
-| `scribe_log_dir` | `logs`  | The folder Scribe writes into, under Content |
-| `wgui_port`      | `9996`  | The web admin's port, on 127.0.0.1 only      |
+| File                     | Reboot | Read by     | Settings                                                   |
+|--------------------------|--------|-------------|------------------------------------------------------------|
+| `conductor_globals.cfg`  | hard   | the launcher at boot | `scribe_log_dir` (`logs`), `wgui_port` (`9996`)   |
+| `postgres.cfg`           | soft   | Archivist on START SERVER | `address`, `port`, `database`, `username`, `password` (secret), `query_time_limit_seconds` (0 to 3600, 10), `slow_job_ms` (1 to 600000, 250) |
 
 What's open:
 
-- No reload.  The launcher's config menu will need one, which means Constellations stops being load-once.
+- The routes and the Settings tab that use `save_waiting()`, `waiting()` and `discard_waiting()`.  Planned
+  in TODO.md; the tools side is built.
+- Hand edits to a live file while Conductor holds it aren't seen (DiskMan serves the copy in memory).
+  Today that only matters for `postgres.cfg` between one START SERVER and the next.
 
 ## Archivist
 
@@ -326,7 +378,9 @@ What we decided:
   never wait on anything else inside it.
 - `Content/cfg/postgres.cfg`: `address`, `port`, `database`, `username`, `password`,
   `query_time_limit_seconds` (10, handed to Postgres as `statement_timeout`; 0 is no limit) and
-  `slow_job_ms` (250).  A missing file is written with an empty password and a capitals Error.  A setting
+  `slow_job_ms` (250).  Since 2026-09-29 the file is Constellations' (`POSTGRES` in
+  `constellations/files.rs`, a soft file): Archivist's `start()` has it loaded again and takes the typed
+  view (`DbSettings`).  A missing file is written with an empty password and a capitals Error.  A setting
   the file doesn't have is added to the end with its default.  The file is committed on purpose: the
   password is a placeholder and Postgres only listens on localhost.  It, the schemas and the migrations are
   read and written through DiskMan.

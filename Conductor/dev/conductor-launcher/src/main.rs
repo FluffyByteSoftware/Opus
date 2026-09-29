@@ -49,14 +49,17 @@ fn main() {
     // config isn't loaded yet, so it starts on the default log folder.
     scribe::start(&constellations::log_dir());
 
-    // Then the settings.  Any complaints about the file go to the log.  If
-    // the file points the logs somewhere else, Scribe follows.
-    constellations::load();
+    // Then the program's own settings.  Any complaints about the file go
+    // to the log.  If the file points the logs somewhere else, Scribe
+    // follows.  The server pieces load their own files when they start.
+    constellations::load(&constellations::GLOBALS);
     scribe::move_to(&constellations::log_dir());
 
     scribe::info(Channel::System, "Conductor is starting.");
     scribe::info(Channel::System, &format!("Content folder: {}", constellations::content_dir().display()));
     scribe::info(Channel::System, &format!("Settings from {}", constellations::config_path().display()));
+    scribe::info(Channel::System, "A changed conductor_globals.cfg needs Conductor run again; a changed \
+        postgres.cfg needs STOP SERVER and START SERVER.");
 
     server::set(State::Stopped, "Not started yet.  START SERVER on the Control Panel starts it.");
 
@@ -130,7 +133,9 @@ fn start_server() {
 /// before Archivist, so a hash on its way to the accounts table still
 /// gets there; Archivist finishes the jobs already in its mailbox, and
 /// anything it hands DiskMan on the way out is written by the DiskMan
-/// that's still running.
+/// that's still running.  Last, with every server piece down, any config
+/// file saved from the web admin while they ran is swapped in, so the
+/// next START SERVER reads the new one.
 fn stop_server() {
     server::set(State::Stopping, "Stopping the monitor, Security, Archivist and Fingerprinter.");
     scribe::info(Channel::System, "The server is stopping.");
@@ -139,6 +144,7 @@ fn stop_server() {
     security::stop();
     archivist::stop();
     fingerprinter::stop();
+    constellations::server_stopped();
 
     server::set(State::Stopped, "Stopped.  START SERVER on the Control Panel starts it again.");
     scribe::info(Channel::System, "The server has stopped.");
