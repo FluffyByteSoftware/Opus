@@ -19,7 +19,8 @@ conductor-networking/
 ├── Cargo.toml
 ├── test_client.py       the stand-in client: TLS, Login, Ticket, Connect, keep-alives, Goodbye.  Python 3.
 └── src/
-    ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections, in_world, access },
+    ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections, in_world, access,
+    │                      whitelisted, blacklisted },
     │                      kick(id), access_lists(), list_address(), unlist_address(), enforce(); timed_out(), wake_address()
     ├── settings.rs      networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs           server_config(settings) -> Arc<ServerConfig>; MAKE_PAIR, the openssl command
@@ -65,9 +66,11 @@ because of the CPU cost.
 - **No thread polls.**  Stratum's connection threads woke every 50 ms to look at flags.  Here every read is
   armed with exactly the time left to the connection's deadline, so a thread sleeps in the OS's read until
   bytes come or the time is up.  `stop()` wakes the acceptor by connecting to it, and the login threads by
-  shutting down the sockets they're reading (a clone of each is kept on a list for that), so a stop takes
-  as long as the slowest thread needs to notice.  The UDP thread wakes once a second, packets or none, to
-  sweep and check in, and that's the only timer in the crate.
+  shutting down the sockets they're reading (a clone of each is kept on a list for that).  `stop()` gives
+  the login threads 2 seconds (`STOP_WAIT`) and the DNS thread 1, then logs a Warn and goes on without
+  them.  The UDP thread wakes once a second, packets or none, to sweep and check in; a login thread in
+  Security's line wakes once a second to send an InLine; and after a failed accept or receive the thread
+  rests 100 ms so a broken socket can't spin.  Those are the only timers.
 - **A failed login puts the address on a 2-second hold at the door**, not in a sleeping thread: the
   acceptor closes the next connection from that address without queuing it.  Stratum slept a thread for
   the hold.
@@ -91,7 +94,7 @@ because of the CPU cost.
   send.  That's more memory per player for a cost that's the same with 5 or 5000.  Jacob's trade.
 - **The answers that never change are built once** and sent as they are.  A UDP packet is looked at in the
   buffer it arrived in; nothing is copied for a keep-alive.
-- **The server echoes every KeepAlive.**  One tiny packet a second per player, so the client can tell the
+- **The server echoes every KeepAlive** from a player it knows; a stranger's gets nothing.  One tiny packet a second per player, so the client can tell the
   server is gone and go back to the login on its own.  Without it, a client whose server died would sit
   there.
 - **Quiet for `udp_timeout_seconds` (40) and the player is dropped, told nothing, forgotten.**  Jacob's
@@ -108,12 +111,14 @@ because of the CPU cost.
   `constellations/files.rs`, and the Settings tab shows the file with no page work.
 - **Two services**, "Network (TCP)" on thread `net-tcp` and "Network (UDP)" on `net-udp`.  The login
   threads are `net-login-1` and up.  The UDP thread checks in once a second; the acceptor has no loop to
-  check in from.  If the TLS files are missing or TCP can't listen, both show trouble and nothing listens;
-  if UDP can't listen, TCP comes back down.  None of it stops the rest of the server.
+  check in from.  If the TLS files are missing or TCP can't listen, TCP shows trouble, UDP says stopped
+  ("Not started: the TCP side couldn't.") and nothing listens; if UDP can't listen, UDP shows trouble and
+  TCP comes back down.  None of it stops the rest of the server.
 - **Log levels.**  Connections, TLS, hang-ups and timeouts are Debug on the Network channel.  Who logged
   in, who failed, who's in the world and who left are Info on the Security channel.  A full queue and a
   failed accept or send are Warn.  Missing TLS files and a token that can't be made are capitals Errors.
-- **The door's ledger** (2026-09-29, the session after), for the web admin's TCP tab.  Jacob's spec: every
+- **The door's ledger** (2026-09-29, the session after), for the web admin's TCP tab (the Connections tab
+  since the session after that).  Jacob's spec: every
   connection that reached the listener in the last 5 minutes, by IP address and DNS if known, its place
   in the login queue if it isn't logged in yet, and no account information, tracked purely by address.
   So `ledger.rs` is a BTreeMap of entries numbered as they arrive: the acceptor writes one in for every
@@ -167,22 +172,24 @@ because of the CPU cost.
   (address, account, when their Connect was accepted, how long they've been in, how long since their
   last packet), newest first, for the Connections tab's UDP list.  The account is on it, unlike the
   door's ledger: the world is about who's in it.
-- **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file,
-  prints every packet, and has switches for kicking or sparing the other session, leaving after N
-  seconds, and going quiet to watch the timeout.  Jacob used one for Stratum too.
+- **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file
+  (`--cert`, `Content/certs/conductor.crt` by default; with neither it checks nothing and says so),
+  prints every packet, and asks whether to log out the other session (`--leave-other-alone` answers no
+  without asking), `--leave-after N` says Goodbye after N seconds, and `--go-quiet` sends nothing to watch
+  the timeout.  Its UDP socket is IPv4 only.  Jacob used one for Stratum too.
 
 ## What's open
 
 - **Built and run on Linux, 2026-09-29**, the same day it was written: one Cargo.toml fix (a feature
   that didn't exist) and then the Python client did the whole loop against a throwaway account inserted
   by hand.  Two clients on one account, the quiet drop, the hold and a kick at STOP SERVER haven't been
-  tried by hand yet; the unit tests cover the book and the bytes.
+  tried by hand yet (TEST_CHECKLIST.md has them); the unit tests cover the book and the bytes.
 - **Client management** is all TODO: a player limit ("The server is full."), reconnecting with a token
   instead of a fresh hash, and anything an admin does to a player from the web admin.
 - **NAT rebinding.**  A player is their address, so a home router that changes the port mid-session ends
   the session.  A session id in each UDP packet would survive it.  Later, if it bites.
-- **The Windows side** has never been built.  Nothing here is OS-specific but the `ConnectionReset` line
-  in `udp.rs`, which is Windows telling us about a bounced packet.
+- **The Windows side** has never been built.  The OS-specific parts are the three `dns/` files and the
+  `ConnectionReset` line in `udp.rs`, which is Windows telling us about a bounced packet.
 - **The web admin shows the door and the world** (the Connections tab, 2026-09-29): the players are listed by
   account; the character goes beside it once there is one.
 - **A hand edit to a list file while Conductor runs** isn't seen on the next START SERVER: DiskMan serves a

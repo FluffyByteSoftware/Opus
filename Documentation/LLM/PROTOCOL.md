@@ -42,7 +42,8 @@ Nothing in the login goes over the wire until TLS is up.
 ### Bytes
 
 Numbers are **little-endian** (lowest byte first).  A **string** is a u32 byte count and then that many
-bytes of UTF-8, no terminator.
+bytes of UTF-8, no terminator.  Bytes that aren't UTF-8, or anything left over after a packet's last
+field, make the packet one the server can't read.
 
 Every TCP packet goes in a frame:
 
@@ -53,7 +54,8 @@ offset  size  what
 5       n     payload
 ```
 
-The largest length a frame may claim is 4096.  A larger one closes the connection.
+The largest length a frame may claim is 4096, and the smallest 1.  Anything else is treated as a failed
+login (below): a LoginResult `1`, the 2-second hold, and the connection closed.
 
 A UDP packet has no length in front, since UDP keeps packets whole:
 
@@ -99,7 +101,9 @@ the game, over UDP.  `0x2_` is kept free for whatever goes between them one day.
    - **Ticket**: the login worked.  The token and the UDP port to take it to.  The server closes the
      connection right after (a proper TLS close).
    - **LoginResult** with answer `1`, "Invalid Credentials": the secret word, the username or the password
-     was wrong.  One answer for all three, on purpose.  The address then can't connect for 2 seconds.
+     was wrong.  One answer for all three, on purpose.  The address then can't connect for 2 seconds (the
+     hold; answers `3` and `4` don't start one).  A username, once lowercased, is 8 to 32 characters of
+     `a-z`, `0-9` and `_`; one that isn't gets this answer without the server looking it up.
    - **LoginResult** with answer `2`, "This account is already logged in.": the password was right, and the
      account is in the world from somewhere else.  Only ever sent after the right password.  The
      connection stays open, and the client has 30 seconds to answer with a **SessionChoice**: `0` logs the
@@ -108,12 +112,17 @@ the game, over UDP.  `0x2_` is kept free for whatever goes between them one day.
      play.)
    - **LoginResult** with answer `3`, "Outdated Client Failure": the client's version isn't on the server's
      list.  Checked before the password.
-   - **LoginResult** with answer `4`, "Login Unavailable": the server can't check logins right now.  Nothing
-     the player did.
+   - **LoginResult** with answer `4`, "Login Unavailable": the server can't check logins right now, or
+     couldn't make a token after the right password.  Nothing the player did.
 
-Anything out of turn (a packet before the Hello was answered, a second Login, a type the server doesn't
-know) is treated as a failed login.  A client that hasn't logged in when the deadline passes is closed
-without an answer.
+   Every answer takes at least 150 ms from the moment the Login arrived, whichever it is, so the time it
+   takes can't tell a real username from a made-up one.
+
+Anything out of turn as the first packet after the Hello (a type the server doesn't expect, a Login it
+can't read) is treated as a failed login.  While the server waits on a SessionChoice, anything but a
+readable SessionChoice closes the connection without an answer and without the hold.  A client that hasn't
+logged in when the deadline passes is closed without an answer, and so is one that stops reading: a send
+the server can't finish in 5 seconds ends it.
 
 The message string is for the player, as it is.  Failures the player can act on are sentences; ones they
 can't are short labels with no period.
@@ -124,7 +133,10 @@ can't are short labels with no period.
    The token is good once, for 30 seconds from the Ticket by default, and only from the first address that
    uses it; the same address asking again (because the answer got lost) gets the same answer.
 2. The server answers with **ConnectResult**: `0` "Welcome to the world." and the client is in, or `1`
-   "Invalid Credentials" and it isn't.  A ConnectResult is always smaller than a Connect, so the server
+   "Invalid Credentials" and it isn't (a token it doesn't know, one already used from another address, or
+   a player's own address asking with a different token).  A Connect it can't read (a token that isn't
+   exactly 64 characters, bytes left over, a packet over 1200 bytes) gets no answer at all, and neither
+   does one from an address the access lists turn away.  A ConnectResult is always smaller than a Connect, so the server
    can't be used to flood a faked address.
 3. The client sends **KeepAlive** once a second, and the server sends one straight back.  A client that
    hears none for a while should assume the server is gone and go back to the login screen.  The server
