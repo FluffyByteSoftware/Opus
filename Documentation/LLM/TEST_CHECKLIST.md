@@ -212,7 +212,8 @@ client says 3 too, so an old copy of it stops at the Hello.  The menu was opened
 with made-up rows (an open connection, a live login, a LINKDEAD one); that isn't Conductor.
 
 - [x] ~~`cargo build` clean, no warnings; `cargo test` passes, 199.~~  2026-09-29, from `testing` after
-      `cargo clean`: no warnings, 199 passed (15 monitor, 59 networking, 91 tools with the benchmark ignored, 34 web admin).
+      `cargo clean`: no warnings, 199 passed (15 monitor, 59 networking, 91 tools with the benchmark
+      ignored, 34 web admin).
 - [x] ~~Log the client in and leave it in the world.  Its TCP row's three dots: KICK is red and live.
       KICK, confirm ("Kick the player who logged in from ... out of the world?"): the client prints a
       Kicked "kicked by the admin" and "Back to the login screen.", the UDP table empties, the row reads

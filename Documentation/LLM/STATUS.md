@@ -97,8 +97,9 @@ What we did:
 It matters here because its hand checks are all open.  The whitelist and the blacklist (`access.rs`),
 `access_list` in `networking.cfg`, the Network Admin subsection on the page (Connections, Whitelist,
 Blacklist), the three-dot menu on a connection, Recent and Historical views of the door, and a ban that
-drops a player with a Kicked reason 3 (protocol version 2; version 3 came with KICK on any row).  A blacklisting with the blacklist on, or
-a whitelist removal with the whitelist on, drops everybody the door would now turn away.  The design is
+drops a player with a Kicked reason 3 (protocol version 2; version 3 came with KICK on any row).  A
+blacklisting with the blacklist on, or a whitelist removal with the whitelist on, drops everybody the
+door would now turn away.  The design is
 in `design/conductor-networking.md` and `design/conductor-wgui.md`.
 
 ## What's waiting
@@ -106,7 +107,16 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
 - **The 2026-09-29 access lists section of `TEST_CHECKLIST.md`**, everything after the build line.
 - **The rest of the TCP tab's checks** and **the untried networking hand tests** in the same file (two
   clients on one account passed at the close).
-- **Accounts, in the server code.**  Jacob said at the close that the next session builds accounts.
+- **Going through the tests.**  Jacob said at the close that he wants the next session to go through the
+  tests: every open check in `TEST_CHECKLIST.md`, run on `testing` and struck as it passes.  The open
+  ones, oldest first: the networking hand tests (the quiet drop, a wrong secret word, the hold, STOP
+  SERVER with a player in, `user` in a real run), the TCP tab's (a wrong password on the tab, KICK on a
+  held-up connection, two clients in Security's line, `net-dns`, `user`), the access lists' (the sidebar,
+  both views, the menu, the list tabs, blacklist and whitelist modes, the ban, a range, `access_list =
+  potato`), the page's greying, DiskMan noticing a hand edit, LINKDEAD's Goodbye, quiet and ban rows, and
+  KICK's greyed, open-connection and `user` rows.
+- **Accounts, in the server code.**  Jacob's pick at the first close of the documentation pass, before he
+  asked for the tests first.
   What's there to build on: the `accounts` table (`Content/psql/defaults/schemas/accounts.sql`, frozen, so
   any change is a migration; `uuid` came with 0001), with Postgres checking the name (8 to 32 of `a-z`,
   `0-9`, `_`) and the email itself; Security's `hash_password()` and `check_password_rules()` (Jacob's
@@ -117,9 +127,8 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
   one" and the web admin's game account management (make, delete, list, finger, change password).  Open
   until the session asks: who makes an account (a player over the protocol, which is a new packet and
   protocol version 3, or the admin from the web admin, or both), and what each needs from the other.
-- **This session's checks**: everything built clean and 199 tests passed on `testing`.  The hand checks
-  still open at the bottom of `TEST_CHECKLIST.md`: the page's greying, DiskMan noticing a hand edit,
-  LINKDEAD's Goodbye, quiet and ban rows, and KICK's greyed, open-connection and `user` rows.
+- **This session's code**: everything built clean and 199 tests passed on `testing`; its hand checks are
+  in the list above.
 - **Moving `main` up to `testing`**, when Jacob says: the one line is `git checkout main && git pull &&
   git merge --ff-only testing && git push origin main`, or the session pushes it at his word.
 - **The stale words in the code**, in TODO.md.
