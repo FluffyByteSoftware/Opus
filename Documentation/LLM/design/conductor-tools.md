@@ -7,10 +7,10 @@ Author:     Jacob Chacko
 # conductor-tools
 
 A lib crate.  The pieces the rest of Conductor leans on but that know nothing about the game: the disk, the
-log, the config, the database, the clock, the list of threads we started, the list of services we expect,
-and the notices the admin has to acknowledge.  One
-dependency, `postgres` (the blocking Postgres client), for Archivist.  It pulls in tokio behind the scenes,
-but nothing of ours is async.
+log, the config, the UUIDs, the password hashing, the database, the clock, the list of threads we started,
+the list of services we expect, and the notices the admin has to acknowledge.  Two dependencies: `postgres`
+(the blocking Postgres client) for Archivist, which pulls in tokio behind the scenes though nothing of ours
+is async, and `argon2` for Security, with its default features off.
 
 ## Skeleton
 
@@ -18,8 +18,8 @@ but nothing of ours is async.
 conductor-tools/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs             pub mod archivist; clock; constellations; diskman; notices; pending; scribe;
-    │                        services; threads;
+    ├── lib.rs             pub mod archivist; clock; constellations; diskman; fingerprinter; notices; pending;
+    │                        scribe; security; services; threads;
     ├── archivist.rs       the front door: start(), stop(), status(), config_path()
     │                        execute(sql, params) -> Pending<u64>, query(sql, params) -> Pending<Vec<Row>>
     │                        batch(sql) -> Pending<()>, transaction(name, |tx| ...) -> Pending<T>
@@ -45,6 +45,16 @@ conductor-tools/
     ├── diskman/
     │   ├── cache.rs       struct State, struct Entry (whole file, dirty, tail), the rules; Limits
     │   └── worker.rs      the one worker thread: reads, writes, the big write, streams; the disk calls
+    ├── fingerprinter.rs   start(), new_uuid() -> io::Result<String>, new_token(), random_bytes(buffer)
+    │                        looks_like_uuid(text), uuid_time(text) -> Option<Utc>
+    ├── fingerprinter/     fill(bytes) per OS: linux.rs (getrandom), windows.rs (BCryptGenRandom), other.rs
+    ├── security.rs        start(), stop()
+    │                        hash_password(password) -> Pending<String>
+    │                        verify_password(password, stored) -> Pending<bool>
+    │                        verify_no_account(password) -> Pending<()>
+    │                        check_password_rules(password) -> Result<(), String>, pad_login_time(started)
+    │                        type Pending<T> (from pending.rs), enum SecurityError { NotRunning, Failed }
+    ├── security/          advise_huge_pages(start, bytes) per OS: linux.rs (madvise), windows.rs, other.rs
     ├── notices.rs         enum Level { Notice, Warn, Error }, struct Notice { id, when, level, source, text }
     │                        publish(level, source, text) -> id, newest(n), all(), ack(id), ack_all()
     ├── pending.rs         Pending<T, E> { check() never waits, wait() does }, trait NotRunning
@@ -107,6 +117,70 @@ What's open:
 - The Windows side (renaming over a file, no folder flush) hasn't been built there.
 - Nothing uses the big write or `stream()` for real yet: there's no terrain.  The tests cover them with tiny
   sizes.
+
+## Fingerprinter
+
+The UUID maker, in `fingerprinter.rs`.  Built 2026-09-28.  The design is in the file's header; the short
+version:
+
+- **Version 7 UUIDs**: the time in milliseconds, a 12-bit counter, then random bytes.  So they sort in the
+  order they were made, two in the same millisecond included.  Postgres 18's `uuidv7()` is the safety net on
+  every table's `uuid` column.
+- **Random bytes come straight from the OS**, never through DiskMan (which would cache them): `getrandom()`
+  on Linux, `BCryptGenRandom()` on Windows (never built), and a refusal anywhere else.  `start()` asks for 16
+  bytes once so a machine that can't is caught at startup.
+- `new_token()` is 32 random bytes as hex, for logins.  `random_bytes()` is the raw source for anything else
+  that needs some; Security's salts, today.
+
+## Security
+
+The password hasher, in `security.rs`.  Written 2026-09-29, modelled on Stratum's, with the emphasis this
+time on spending less CPU per hash and more RAM where that buys the same protection.  Not built yet.
+
+What we decided:
+
+- **Argon2id, through the `argon2` crate** (0.6, default features off).  Nobody writes their own password
+  hash.  What's stored is the PHC string, `$argon2id$v=19$m=65536,t=1,p=1$<salt>$<hash>`, which carries its
+  own settings, so an old account still checks after the settings change.
+- **The settings: 64 MiB, one pass, one lane, a 32-byte hash, a 16-byte salt.**  Argon2's CPU time is
+  close to memory times passes, and what an attacker's graphics card is short of is memory, so the trade is
+  passes down to one and memory as high as we can spare.  To make a hash harder later, raise the memory.
+  Stratum measured 64 MiB at two passes at about 85 ms; one pass should be near half that, and the benchmark
+  says for real.
+- **One worker thread, `security`, one hash at a time**, jobs in order, `Pending` back to the caller the
+  same as Archivist and DiskMan.  Stratum's tick-sim showed 50 logins hashing on 50 threads took 1.2 s each
+  and blew the tick; one at a time, each took 72 ms and all 50 were done in 3.6 s.
+- **One arena, allotted once and kept**: 64 MiB of `Block`s the worker owns for Conductor's whole run.
+  The crate would otherwise ask the OS for a fresh 64 MiB on every hash (16,384 page faults' worth of CPU
+  that isn't ours).  Every hash runs in the arena through `hash_password_into_with_memory()`; a stored line
+  made with more memory than the arena holds gets a one-off allocation instead of no answer.
+- **The huge page hint on Linux**: `madvise(MADV_HUGEPAGE)` on the arena before its pages are touched, so
+  Argon2's random jumps through 64 MiB land in 32 pages instead of 16,384 and the TLB covers all of it.  A
+  hint, in the OS file `security/linux.rs`; Windows and macOS have nothing yet and say so.  The Services tab
+  note says whether the kernel took the hint.
+- **A name with no account still costs a hash** (`verify_no_account()`), in the same line, and
+  `pad_login_time()` makes every login attempt take at least 150 ms, so a stopwatch can't tell a real name
+  from a made-up one.  Both carried over from Stratum.
+- **The password rules are Jacob's**: 8 to 128 characters, printable ASCII, at least one digit, one capital
+  and one symbol.  `check_password_rules()` says which one in words for the player.
+- **The salt comes from Fingerprinter**, so the crate's own random source (and the crates behind it) stays
+  out of the build.
+- A wrong password is `Ok(false)`.  A stored line that can't be read is `Err` and an Error on the Security
+  channel, without the line in it.  Nothing here ever logs a password.
+- The benchmark, `cargo test -p conductor-tools argon2_cost -- --ignored --nocapture`, times five memory
+  settings at one and two passes three ways: fresh memory each hash, the kept arena, and the arena with the
+  huge page hint.  The gaps between the columns are the page faults and the TLB, measured.
+
+What's open:
+
+- **Nothing is measured yet.**  The numbers above are Stratum's and the theory's; the benchmark on Jacob's
+  machine sets the real ones, and the memory setting may go up after it.
+- Rayon lanes would cut a single hash's wall time across cores at the same CPU cost, but it's a crate and
+  its threads bypass `threads::spawn()`.  Not taken.
+- Not hashing at all on a reconnect (a token from Fingerprinter instead) is the biggest CPU saving there is,
+  and it's accounts' job once there are accounts.
+- Passwords sit in ordinary `String`s while they're in line and aren't wiped after.  The crate's `zeroize`
+  feature is off.  Fine for a hobby server; written down so it's a choice, not an oversight.
 
 ## Notices
 
@@ -253,8 +327,8 @@ What we decided:
   reports, which is how a thread in the "in use" view gets our name and an "ours" mark.
 - A thread is marked finished when its closure ends, a panic included (a guard that's dropped either way).
   Finished threads stay on the list.  There are a handful of them, not thousands.
-- Threads today: `main`, `diskman`, `archivist`, `monitor`, `wgui`.  The postgres crate starts some of its own, and
-  those show up as "not ours".
+- Threads today: `main`, `diskman`, `security`, `archivist`, `monitor`, `wgui`.  The postgres crate starts
+  some of its own, and those show up as "not ours".
 - main can't be started by `spawn()`, so it puts itself on the list with `name_this_thread("main")` as the
   first line of `main()`.  It stays "running" for good, since main ending ends Conductor.
 
@@ -268,14 +342,14 @@ What we decided:
 - Nothing can look into a service from outside and tell whether it's alive, so **each one reports on
   itself**: `services::set(name, state, note)`, with a note that says what it's doing or what went wrong.
 - **Every expected service is on the list from the start**, as "expected", so one that never started shows
-  as missing.  The list is `EXPECTED` in `services.rs`: Scribe, Constellations, Archivist, Monitor, Web
-  admin, each with the name of its thread if it has one; DiskMan (thread `diskman`) went in first on
-  2026-09-28.  Adding a service means adding it there.
+  as missing.  The list is `EXPECTED` in `services.rs`: DiskMan, Scribe, Constellations, Fingerprinter,
+  Security, Archivist, Monitor, Web admin, each with the name of its thread if it has one.  Adding a service
+  means adding it there.
 - A service with a thread is **stopped once that thread has ended**, whatever it last said.  A thread that
   panics says nothing on the way out.  This is worked out when the list is read, from `threads::list()`.
 - A service can **check in** with `seen(name)`.  One that has checked in and then goes quiet for more than
-  `QUIET_LIMIT` (5 seconds) isn't healthy.  The monitor and DiskMan do; the others have no loop to check in
-  from.
+  `QUIET_LIMIT` (5 seconds) isn't healthy.  The monitor, DiskMan and Security do; the others have no loop to
+  check in from.
 - Healthy means running and not gone quiet.  The page shows starting as yellow, not down.
 - **Nothing in `services.rs` writes to Scribe.**  Scribe reports to the list, so a call the other way could
   leave each waiting on the other's lock.

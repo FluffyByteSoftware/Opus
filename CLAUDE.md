@@ -48,7 +48,7 @@ Opus/
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
-│   │   ├── conductor-tools/    # lib: DiskMan, Scribe, Constellations, Archivist, Fingerprinter, notices, the clock, threads, services
+│   │   ├── conductor-tools/    # lib: the tools (DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, ...)
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── conductor-launcher/ # bin: the program -- starts everything, then waits on the web admin
@@ -233,6 +233,11 @@ When I say we're wrapping up:
 - **DiskMan never logs routine work.** A log line is itself a DiskMan write, so
   a "wrote a file" line would loop forever. It logs failures only, and never
   while holding its own lock.
+- **Every password hash goes through Security** (`security.rs` in
+  `conductor-tools`): `hash_password()`, `verify_password()` and
+  `verify_no_account()`, each handing back a `Pending`.  One worker thread,
+  one arena of memory kept for the server's life, one hash at a time.
+  Nothing else calls the argon2 crate, and nothing ever logs a password.
 - **Every Warn and Error becomes a notice** on the web admin's bell, and stays
   there until I ACK it. So a Warn is for something actually wrong, never
   chatter. Code can raise one on purpose with `notices::publish()`.

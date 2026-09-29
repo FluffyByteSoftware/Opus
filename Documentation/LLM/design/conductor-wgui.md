@@ -152,6 +152,8 @@ Built on 2026-09-28, Zabbix style, the way the TLP at Jacob's work does it.  The
 | DiskMan        | Its thread is up; checks in every second      | A file is failing to write (see the log)      |
 | Scribe         | It has a log file for today                   | DiskMan can't write the file: console only    |
 | Constellations | The config loaded, or it wrote the defaults   | The file can't be read or written: defaults   |
+| Fingerprinter  | The OS handed over random bytes at startup    | It wouldn't: nothing can get a UUID           |
+| Security       | Its arena is allotted; checks in every second | Its thread wouldn't start                     |
 | Archivist      | It's connected to Postgres                    | It can't connect, or lost the connection      |
 | Monitor        | Its thread is looking once a second           | Never; stuck shows as gone quiet after 5 s    |
 | Web admin      | It's listening                                | Never; if it can't listen, Conductor stops    |

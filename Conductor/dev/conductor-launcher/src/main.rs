@@ -3,8 +3,8 @@
 //! Author:     Jacob Chacko
 //!
 //! Entry point.  Brings everything up in order -- DiskMan, Scribe,
-//! Constellations, Fingerprinter, Archivist, the monitor, then the web
-//! admin -- and waits.  The console is only Scribe's output from here on,
+//! Constellations, Fingerprinter, Security, Archivist, the monitor, then
+//! the web admin -- and waits.  The console is only Scribe's output from here on,
 //! and typing in it does nothing.  The admin works through the web page,
 //! and when they press Shut Down there, the web admin stops, main wakes
 //! up, and Conductor shuts down.  DiskMan goes last, and shutdown waits
@@ -17,7 +17,7 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
-use conductor_tools::{archivist, constellations, diskman, fingerprinter, threads};
+use conductor_tools::{archivist, constellations, diskman, fingerprinter, security, threads};
 use conductor_tools::scribe::{self, Channel};
 
 /// How long shutdown gives DiskMan before telling the admin to force quit.
@@ -51,6 +51,10 @@ fn main() {
     // bytes before anything needs a UUID.
     fingerprinter::start();
 
+    // Security, the password hasher, allots its arena on its own thread.
+    // It takes its salts from Fingerprinter, so it comes after it.
+    security::start();
+
     // Then the database.  This comes straight back, and Archivist connects
     // on its own thread.  The log says how that went.
     archivist::start();
@@ -72,6 +76,9 @@ fn main() {
     scribe::info(Channel::System, "Conductor is shutting down.");
 
     conductor_monitor::stop();
+    // Security before Archivist, so a hash on its way to the accounts
+    // table still gets there.
+    security::stop();
     // After the rest, so the jobs already in Archivist's mailbox get done
     // first.
     archivist::stop();

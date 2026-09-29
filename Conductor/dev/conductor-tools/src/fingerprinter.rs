@@ -162,6 +162,13 @@ pub fn new_token() -> io::Result<String> {
     Ok(text)
 }
 
+/// Fills `buffer` with random bytes from the OS, for anything that needs
+/// raw random bytes and isn't a UUID or a token.  Security's salts, today.
+/// Fails only if the OS won't hand them over.
+pub fn random_bytes(buffer: &mut [u8]) -> io::Result<()> {
+    fill(buffer)
+}
+
 /// True for text in the shape of one of our UUIDs: 36 characters, lowercase
 /// hex, dashes in the right places, version 7.  It says nothing about
 /// whether anything has that UUID.  For checking a file or a message that

@@ -33,6 +33,7 @@ pub const DISKMAN: &str = "DiskMan";
 pub const SCRIBE: &str = "Scribe";
 pub const CONSTELLATIONS: &str = "Constellations";
 pub const FINGERPRINTER: &str = "Fingerprinter";
+pub const SECURITY: &str = "Security";
 pub const ARCHIVIST: &str = "Archivist";
 pub const MONITOR: &str = "Monitor";
 pub const WEB_ADMIN: &str = "Web admin";
@@ -40,19 +41,20 @@ pub const WEB_ADMIN: &str = "Web admin";
 /// Every service Conductor expects, in the order the page lists them, and
 /// the thread each runs on, if it has one.  The thread names are the ones
 /// given to `threads::spawn()`.
-const EXPECTED: [(&str, Option<&str>); 7] = [
+const EXPECTED: [(&str, Option<&str>); 8] = [
     (DISKMAN, Some("diskman")),
     (SCRIBE, None),
     (CONSTELLATIONS, None),
     (FINGERPRINTER, None),
+    (SECURITY, Some("security")),
     (ARCHIVIST, Some("archivist")),
     (MONITOR, Some("monitor")),
     (WEB_ADMIN, Some("wgui")),
 ];
 
 /// How long a service that checks in can go quiet before it counts as
-/// stuck.  The monitor and DiskMan check in at least once a second, so
-/// this is five missed.
+/// stuck.  The monitor, DiskMan and Security check in at least once a
+/// second, so this is five missed.
 pub const QUIET_LIMIT: Duration = Duration::from_secs(5);
 
 /// Where a service is at.
@@ -195,7 +197,8 @@ mod tests {
     #[test]
     fn every_expected_service_is_there_from_the_start() {
         let names: Vec<&str> = list().iter().map(|service| service.name).collect();
-        assert_eq!(names, vec![DISKMAN, SCRIBE, CONSTELLATIONS, FINGERPRINTER, ARCHIVIST, MONITOR, WEB_ADMIN]);
+        assert_eq!(names, vec![DISKMAN, SCRIBE, CONSTELLATIONS, FINGERPRINTER, SECURITY, ARCHIVIST, MONITOR,
+                               WEB_ADMIN]);
     }
 
     #[test]
