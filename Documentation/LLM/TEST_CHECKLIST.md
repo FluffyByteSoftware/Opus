@@ -52,16 +52,17 @@ the server not started.  (Jacob's note, 2026-09-29.)
 - [x] ~~A soft file: START SERVER, STOP SERVER, change `slow_job_ms` in `Content/cfg/postgres.cfg` by hand
       (Conductor still running), START SERVER.  The Settings tab shows the new value as running.  Put it
       back after.~~  2026-09-29: STOP SERVER and START SERVER picks it up.
-- [ ] The same with RESTART SERVER in place of STOP and START: edit `slow_job_ms` by hand, RESTART SERVER,
-      and the Settings tab shows the new value as running.  (Added from Jacob's notes.)  2026-09-29:
-      **failed**: the new value showed, but with the waiting warning still up; bug 1 in TODO.md.  Section 3 leans on RESTART SERVER too.
+- [x] ~~The same with RESTART SERVER in place of STOP and START: edit `slow_job_ms` by hand, RESTART SERVER,
+      and the Settings tab shows the new value as running.  (Added from Jacob's notes.)~~  2026-09-29:
+      the new value showed, but with the waiting warning still up; clicking another tab and back cleared
+      it.  The server was right and the page was stale: bug 1 in TODO.md.  Section 3 leans on RESTART SERVER too.
 - [x] ~~A list file: server stopped, add `10.0.0.1` to `Content/cfg/blacklist.cfg` by hand, START SERVER.
       The Blacklist tab shows it, and the log has the Debug line "Read 1 entry from .../blacklist.cfg."
       Take it out the same way.  (Rewritten: the old access-lists check wanted Conductor shut down for
       this; DiskMan reads a hand edit now, so the server stopped is enough.)~~  2026-09-29: seen, and a
       Settings save of `access_list = blacklist` then RESTART SERVER took as well.
-- [ ] STOP SERVER and START SERVER with no hand edits come up clean, and the Storage tab's cache hits
-      count up as before.
+- [x] ~~STOP SERVER and START SERVER with no hand edits come up clean, and the Storage tab's cache hits
+      count up as before.~~  2026-09-29.
 
 ### 3. Networking: the TLS pair
 
