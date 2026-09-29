@@ -35,8 +35,14 @@ Things that wait on a piece that doesn't exist yet.
   `start_server()` and `stop_server()` in the launcher when they exist, and come up and down with the
   rest.  (Was the launcher's S.)
 - Web admin: account management (make, delete, list, finger, change password).  Waits on accounts.
-- Web admin: the settings, shown and changed live (Jacob asked on 2026-09-28).  Showing them is small: a
-  read-only route and a Settings tab.  Changing them live needs:
+- Web admin: the settings, shown and changed live (Jacob asked on 2026-09-28; on 2026-09-29 he made it the
+  next major revision: a config editor in the browser that hot swaps the new values in while the page is
+  running, saves to disk, and then a restart applies them).  Which restart is the open question: RESTART
+  SERVER on the Control Panel applies anything a server piece reads when it starts (`postgres.cfg`, and
+  Security's and the network's settings if they get any), which is why a piece with settings of its own
+  is a server piece.  The program's own settings (`scribe_log_dir`, `wgui_port`) either hot swap on the
+  spot or wait for the next boot, and the page should say which.  Showing them is small: a read-only route
+  and a Settings tab.  Changing them live needs:
   - Constellations to stop being load-once.  Today the settings sit in a `OnceLock`, which can't change
     after it's set; it would become a lock around settings that can be swapped.
   - A route that changes things (`POST`, with the `X-Opus` header like Shut Down), which is Jacob's call
