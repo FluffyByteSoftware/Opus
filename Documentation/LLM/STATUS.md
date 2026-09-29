@@ -14,10 +14,9 @@ Security, Archivist, the notices, the clock, the thread list and the services li
 web admin at `http://127.0.0.1:9996/Opus`, and the only way to shut the server down.  `conductor-launcher`
 (bin) starts all of it and waits on the web admin.  Ensemble hasn't been started.
 
-**Last built and tested on Linux (Nobara 44), 2026-09-28**, before Security: `cargo build` clean with no
-warnings, `cargo test` passing.  Fingerprinter went in after that and was merged.  **Security is written and
-not built yet**; this session's branch, `infamous-saganism`, is waiting on Jacob's build, tests and benchmark.
-The Windows code has never been built.
+**Built and tested on Linux (Nobara 44), 2026-09-29.**  `cargo build` clean with no warnings, `cargo test -p
+conductor-tools` passed 73 tests (1 ignored, the benchmark), and the benchmark ran in release.  This session's
+branch is `infamous-saganism`, ready to merge when Jacob says so.  The Windows code has never been built.
 
 ## Last session -- 2026-09-29
 
@@ -53,22 +52,24 @@ What we did:
 
 What fought back:
 
-- Nothing could be built or run here, so the crate's API was checked against its source (argon2 0.6.0,
-  password-hash 0.6.0, phc 0.6.1) rather than a compiler.  Stratum's file used the 0.6 API already, which
-  helped.  The first build is the real check.
+- The crate's API was checked against its source (argon2 0.6.0, password-hash 0.6.1, phc 0.6.1) rather than a
+  compiler, since nothing builds in the session.  It built clean first time.
+- The first benchmark run was unoptimized and read six times slow (539 ms for our hash), with the three
+  columns identical.  In release: 30 ms, and the arena's 20% showed up.  The benchmark now says `--release`.
 
 What Jacob decided:
 
 - The branch is `infamous-saganism`.
 - Security's job is the theory, not a bulletproof server: get the trade-offs right and written down, measure
   them, and don't gold-plate.
+- **64 MiB, one pass: 30 ms a login**, over 128 MiB (62 ms) and 256 (127 ms).  The table is in the tools
+  design doc.
+- **One login at a time, hard limit.**  Other clients wait in the queue.  Security's worker is that queue;
+  accounts and networking build on it.  In TODO.
 
 ## What's waiting
 
-- **Build and test Security**, from `Conductor/dev`: `cargo build`, then `cargo test -p conductor-tools`,
-  then the benchmark.  The memory setting (64 MiB) may go up once the benchmark says what one pass costs.
-- Whether Nobara's kernel takes the huge page hint: `cat /sys/kernel/mm/transparent_hugepage/enabled`
-  (`[madvise]` or `[always]` means yes), and the benchmark's "huge" column against "arena".
+- Merging `infamous-saganism`, when Jacob says.
 - Accounts: making, checking and logging in.  Security and Fingerprinter are ready for it; the login itself
   waits on networking.
 - Archivist retrying on its own every 5 seconds while disconnected, so the page's lock lifts when Postgres

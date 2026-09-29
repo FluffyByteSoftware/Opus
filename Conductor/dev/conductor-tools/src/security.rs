@@ -46,13 +46,23 @@
 //!   the CPU hasn't seen lately costs a walk through the page tables.
 //!   With 2 MiB pages instead of 4 KiB ones, 64 MiB is 32 pages instead of
 //!   16,384, and the CPU's own list of recent pages (the TLB) covers all
-//!   of it.  Whether the kernel goes along with the hint is its call, and
-//!   the benchmark at the bottom measures what it bought.
-//! - **One thread, one hash at a time.**  Stratum's tick-sim showed 50
+//!   of it.  Whether the kernel goes along with the hint is its call.  On
+//!   the dev machine it's set to `always`, so the arena had huge pages
+//!   before we asked and the hint bought nothing there; on a kernel set to
+//!   `madvise` it's the difference.
+//! - **One thread, one hash at a time, everybody else in line.**  This is
+//!   the hard limit: one login is hashed at a time, and the rest wait in
+//!   the queue in the order they arrived.  Stratum's tick-sim showed 50
 //!   logins hashing on 50 threads took 1.2 seconds each and put the tick
 //!   over budget for as long as they ran; one at a time, each took 72 ms
 //!   and all 50 were done in 3.6 seconds.  One at a time is also what
 //!   makes one arena enough.
+//!
+//! Measured on the dev machine (`cargo test --release`, 2026-09-29), one
+//! pass at 64 MiB: 37.5 ms with fresh memory each hash, 29.7 ms in the
+//! arena.  The arena saves about 20%, and that share holds from 19 MiB to
+//! 256.  Two passes at 64 MiB, Stratum's setting, is 64 ms.  Time is
+//! linear in memory: 128 MiB one pass is 62 ms, 256 is 127.
 //!
 //! What's not here: rayon lanes (a crate, and threads started outside
 //! `threads::spawn()`), and not hashing at all when a player reconnects
@@ -118,9 +128,9 @@ use other::advise_huge_pages;
 /// memory is what makes a graphics card's job expensive, and it's the
 /// one we raise when we want a harder hash.  The arena is this big, and
 /// it's held for as long as Conductor runs.  64 MiB is what RFC 9106
-/// suggests for a machine short on memory; Stratum measured it at about
-/// 85 ms with two passes, so one pass should land near 45.  The benchmark
-/// at the bottom says for real.
+/// suggests for a machine short on memory.  One pass over it measured
+/// 30 ms on the dev machine (the benchmark at the bottom); Stratum's two
+/// passes measured 64 ms on the same machine.
 const HASH_MEMORY_KIB: u32 = 64 * 1024;
 
 /// How many passes over that memory.  One, on purpose: see the top of the
@@ -141,9 +151,9 @@ const SALT_BYTES: usize = 16;
 
 /// How long every login attempt takes, at least, in milliseconds.  It has
 /// to sit above one hash, or a slow hash pokes out over the top and the
-/// timing leak is back.  Stratum measured 72 ms at full clock and 118 at
-/// worst for a two-pass hash, and this one-pass hash should be under
-/// that, so 150 leaves room.  Time spent waiting in line doesn't come
+/// timing leak is back.  One hash measured 30 ms on the dev machine, so
+/// 150 leaves room for a slower machine and a busy moment.  Time spent
+/// waiting in line doesn't come
 /// into it: a made-up name waits in the same line, so a long wait says
 /// nothing about which kind of name it was.  It also caps every
 /// connection at a few guesses a second.

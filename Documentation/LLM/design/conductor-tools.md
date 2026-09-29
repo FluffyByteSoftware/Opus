@@ -134,8 +134,8 @@ version:
 
 ## Security
 
-The password hasher, in `security.rs`.  Written 2026-09-29, modelled on Stratum's, with the emphasis this
-time on spending less CPU per hash and more RAM where that buys the same protection.  Not built yet.
+The password hasher, in `security.rs`.  Built 2026-09-29, modelled on Stratum's, with the emphasis this
+time on spending less CPU per hash and more RAM where that buys the same protection.
 
 What we decided:
 
@@ -145,11 +145,12 @@ What we decided:
 - **The settings: 64 MiB, one pass, one lane, a 32-byte hash, a 16-byte salt.**  Argon2's CPU time is
   close to memory times passes, and what an attacker's graphics card is short of is memory, so the trade is
   passes down to one and memory as high as we can spare.  To make a hash harder later, raise the memory.
-  Stratum measured 64 MiB at two passes at about 85 ms; one pass should be near half that, and the benchmark
-  says for real.
+  Jacob picked 64 MiB at one pass over 128 (62 ms) and 256 (127 ms) on the numbers below: 30 ms a login.
 - **One worker thread, `security`, one hash at a time**, jobs in order, `Pending` back to the caller the
   same as Archivist and DiskMan.  Stratum's tick-sim showed 50 logins hashing on 50 threads took 1.2 s each
-  and blew the tick; one at a time, each took 72 ms and all 50 were done in 3.6 s.
+  and blew the tick; one at a time, each took 72 ms and all 50 were done in 3.6 s.  **Jacob's rule: one
+  login is hashed at a time, hard limit, and every other client waits in the queue** in the order it
+  arrived.  Accounts and networking build on that line, not around it.
 - **One arena, allotted once and kept**: 64 MiB of `Block`s the worker owns for Conductor's whole run.
   The crate would otherwise ask the OS for a fresh 64 MiB on every hash (16,384 page faults' worth of CPU
   that isn't ours).  Every hash runs in the arena through `hash_password_into_with_memory()`; a stored line
@@ -171,10 +172,23 @@ What we decided:
   settings at one and two passes three ways: fresh memory each hash, the kept arena, and the arena with the
   huge page hint.  The gaps between the columns are the page faults and the TLB, measured.
 
+The numbers, from the benchmark on Jacob's machine on 2026-09-29 (`--release`, the middle of 5, one lane):
+
+| Memory  | Passes | Fresh memory | Kept arena | Arena + huge pages |
+|---------|--------|--------------|------------|--------------------|
+| 19 MiB  | 1      | 9.0 ms       | 7.8 ms     | 7.7 ms             |
+| 64 MiB  | 1      | 37.5 ms      | 29.7 ms    | 30.0 ms            |
+| 64 MiB  | 2      | 69.8 ms      | 63.8 ms    | 62.2 ms            |
+| 128 MiB | 1      | 75.4 ms      | 62.0 ms    | 62.8 ms            |
+| 256 MiB | 1      | 156.9 ms     | 127.3 ms   | 127.9 ms           |
+
+What it says: the kept arena saves about 20% at every size (the page faults); time is linear in memory;
+one pass is half of two.  The huge page column equals the arena column because the dev kernel is on
+`[always]` and the arena had huge pages before we asked.  Unoptimized (`cargo test` without `--release`)
+every number is six times bigger, which is why the benchmark says to use `--release`.
+
 What's open:
 
-- **Nothing is measured yet.**  The numbers above are Stratum's and the theory's; the benchmark on Jacob's
-  machine sets the real ones, and the memory setting may go up after it.
 - Rayon lanes would cut a single hash's wall time across cores at the same CPU cost, but it's a crate and
   its threads bypass `threads::spawn()`.  Not taken.
 - Not hashing at all on a reconnect (a token from Fingerprinter instead) is the biggest CPU saving there is,
