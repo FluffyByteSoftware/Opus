@@ -35,7 +35,9 @@ from `testing`: `cargo build` clean after one Cargo.toml fix (a feature that did
 client did the whole loop against a debug build: TLS 1.3 in 1 ms, a Ticket in 544 ms (debug Argon2 is
 six times slower than release), UDP Connect accepted, keep-alives answered, Goodbye logged as a logout.
 STOP SERVER and SHUT DOWN came down clean with networking in the mix.  `cargo test` hasn't been pasted
-back yet.  The Windows code has never been built.
+back yet.  Jacob committed `Cargo.lock` and `Content/certs/conductor.crt` from his machine onto `testing`,
+and the session merged that into `unstable`, so the two branches sit on one merge commit; `main` is behind
+them by all of networking.  The Windows code has never been built.
 
 ## Last session -- 2026-09-29 (the fifth that day)
 
@@ -88,6 +90,14 @@ What Jacob decided:
 
 ## What's waiting
 
+- **A new tab on the web admin showing who is connected to the server, Jacob's pick for the next
+  conversation.**  What it will need from networking: today `conductor_networking::status()` only counts
+  players and unused tickets.  The tab wants a list: each player's account, the address they're on, when
+  they connected, how long since they were last heard from, and probably the unused tickets the same way.
+  That's a `players()` on `sessions.rs` (a copy of the book, under its lock, at most once a second when
+  the page asks), a shape in `json.rs`, a ninth tab in `page.html` under the database lock like the other
+  data tabs, and the tab list in CLAUDE.md.  Kicking from that tab is client management and waits.  The
+  items below are unordered.
 - **`cargo test`** from `Conductor/dev`: the build and the run are done, the tests haven't been pasted
   back.  Cargo.lock changed and the certificate exists; both wait on Jacob's commit.
 - **Not tried yet by hand**: two clients on one account (the kick-or-hang-up prompt), `--go-quiet` for

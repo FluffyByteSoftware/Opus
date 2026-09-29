@@ -39,7 +39,8 @@ Things that wait on a piece that doesn't exist yet.
   - A session id in every UDP packet, so a home router changing the port mid-session doesn't end it.
   - Anything an admin does to a player from the web admin: see who's on, kick, message.
 - Networking: the web admin shows nothing of it yet.  `conductor_networking::status()` has the listening
-  addresses, the players and the unused tickets, for whichever tab they go on.
+  addresses and the counts; a tab that lists who is connected is Jacob's pick for the next conversation
+  (STATUS.md has what it needs).
 - Networking: the protocol version in the Hello is `1` and the client versions are a list in
   `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
