@@ -22,9 +22,9 @@ Project root: `/opt/storage/Coding/Opus`
   tick loop. Clients ask, Conductor decides.
   - Language: Rust, edition 2024
   - Folder: `Conductor/`
-  - Runs on: Linux (Nobara and Fedora; preferred) and Windows. macOS builds and
-    runs, but not everything is measured there yet. See "Linux, Windows, macOS"
-    under the Rust rules.
+  - Runs on: Linux (Nobara and Fedora). Development is Linux-first; Windows
+    code stays wired in but can sit untested. macOS isn't a target. See
+    "Linux and Windows" under the Rust rules.
 - **Ensemble** -- the game client that players run.
   - Engine / language: [FILL IN -- e.g. Unity 6 (C#) or Godot 4 (C#)]
   - Folder: `Ensemble/`
@@ -48,7 +48,7 @@ Opus/
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
-│   │   ├── conductor-tools/    # lib: DiskMan, Scribe, Constellations, Archivist, notices, the clock, threads, services
+│   │   ├── conductor-tools/    # lib: DiskMan, Scribe, Constellations, Archivist, Fingerprinter, notices, the clock, threads, services
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── conductor-launcher/ # bin: the program -- starts everything, then waits on the web admin
@@ -242,10 +242,12 @@ When I say we're wrapping up:
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
   adding a route that changes anything.
 
-### Linux, Windows, macOS
+### Linux and Windows
 
-- Conductor has to build and run on Linux and Windows. Linux is the preferred
-  host and gets tested first. macOS should at least build and run.
+- Development is Linux-first: Linux is where Conductor is built, run and
+  tested. Windows code stays wired in behind the same functions, but nobody
+  is building it for now. macOS isn't a target; any OS but those two gets the
+  fallback file.
 - There is no "which OS" setting in the config. The compiler knows what it is
   building for, and `#[cfg(target_os = "linux")]` / `#[cfg(windows)]` pick the
   code. OS-specific code gets one file per OS behind a common set of functions
@@ -312,6 +314,18 @@ When I say we're wrapping up:
   Archivist runs each one exactly once, in number order, in a transaction, and
   records it in the `archivist_migrations` table. Never edit a migration that
   has already run; write a new one.
+- **Every table has both an `id` and a `uuid`**, no exceptions.
+  - `id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY` is the table's own
+    number, local to that table. Tables point at each other by `id`.
+  - `uuid UUID NOT NULL UNIQUE DEFAULT uuidv7()` is the game's name for the
+    row, unique across the whole server. It's what the game, the client, the
+    web admin and the logs use.
+  - UUIDs are version 7: the time first, so they sort in the order they were
+    made. Conductor hands over one from Fingerprinter (`new_uuid()`) on every
+    insert; the default is only a safety net.
+  - A new table has both from its first schema file. The `postgres` crate
+    can't send a `String` into a UUID column on its own, so the SQL casts:
+    `$1::text::uuid` going in, `uuid::text` coming out.
 
 ## Client rules (Ensemble)
 
