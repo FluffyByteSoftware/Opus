@@ -23,7 +23,8 @@ SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests (the session
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
-says.  `main` sits on the Constellations rebuild; `unstable` and `testing` carry this session on top.
+says.  He said so at the end of this session, so `main`, `testing` and `unstable` all sit on the same
+commit: the login, the Settings tab and everything before them.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `c4cfd59`: the login and the
 Settings tab.  `cargo build` clean bar one warning (an unread error field, fixed after), `cargo test`
@@ -93,6 +94,9 @@ What Jacob decided:
 
 ## What's waiting
 
+- **Networking, Jacob's pick for the next conversation**: the welcome TCP connection, the login flow on
+  Security's line, PROTOCOL.md.  Its name is his to give, and its settings would be a soft file of its
+  own, which the Settings tab will show with no page work.  The items below are unordered.
 - **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  One entry
   moves in `files.rs`; `Settings` / `settings()` in `constellations.rs` and the launcher's
   `conductor_wgui::start(...)` call read it from `WGUI` instead; both committed `Content/cfg/` files
@@ -104,9 +108,6 @@ What Jacob decided:
 - The `user` account hasn't been tried in a real run yet, only in the tests and the headless check.
 - On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` and `testing_/charming-euler-jlyos7`.
   Jacob said he'd do it.
-- Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
-  the client), PROTOCOL.md filled in.  The first piece of the server proper, started and stopped from the
-  Control Panel with the rest.  Its name is Jacob's to give.  Its settings would be a soft file of its own.
 - Accounts: making, checking and logging in.  Security and Fingerprinter are ready for it; the login itself
   waits on networking.
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.  A STOP SERVER
