@@ -150,8 +150,11 @@ them.
 - **The Settings tab** (2026-09-29), the config editor's web admin half.  Last in the sidebar, after
   the Log (Jacob's pick), and always clickable like the Control Panel and the Log: it sits outside the
   blurred content, so a setting can be changed while the server is stopped or the database is offline.
-  One card per file from Constellations' table, drawn from `/Opus/settings` when the tab opens and after
-  every SAVE or DISCARD, never once a second, so nothing redraws under somebody's typing.  A card says
+  One card per file from Constellations' table, drawn from `/Opus/settings` when the tab opens, after
+  every SAVE or DISCARD, and whenever the server's state (or when it got there) changes while the tab is
+  open, never once a second, so nothing redraws under somebody's typing.  The last one came from
+  2026-09-29's test run: opened in the middle of a RESTART, before the stop swapped a saved change in,
+  the tab kept its WAITING warning for a change that had already taken.  A card says
   what the file is for and which reboot it needs, in plain words, then a field per setting with the
   key, its kind in words (a port 1 to 65535, a number with its range, a folder, text, a secret), and the
   comment under it.  A file that hasn't been loaded this run (`postgres.cfg` before the first START

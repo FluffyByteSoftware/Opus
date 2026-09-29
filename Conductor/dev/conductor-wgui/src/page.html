@@ -1490,6 +1490,10 @@ function savedMainTab() {
 // first one, so the first answer always picks the tab.
 let serverRunning = null;
 
+// The server's state and when it got there, at the last answer.  A
+// RESTART can go by between two answers, but its new "since" can't.
+let lastServerStep = null;
+
 function applyServerMode(server) {
   const running = server.state === "running";
   const state = $("server-state");
@@ -1501,6 +1505,15 @@ function applyServerMode(server) {
   $("server-restart").disabled = !running;
   $("server-stop").disabled = !running;
   lockChanges();
+
+  // The Settings tab isn't drawn once a second, and a stop swaps in the
+  // changes saved while the server ran.  Opened in the middle of a
+  // RESTART, it kept a warning for a change that had already taken
+  // (2026-09-29's test run), so it's asked for again whenever the server
+  // moves while it's open.
+  const step = server.state + " " + (server.since || "");
+  if (lastServerStep !== null && step !== lastServerStep && currentTab === "settings") askSettings();
+  lastServerStep = step;
 
   // No bell while the server isn't running: nothing is up that could
   // raise a notice.  Anything raised anyway is there once it is.

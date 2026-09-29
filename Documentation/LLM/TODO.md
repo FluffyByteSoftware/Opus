@@ -10,21 +10,8 @@ The big features, the ones that are a run of sessions each, are in LONGTERM_TODO
 
 ## Bugs
 
-Found in the 2026-09-29 test run, waiting on a fix.
-
-- **1. After RESTART SERVER the Settings tab can still say a change is waiting.**  Confirmed on the
-  page, not the server (Jacob, 2026-09-29): clicking another tab and back cleared it.  Jacob's run: a
-  `postgres.cfg` change, RESTART SERVER, and the Settings tab showed the new value with the warning still
-  up ("WAITING ON A SOFT REBOOT", "Saved, not applied yet").  STOP SERVER and START SERVER as two presses
-  didn't.  The warning shows while `postgres.cfg.wait4server` is there, so the change had gone through
-  the Settings tab at some point.  In the code RESTART is `stop_server()` then `start_server()`, and the
-  swap happens at the end of the stop, which can take a couple of seconds (networking has two).  The
-  Settings tab only asks Conductor again when it's opened, or on SAVE or DISCARD, never when the server
-  comes back up.  So the likely story: the tab was opened inside the restart, before the swap, and kept
-  that snapshot (its field shows the waiting value, which is the new one).  The fix would be the page
-  asking again while the Settings tab is open and the server's state changes.
-  Worth knowing alongside: a change saved from the Settings tab and still waiting wins over a hand edit
-  to the same file, since the waiting file is swapped in over it at the stop.
+Found in the 2026-09-29 test run.  None open: bug 1 (the Settings tab keeping a "waiting" warning
+after a RESTART SERVER) was the page's snapshot, and was fixed the same day.
 
 ## Deferred
 
