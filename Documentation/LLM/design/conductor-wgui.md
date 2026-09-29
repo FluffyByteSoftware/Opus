@@ -143,7 +143,10 @@ them.
   half was wrong, and is an Info line in the log, not a Warn: a typo on a local page isn't a notice.  LOG
   OUT sits at the bottom of the sidebar with who's logged in; the header still has no buttons but the
   bell.  For `user`, every button that changes something is greyed, and Conductor turns the ask away
-  anyway.
+  anyway.  `lockChanges()` sets each one from the role on every answer, both ways, since one page can
+  see `user` and `admin` a LOG OUT apart; the Settings and list tabs are asked for again when the role
+  changes while one is open.  Until 2026-09-29's documentation pass it only ever greyed, so `admin`
+  after `user` in the same page found half the buttons dead until a reload.
 - **The Settings tab** (2026-09-29), the config editor's web admin half.  Last in the sidebar, after
   the Log (Jacob's pick), and always clickable like the Control Panel and the Log: it sits outside the
   blurred content, so a setting can be changed while the server is stopped or the database is offline.

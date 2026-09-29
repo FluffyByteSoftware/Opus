@@ -149,3 +149,18 @@ and clicked through (the three tabs, the row menu, ADD, REMOVE); that isn't Cond
       the client from a laptop on a phone hotspot with `--host 142.56.230.42`, and the Connections tab
       shows the outside address (with a Host name if its reverse DNS has one); blacklist it from the
       row's menu and the next try is closed at the door.
+
+## 2026-09-29 -- The documentation pass: the page's greying
+
+Build: `cargo build` from `Conductor/dev` (the page is baked in, so it needs a build; no Rust changed).
+Checked in the session only by driving the page's two functions headless with made-up states; that isn't
+Conductor.
+
+- [ ] Log in as `user`: every button that changes something is greyed (the server buttons, SHUT DOWN,
+      TEST NOTIFICATION, both ACK ALLs, the list ADD fields and buttons, the Settings fields).
+- [ ] LOG OUT, log in as `admin` without reloading: all of them open (the server buttons as the
+      server's state allows).  Before the fix, SHUT DOWN and the rest stayed greyed until a reload.
+- [ ] The same with the Settings tab open when you LOG OUT: after the `admin` login its fields and SAVE
+      open without leaving the tab.  The same on the Whitelist or Blacklist tab with an entry on it: its
+      REMOVE opens.
+- [ ] LOG OUT, log in as `user` again: everything greys again.

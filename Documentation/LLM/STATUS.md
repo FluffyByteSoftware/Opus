@@ -25,9 +25,8 @@ networking, the monitor, and whatever comes later) only starts when START SERVER
 admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  `main` and `testing` sit on the access lists hand-off;
-`unstable` is ahead of them by this session's documentation commits and nothing else.  No code changed,
-so there's nothing new to build or test.
+stable release, moved only when Jacob says.  `main` sits on the access lists hand-off; `unstable` and
+`testing` are ahead of it by this session's documentation commits and one fix to `page.html`.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
 build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
@@ -38,7 +37,7 @@ Windows code has never been built.
 ## Last session -- 2026-09-29, the documentation pass
 
 Jacob's pick: prune and review `Documentation/LLM/`, update it to what's been built, and overhaul
-README.md.  No code changed.
+README.md.  Then, at Jacob's word, one fix to `page.html`.
 
 What we did:
 
@@ -56,9 +55,13 @@ What we did:
   switches, and the layout.  The old one said Conductor runs on Windows; it's written for Windows and
   never built there, and says so now.
 - **TODO.md**: the doc-session item out, the protocol version and the Control Panel item brought up to
-  date, and two things found reading the code: `lockChanges()` on the page only ever greys (a
-  `user` then `admin` login in one page leaves six controls greyed until a reload), and a list of stale
-  words in code comments and one Warn.  Both are for a session that touches code.
+  date, and a list of stale words in code comments and one Warn, found reading the code, for whichever
+  session next touches those files.
+- **The page's greying, fixed** (Jacob: "fix it now").  `lockChanges()` only ever greyed, so `user`,
+  LOG OUT, then `admin` in the same page left SHUT DOWN, TEST NOTIFICATION, both ACK ALLs and the two
+  list ADD fields dead until a reload.  Now it sets each from the role both ways, SHUT DOWN stays greyed
+  while one is on its way, and the Settings and list tabs are asked for again when the role changes
+  while one is open.  Checked headless with made-up states only.
 - **TEST_CHECKLIST.md**: the two-clients check named `--kick` and `--spare`, which the client never had.
 - PROJECT_OPUS.md: the tab count, the `.gitignore` line, the access lists as a named piece.
 
@@ -75,7 +78,8 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
 
 - **The 2026-09-29 access lists section of `TEST_CHECKLIST.md`**, everything after the build line.
 - **The rest of the TCP tab's checks** and **the untried networking hand tests** in the same file.
-- **The page's `lockChanges()` bug** and **the stale words in the code**, both in TODO.md.
+- **The page's greying fix**: its check at the bottom of `TEST_CHECKLIST.md`.
+- **The stale words in the code**, in TODO.md.
 - **A hand edit to a config or list file between a STOP SERVER and a START SERVER isn't seen**: DiskMan
   serves the copy it holds, whatever the soft files' own comments say.  With Conductor shut down it's
   fine.  TODO.md under DiskMan.

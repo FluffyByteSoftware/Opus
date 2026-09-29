@@ -63,11 +63,6 @@ Things that wait on a piece that doesn't exist yet.
   Ensemble's first session's call.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
-- **Web admin: `lockChanges()` only ever greys.**  Found reading the page against its design doc on
-  2026-09-29, not seen in a run.  Log in as `user`, LOG OUT, log in as `admin` in the same page, and SHUT
-  DOWN, TEST NOTIFICATION, both ACK ALLs and the two list ADD fields stay greyed until a reload (the three
-  server buttons are set again by the Control Panel's own code).  A one-function fix: set each one from
-  the role, not only turn it off.  Not fixed in the documentation session, which changes no code.
 - **Stale words in the code**, found the same day, for whichever session next touches each file:
   `access.rs` has a Warn the admin sees that says "the web admin's Networking tab" (the tabs are Whitelist
   and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs`, the web admin's `Cargo.toml` and a

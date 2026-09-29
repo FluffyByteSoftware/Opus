@@ -1551,23 +1551,37 @@ function showLogin(message) {
 
 // Every status answer says who's logged in.
 function drawWho(login) {
+  const roleChanged = login.can_change !== canChange;
   canChange = login.can_change;
   $("who").hidden = false;
   $("who-name").textContent = login.name;
   $("who-note").textContent = canChange ? "Can change things." : "Read only: can look, can't touch.";
   $("login").classList.remove("on");
   lockChanges();
+  // The Settings tab and the two list tabs aren't drawn once a second, so
+  // a LOG OUT and a login as the other account would leave the open one
+  // greyed (or not) for the old role.  Draw it again for the new one.
+  if (roleChanged && currentTab === "settings") askSettings();
+  if (roleChanged && (currentTab === "whitelist" || currentTab === "blacklist")) askLists();
 }
 
-// Greys everything that changes something for `user`.  The server buttons
-// are set again on every answer, so applyServerMode() calls this too.
+// True from the moment SHUT DOWN is sent, so the button stays greyed while
+// it goes, whoever is logged in.
+let shuttingDown = false;
+
+// Sets everything that changes something from the role: greyed for
+// `user`, open for `admin`.  Both can come through the same page a LOG OUT
+// and a login apart, so each one is set both ways, not only greyed.  The
+// server buttons are the exception: applyServerMode() sets them from the
+// server's state and calls this after, so here they're only ever greyed.
 function lockChanges() {
-  if (canChange) return;
-  for (const id of ["server-start", "server-restart", "server-stop", "control-shut-down", "send-test",
-                    "history-ack-all", "tray-ack-all", "whitelist-entry", "whitelist-add", "blacklist-entry",
-                    "blacklist-add"]) {
-    $(id).disabled = true;
+  for (const id of ["control-shut-down", "send-test", "history-ack-all", "tray-ack-all", "whitelist-entry",
+                    "whitelist-add", "blacklist-entry", "blacklist-add"]) {
+    $(id).disabled = !canChange;
   }
+  if (shuttingDown) $("control-shut-down").disabled = true;
+  if (canChange) return;
+  for (const id of ["server-start", "server-restart", "server-stop"]) $(id).disabled = true;
 }
 
 // The login card's ask.  The body is two lines in the config files' own
@@ -2423,6 +2437,7 @@ $("tab-asked-for").addEventListener("click", () => showTab(false));
 // SHUT DOWN, on the Control Panel.
 async function shutDown() {
   if (!confirm("Shut Conductor down?")) return;
+  shuttingDown = true;
   $("control-shut-down").disabled = true;
   try {
     // The X-Opus header is what makes the server believe the click came
@@ -2432,7 +2447,8 @@ async function shutDown() {
     showGone("Conductor is shutting down", "The server stops first if it's running, then DiskMan writes out "
       + "what it's holding.  The console counts down if that takes more than a second, and ends once it's done.");
   } catch (e) {
-    $("control-shut-down").disabled = false;
+    shuttingDown = false;
+    $("control-shut-down").disabled = !canChange;
     alert("The shut down didn't go through: " + e);
   }
 }
