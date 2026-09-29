@@ -24,12 +24,13 @@ SERVER takes it back down with Conductor still running.
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
 says.  `main` and `testing` sit on the Control Panel commit; `unstable` is ahead of them by this session.
 
-**Built on Linux (Nobara 44), 2026-09-29**, from `testing`: `cargo build` was clean at `e14bcc7`; the
-test build failed on four lines in DiskMan's new tests (`status()` called on the test's own DiskMan
-instead of through its lock), fixed at `4a34aa3`.  **`cargo test` and a run haven't been reported back
-yet**, so the first thing next time is to see how they went.  The last full test and run was the Control
-Panel session (108 tests, START / RESTART / STOP / SHUT DOWN from the page).  The Windows code has never
-been built.
+**Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `4a34aa3`.  `cargo build` clean
+(the first test build failed on four lines in DiskMan's new tests, `status()` called on the test's own
+DiskMan instead of through its lock; fixed).  `cargo test` passed 119 tests (15 monitor, 88 tools with the
+benchmark ignored, 16 web admin), and a run did START SERVER, STOP SERVER and SHUT DOWN from the Control
+Panel: `conductor_globals.cfg` loaded at boot and `postgres.cfg` at START SERVER, both through
+Constellations, Archivist connected, shutdown clean.  The `.wait4server` swap ran only in the tests so
+far; nothing on the page writes one yet.  The Windows code has never been built.
 
 ## Last session -- 2026-09-29 (the third that day)
 
@@ -89,13 +90,12 @@ are in the web admin and launcher design docs.
 
 ## What's waiting
 
-- **The test result and a run of this session's code**: `cargo test` after the fix at `4a34aa3`, then a
-  run that starts and stops the server with a hand-written `Content/cfg/postgres.cfg.wait4server` beside
-  the live file, to see it swapped in at the next START SERVER (the log says "found ... and swapped it
-  in"), and a `conductor_globals.cfg.wait4server` picked up at the next boot.  If anything fails, that's
-  the next conversation's first job.
-- **The config editor's web admin half**: the settings route, the save and discard routes, the Settings
-  tab.  Laid out in TODO.md.
+- **The config editor's web admin half**, Jacob's pick for the next conversation: the settings route, the
+  save and discard routes under `/Opus/wwwhook/settings/`, and the Settings tab.  Laid out under the
+  config editor item in TODO.md, and the tools side it calls (`save_waiting()`, `waiting()`,
+  `discard_waiting()`) is built and tested.  The first real `.wait4server` swap happens when that's
+  built; the log line to look for is "found ... and swapped it in" (a leftover at load) or nothing at all
+  (DiskMan swaps quietly on the way down and the next load reads the new file).
 - On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` and `testing_/charming-euler-jlyos7`.
   Jacob said he'd do it.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
