@@ -46,6 +46,7 @@ use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
+use crate::access::{self, Verdict};
 use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
 use crate::sessions::{self, Connected};
 use crate::settings::Settings;
@@ -228,6 +229,15 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
             }
         }
         Some(PacketType::Connect) => {
+            // An address the door wouldn't let in, with a ticket in hand
+            // from before it was listed, gets what a stranger gets:
+            // nothing.  A keep-alive from a player already in the world
+            // isn't checked; a ban drops them the moment it's made.
+            if access::verdict(from.ip()) != Verdict::Allowed {
+                scribe::debug(Channel::Network, &format!("Ignored a UDP connect from {from}: the access list \
+                    turns that address away."));
+                return;
+            }
             let Ok(token) = protocol::read_connect(payload) else {
                 return;
             };

@@ -37,7 +37,8 @@ SERVER brings the server up (the database connection, the network and the monito
 there is one), STOP SERVER takes it back down, and SHUT DOWN closes Conductor.  Until the server is running, the only
 other tabs that work are the log and the settings.  Once it is, there's a tab each for the machine and
 every process on it, Conductor's own CPU, memory, disk and threads, its services, the database and the
-disk manager, the login door (every TCP connection of the last five minutes, by address, with a KICK), the
+disk manager, the network (every TCP connection of the last five minutes by address, every player in the world
+by account, a kick, and a whitelist and blacklist of addresses that change at once), the
 open notifications, the log, and the settings, where every config file can be changed
 from the page and the change takes at the next restart of whatever reads it.  Every warning and error
 lands on a bell in the corner and stays there until somebody acknowledges it.  While the database is
@@ -67,7 +68,11 @@ OPUS_CONTENT=/path/to/Opus/Content cargo run -p conductor-launcher
 - `Content/cfg/postgres.cfg` -- where Postgres is and how to log in.  Read every time the server starts, so a
   change means STOP SERVER and START SERVER on the web admin's Control Panel.
 - `Content/cfg/networking.cfg` -- where Conductor listens for players (TCP 9997 for logins, UDP 9998 for
-  the game), the TLS files, and the deadlines.  Read every time the server starts too.
+  the game), the TLS files, the deadlines, and which access list the door checks.  Read every time the
+  server starts too.
+- `Content/cfg/whitelist.cfg` and `blacklist.cfg` -- the two access lists, one address (`1.2.3.4`) or range
+  (`1.2.3.0/24`) a line.  Read every time the server starts, and written by the web admin on every change,
+  which takes at once.
 - `Content/certs/` -- the TLS certificate and its key.  Conductor doesn't make them; make them once, from
   the repo root, and the certificate is what a client trusts:
 

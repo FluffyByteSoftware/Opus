@@ -288,6 +288,13 @@ When I say we're wrapping up:
   comments, and whether the file is **soft** or **hard**.  A file is one or
   the other as a whole, never a mix; a piece that needs both gets two
   files, and files are kept separate rather than one file with sections.
+  **The one exception** (Jacob, 2026-09-29): the whitelist and the
+  blacklist are `Content/cfg/whitelist.cfg` and `blacklist.cfg`, one
+  address or range a line, not `key = value`, and not in Constellations'
+  table (they have their own tabs, not the Settings tab).  `networking.cfg`
+  points at them.  They're read on every START SERVER, and a change from
+  the page takes at once and rewrites the file: the only hot swap in
+  Conductor.  Nothing else hot swaps.
   Soft (`postgres.cfg`, `networking.cfg`) is read on every START SERVER, so
   STOP SERVER and START SERVER applies a change.  Hard (`conductor_globals.cfg`: anything
   about Constellations, Scribe or the web admin's port; `wgui.cfg`: the web
@@ -314,8 +321,10 @@ When I say we're wrapping up:
   and later accounts and config) is a page or a button there. It listens on
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
   adding a route that changes anything. Starting, restarting and stopping the
-  server (`/Opus/wwwhook/start`, `/stop`, `/restart`) and kicking a TCP
-  connection (`/Opus/wwwhook/tcp/kick`) are already agreed to.
+  server (`/Opus/wwwhook/start`, `/stop`, `/restart`), kicking a TCP
+  connection (`/Opus/wwwhook/tcp/kick`) and changing the access lists
+  (`/Opus/wwwhook/networking/addip` and `/removeip`; Jacob's names, "add"
+  and "remove" alone were too generic) are already agreed to.
   `wwwhook` is Jacob's name for a path the page posts to that makes something
   happen; the shutdown and ACK routes predate it and kept their paths. Ask
   where a new one goes.
@@ -378,16 +387,28 @@ When I say we're wrapping up:
   is added, make sure the CSS for it exists.
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
-- The page is nine tabs down the left sidebar, under the OP logo: Control
-  Panel, System, Conductor, Services, Storage, TCP, Notifications History,
-  Log, Settings. Anything new goes on one of them, or is a new tab I agree to.
-- **The TCP tab** (2026-09-29) is the login door: every connection that
-  reached the TCP listener in the last five minutes, by address and DNS
-  name, never by account, with where each one is (the queue, TLS, Security's
-  line with its place, finished and how) and a KICK for `admin`.  It's
-  locked until both of networking's listeners are up.  A UDP tab (the
-  account, and the character once there is one) is Jacob's next; in
-  TODO.md.
+- The page is eleven tabs down the left sidebar, under the OP logo: Control
+  Panel, System, Conductor, Services, Storage, then a **Network Admin**
+  subsection (Connections, Whitelist, Blacklist; Jacob's layout,
+  2026-09-29), then Notifications History, Log, Settings. Anything new goes
+  on one of them, or is a new tab I agree to.
+- **The Connections tab** (2026-09-29; it was the TCP tab) is the door and
+  the world, TCP first then UDP: every connection that reached the TCP
+  listener in the last five minutes, by address and DNS name, never by
+  account, with where each one is (the queue, TLS, Security's line with its
+  place, finished and how) and a three-dot menu for `admin` (KICK, add the
+  address to the whitelist, add it to the blacklist); then every player in
+  the world over UDP, by account, with when they connected and how quiet
+  they are.  The character goes there once there is one.
+- **The Whitelist and Blacklist tabs** (2026-09-29) are the two access
+  lists: the entries, REMOVE on each, an ADD field.  A change takes at once
+  and writes the file.  Which list the door checks is `access_list` in
+  `networking.cfg` (off, whitelist or blacklist), on the Settings tab, and
+  takes on the next START SERVER.  A blacklisting while the blacklist is on
+  is a ban: every connection and player from the address is dropped at
+  once.  All three Network Admin tabs are locked until both of networking's
+  listeners are up; the lists can't be changed from the page while the
+  server is stopped (edit the files by hand then).
 - The Control Panel, the Log and the Settings are always clickable. Until
   the server is running they're the only tabs that are, and the bell is
   hidden. The Control Panel is the only place the server is started,

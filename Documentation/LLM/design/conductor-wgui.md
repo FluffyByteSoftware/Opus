@@ -18,14 +18,15 @@ conductor-wgui/
 ├── Cargo.toml         depends on conductor-tools, conductor-monitor and conductor-networking (the TCP tab)
 └── src/
     ├── lib.rs         start(port) -> bool, has_ended(); the thread, route(), log_in(), only_admin(),
-    │                    server_command(), settings_states(), settings_save(), settings_discard(), tcp_kick(), host_is_ours()
+    │                    server_command(), settings_states(), settings_save(), settings_discard(), tcp_kick(),
+    │                    networking_list(), unescape(), host_is_ours()
     ├── http.rs        read_request() (head, then the body Content-Length says), parse_head(), respond();
     │                    struct Request
     ├── login.rs       the two accounts and the live logins: log_in(), role_of(), log_out(), the cookie lines,
     │                    fields(); enum Role, enum Login
     ├── json.rs        status(switch, role, snapshot, services, disk, networking, open_notices, newest_notices, lines, log_file),
-    │                    login(role), notices(open), threads_of(pid, threads), settings(files), problems(list)
-    │                    -> String; a small Object builder, text() escaping
+    │                    login(role), notices(open), threads_of(pid, threads), settings(files), problems(list),
+    │                    access(lists), listed(), unlisted() -> String; a small Object builder, text() escaping
     └── page.html      the one page, baked in with include_str!
 ```
 
@@ -49,12 +50,15 @@ conductor-wgui/
 | GET    | `/Opus/settings`       | Every config file and setting: kind, comment, default, running value, waiting value.  Reads only |
 | POST   | `/Opus/wwwhook/settings/save?file=<name>` | SAVE on the Settings tab.  `key = value` lines in the body.  Needs `X-Opus: settings`.  400 with the complaints as JSON if a line is wrong, and nothing written; 500 the same way if the disk says no |
 | POST   | `/Opus/wwwhook/settings/discard?file=<name>` | DISCARD: throws the file's `.wait4server` away.  Needs `X-Opus: settings` |
-| POST   | `/Opus/wwwhook/tcp/kick?id=N` | KICK on the TCP tab: closes connection N at the door.  Needs `X-Opus: tcp`.  404 if it isn't open, 409 if TCP isn't listening |
+| POST   | `/Opus/wwwhook/tcp/kick?id=N` | KICK on the Connections tab: closes connection N at the door.  Needs `X-Opus: tcp`.  404 if it isn't open, 409 if TCP isn't listening |
+| GET    | `/Opus/networking`     | Both access lists, for the Whitelist and Blacklist tabs.  Reads only; `running` is false with empty lists while the server is stopped |
+| POST   | `/Opus/wwwhook/networking/addip?list=<whitelist or blacklist>&entry=<address or range>` | ADD on a list tab, or the Connections tab's menu.  Takes at once; a blacklisting while the blacklist is on is a ban.  Needs `X-Opus: networking`.  400 with the reason in words for an entry that isn't one, 409 while networking isn't running |
+| POST   | `/Opus/wwwhook/networking/removeip?list=...&entry=...` | REMOVE on a list tab, the same way |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
 Everything but `/`, the page and `/Opus/login` needs the login cookie, and answers `401 Unauthorized`
 without it; the page shows its login card on any 401.  Every route that changes something (the ACKs, the
-test notice, the server buttons, the settings, the kick, SHUT DOWN) needs `admin`, and answers `403 Forbidden` to
+test notice, the server buttons, the settings, the kick, the lists, SHUT DOWN) needs `admin`, and answers `403 Forbidden` to
 `user`.  The JSON shapes are written out at the top of `json.rs`.  The page's script is the other half of
 them.
 
@@ -160,8 +164,24 @@ them.
   words (a queued one says how many are ahead of it; one in Security's line says how many jobs are ahead
   and about how long; a finished one says how it ended, greyed, green if it logged in), and KICK on
   every open one.  The ledger behind it, the DNS thread and the kick are networking's; see
-  `conductor-networking.md`.  A UDP tab, with the account and the character once there is one, is
-  Jacob's next and waits in TODO.md.
+  `conductor-networking.md`.
+- **The Network Admin subsection** (2026-09-29, the session after): Jacob's layout, "a subsection on the
+  left for Network Admin and underneath it: Connections (which will show TCP and UDP ordered by type on
+  the page) and then WHITELIST and BLACKLIST".  So the TCP tab became **Connections**, sixth in the
+  sidebar under a small NETWORK ADMIN heading with the two list tabs after it, and all three take the
+  TCP tab's lock (both listeners up on top of the database).  Connections is the TCP table as it was,
+  then a UDP table of every player in the world (address, account, connected when, playing for, quiet
+  for; the account is the point there, unlike the door).  KICK moved into a three-dot menu on each row
+  (his ask: "in style like a : colon"), with ADD TO WHITELIST and ADD TO BLACKLIST under it, on finished
+  rows too; the menu lives outside the table, since the table is drawn again every second.  The
+  Whitelist and Blacklist tabs are one card each: a tile saying whether that list is the one the door
+  checks (`access_list` in networking.cfg, on the Settings tab) and what it means if not, the count, the
+  entries with REMOVE on each, and an ADD field in the head.  A change takes at once, and the tab says
+  what it did (an entry that was there already, a list that isn't switched on, how many connections
+  and players a ban dropped); a bad entry's reason shows in red, in Conductor's words.  The two
+  routes are `addip` and `removeip`, his names ("add" and "remove" were too generic), under
+  `/Opus/wwwhook/networking/`.  The lists can't be changed while the server is stopped, by his rule:
+  the tabs are locked then, and the files can be edited by hand.
 
 ## The page
 
@@ -169,12 +189,13 @@ them.
 and what went wrong under them.  It's up on every 401: the first load, after LOG OUT, and after Conductor
 has been run again.  The status loop stops while it's up and a login starts it again.
 
-**Sidebar**: the OP logo, and nine tabs under it: Control Panel, System, Conductor, Services, Storage,
-TCP, Notifications History, Log, Settings.  The Control Panel shows whenever the server isn't running; once it
+**Sidebar**: the OP logo, and eleven tabs under it: Control Panel, System, Conductor, Services, Storage,
+a NETWORK ADMIN heading with Connections, Whitelist and Blacklist indented under it, then Notifications
+History, Log, Settings.  The Control Panel shows whenever the server isn't running; once it
 is, the page moves to the tab the browser remembers, Conductor by default.  A locked tab is greyed and
 can't be clicked: with the server stopped that's everything but the Control Panel, the Log and the
-Settings, and with it running the database lock decides, and the TCP tab needs both network listeners up
-on top of that.  The Services tab gets a flashing red dot when a
+Settings, and with it running the database lock decides, and the three Network Admin tabs need both network
+listeners up on top of that.  The Services tab gets a flashing red dot when a
 service is down, only while the server is running (its pieces being down is the normal state before
 that).  At the bottom: who's logged in, whether they can change things, and LOG OUT.
 
@@ -233,11 +254,22 @@ read (from disk and from memory), failures (failing now, given up on), the last 
 under way with a progress bar, and open streams.  The dot flashes red when DiskMan isn't running or a file
 is failing.
 
-**TCP**: two tiles, then every connection that reached the login door in the last five minutes, newest
-first: address, host (reverse DNS, or `--`), arrived (UTC) and seconds ago, where it is in words, and
-KICK on an open one (asks first; greyed for `user`).  A finished row is greyed and says how it ended;
-a logged-in one is green.  No account name anywhere on it.  Locked while either listener is down, and
-the page steps off it to the default tab if that happens while it's open.
+**Connections**: two tiles, then TCP, every connection that reached the login door in the last five
+minutes, newest first: address, host (reverse DNS, or `--`), arrived (UTC) and seconds ago, where it is
+in words, and a three-dot button (greyed for `user`) that opens a small menu by the row: KICK on an open
+one (asks first), ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST (asks first, since it's a ban
+while the blacklist is on).  What the menu did shows in the panel's head.  A finished row is greyed and
+says how it ended; a logged-in one is green.  No account name on the TCP table.  Under it, UDP: every
+player in the world, newest first: address, account (green), connected (UTC), playing for (as
+DD:HH:MM:SS), quiet for (yellow from 5 seconds).  Locked while either listener is down, and the page
+steps off it to the default tab if that happens while it's open.
+
+**Whitelist** and **Blacklist**: one each.  Two tiles: ACCESS LIST (what `access_list` says, green when it's
+this list, yellow when it's the other, plain when off, with a line saying what that means for this
+list) and the count.  Then the card: the list's name, an ADD field and button in the head (Enter adds
+too), a line saying what the last change did, a red line for a bad entry in Conductor's words, and the
+entries with REMOVE on each (asks first).  "Nothing on it." when empty.  Greyed for `user`.  Locked with
+the Connections tab.
 
 **Notifications History**: every open notice, newest first: when, level (coloured), where from, what
 happened, and an ACK button.  ACK ALL (asks first) and TEST NOTIFICATION at the top.  The page asks
@@ -286,6 +318,7 @@ Archivist and the monitor are the server: expected until the first START SERVER,
   or a hash on the caller's thread; a decision for another day, in TODO.md.
 - Two accounts and no more.  A list of named accounts is an idea in TODO.md.
 - `wgui_port` is moving from `conductor_globals.cfg` into `wgui.cfg` (Jacob, 2026-09-29).  In TODO.md.
+- The Connections tab's UDP list has no character column yet: there are no characters.
 - Game account management (make, delete, list, finger, change password), from the old launcher menu's
   plans, goes here once there are game accounts.
 - The lock can't lift until Archivist reconnects, and Archivist only tries when a job comes in.  TODO.md.

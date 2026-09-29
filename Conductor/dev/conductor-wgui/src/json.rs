@@ -36,7 +36,10 @@
 //!                   "connections": [ { "id": 7, "address": "192.168.1.20:51234", "host": "desk.lan",
 //!                                      "arrived": "...Z", "seconds_ago": 12, "stage": "in_line",
 //!                                      "text": "In Security's line: 2 ahead, about 400 ms",
-//!                                      "queued_ahead": 0, "done": false, "logged_in": false } ] },
+//!                                      "queued_ahead": 0, "done": false, "logged_in": false } ],
+//!                   "in_world": [ { "address": "192.168.1.20:51235", "account": "jacob_01",
+//!                                   "connected": "...Z", "playing_seconds": 61, "quiet_seconds": 0 } ],
+//!                   "access": "off", "whitelisted": 0, "blacklisted": 2 },
 //!   "notices": { "open": 12, "newest": [ { "id", "when", "level", "source", "text" } ] },
 //!   "log": { "file": "...", "lines": [ { "number": 12, "priority": "Info", "text": "..." } ] } }
 //! ```
@@ -96,6 +99,23 @@
 //! won't let us look.  There's no percent in it: the page asks once a
 //! second and works that out from two answers.
 //!
+//! `/Opus/networking` has an answer of its own, both access lists for
+//! the Whitelist and Blacklist tabs.  `running` is false, with empty
+//! lists, while the server isn't running (the lists only load with it);
+//! each entry is as it's kept, an address or a range:
+//!
+//! ```text
+//! { "running": true, "mode": "blacklist", "whitelist": [ "10.0.0.0/8" ], "blacklist": [ "1.2.3.4" ] }
+//! ```
+//!
+//! `/Opus/wwwhook/networking/addip` answers with what the listing did,
+//! and `/removeip` with what the unlisting did:
+//!
+//! ```text
+//! { "entry": "1.2.3.0/24", "was_new": true, "enforced": true, "tcp_closed": 1, "players_dropped": 0 }
+//! { "entry": "1.2.3.0/24", "was_there": true }
+//! ```
+//!
 //! `/Opus/settings` has an answer of its own, every config file for the
 //! Settings tab, straight from Constellations' table:
 //!
@@ -122,7 +142,7 @@ use std::path::Path;
 
 use conductor_monitor::probe::{MachineMemory, ThreadReading};
 use conductor_monitor::{Disk, ProcessInUse, Snapshot, ThreadInUse};
-use conductor_networking::{Connection, End, Stage, Status as NetStatus};
+use conductor_networking::{AccessLists, Connection, End, Listed, Player, Stage, Status as NetStatus, Unlisted};
 use conductor_tools::archivist::{SlowJob, Status};
 use conductor_tools::constellations::{ConfigFile, Kind, Reboot, Setting, Values};
 use conductor_tools::diskman::Status as DiskStatus;
@@ -362,6 +382,58 @@ fn net(status: &NetStatus) -> String {
         .whole("tickets", status.tickets as u64)
         .whole("remember_seconds", status.remember.as_secs())
         .raw("connections", array(status.connections.iter().map(connection)))
+        .raw("in_world", array(status.in_world.iter().map(player)))
+        .text("access", status.access.word())
+        .whole("whitelisted", status.whitelisted as u64)
+        .whole("blacklisted", status.blacklisted as u64)
+        .done()
+}
+
+fn player(player: &Player) -> String {
+    Object::new()
+        .text("address", &player.address.to_string())
+        .text("account", &player.account)
+        .text("connected", &player.connected.line_stamp())
+        .whole("playing_seconds", player.playing_for.as_secs())
+        .whole("quiet_seconds", player.quiet_for.as_secs())
+        .done()
+}
+
+/// `/Opus/networking`: both access lists, or none while the server
+/// isn't running.
+pub(crate) fn access(lists: Option<&AccessLists>) -> String {
+    match lists {
+        Some(lists) => Object::new()
+            .flag("running", true)
+            .text("mode", lists.mode.word())
+            .raw("whitelist", array(lists.whitelist.iter().map(|entry| text(entry))))
+            .raw("blacklist", array(lists.blacklist.iter().map(|entry| text(entry))))
+            .done(),
+        None => Object::new()
+            .flag("running", false)
+            .text("mode", "off")
+            .raw("whitelist", array(std::iter::empty()))
+            .raw("blacklist", array(std::iter::empty()))
+            .done(),
+    }
+}
+
+/// `/Opus/wwwhook/networking/addip`'s answer.
+pub(crate) fn listed(listed: &Listed) -> String {
+    Object::new()
+        .text("entry", &listed.entry)
+        .flag("was_new", listed.was_new)
+        .flag("enforced", listed.enforced)
+        .whole("tcp_closed", listed.tcp_closed as u64)
+        .whole("players_dropped", listed.players_dropped as u64)
+        .done()
+}
+
+/// `/Opus/wwwhook/networking/removeip`'s answer.
+pub(crate) fn unlisted(unlisted: &Unlisted) -> String {
+    Object::new()
+        .text("entry", &unlisted.entry)
+        .flag("was_there", unlisted.was_there)
         .done()
 }
 
@@ -579,14 +651,17 @@ mod tests {
         let switch = ServerStatus { state: conductor_tools::server::State::Stopped, note: "x".to_string(),
                                     since: None };
         let quiet = NetStatus { tcp: None, udp: None, players: 0, tickets: 0,
-                                remember: std::time::Duration::from_secs(300), connections: Vec::new() };
+                                remember: std::time::Duration::from_secs(300), connections: Vec::new(),
+                                in_world: Vec::new(), access: conductor_networking::AccessMode::Off, whitelisted: 0,
+                                blacklisted: 0 };
         let answer = status(&switch, Role::User, None, &[], &conductor_tools::diskman::status(), &quiet, 0, &[], &[],
                             None);
         assert!(answer.starts_with("{\"server\":{\"state\":\"stopped\",\"note\":\"x\",\"since\":null},\
             \"login\":{\"name\":\"user\",\"can_change\":false},\
             \"monitor\":null,\"services\":[],\"diskman\":{\"running\":false,"));
         assert!(answer.contains("\"networking\":{\"tcp\":null,\"udp\":null,\"players\":0,\"tickets\":0,\
-            \"remember_seconds\":300,\"connections\":[]},"));
+            \"remember_seconds\":300,\"connections\":[],\"in_world\":[],\"access\":\"off\",\"whitelisted\":0,\
+            \"blacklisted\":0},"));
         assert!(answer.ends_with("\"notices\":{\"open\":0,\"newest\":[]},\"log\":{\"file\":null,\"lines\":[]}}"));
     }
 
@@ -612,6 +687,36 @@ mod tests {
         assert!(answer.contains("\"host\":null,"));
         assert!(answer.ends_with("\"stage\":\"done\",\"text\":\"Logged in and handed a ticket for UDP\",\
             \"queued_ahead\":0,\"done\":true,\"logged_in\":true}"));
+    }
+
+    #[test]
+    fn a_player_goes_out_with_their_account_and_times() {
+        use conductor_tools::clock::Utc;
+        use std::time::Duration;
+
+        let jacob = Player { address: "192.168.1.20:51235".parse().unwrap(), account: "jacob_01".to_string(),
+                             connected: Utc::from_unix(1_790_000_000), playing_for: Duration::from_millis(61_900),
+                             quiet_for: Duration::from_millis(400) };
+        assert_eq!(player(&jacob), "{\"address\":\"192.168.1.20:51235\",\"account\":\"jacob_01\",\
+            \"connected\":\"02:13:20 PM - 09-21-26 Z\",\"playing_seconds\":61,\"quiet_seconds\":0}");
+    }
+
+    #[test]
+    fn the_lists_go_out_as_they_are_or_as_not_running() {
+        use conductor_networking::AccessMode;
+
+        assert_eq!(access(None), "{\"running\":false,\"mode\":\"off\",\"whitelist\":[],\"blacklist\":[]}");
+        let lists = AccessLists { mode: AccessMode::Blacklist, whitelist: vec!["10.0.0.0/8".to_string()],
+                                  blacklist: vec!["1.2.3.4".to_string(), "2001:db8::/32".to_string()] };
+        assert_eq!(access(Some(&lists)), "{\"running\":true,\"mode\":\"blacklist\",\"whitelist\":[\"10.0.0.0/8\"],\
+            \"blacklist\":[\"1.2.3.4\",\"2001:db8::/32\"]}");
+
+        let done = Listed { entry: "1.2.3.0/24".to_string(), was_new: true, enforced: true, tcp_closed: 1,
+                            players_dropped: 0 };
+        assert_eq!(listed(&done), "{\"entry\":\"1.2.3.0/24\",\"was_new\":true,\"enforced\":true,\"tcp_closed\":1,\
+            \"players_dropped\":0}");
+        let undone = Unlisted { entry: "1.2.3.0/24".to_string(), was_there: false };
+        assert_eq!(unlisted(&undone), "{\"entry\":\"1.2.3.0/24\",\"was_there\":false}");
     }
 
     #[test]

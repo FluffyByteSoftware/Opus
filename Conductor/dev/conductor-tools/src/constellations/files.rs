@@ -314,9 +314,35 @@ pub static NETWORKING: ConfigFile = ConfigFile {
             key: "connections_remember_seconds",
             kind: Kind::Number { low: 10, high: 86_400 },
             default: "300",
-            about: "How long a finished connection stays on the web admin's TCP tab,\n\
-                    counted from when it arrived.  One still in progress stays whatever\n\
-                    this says.",
+            about: "How long a finished connection stays on the web admin's Connections\n\
+                    tab, counted from when it arrived.  One still in progress stays\n\
+                    whatever this says.",
+        },
+        Setting {
+            key: "access_list",
+            kind: Kind::Text,
+            default: "off",
+            about: "Which list the login door checks addresses against: off (nobody is\n\
+                    checked), whitelist (only an address on the whitelist gets in) or\n\
+                    blacklist (an address on the blacklist is closed at the door).  The\n\
+                    lists themselves are the two files below, and change at once from the\n\
+                    web admin; this switch takes on the next START SERVER.",
+        },
+        Setting {
+            key: "whitelist_file",
+            kind: Kind::Text,
+            default: "cfg/whitelist.cfg",
+            about: "The whitelist: one address (1.2.3.4) or range (1.2.3.0/24) a line.\n\
+                    Read on every START SERVER, and written by the web admin's Whitelist\n\
+                    tab on every change.",
+        },
+        Setting {
+            key: "blacklist_file",
+            kind: Kind::Text,
+            default: "cfg/blacklist.cfg",
+            about: "The blacklist: one address (1.2.3.4) or range (1.2.3.0/24) a line.\n\
+                    Read on every START SERVER, and written by the web admin's Blacklist\n\
+                    tab on every change.",
         },
     ],
 };

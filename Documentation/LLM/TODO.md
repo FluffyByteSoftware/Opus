@@ -38,27 +38,18 @@ Things that wait on a piece that doesn't exist yet.
     purpose (a dropped UDP session is gone, start over), so it's a design change when it comes, not a fix.
   - A session id in every UDP packet, so a home router changing the port mid-session doesn't end it.
   - Anything an admin does to a player from the web admin: see who's on, kick, message.
-- **Web admin: the UDP tab.**  Jacob's spec, 2026-09-29, with the TCP tab's: the account of every player
-  connected over UDP, and the character they're playing once there are characters.  Locked like the TCP
-  tab until both listeners are up.  Needs a `players()` in `sessions.rs` that copies out each player's
-  account, address, connected-since and last-heard (the book holds it all and only hands out counts
-  today), a `players` list in `status()`, its shape at the top of `json.rs`, and the tab.  Kicking a
-  player from it is client management, above.
-- **Networking: a whitelist and a blacklist of addresses**, switchable in `networking.cfg`.  Jacob's ask at
-  the end of the TCP tab session, 2026-09-29, and his pick for the session after it, in his words: "ability
-  to kick a TCP connection that's in queue, or connected.  A quick 'add to whitelist' or 'add to blacklist'
-  option."  The kick of a queued or a connected connection is built (the TCP tab's KICK covers both); the
-  lists and the two per-row buttons are the session.  What it has to settle first:
-  - Where the lists live.  Constellations' files are `key = value`, and a list of addresses that grows
-    from the page doesn't fit one line.  A file of its own per list (`Content/cfg/whitelist.txt`, one
-    address or range a line) read by networking through DiskMan is the plain way; the switch
-    (`access_list = off | whitelist | blacklist`) stays in `networking.cfg`.
-  - Whether a change to a list takes at once or on the soft reboot like the rest of `networking.cfg`.  A
-    ban from the page that waits for a STOP SERVER isn't much of a ban, so probably at once, which
-    would be the first hot swap in Conductor and wants saying so.
-  - Addresses only, or ranges (CIDR) too.  A ban on one home address is easy to step around.
-  - Where the check sits: the acceptor, beside the failure hold, so a listed address costs nothing but
-    an accept and a close, and the ledger says "closed at the door: blacklisted".
+- **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
+  characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
+  the access lists, 2026-09-29.  Kicking a player from it is client management, above.
+- **Networking: a Kicked reason for a ban.**  A player dropped by a blacklisting is told nothing today,
+  like one who went quiet, because a new `KickReason` is a protocol change (`PROTOCOL_VERSION` bumps).
+  When Ensemble can show "you were banned", add the reason and bump the version.
+- **Networking: the whitelist-to-blacklist edge.**  Taking an address off the whitelist while the whitelist
+  is on kicks nobody: they're turned away on their next login.  A ban is the blacklist's job.  If that
+  ever bites, `close_matching()` and `drop_where()` are already there to call.
+- **Networking: `access_list` switchable from the page at once.**  Today the switch is in `networking.cfg`
+  and takes on the next START SERVER, while the lists themselves take at once.  Jacob's call if the
+  reboot is a bother.
 - Networking: reverse DNS on macOS.  `dns/other.rs` hands back no name; macOS has `getnameinfo` with its
   own `sockaddr` layout (a length byte first).  Waits on a Mac, like the monitor.
 - Networking: the protocol version in the Hello is `1` and the client versions are a list in
@@ -77,6 +68,9 @@ Things that wait on a piece that doesn't exist yet.
 - Ensemble has no way to find `Content/` yet.  Decide how once the engine is picked.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
+
+- **Documentation: clean-up and management.**  Jacob's pick for the session after the access lists, said
+  mid-session on 2026-09-29.  What that covers is his to say when it opens.
 
 ## Ideas
 
@@ -107,9 +101,11 @@ Things we thought of along the way.  None of them are promised.
 - Monitor or the Storage tab: "last read / last write" by file.  DiskMan sees every file now, so this is
   ready whenever it's wanted.
 - DiskMan: notice hand edits.  A file it already holds is served from memory even if somebody edited it on
-  disk since.  Checking the modified time before trusting the copy would fix it.  Only configs today:
-  `postgres.cfg` is read on every START SERVER, so a hand edit between two starts while Conductor runs
-  isn't seen.  A `.wait4server` file written by hand is, since Constellations reads it fresh.
+  disk since.  Checking the modified time before trusting the copy would fix it.  The configs, and since
+  2026-09-29 the two access lists: `postgres.cfg` and `whitelist.cfg` are read on every START SERVER, so
+  a hand edit between two starts while Conductor runs isn't seen (Jacob's "you could edit them on disk"
+  holds with Conductor down, not between a STOP and a START).  A `.wait4server` file written by hand is,
+  since Constellations reads it fresh.
 - DiskMan: the `.wait4server` swap leans on `fs::rename` replacing a file, the same as its writes; on
   Windows that's the same untested spot.
 - DiskMan: the Windows build.  It leans on `fs::rename` replacing a file there, and skips flushing the folder.
@@ -123,9 +119,6 @@ Things we thought of along the way.  None of them are promised.
   the last tab, in the browser.
 - Web admin: more accounts than `user` and `admin`, with names of their own.  Two fixed ones were
   Jacob's ask for now.
-- Web admin: on the TCP tab, a finished row that logged in was meant to read green and reads grey: `tr.over
-  td` outweighs `.good-ink`.  A `tr.over td.good-ink { color: var(--green); }` line fixes it.  Seen in
-  Jacob's screenshot, 2026-09-29, at the wrap-up, so it waited.
 - Web admin: the Settings tab could offer the default beside a field, and a "back to default" click.
 - Web admin: pin Conductor to the top of the System tab's process list, if busiest-first buries it.
 - Web admin: a setting in `conductor_globals.cfg` that starts the server on its own when Conductor boots,
@@ -146,6 +139,10 @@ Things we thought of along the way.  None of them are promised.
   Reading it past DiskMan (the way the monitor reads `/proc`) would keep it out, if it ever matters.
 - Networking: the login threads' `serving` list and the failure hold are two small maps under two locks;
   fine at this size.  If the door ever sees thousands of connections a second, look here first.
+- Networking: the access lists are a Vec walked on every accept.  Fine for tens of entries; a blacklist
+  of thousands would want a map for the single addresses and the Vec for the ranges only.
+- Networking: a ban from the page rewrites the whole list file, so a hand-written comment in it is lost.
+  Keeping the comments (reading the file, replacing only the entry lines) if anybody minds.
 - Running Conductor with no console window.  The page's Log tab shows everything the console does, but
   closing the console kills Conductor today (Linux sends the terminal's hang-up signal, Windows ends the
   process), so it goes down without a clean shutdown.  Ways to fix it: start it detached (`setsid` or

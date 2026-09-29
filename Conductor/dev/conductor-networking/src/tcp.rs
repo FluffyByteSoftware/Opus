@@ -40,11 +40,14 @@
 //! do instead (sessions.rs); a right password otherwise gets a ticket.
 //!
 //! Every connection goes on the ledger (ledger.rs) as it's accepted, and
-//! moves along it a stage at a time, so the web admin's TCP tab can show
-//! where each one is.  A clone of every open socket is kept under its
-//! ledger number from accept until its login thread is done with it: that
-//! is what `stop()` shuts to wake the threads, and what `kick()` shuts
-//! when the admin kicks a connection from the tab.
+//! moves along it a stage at a time, so the web admin's Connections tab
+//! can show where each one is.  Before any of that, the acceptor asks
+//! the access lists (access.rs) about the address: one on the blacklist,
+//! or off the whitelist, is closed at the door for the cost of an accept.
+//! A clone of every open socket is kept under its ledger number from
+//! accept until its login thread is done with it: that is what `stop()`
+//! shuts to wake the threads, what `kick()` shuts when the admin kicks a
+//! connection from the tab, and what `close_matching()` shuts for a ban.
 
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
@@ -62,6 +65,7 @@ use conductor_tools::security::{self, SecurityError, Ticket};
 use conductor_tools::services::{self, State};
 use conductor_tools::{archivist, threads};
 
+use crate::access::{self, Entry, Verdict};
 use crate::ledger::{self, End, Stage};
 use crate::protocol::{self, Choice, KickReason, LoginAnswer, LoginRequest, Packet, PacketType};
 use crate::settings::Settings;
@@ -129,7 +133,7 @@ struct Arrival {
 /// socket the thread is reading, and the read comes back at once.
 type OpenSockets = Arc<Mutex<HashMap<u64, TcpStream>>>;
 
-/// What a kick from the TCP tab got.
+/// What a kick from the Connections tab got.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kicked {
     /// The socket is shut.  The login thread finds out on its next read,
@@ -287,7 +291,7 @@ pub fn stop() {
     scribe::info(Channel::Network, "TCP: stopped listening.");
 }
 
-/// The admin kicked connection `id` from the TCP tab.  The ledger says
+/// The admin kicked connection `id` from the Connections tab.  The ledger says
 /// so first, so the login thread's own "hung up" a moment later doesn't
 /// overwrite it, then the socket is shut.  The client just sees the
 /// connection close.
@@ -316,6 +320,37 @@ pub fn kick(id: u64) -> Kicked {
     Kicked::Yes
 }
 
+/// The admin put `entry` on the blacklist: every open connection from
+/// inside it is closed where it stands, the way a kick is, and the
+/// ledger says banned.  How many there were.
+pub fn close_matching(entry: &Entry) -> usize {
+    let open = {
+        let guard = TCP.lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match guard.as_ref() {
+            Some(side) => Arc::clone(&side.open),
+            None => return 0,
+        }
+    };
+    let closing: Vec<(u64, TcpStream)> = {
+        let mut open = open.lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let ids: Vec<u64> = open.iter()
+            .filter(|(_, socket)| socket.peer_addr().is_ok_and(|peer| entry.contains(peer.ip())))
+            .map(|(id, _)| *id)
+            .collect();
+        ids.into_iter().filter_map(|id| open.remove(&id).map(|socket| (id, socket))).collect()
+    };
+    for (id, socket) in &closing {
+        ledger::ended(*id, End::Banned);
+        let _ = socket.shutdown(Shutdown::Both);
+    }
+    if !closing.is_empty() {
+        scribe::info(Channel::Network, &format!("Banned {entry}: {} connection(s) closed at the door.", closing.len()));
+    }
+    closing.len()
+}
+
 /// Where the TCP side is listening, if it is.
 pub fn listening_on() -> Option<SocketAddr> {
     let guard = TCP.lock()
@@ -328,8 +363,9 @@ pub fn listening_on() -> Option<SocketAddr> {
 // ---------------------------------------------------------------------------
 
 /// The acceptor's thread.  Each connection goes on the ledger and then
-/// the queue, unless its address failed a login a moment ago or the
-/// queue is full, which the ledger says instead.
+/// the queue, unless its address is turned away by the access lists,
+/// failed a login a moment ago, or finds the queue full, which the
+/// ledger says instead.
 fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<AtomicBool>, open: OpenSockets) {
     // Set once we've said the queue is full, so a flood gets one Warn and
     // not one per connection.
@@ -342,6 +378,23 @@ fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<Atomi
                     return;
                 }
                 let id = ledger::arrived(peer);
+                // Rust note: `continue` drops `socket` here, and a
+                // dropped socket is a closed one.  That's the whole cost
+                // of a turned-away connection.
+                match access::verdict(peer.ip()) {
+                    Verdict::Allowed => {}
+                    Verdict::Blacklisted => {
+                        ledger::ended(id, End::Blacklisted);
+                        scribe::debug(Channel::Network, &format!("{peer} is on the blacklist.  Closed at the door."));
+                        continue;
+                    }
+                    Verdict::NotWhitelisted => {
+                        ledger::ended(id, End::NotWhitelisted);
+                        scribe::debug(Channel::Network, &format!("{peer} isn't on the whitelist.  Closed at the \
+                            door."));
+                        continue;
+                    }
+                }
                 if let Some(left) = hold_remaining(peer.ip()) {
                     ledger::ended(id, End::Held);
                     scribe::debug(Channel::Network, &format!("{peer} failed a login less than {} seconds ago.  \

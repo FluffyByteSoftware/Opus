@@ -19,22 +19,26 @@ conductor-networking/
 ├── Cargo.toml
 ├── test_client.py       the stand-in client: TLS, Login, Ticket, Connect, keep-alives, Goodbye.  Python 3.
 └── src/
-    ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections }, kick(id)
-    │                      timed_out(), wake_address(), shared by the two sides
+    ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections, in_world, access },
+    │                      kick(id), access_lists(), list_address(), unlist_address(); timed_out(), wake_address()
     ├── settings.rs      networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs           server_config(settings) -> Arc<ServerConfig>; MAKE_PAIR, the openssl command
     ├── protocol.rs      the packets, byte for byte: PacketType, LoginAnswer, ConnectAnswer, KickReason, Choice
     │                      frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                      connect_result(), keep_alive(), kicked(); read_login(), read_session_choice(), read_connect()
     ├── sessions.rs      the book: tickets by token, players by address, each account's whereabouts
-    │                      playing(), issue(), connect(), heard(), leave(), kick(), sweep(), clear(), counts()
+    │                      playing(), issue(), connect(), heard(), leave(), kick(), sweep(), clear(), counts(), players(),
+    │                      drop_where()
     ├── ledger.rs        the door's ledger: every connection of the last five minutes and its Stage; End; Connection
     │                      clear(), arrived(), set(), ended(), is_done(), snapshot()
+    ├── access.rs        the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
+    │                      start(mode, paths), stop(), verdict(ip), add(), remove(), snapshot(), counts()
     ├── dns.rs           reverse DNS on thread net-dns, with a cache: start(), stop(), ask(), name_of()
     ├── dns/linux.rs     reverse(ip) around getnameinfo from the C library
     ├── dns/windows.rs   the same around ws2_32's; never built
     ├── dns/other.rs     macOS and the rest: no names
-    ├── tcp.rs           the acceptor thread, the login threads, TLS, the login flow, the failure hold, kick()
+    ├── tcp.rs           the acceptor thread, the login threads, TLS, the login flow, the failure hold, kick(),
+    │                      close_matching() for a ban
     └── udp.rs           the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; tell() for kicks
 ```
 
@@ -132,6 +136,32 @@ because of the CPU cost.
   the threads; it used to hold only the ones being served).  `kick(id)` marks the ledger, shuts the
   socket, and the login thread finds its read failing, or skips the connection if it was still queued.
   The client sees the connection drop and nothing else.  A kick is an Info line on the Network channel.
+- **The whitelist and the blacklist** (2026-09-29, the session after the TCP tab), Jacob's ask.  `access.rs`.
+  Two files, `Content/cfg/whitelist.cfg` and `blacklist.cfg`, one address (`1.2.3.4`, `::1`) or range
+  (`1.2.3.0/24`, since a ban on one home address is easy to step around) a line, `#` comments; `.cfg` by
+  his call, but not Constellations' kind (a list that grows from the page doesn't fit `key = value`), so
+  `networking.cfg` points at them (`whitelist_file`, `blacklist_file`) and a switch there, `access_list =
+  off | whitelist | blacklist`, says which one the door looks at.  The switch and the files are read on
+  every START SERVER, so the lists in memory are always rebuilt from disk at a start.  A change from the
+  page takes at once, on the next connection, and rewrites the file the same moment: the first and only
+  hot swap in Conductor, because a ban that waited for a STOP SERVER wouldn't be much of a ban.  While
+  the server is stopped nothing is loaded, so the page can't change them; the files can be edited by hand
+  then.  The check sits in the acceptor before the failure hold, so a listed address costs an accept and
+  a close, and the ledger says "closed at the door: blacklisted" or "not on the whitelist" (Debug lines,
+  never a Warn: a banned address hammering the door shouldn't fill the bell).  A range's host bits are
+  cleared on the way in, an IPv4 address wrapped in IPv6 (`::ffff:1.2.3.4`, what a listener on `::` sees)
+  is checked as the IPv4 one, and a check is one lock and a walk down a short list.  The UDP side checks
+  a Connect too, so a listed address with a ticket in hand gets silence.  **A blacklisting while the
+  blacklist is on is a ban**, Jacob's rule: `close_matching()` shuts every open TCP connection from inside
+  the entry (the ledger says banned) and `sessions::drop_where()` drops every player at such an address,
+  told nothing, like a player who went quiet; a Kicked with a reason of its own would be a protocol
+  change, and it's in TODO.md.  Taking an address off a list kicks nobody.  An entry on a list that isn't
+  switched on is kept and does nothing, and the page says so.  With the whitelist on and empty, nobody
+  can log in, and the start says so with a Warn.
+- **The players for the page** (the same session): `sessions::players()` copies every player out
+  (address, account, when their Connect was accepted, how long they've been in, how long since their
+  last packet), newest first, for the Connections tab's UDP list.  The account is on it, unlike the
+  door's ledger: the world is about who's in it.
 - **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file,
   prints every packet, and has switches for kicking or sparing the other session, leaving after N
   seconds, and going quiet to watch the timeout.  Jacob used one for Stratum too.
@@ -148,9 +178,10 @@ because of the CPU cost.
   the session.  A session id in each UDP packet would survive it.  Later, if it bites.
 - **The Windows side** has never been built.  Nothing here is OS-specific but the `ConnectionReset` line
   in `udp.rs`, which is Windows telling us about a bounced packet.
-- **The web admin shows the door** (the TCP tab, 2026-09-29) and not the world yet: a UDP tab with the
-  account, and the character once there is one, is Jacob's next.  `sessions.rs` would need a `players()`
-  that copies each player out; today it only hands out counts.
-- **A whitelist and a blacklist** of addresses, switchable in `networking.cfg`, and a way to manage
-  connections from the tab beyond the kick (a BAN that adds to the blacklist, say).  Jacob's ask at the
-  end of the TCP tab session; in TODO.md with the questions it raises.
+- **The web admin shows the door and the world** (the Connections tab, 2026-09-29): the players are listed by
+  account; the character goes beside it once there is one.
+- **A banned player is told nothing.**  A Kicked with a reason of its own (banned) would be a protocol
+  change; in TODO.md.
+- **A hand edit to a list file while Conductor runs** isn't seen on the next START SERVER: DiskMan serves a
+  file it already holds from memory.  The same as the config files, in TODO.md under DiskMan.  A hand edit
+  with Conductor down is read fine.

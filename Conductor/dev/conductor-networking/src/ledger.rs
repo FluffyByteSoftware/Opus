@@ -7,7 +7,8 @@
 //! connection in as it arrives, the login thread moves it along a stage
 //! at a time (TLS, waiting for its Login, in Security's line with its
 //! place, asked about another session), and whichever way it ends, that's
-//! written in too.  The web admin's TCP tab is drawn from `snapshot()`.
+//! written in too.  The web admin's Connections tab is drawn from
+//! `snapshot()`.
 //!
 //! A connection is known here by its address and nothing else.  No
 //! account name goes on the ledger, even once the login is done: this
@@ -93,8 +94,14 @@ pub enum End {
     Unserved,
     /// The server was stopping.
     Stopped,
-    /// The admin kicked it from the TCP tab.
+    /// The admin kicked it from the Connections tab.
     Kicked,
+    /// Closed at the door: the blacklist is on and the address is on it.
+    Blacklisted,
+    /// Closed at the door: the whitelist is on and the address isn't.
+    NotWhitelisted,
+    /// The admin added its address to the blacklist while it was open.
+    Banned,
 }
 
 impl Stage {
@@ -148,6 +155,9 @@ impl End {
             End::Unserved => "Waited in the queue past the login deadline; closed unserved",
             End::Stopped => "The server was stopping",
             End::Kicked => "Kicked by the admin",
+            End::Blacklisted => "Closed at the door: blacklisted",
+            End::NotWhitelisted => "Closed at the door: not on the whitelist",
+            End::Banned => "Banned: the admin put the address on the blacklist",
         }
     }
 }

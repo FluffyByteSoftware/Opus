@@ -24,9 +24,9 @@
 //! - `POST /Opus/logout` -- forgets the cookie's login.
 //! - `GET /Opus/status?after=N` -- where the server is at, who's logged
 //!   in, the monitor's latest look, the services, DiskMan's numbers,
-//!   networking's door (every TCP connection of the last five minutes),
-//!   and Scribe's lines after line N, as JSON.  The page asks once a
-//!   second.
+//!   networking's door (every TCP connection of the last five minutes,
+//!   every player in the world, and which access list is on), and
+//!   Scribe's lines after line N, as JSON.  The page asks once a second.
 //! - `GET /Opus/threads?pid=N` -- one process's threads, for when the admin
 //!   clicks it on the System tab.  It only reads, like the status.
 //! - `GET /Opus/notices` -- every open notice, for the Notifications
@@ -51,10 +51,20 @@
 //!   before then.
 //! - `POST /Opus/wwwhook/settings/discard?file=<name>` -- throws that
 //!   waiting file away.
-//! - `POST /Opus/wwwhook/tcp/kick?id=N` -- the TCP tab's KICK on one
-//!   connection, by its number in the status.  The connection is closed
-//!   where it stands.  404 for a number that isn't open, 409 while the
-//!   TCP side isn't listening.
+//! - `POST /Opus/wwwhook/tcp/kick?id=N` -- the Connections tab's KICK on
+//!   one connection, by its number in the status.  The connection is
+//!   closed where it stands.  404 for a number that isn't open, 409 while
+//!   the TCP side isn't listening.
+//! - `GET /Opus/networking` -- both access lists, for the Whitelist and
+//!   Blacklist tabs.  It only reads.
+//! - `POST /Opus/wwwhook/networking/addip?list=<whitelist|blacklist>&entry=<address or range>`
+//!   -- puts an address (`1.2.3.4`) or a range (`1.2.3.0/24`) on a list.
+//!   It takes at once and the file is written behind it; a blacklisting
+//!   while the blacklist is on kicks every connection and player from
+//!   that address then and there.  400 for an entry that isn't one (the
+//!   text says what's wrong), 409 while networking isn't running.
+//! - `POST /Opus/wwwhook/networking/removeip?list=...&entry=...` -- takes
+//!   one off, the same way.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -327,6 +337,12 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         ("POST", "/Opus/wwwhook/settings/save") => settings_save(request, role),
         ("POST", "/Opus/wwwhook/settings/discard") => settings_discard(request, role),
         ("POST", "/Opus/wwwhook/tcp/kick") => tcp_kick(request, role),
+        ("GET", "/Opus/networking") => {
+            (Answer::new("200 OK", "application/json", json::access(conductor_networking::access_lists().as_ref())),
+             Next::KeepGoing)
+        }
+        ("POST", "/Opus/wwwhook/networking/addip") => networking_list(request, role, ListChange::Add),
+        ("POST", "/Opus/wwwhook/networking/removeip") => networking_list(request, role, ListChange::Remove),
         ("POST", "/Opus/wwwhook/start") => server_command(request, role, Command::Start),
         ("POST", "/Opus/wwwhook/stop") => server_command(request, role, Command::Stop),
         ("POST", "/Opus/wwwhook/restart") => server_command(request, role, Command::Restart),
@@ -346,7 +362,8 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         | (_, "/Opus/threads") | (_, "/Opus/notices") | (_, "/Opus/notices/ack") | (_, "/Opus/notices/ack-all")
         | (_, "/Opus/notices/test") | (_, "/Opus/wwwhook/start") | (_, "/Opus/wwwhook/stop")
         | (_, "/Opus/wwwhook/restart") | (_, "/Opus/settings") | (_, "/Opus/wwwhook/settings/save")
-        | (_, "/Opus/wwwhook/settings/discard") | (_, "/Opus/wwwhook/tcp/kick") | (_, "/Opus/shutdown") => {
+        | (_, "/Opus/wwwhook/settings/discard") | (_, "/Opus/wwwhook/tcp/kick") | (_, "/Opus/networking")
+        | (_, "/Opus/wwwhook/networking/addip") | (_, "/Opus/wwwhook/networking/removeip") | (_, "/Opus/shutdown") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
         _ => (Answer::plain("404 Not Found", "There's nothing here."), Next::KeepGoing),
@@ -444,6 +461,72 @@ fn tcp_kick(request: &Request, role: Role) -> (Answer, Next) {
             (Answer::plain("409 Conflict", "The TCP side isn't listening."), Next::KeepGoing)
         }
     }
+}
+
+/// Which way a list is being changed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ListChange {
+    Add,
+    Remove,
+}
+
+/// The Whitelist and Blacklist tabs' ADD and REMOVE, and the Connections
+/// tab's menu: `?list=whitelist|blacklist&entry=<address or range>`.
+/// The entry is checked here first, so a typo is a 400 with the reason
+/// in words, before networking is asked anything.
+fn networking_list(request: &Request, role: Role, change: ListChange) -> (Answer, Next) {
+    if let Some(turned_away) = only_admin(role) {
+        return (turned_away, Next::KeepGoing);
+    }
+    if request.header("x-opus") != Some("networking") {
+        scribe::warn(Channel::System, "The web admin turned away a list change that didn't come from its own page.");
+        return (Answer::plain("403 Forbidden", "Change the lists from the page."), Next::KeepGoing);
+    }
+    let Some(list) = request.query_value("list").and_then(conductor_networking::List::parse) else {
+        return (Answer::plain("400 Bad Request", "Which list?  ?list=whitelist or ?list=blacklist"), Next::KeepGoing);
+    };
+    let entry_text = unescape(request.query_value("entry").unwrap_or(""));
+    let entry = match conductor_networking::Entry::parse(&entry_text) {
+        Ok(entry) => entry,
+        Err(why) => return (Answer::plain("400 Bad Request", &why), Next::KeepGoing),
+    };
+    let answer = match change {
+        ListChange::Add => conductor_networking::list_address(list, entry).map(|listed| json::listed(&listed)),
+        ListChange::Remove => {
+            conductor_networking::unlist_address(list, entry).map(|unlisted| json::unlisted(&unlisted))
+        }
+    };
+    match answer {
+        Ok(body) => (Answer::new("200 OK", "application/json", body), Next::KeepGoing),
+        Err(why) => (Answer::plain("409 Conflict", &why), Next::KeepGoing),
+    }
+}
+
+/// A query value with its `%XX` escapes undone and `+` read as a space,
+/// which is how the page sends a range's slash.  Anything that isn't a
+/// proper escape is kept as it is.
+fn unescape(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'+' {
+            out.push(b' ');
+            i += 1;
+            continue;
+        }
+        if bytes[i] == b'%' && i + 3 <= bytes.len() {
+            let pair = std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or("");
+            if let Ok(byte) = u8::from_str_radix(pair, 16) {
+                out.push(byte);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 /// Every config file as the Settings tab sees it.  A file that hasn't
@@ -655,9 +738,10 @@ mod tests {
         for (path, header) in [("/Opus/notices/ack", "ack"), ("/Opus/notices/ack-all", "ack"),
                                ("/Opus/notices/test", "ack"), ("/Opus/wwwhook/start", "server"),
                                ("/Opus/wwwhook/stop", "server"), ("/Opus/wwwhook/restart", "server"),
-                               ("/Opus/wwwhook/tcp/kick", "tcp"), ("/Opus/shutdown", "shut-down")] {
+                               ("/Opus/wwwhook/tcp/kick", "tcp"), ("/Opus/wwwhook/networking/addip", "networking"),
+                               ("/Opus/wwwhook/networking/removeip", "networking"), ("/Opus/shutdown", "shut-down")] {
             let mut asking = request("POST", path, &[HOST, ("cookie", user.as_str()), ("x-opus", header)]);
-            asking.query = format!("id={id}");
+            asking.query = format!("id={id}&list=blacklist&entry=1.2.3.4");
             let (answer, next) = route(&asking, 9996);
             assert_eq!(answer.status, "403 Forbidden", "{path}");
             assert!(String::from_utf8_lossy(&answer.body).starts_with("Only admin"), "{path}");
@@ -754,6 +838,70 @@ mod tests {
 
         let (answer, _) = route(&request("GET", "/Opus/wwwhook/tcp/kick", &[HOST, ("cookie", admin.as_str())]), 9996);
         assert_eq!(answer.status, "405 Method Not Allowed");
+    }
+
+    #[test]
+    fn a_list_change_needs_the_page_header_a_list_an_entry_and_a_running_server() {
+        let admin = cookie_for("admin");
+        let user = cookie_for("user");
+
+        // The lists can be read by anyone logged in.  Nothing is running
+        // in a test, so they aren't loaded.
+        let (answer, _) = route(&request("GET", "/Opus/networking", &[HOST, ("cookie", user.as_str())]), 9996);
+        assert_eq!(answer.status, "200 OK");
+        assert_eq!(String::from_utf8_lossy(&answer.body),
+                   "{\"running\":false,\"mode\":\"off\",\"whitelist\":[],\"blacklist\":[]}");
+
+        for path in ["/Opus/wwwhook/networking/addip", "/Opus/wwwhook/networking/removeip"] {
+            // Without the page's header, nothing is looked at.
+            let mut asking = request("POST", path, &[HOST, ("cookie", admin.as_str())]);
+            asking.query = "list=blacklist&entry=1.2.3.4".to_string();
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "403 Forbidden", "{path}");
+
+            let mut asking = request("POST", path, &[HOST, ("cookie", admin.as_str()), ("x-opus", "networking")]);
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "400 Bad Request", "{path}");
+            assert!(String::from_utf8_lossy(&answer.body).starts_with("Which list?"), "{path}");
+
+            asking.query = "list=greylist&entry=1.2.3.4".to_string();
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "400 Bad Request", "{path}");
+
+            asking.query = "list=blacklist&entry=potato".to_string();
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "400 Bad Request", "{path}");
+            assert!(String::from_utf8_lossy(&answer.body).starts_with("\"potato\" isn't an address"), "{path}");
+
+            asking.query = "list=blacklist&entry=".to_string();
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "400 Bad Request", "{path}");
+
+            // A good entry, a range with its slash escaped the way the
+            // page sends it, but no server running to change.
+            asking.query = "list=blacklist&entry=1.2.3.0%2F24".to_string();
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "409 Conflict", "{path}");
+            assert!(String::from_utf8_lossy(&answer.body).starts_with("Networking isn't running"), "{path}");
+
+            let (answer, _) = route(&request("GET", path, &[HOST, ("cookie", admin.as_str())]), 9996);
+            assert_eq!(answer.status, "405 Method Not Allowed", "{path}");
+        }
+    }
+
+    #[test]
+    fn a_query_value_comes_unescaped() {
+        assert_eq!(unescape("1.2.3.0%2F24"), "1.2.3.0/24");
+        assert_eq!(unescape("1.2.3.0%2f24"), "1.2.3.0/24");
+        assert_eq!(unescape("2001%3Adb8%3A%3A%2F32"), "2001:db8::/32");
+        assert_eq!(unescape("a+b"), "a b");
+        assert_eq!(unescape("plain"), "plain");
+        assert_eq!(unescape(""), "");
+        // A stray percent, or one with no room for two digits, stays.
+        assert_eq!(unescape("100%"), "100%");
+        assert_eq!(unescape("%2"), "%2");
+        assert_eq!(unescape("%zz"), "%zz");
+        assert_eq!(unescape("%%2F"), "%/");
     }
 
     #[test]

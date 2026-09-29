@@ -38,6 +38,7 @@ use std::net::SocketAddr;
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
+use conductor_tools::clock::Utc;
 use conductor_tools::fingerprinter;
 
 /// A ticket handed out and not yet used.
@@ -53,6 +54,10 @@ struct Player {
     /// somebody else at the same address.
     token: String,
     last_heard: Instant,
+    /// When their Connect was accepted, both ways: for "how long" and
+    /// for the page.
+    connected_at: Instant,
+    connected: Utc,
 }
 
 /// Where an account is right now.
@@ -92,6 +97,21 @@ pub enum Connected {
     Again(String),
     /// No such ticket, or it's somebody else's now.
     Refused,
+}
+
+/// One player as the web admin's Connections tab sees them.  The account
+/// is on it, unlike the door's ledger: this is the world, and who is in
+/// it is the point.  Jacob's spec for the UDP list, 2026-09-29.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlayerView {
+    pub address: SocketAddr,
+    pub account: String,
+    /// When their Connect was accepted, UTC.
+    pub connected: Utc,
+    /// How long they've been in.
+    pub playing_for: Duration,
+    /// How long since their last packet.
+    pub quiet_for: Duration,
 }
 
 /// What a sweep crossed out.
@@ -177,6 +197,19 @@ pub fn counts() -> (usize, usize) {
     (book.players.len(), book.tickets.len())
 }
 
+/// A copy of every player in the world, newest first, for the web
+/// admin's Connections tab.
+pub fn players() -> Vec<PlayerView> {
+    players_in(&book(), Instant::now())
+}
+
+/// Crosses out every player whose address `matches` says so for: a ban
+/// from the web admin.  They're told nothing, like a player who went
+/// quiet.  Their addresses and accounts, for the log.
+pub fn drop_where(matches: impl Fn(SocketAddr) -> bool) -> Vec<(SocketAddr, String)> {
+    drop_where_in(&mut book(), matches)
+}
+
 // ---------------------------------------------------------------------------
 // The work, on whatever book is handed in
 // ---------------------------------------------------------------------------
@@ -214,9 +247,30 @@ fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> C
     if let Some(Whereabouts::Playing(elsewhere)) = book.accounts.get(&account) {
         book.players.remove(elsewhere);
     }
-    book.players.insert(from, Player { account: account.clone(), token: token.to_string(), last_heard: now });
+    book.players.insert(from, Player { account: account.clone(), token: token.to_string(), last_heard: now,
+                                       connected_at: now, connected: Utc::now() });
     book.accounts.insert(account.clone(), Whereabouts::Playing(from));
     Connected::Accepted(account)
+}
+
+fn players_in(book: &Book, now: Instant) -> Vec<PlayerView> {
+    let mut players: Vec<PlayerView> = book.players.iter().map(|(address, player)| PlayerView {
+        address: *address,
+        account: player.account.clone(),
+        connected: player.connected,
+        playing_for: now.saturating_duration_since(player.connected_at),
+        quiet_for: now.saturating_duration_since(player.last_heard),
+    }).collect();
+    // Newest first: the shortest time in the world at the top.
+    players.sort_by_key(|player| player.playing_for);
+    players
+}
+
+fn drop_where_in(book: &mut Book, matches: impl Fn(SocketAddr) -> bool) -> Vec<(SocketAddr, String)> {
+    let gone: Vec<SocketAddr> = book.players.keys().copied().filter(|address| matches(*address)).collect();
+    gone.into_iter()
+        .filter_map(|address| remove_player_in(book, address).map(|account| (address, account)))
+        .collect()
 }
 
 fn remove_player_in(book: &mut Book, from: SocketAddr) -> Option<String> {
@@ -410,5 +464,51 @@ mod tests {
         assert!(book.tickets.is_empty());
         assert_eq!(book.accounts.len(), 1);
         assert_eq!(book.accounts.get("brother"), Some(&Whereabouts::Playing(away)));
+    }
+
+    #[test]
+    fn the_players_come_out_newest_first_with_their_times() {
+        let mut book = Book::new();
+        let start = Instant::now();
+        let home = address("10.0.0.5:50000");
+        let away = address("10.0.0.6:50000");
+        issue_in(&mut book, "jacob", "abc", start);
+        issue_in(&mut book, "brother", "def", start);
+        connect_in(&mut book, "abc", home, start);
+        connect_in(&mut book, "def", away, start + Duration::from_secs(5));
+        book.players.get_mut(&home).unwrap().last_heard = start + Duration::from_secs(8);
+
+        let players = players_in(&book, start + Duration::from_secs(10));
+        assert_eq!(players.len(), 2);
+        assert_eq!(players[0].account, "brother");
+        assert_eq!(players[0].address, away);
+        assert_eq!(players[0].playing_for, Duration::from_secs(5));
+        assert_eq!(players[0].quiet_for, Duration::from_secs(5));
+        assert_eq!(players[1].account, "jacob");
+        assert_eq!(players[1].playing_for, Duration::from_secs(10));
+        assert_eq!(players[1].quiet_for, Duration::from_secs(2));
+
+        assert!(players_in(&Book::new(), start).is_empty());
+    }
+
+    #[test]
+    fn a_ban_drops_the_players_it_names_and_nobody_else() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        let away = address("192.168.1.9:50000");
+        issue_in(&mut book, "jacob", "abc", now);
+        issue_in(&mut book, "brother", "def", now);
+        connect_in(&mut book, "abc", home, now);
+        connect_in(&mut book, "def", away, now);
+
+        let dropped = drop_where_in(&mut book, |address| address.ip().to_string().starts_with("10."));
+        assert_eq!(dropped, vec![(home, "jacob".to_string())]);
+        assert_eq!(book.players.len(), 1);
+        assert!(book.accounts.get("jacob").is_none());
+        assert_eq!(book.accounts.get("brother"), Some(&Whereabouts::Playing(away)));
+
+        assert!(drop_where_in(&mut book, |_| false).is_empty());
+        assert_eq!(book.players.len(), 1);
     }
 }

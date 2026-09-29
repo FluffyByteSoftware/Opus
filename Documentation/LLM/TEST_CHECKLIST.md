@@ -68,3 +68,72 @@ does a real reverse lookup of `127.0.0.1`, which asks the resolver; it passes wi
 - [ ] The Conductor tab's Threads, "Asked for": `net-dns` is there, running with the server and finished
       after STOP SERVER.
 - [ ] Nothing else on the page changed: the Storage, Services and Settings tabs look as they did.
+
+## 2026-09-29 -- The access lists, the Network Admin subsection
+
+Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 10 in `access.rs`, 2 in
+`sessions.rs`, 2 in the web admin's `lib.rs`, 2 in `json.rs`; one changed in `settings.rs` and one in
+`json.rs` (the status shape grew).  The page was rendered headless with made-up numbers in the session
+and clicked through (the three tabs, the row menu, ADD, REMOVE); that isn't Conductor.
+
+- [ ] Build and tests: `cargo build` clean, no warnings, `cargo test` passes.  If the build says
+      anything about `Result::is_ok_and` or `Ipv6Addr::to_ipv4_mapped`, say so: both are standard
+      library and should be fine on a current toolchain.
+- [ ] Before START SERVER: the sidebar has a NETWORK ADMIN heading with Connections, Whitelist and
+      Blacklist under it, all three greyed.  Nothing else in the sidebar moved.
+- [ ] The Settings tab shows three new settings on `networking.cfg`'s card: `access_list` (off),
+      `whitelist_file` (cfg/whitelist.cfg), `blacklist_file` (cfg/blacklist.cfg).
+- [ ] START SERVER: the log has a Debug line "Access lists: off.  0 on the whitelist and 0 on the
+      blacklist, neither looked at." and two "Read 0 entries from .../whitelist.cfg" lines (or "Wrote an
+      empty ..." on a first run if the committed files aren't there).  The three tabs unlock with the
+      TCP tab's old rule.
+- [ ] Connections: the TCP table as before, then a UDP table.  Run the client: its TCP row appears as
+      before, and once it's in the world a UDP row shows its address, `throwaway_01` in green, the
+      connected stamp, playing for counting up as DD:HH:MM:SS, quiet for at 0 s or 1 s.  Goodbye (or
+      `--leave-after 20`) takes the UDP row away.  The finished TCP row's "Logged in" reads green now
+      (the CSS line from TODO.md went in with this).
+- [ ] The three dots on a TCP row (`admin`): the menu opens beside the row with the address at the top,
+      KICK on an open row only, ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST.  Click anywhere
+      else, or Escape, closes it.  As `user` the dots are greyed.
+- [ ] Whitelist tab: the tile says OFF and "Off: nobody is checked at the door ... does nothing until
+      access_list in networking.cfg says whitelist."  ADD `127.0.0.1`: the entry appears with REMOVE, the
+      line says "127.0.0.1 is on the whitelist.  The whitelist isn't switched on ..., so it does nothing
+      yet.", the log has "The admin added 127.0.0.1 to the whitelist.", and `Content/cfg/whitelist.cfg`
+      has the line.  ADD it again: "was on the whitelist already."  ADD `potato`: a red line in
+      Conductor's words, nothing added.  ADD `10.0.0.5/24`: it's kept as `10.0.0.0/24`.  Enter in the
+      field adds too.
+- [ ] REMOVE `10.0.0.0/24`: asks first, the row goes, the file loses the line, the log says so.
+- [ ] STOP SERVER: the three tabs grey.  The lists can't be touched from the page.  Edit
+      `Content/cfg/blacklist.cfg` by hand with Conductor shut down (not just the server stopped; TODO.md
+      says why): add `127.0.0.1`, run Conductor, START SERVER, and the Blacklist tab shows it.
+- [ ] Blacklist mode: on the Settings tab set `access_list` to `blacklist`, STOP SERVER, START SERVER.  The
+      log's Info line says "Access lists: blacklist, 1 entry turned away."  The Blacklist tab's tile reads
+      BLACKLIST in green; the Whitelist tab's reads BLACKLIST in yellow with "The blacklist is on, not this
+      list."  Run the client: it fails to connect, and the Connections tab has a row "Closed at the door:
+      blacklisted" with a Debug line "127.0.0.1:... is on the blacklist.  Closed at the door."
+- [ ] The ban: REMOVE `127.0.0.1` from the blacklist, run the client (it logs in and sits in the world),
+      then use its finished TCP row's three dots (the UDP table has no menu; the address is the same),
+      ADD 127.0.0.1 TO BLACKLIST, confirm.  The line in the TCP panel's head says "0 connection(s)
+      closed at the door, 1 player(s) dropped" (the TCP row finished half a second after it arrived),
+      the UDP row goes, the client stops hearing keep-alive echoes, and the log has "Banned:
+      throwaway_01 at 127.0.0.1:... was dropped from the world."  Run the client again: closed at the
+      door.
+- [ ] The ban on an open TCP connection: with 127.0.0.1 off the blacklist, Ctrl-Z the client after TLS
+      (or start it with a long pause before its Login), then ADD its address TO BLACKLIST from its row.
+      The row reads "Banned: the admin put the address on the blacklist", the log has "Banned 127.0.0.1:
+      1 connection(s) closed at the door."
+- [ ] Whitelist mode: set `access_list` to `whitelist` with the whitelist empty, STOP SERVER, START SERVER.
+      A Warn on the bell: "access_list is whitelist and the whitelist is empty: NOBODY CAN LOG IN."  The
+      client is turned away, "Closed at the door: not on the whitelist".  ADD `127.0.0.1` to the
+      whitelist: the next run of the client logs in, no reboot.  Put `access_list` back to `off` after,
+      and clear both lists.
+- [ ] A range: with the blacklist on, ADD `127.0.0.0/8`; the client from 127.0.0.1 is closed at the
+      door.
+- [ ] `access_list = potato` in `networking.cfg` (by hand, server stopped): START SERVER logs an Error
+      and runs with nobody checked.
+- [ ] The `user` login: the three tabs open, the ADD fields and buttons and every REMOVE and the three
+      dots are greyed.
+- [ ] From outside (when there's an outside machine): forward TCP 9997 and UDP 9998 on the router, run
+      the client from a laptop on a phone hotspot with `--host 142.56.230.42`, and the Connections tab
+      shows the outside address (with a Host name if its reverse DNS has one); blacklist it from the
+      row's menu and the next try is closed at the door.

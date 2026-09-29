@@ -71,9 +71,10 @@ Opus/
 │       │       ├── settings.rs        # networking.cfg as networking reads it; the file itself is Constellations'
 │       │       ├── tls.rs             # reads the certificate and key, builds rustls's server settings
 │       │       ├── protocol.rs        # the packets, byte for byte; PROTOCOL.md is the other half
-│       │       ├── sessions.rs        # the book: tickets by token, players by address, accounts by name
+│       │       ├── sessions.rs        # the book: tickets by token, players by address, accounts by name; players() for the page
 │       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login flow, the failure hold, the kick
 │       │       ├── ledger.rs          # the door's ledger: every TCP connection of the last five minutes and where it is
+│       │       ├── access.rs          # the whitelist and the blacklist: the two files, the entries and ranges, the verdict
 │       │       ├── dns.rs             # reverse DNS for the ledger, on its own thread; picks the file for the OS
 │       │       ├── dns/linux.rs       # getnameinfo from the C library
 │       │       ├── dns/windows.rs     # getnameinfo from ws2_32
@@ -86,7 +87,7 @@ Opus/
 │       │       ├── http.rs            # just enough HTTP: the head, then the body Content-Length says
 │       │       ├── login.rs           # the two accounts (user, admin) and the live logins, by cookie
 │       │       ├── json.rs            # the status, login, settings and problems answers, written by hand
-│       │       └── page.html          # the page, baked in: the login card, the Control Panel and eight tabs, the bell, the locks
+│       │       └── page.html          # the page, baked in: the login card, the Control Panel and ten tabs, the bell, the locks
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml             # depends on the four libs
 │           └── src/
@@ -97,7 +98,9 @@ Opus/
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
 │   ├── cfg/wgui.cfg                   # the web admin's two accounts: user's and admin's passwords (hard)
 │   ├── cfg/postgres.cfg               # where Postgres is, the login, the time limit, the slow-job limit (soft)
-│   ├── cfg/networking.cfg             # the address and ports, the TLS files, the deadlines (soft)
+│   ├── cfg/networking.cfg             # the address and ports, the TLS files, the deadlines, the access switch (soft)
+│   ├── cfg/whitelist.cfg              # the whitelist: one address or range a line; read on START SERVER, written by the page
+│   ├── cfg/blacklist.cfg              # the blacklist, the same way
 │   ├── certs/conductor.crt            # the TLS certificate, made by hand with openssl -- committed
 │   ├── certs/conductor.key            # its private key -- never committed
 │   ├── cfg/*.wait4server              # a change saved from the web admin, waiting for its reboot -- never committed

@@ -15,6 +15,8 @@ use std::time::Duration;
 use conductor_tools::constellations::{self, NETWORKING};
 use conductor_tools::scribe::{self, Channel};
 
+use crate::access::Mode;
+
 /// Everything networking is told.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Settings {
@@ -39,8 +41,14 @@ pub struct Settings {
     pub token_deadline: Duration,
     /// How long a player may go quiet over UDP.
     pub udp_timeout: Duration,
-    /// How long a finished connection stays on the web admin's TCP tab.
+    /// How long a finished connection stays on the web admin's
+    /// Connections tab.
     pub remember_connections: Duration,
+    /// Which access list the door looks at, if either.
+    pub access_list: Mode,
+    /// The two lists, as full paths.
+    pub whitelist_file: PathBuf,
+    pub blacklist_file: PathBuf,
 }
 
 impl Settings {
@@ -54,10 +62,11 @@ impl Settings {
 }
 
 /// The file's values as Constellations holds them right now.  Every value
-/// but the address was checked when the file was read; the address is
-/// plain text to Constellations, so it's checked here, and one that isn't
-/// an address is an Error and "every address" instead.  Nothing here stops
-/// the server.
+/// but the address and the access switch was checked when the file was
+/// read; those two are plain text to Constellations, so they're checked
+/// here.  An address that isn't one is an Error and "every address"
+/// instead; a switch that isn't `off`, `whitelist` or `blacklist` is an
+/// Error and `off`.  Nothing here stops the server.
 pub fn load() -> Settings {
     let address_text = constellations::value(&NETWORKING, "bind_address");
     let bind_address = match address_text.parse::<IpAddr>() {
@@ -66,6 +75,16 @@ pub fn load() -> Settings {
             scribe::error(Channel::Network, &format!("networking.cfg's bind_address, {address_text:?}, isn't an \
                 IP address.  Listening on every address instead.  Fix it and STOP SERVER, START SERVER."));
             IpAddr::V4(Ipv4Addr::UNSPECIFIED)
+        }
+    };
+    let access_text = constellations::value(&NETWORKING, "access_list");
+    let access_list = match Mode::parse(&access_text) {
+        Some(mode) => mode,
+        None => {
+            scribe::error(Channel::Network, &format!("networking.cfg's access_list, {access_text:?}, isn't off, \
+                whitelist or blacklist.  Checking nobody at the door instead.  Fix it and STOP SERVER, START \
+                SERVER."));
+            Mode::Off
         }
     };
 
@@ -83,6 +102,9 @@ pub fn load() -> Settings {
         token_deadline: seconds("token_deadline_seconds"),
         udp_timeout: seconds("udp_timeout_seconds"),
         remember_connections: seconds("connections_remember_seconds"),
+        access_list,
+        whitelist_file: constellations::content_dir().join(constellations::value(&NETWORKING, "whitelist_file")),
+        blacklist_file: constellations::content_dir().join(constellations::value(&NETWORKING, "blacklist_file")),
     }
 }
 
@@ -129,6 +151,9 @@ mod tests {
         assert_eq!(settings.token_deadline, Duration::from_secs(30));
         assert_eq!(settings.udp_timeout, Duration::from_secs(40));
         assert_eq!(settings.remember_connections, Duration::from_secs(300));
+        assert_eq!(settings.access_list, Mode::Off);
+        assert!(settings.whitelist_file.ends_with("cfg/whitelist.cfg"));
+        assert!(settings.blacklist_file.ends_with("cfg/blacklist.cfg"));
         assert_eq!(settings.tcp_address().port(), 9997);
         assert_eq!(settings.udp_address().port(), 9998);
     }
