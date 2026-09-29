@@ -25,9 +25,11 @@ networking, the monitor, and whatever comes later) only starts when START SERVER
 admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  `main` sits on the access lists hand-off; `unstable` and
-`testing` are ahead of it by this session's documentation commits, one fix to `page.html`, and DiskMan
-noticing hand edits (not built yet).
+stable release, moved only when Jacob says.  At the close of the documentation pass Jacob said to move
+`main` up.  `unstable` and `testing` sit on the same commit: this session's documentation, one fix to
+`page.html`, and DiskMan noticing hand edits, none of it built yet.  The session handed him the one-line
+release to run once `cargo build` and `cargo test` come back clean, so `main` never holds code that
+hasn't been built; until he runs it, `main` sits on the access lists hand-off.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
 build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
@@ -87,9 +89,20 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
 
 - **The 2026-09-29 access lists section of `TEST_CHECKLIST.md`**, everything after the build line.
 - **The rest of the TCP tab's checks** and **the untried networking hand tests** in the same file.
-- **The page's greying fix**: its check at the bottom of `TEST_CHECKLIST.md`.
+- **Accounts, in the server code.**  Jacob said at the close that the next session builds accounts.
+  What's there to build on: the `accounts` table (`Content/psql/defaults/schemas/accounts.sql`, frozen, so
+  any change is a migration; `uuid` came with 0001), with Postgres checking the name (8 to 32 of `a-z`,
+  `0-9`, `_`) and the email itself; Security's `hash_password()` and `check_password_rules()` (Jacob's
+  rules: 8 to 128 printable ASCII, a digit, a capital, a symbol); Fingerprinter's `new_uuid()` for the
+  row's `uuid`; Archivist's `transaction()` for anything that takes more than one step; and the login,
+  which already reads `password_hash` by `account_username` and stamps `last_login_datetime`
+  (`tcp.rs`).  The one account today is `throwaway_01`, inserted by hand.  TODO.md has "Accounts: making
+  one" and the web admin's game account management (make, delete, list, finger, change password).  Open
+  until the session asks: who makes an account (a player over the protocol, which is a new packet and
+  protocol version 3, or the admin from the web admin, or both), and what each needs from the other.
+- **Building this session's changes**, then the release: the build and test lines, and the hand checks
+  at the bottom of `TEST_CHECKLIST.md` (the page's greying, DiskMan noticing a hand edit).
 - **The stale words in the code**, in TODO.md.
-- **DiskMan noticing hand edits**: its checks at the bottom of `TEST_CHECKLIST.md`, and `cargo test`.
 - **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
   settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`
   with the password `Throwaway 1!`, a test row on a database that only listens on his machine.  Any

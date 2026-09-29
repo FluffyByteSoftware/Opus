@@ -35,7 +35,7 @@ Opus/
 │       │       │   └── text.rs        # the one reader and writer for the key = value format
 │       │       ├── diskman.rs     # DiskMan: every file read and write goes through it
 │       │       ├── diskman/
-│       │       │   ├── cache.rs   # the files held in memory: dirty, clean, appends waiting, the swap list; the rules
+│       │       │   ├── cache.rs   # in memory: dirty, clean, appends, disk stamps, swaps; the rules
 │       │       │   └── worker.rs  # its one thread: temp-and-rename writes, chunks, streams, removes, swaps
 │       │       ├── fingerprinter.rs   # Fingerprinter: version 7 UUIDs and login tokens; random_bytes()
 │       │       ├── fingerprinter/
@@ -86,7 +86,7 @@ Opus/
 │       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
 │       │       ├── http.rs            # just enough HTTP: the head, then the body Content-Length says
 │       │       ├── login.rs           # the two accounts (user, admin) and the live logins, by cookie
-│       │       ├── json.rs            # every JSON answer the page reads, written by hand; the shapes at its top
+│       │       ├── json.rs            # every JSON answer the page reads; the shapes at its top
 │       │       └── page.html          # the page, baked in: the login card, eleven tabs, the bell, the locks
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml             # depends on the four libs
