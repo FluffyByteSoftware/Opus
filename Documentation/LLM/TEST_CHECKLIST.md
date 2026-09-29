@@ -15,7 +15,169 @@ at in game.
 
 Every command is one line, from `Conductor/dev`.
 
+## The test run, by subsystem (2026-09-29)
+
+Every open check from the sections below, gathered into one pass on `testing` and put in order by the
+piece it tests, so a sitting can take one subsystem and stop.  Jacob's ask, 2026-09-29.  The sections
+below stay as the history of what each session asked for; a check is struck here when it passes.  Where
+an old check no longer matched the build it was rewritten here, and says so.
+
+The account is `throwaway_01` / `Throwaway 1!`.  The client is `conductor-networking/test_client.py`
+(inside `Conductor/dev`, so the path works from there).  A browser console is F12, Console tab.
+
+### 0. The build
+
+- [ ] `cargo build` clean, no warnings; `cargo test` passes, 199.  Only `test_client.py` changed since
+      the last build (`--pause-before-login`), so the count doesn't move.
+
+### 1. The web admin before START SERVER
+
+- [ ] The sidebar: Control Panel, System, Conductor, Services, Storage, Notifications History, then a
+      rule and a NETWORK ADMIN heading with Connections, Whitelist and Blacklist indented under it, all
+      three greyed, then Log and Settings.
+- [ ] The Settings tab, `networking.cfg`'s card: `access_list` (off), `whitelist_file`
+      (cfg/whitelist.cfg), `blacklist_file` (cfg/blacklist.cfg); no `connections_remember_seconds`.  If
+      your `networking.cfg` still has that line, START SERVER warns about it once; take the line out.
+
+### 2. Constellations and DiskMan: hand edits
+
+- [ ] A soft file: START SERVER, STOP SERVER, change `slow_job_ms` in `Content/cfg/postgres.cfg` by hand
+      (Conductor still running), START SERVER.  The Settings tab shows the new value as running.  Put it
+      back after.
+- [ ] A list file: server stopped, add `10.0.0.1` to `Content/cfg/blacklist.cfg` by hand, START SERVER.
+      The Blacklist tab shows it, and the log has the Debug line "Read 1 entry from .../blacklist.cfg."
+      Take it out the same way.  (Rewritten: the old access-lists check wanted Conductor shut down for
+      this; DiskMan reads a hand edit now, so the server stopped is enough.)
+- [ ] STOP SERVER and START SERVER with no hand edits come up clean, and the Storage tab's cache hits
+      count up as before.
+
+### 3. Networking: the TLS pair
+
+- [ ] Move `Content/certs/conductor.key` away, STOP SERVER, START SERVER: the Services tab has
+      Network (TCP) in trouble and Network (UDP) stopped ("Not started: the TCP side couldn't."), the
+      log has an Error starting "NOBODY CAN LOG IN.", and the three Network Admin tabs stay greyed.  Put
+      the key back and RESTART SERVER: both running.  (Rewritten: the old check said both in trouble.)
+
+### 4. Networking: the door (TCP)
+
+- [ ] START SERVER: the log has the Debug line "Access lists: off.  0 on the whitelist and 0 on the
+      blacklist, neither looked at." and two "Read 0 entries from ..." lines.  The three Network Admin
+      tabs unlock.
+- [ ] The Conductor tab's Threads, "Asked for": `net-dns` is there and running.
+- [ ] Run `python3 conductor-networking/test_client.py --leave-after 3 throwaway_01 'Throwaway 1!'` six
+      times.  The Connections tab's Recent shows the newest five and the count says "the newest 5 of 6
+      since START SERVER"; Historical shows all six.  Each reads "Logged in and handed a ticket for UDP"
+      while its player is in (in green), and the rows stay as long as the server runs.
+- [ ] While one is in the world (make it `--leave-after 20`), the UDP table shows its address,
+      `throwaway_01` in green, the connected stamp, playing for counting up as DD:HH:MM:SS, quiet for at
+      0 s or 1 s.
+- [ ] A wrong password, then a right one straight after, in one line:
+      `python3 conductor-networking/test_client.py throwaway_01 wrong; python3 conductor-networking/test_client.py throwaway_01 'Throwaway 1!'`
+      The first row ends "Refused: wrong secret word, name or password", greyed.  The second is
+      "Closed at the door: on hold after a failed login", and the log's Debug line says how many ms of
+      the hold were left.
+- [ ] A wrong secret word: `python3 conductor-networking/test_client.py --secret wrong throwaway_01 'Throwaway 1!'`
+      Refused, and no Security line in the log (it never reached a hash).
+- [ ] Two in Security's line, started together in one line:
+      `python3 conductor-networking/test_client.py --leave-after 5 --leave-other-alone throwaway_01 'Throwaway 1!' & python3 conductor-networking/test_client.py --leave-after 5 --leave-other-alone throwaway_01 'Throwaway 1!'; wait`
+      One of them prints an InLine ("1 ahead, about N ms"); its row may show "In Security's line" for a
+      blink.  One gets in, the other is told the account is logged in and hangs up.  (Rewritten: two
+      terminals by hand are too slow to catch the line.)
+- [ ] STOP SERVER: the three tabs grey, `net-dns` reads finished on the Conductor tab, and on the next
+      START SERVER the Connections tab is empty.
+- [ ] Nothing else on the page changed: the Storage, Services and Settings tabs look as they did.
+
+### 5. Networking: leaving the world (UDP)
+
+- [ ] Goodbye: `python3 conductor-networking/test_client.py --leave-after 10 throwaway_01 'Throwaway 1!'`.
+      When it says Goodbye, the UDP row goes and its TCP row greys to "LINKDEAD: said Goodbye".
+- [ ] Quiet: `python3 conductor-networking/test_client.py --go-quiet throwaway_01 'Throwaway 1!'`.  About
+      40 seconds on the log says the player was dropped, the UDP row goes, and the TCP row reads
+      "LINKDEAD: went quiet past the UDP timeout".  Ctrl-C the client after.
+- [ ] STOP SERVER with a player in the world (a client with no `--leave-after`): the client prints a
+      Kicked "server stopping" and "Back to the login screen."
+- [ ] Both views: the LINKDEAD rows are in Recent (while among the newest five) and in Historical.
+
+### 6. Networking: KICK
+
+- [ ] A LINKDEAD or refused row's three dots: KICK is there, greyed, and its tooltip says there's
+      nothing to kick.
+- [ ] An open connection: `python3 conductor-networking/test_client.py --pause-before-login 8 throwaway_01 'Throwaway 1!'`,
+      and while it pauses its row reads "Waiting for its Login".  KICK from its three dots, confirm: the
+      row reads "Kicked by the admin", the client says the server hung up (or the connection broke), and
+      the log has "The admin kicked ... at the door."  Eight seconds is short for the menu; if it's too
+      tight, set `login_deadline_seconds` to 30 on the Settings tab, STOP SERVER and START SERVER, and
+      pause 25.  Put it back to 10 after.  (Rewritten: the old check said Ctrl-Z after TLS, which can't
+      be caught, and "no button" on a finished row, which KICK on any row changed; the 404 for a row
+      with nothing left is covered by the web admin's tests.)
+
+### 7. Networking: the access lists
+
+- [ ] The three dots on a TCP row: the menu opens beside the row with the address at the top, KICK,
+      ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST.  Clicking elsewhere, or Escape, closes it.
+- [ ] Whitelist tab: the tile says OFF and "Off: nobody is checked at the door ... does nothing until
+      access_list in networking.cfg says whitelist."  ADD `127.0.0.1`: the entry appears with REMOVE, the
+      line says it's on the whitelist and the whitelist isn't switched on, the log has "The admin added
+      127.0.0.1 to the whitelist.", and `Content/cfg/whitelist.cfg` has the line.  ADD it again: "was on
+      the whitelist already."  ADD `potato`: a red line, nothing added.  ADD `10.0.0.5/24`: kept as
+      `10.0.0.0/24`.  Enter in the field adds too.
+- [ ] REMOVE `10.0.0.0/24`: asks first, the row goes, the file loses the line, the log says so.
+- [ ] Blacklist mode: add `127.0.0.1` to the blacklist, set `access_list` to `blacklist` on the Settings
+      tab, STOP SERVER, START SERVER.  The log's Info line says "Access lists: blacklist, 1 ...".  The
+      Blacklist tab's tile reads BLACKLIST in green; the Whitelist tab's reads BLACKLIST in yellow with
+      "The blacklist is on, not this list."  Run the client: it fails, and the row reads "Closed at the
+      door: blacklisted", with the Debug line "127.0.0.1:... is on the blacklist.  Closed at the door."
+- [ ] The ban on a player: REMOVE `127.0.0.1` from the blacklist, run the client with no `--leave-after`
+      so it sits in the world, then from its TCP row's three dots ADD 127.0.0.1 TO BLACKLIST, confirm.
+      The panel's line says "0 connection(s) closed at the door, 1 player(s) dropped", the UDP row goes,
+      the client prints Kicked "banned" and "Back to the login screen.", the log has "Banned:
+      throwaway_01 at 127.0.0.1:... was dropped from the world.", and the TCP row reads "LINKDEAD:
+      banned".  Run the client again: closed at the door.
+- [ ] The ban on an open connection: REMOVE `127.0.0.1` again, run the client with
+      `--pause-before-login 8` (or longer, as in 6), and while it pauses ADD its address TO BLACKLIST
+      from its row.  The row reads "Banned: the access lists changed and the address isn't let in", and
+      the log has "The access lists changed: 1 connection(s) banned at the door."
+- [ ] A range: blacklist still on, ADD `127.0.0.0/8`, clear `127.0.0.1`; the client is closed at the door.
+      Clear the blacklist after.
+- [ ] Whitelist mode, empty: set `access_list` to `whitelist` with the whitelist empty, STOP SERVER,
+      START SERVER.  A Warn on the bell: "... the whitelist is empty: NOBODY CAN LOG IN."  The client is
+      turned away, "Closed at the door: not on the whitelist".
+- [ ] ADD `127.0.0.1` to the whitelist: the next run of the client logs in, no reboot.  With it sitting
+      in the world, REMOVE `127.0.0.1` (the confirm warns): "1 player(s) dropped", Kicked "banned", and
+      its next run is closed at the door.
+- [ ] Add `127.0.0.0/8` and `127.0.0.1` both, log the client in, REMOVE `127.0.0.1` alone: "0 player(s)
+      dropped", the client stays in (the range still covers it).  Set `access_list` back to `off`, clear
+      both lists, STOP SERVER, START SERVER.
+- [ ] `access_list = potato` in `networking.cfg` by hand, server stopped: START SERVER logs an Error and
+      runs with nobody checked.  Put it back to `off`.
+
+### 8. The web admin: `user` and `admin`
+
+With the server running, so the Network Admin tabs are open.
+
+- [ ] Log in as `user`: every button that changes something is greyed (the server buttons, SHUT DOWN,
+      TEST NOTIFICATION, both ACK ALLs, the Settings fields, the list ADD fields and buttons, every
+      REMOVE, the three dots).  The Whitelist, Blacklist and Connections tabs still open.
+- [ ] Forced as `user`, in the browser console:
+      `fetch('/Opus/wwwhook/stop',{method:'POST',headers:{'X-Opus':'server'}}).then(r=>r.text()).then(console.log)`
+      prints "Only admin can do that. ..." and the server keeps running.
+- [ ] LOG OUT, log in as `admin` without reloading: all of them open (the server buttons as the
+      server's state allows).
+- [ ] With the Settings tab open when you LOG OUT: after the `admin` login its fields and SAVE open
+      without leaving the tab.  The same on the Whitelist or Blacklist tab with an entry on it: REMOVE
+      opens.
+- [ ] LOG OUT, log in as `user` again: everything greys again.
+
+### Parked
+
+Not in this run: nothing to run them on today.
+
+- The check from an outside machine (the access lists section): a laptop on a phone hotspot.
+- The Windows build.
+
 ## Still open from earlier sessions
+
+Its open checks are carried into the test run above.
 
 Hand tests the networking session left untried (STATUS.md had them; they live here now):
 
@@ -34,6 +196,8 @@ Hand tests the networking session left untried (STATUS.md had them; they live he
 - [ ] The `user` login on the web admin in a real run: every button greyed, and a 403 if one is forced.
 
 ## 2026-09-29 -- The TCP tab and KICK
+
+Its open checks are carried into the test run above.
 
 Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 5 in `ledger.rs`, 3 in
 `dns.rs`, 2 in `dns/linux.rs`, 2 in `json.rs`, 1 in the web admin's `lib.rs`.  One of the `dns.rs` tests
@@ -75,6 +239,8 @@ does a real reverse lookup of `127.0.0.1`, which asks the resolver; it passes wi
 - [ ] Nothing else on the page changed: the Storage, Services and Settings tabs look as they did.
 
 ## 2026-09-29 -- The access lists, the Network Admin subsection
+
+Its open checks are carried into the test run above.
 
 Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 10 in `access.rs`, 2 in
 `sessions.rs`, 2 in the web admin's `lib.rs`, 2 in `json.rs`; one changed in `settings.rs`, one in
@@ -155,6 +321,8 @@ and clicked through (the three tabs, the row menu, ADD, REMOVE); that isn't Cond
 
 ## 2026-09-29 -- The documentation pass: the page's greying
 
+Its open checks are carried into the test run above.
+
 Build: `cargo build` from `Conductor/dev` (the page is baked in, so it needs a build; no Rust changed).
 Checked in the session only by driving the page's two functions headless with made-up states; that isn't
 Conductor.
@@ -169,6 +337,8 @@ Conductor.
 - [ ] LOG OUT, log in as `user` again: everything greys again.
 
 ## 2026-09-29 -- DiskMan notices a hand edit
+
+Its open checks are carried into the test run above.
 
 Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 1 in `diskman.rs` (a
 write of ours, then a hand edit, then a hand delete) and 1 in `diskman/cache.rs`; two in `cache.rs`
@@ -188,6 +358,8 @@ changed for the new argument.  Nothing was built in the session.
 
 ## 2026-09-29 -- LINKDEAD on the Connections tab
 
+Its open checks are carried into the test run above.
+
 Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 2 in `ledger.rs`; the
 book's tests in `sessions.rs` changed for the row numbers and check the LINKDEAD rows; one in `json.rs`
 grew a LINKDEAD row.  Nothing was built in the session.
@@ -205,6 +377,8 @@ grew a LINKDEAD row.  Nothing was built in the session.
 - [ ] Both views: the LINKDEAD rows are in Recent (while among the newest five) and Historical alike.
 
 ## 2026-09-29 -- KICK on any row of the Connections tab
+
+Its open checks are carried into the test run above.
 
 Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 1 in `sessions.rs`;
 `protocol.rs` and `ledger.rs` each check the new reason.  **The protocol is version 3 now**: the Python

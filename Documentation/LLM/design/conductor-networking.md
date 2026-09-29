@@ -198,8 +198,9 @@ because of the CPU cost.
 - **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file
   (`--cert`, `Content/certs/conductor.crt` by default; with neither it checks nothing and says so),
   prints every packet, and asks whether to log out the other session (`--leave-other-alone` answers no
-  without asking), `--leave-after N` says Goodbye after N seconds, and `--go-quiet` sends nothing to watch
-  the timeout.  Its UDP socket is IPv4 only.  Jacob used one for Stratum too.
+  without asking), `--leave-after N` says Goodbye after N seconds, `--go-quiet` sends nothing to watch
+  the timeout, and `--pause-before-login N` sits N seconds after TLS so the row can be kicked or banned
+  while it's open (past `login_deadline_seconds` the server hangs up first).  Its UDP socket is IPv4 only.  Jacob used one for Stratum too.
 
 ## What's open
 

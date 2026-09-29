@@ -245,7 +245,8 @@ python3 Conductor/dev/conductor-networking/test_client.py some_account 'Its pass
 Its switches: `--host` and `--tcp-port` for another server, `--cert` for another certificate,
 `--version` and `--secret` to claim a different client version or secret word, `--leave-other-alone` to
 hang up rather than log out a session already in the world, `--leave-after N` to say Goodbye after N
-seconds, and `--go-quiet` to send nothing after connecting and watch the timeout drop it.
+seconds, `--go-quiet` to send nothing after connecting and watch the timeout drop it, and
+`--pause-before-login N` to sit N seconds after TLS before the Login, so the connection can be caught open.
 
 There's no way to make an account over the protocol yet.  A test account is a row in `accounts` put in
 by hand, with an Argon2id line made at Security's settings as its password.
