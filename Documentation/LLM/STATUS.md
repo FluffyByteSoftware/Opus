@@ -125,7 +125,7 @@ What Jacob decided:
   start and stop lines and Archivist's aren't yet.
 - Catching Ctrl-C.
 - The Windows build, whenever getting to that machine is less of a hassle.
-- **Ensemble is Unity**, Jacob said at the close, 2026-09-29.  A Unity project sits in `Ensemble/` on his
+- **Ensemble is Unity 6000.6**, Jacob said at the close, 2026-09-29.  A Unity project sits in `Ensemble/` on his
   machine, untracked, while he goes through his catalogue of assets.  Before any of it is committed, a
   look together: what a Unity project commits (`Assets/`, `Packages/`, `ProjectSettings/`; the caches
   are already in `.gitignore`), where the purchased art goes (CLAUDE.md says `Content/Assets/`, never

@@ -90,7 +90,7 @@ python3 Conductor/dev/conductor-networking/test_client.py some_account 'Its pass
 
 ## Ensemble
 
-Unity, in C#.  Just begun, and not in the repo yet.
+Unity 6000.6, in C#.  Just begun, and not in the repo yet.
 
 ## Layout
 

@@ -123,7 +123,7 @@ Where each one lives is in the tree above.
 | Name               | What it is                                    | State                        |
 |--------------------|-----------------------------------------------|------------------------------|
 | Conductor          | The server.  It owns the game state.          | Tools, monitor, web admin    |
-| Ensemble           | The client players run.  Unity, C#.           | On Jacob's machine, uncommitted |
+| Ensemble           | The client players run.  Unity 6000.6, C#.    | On Jacob's machine, uncommitted |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
 | conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |
 | conductor-networking | Lib crate: the login over TLS, the game over UDP. | Runs on Linux              |

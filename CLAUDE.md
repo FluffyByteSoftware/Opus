@@ -30,9 +30,8 @@ Project root: `/opt/storage/Coding/Opus`
     code stays wired in but can sit untested. macOS isn't a target. See
     "Linux and Windows" under the Rust rules.
 - **Ensemble** -- the game client that players run.
-  - Engine / language: Unity (C#).  Jacob said so on 2026-09-29; the Unity
-    version is still to be written down.  The project is on his machine and
-    not committed yet.
+  - Engine / language: Unity 6000.6 (C#).  Jacob said so on 2026-09-29.  The
+    project is on his machine and not committed yet.
   - Folder: `Ensemble/`
 - **Documentation** -- project docs. `Documentation/LLM/` holds the working
   docs (status, TODOs, design, protocol) and is the source of truth for anything
