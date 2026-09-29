@@ -30,6 +30,8 @@ use conductor_tools::constellations;
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 
+mod dns;
+mod ledger;
 pub mod protocol;
 mod sessions;
 mod settings;
@@ -37,7 +39,10 @@ mod tcp;
 mod tls;
 mod udp;
 
-/// How networking is doing, for whoever asks (the web admin, later).
+pub use ledger::{Connection, End, Stage, REMEMBER_FOR};
+pub use tcp::Kicked;
+
+/// How networking is doing, for whoever asks (the web admin).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Status {
     /// Where the TCP side is listening.  `None` while it isn't.
@@ -48,6 +53,10 @@ pub struct Status {
     pub players: usize,
     /// Tickets handed out and not yet used on UDP.
     pub tickets: usize,
+    /// Every connection that reached the TCP listener in the last
+    /// REMEMBER_FOR, newest first, and where each one is.  Empty while
+    /// the TCP side isn't running.
+    pub connections: Vec<Connection>,
 }
 
 /// Brings both sides up: `networking.cfg` is read again, the TLS files
@@ -104,7 +113,14 @@ pub fn stop() {
 /// A copy of how networking is doing.
 pub fn status() -> Status {
     let (players, tickets) = sessions::counts();
-    Status { tcp: tcp::listening_on(), udp: udp::listening_on(), players, tickets }
+    Status { tcp: tcp::listening_on(), udp: udp::listening_on(), players, tickets, connections: ledger::snapshot() }
+}
+
+/// The admin kicked TCP connection `id` (its number in `status()`'s
+/// list) from the web admin's TCP tab.  The connection is closed where
+/// it stands; the client sees the connection drop and nothing else.
+pub fn kick(id: u64) -> Kicked {
+    tcp::kick(id)
 }
 
 // ---------------------------------------------------------------------------

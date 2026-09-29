@@ -23,8 +23,10 @@
 //!   `admin`, and answer 403 to `user`.
 //! - `POST /Opus/logout` -- forgets the cookie's login.
 //! - `GET /Opus/status?after=N` -- where the server is at, who's logged
-//!   in, the monitor's latest look, the services, DiskMan's numbers, and
-//!   Scribe's lines after line N, as JSON.  The page asks once a second.
+//!   in, the monitor's latest look, the services, DiskMan's numbers,
+//!   networking's door (every TCP connection of the last five minutes),
+//!   and Scribe's lines after line N, as JSON.  The page asks once a
+//!   second.
 //! - `GET /Opus/threads?pid=N` -- one process's threads, for when the admin
 //!   clicks it on the System tab.  It only reads, like the status.
 //! - `GET /Opus/notices` -- every open notice, for the Notifications
@@ -49,6 +51,10 @@
 //!   before then.
 //! - `POST /Opus/wwwhook/settings/discard?file=<name>` -- throws that
 //!   waiting file away.
+//! - `POST /Opus/wwwhook/tcp/kick?id=N` -- the TCP tab's KICK on one
+//!   connection, by its number in the status.  The connection is closed
+//!   where it stands.  404 for a number that isn't open, 409 while the
+//!   TCP side isn't listening.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -261,6 +267,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
                                     conductor_monitor::latest().as_ref(),
                                     &services::list(),
                                     &diskman::status(),
+                                    &conductor_networking::status(),
                                     open_notices,
                                     &newest_notices,
                                     &scribe::recent_lines(after),
@@ -319,6 +326,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         }
         ("POST", "/Opus/wwwhook/settings/save") => settings_save(request, role),
         ("POST", "/Opus/wwwhook/settings/discard") => settings_discard(request, role),
+        ("POST", "/Opus/wwwhook/tcp/kick") => tcp_kick(request, role),
         ("POST", "/Opus/wwwhook/start") => server_command(request, role, Command::Start),
         ("POST", "/Opus/wwwhook/stop") => server_command(request, role, Command::Stop),
         ("POST", "/Opus/wwwhook/restart") => server_command(request, role, Command::Restart),
@@ -338,7 +346,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         | (_, "/Opus/threads") | (_, "/Opus/notices") | (_, "/Opus/notices/ack") | (_, "/Opus/notices/ack-all")
         | (_, "/Opus/notices/test") | (_, "/Opus/wwwhook/start") | (_, "/Opus/wwwhook/stop")
         | (_, "/Opus/wwwhook/restart") | (_, "/Opus/settings") | (_, "/Opus/wwwhook/settings/save")
-        | (_, "/Opus/wwwhook/settings/discard") | (_, "/Opus/shutdown") => {
+        | (_, "/Opus/wwwhook/settings/discard") | (_, "/Opus/wwwhook/tcp/kick") | (_, "/Opus/shutdown") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
         _ => (Answer::plain("404 Not Found", "There's nothing here."), Next::KeepGoing),
@@ -408,6 +416,32 @@ fn server_command(request: &Request, role: Role, command: Command) -> (Answer, N
             scribe::debug(Channel::System, &format!("The web admin was asked to {word} the server while it's \
                 {state}.  Not now."));
             (Answer::plain("409 Conflict", &format!("Not now.  The server is {state}.")), Next::KeepGoing)
+        }
+    }
+}
+
+/// KICK on the TCP tab: closes one connection at the door, by its number
+/// in the status.  Admin only, and from the page only.
+fn tcp_kick(request: &Request, role: Role) -> (Answer, Next) {
+    if let Some(turned_away) = only_admin(role) {
+        return (turned_away, Next::KeepGoing);
+    }
+    if request.header("x-opus") != Some("tcp") {
+        scribe::warn(Channel::System, "The web admin turned away a kick that didn't come from its own page.");
+        return (Answer::plain("403 Forbidden", "Kick from the page."), Next::KeepGoing);
+    }
+    let Some(id) = request.query_value("id").and_then(|id| id.parse::<u64>().ok()) else {
+        return (Answer::plain("400 Bad Request", "Which connection?  /Opus/wwwhook/tcp/kick?id=N"), Next::KeepGoing);
+    };
+    match conductor_networking::kick(id) {
+        conductor_networking::Kicked::Yes => {
+            (Answer::new("200 OK", "application/json", format!("{{\"kicked\":{id}}}")), Next::KeepGoing)
+        }
+        conductor_networking::Kicked::NotOpen => {
+            (Answer::plain("404 Not Found", "That connection isn't open any more."), Next::KeepGoing)
+        }
+        conductor_networking::Kicked::NotListening => {
+            (Answer::plain("409 Conflict", "The TCP side isn't listening."), Next::KeepGoing)
         }
     }
 }
@@ -621,7 +655,7 @@ mod tests {
         for (path, header) in [("/Opus/notices/ack", "ack"), ("/Opus/notices/ack-all", "ack"),
                                ("/Opus/notices/test", "ack"), ("/Opus/wwwhook/start", "server"),
                                ("/Opus/wwwhook/stop", "server"), ("/Opus/wwwhook/restart", "server"),
-                               ("/Opus/shutdown", "shut-down")] {
+                               ("/Opus/wwwhook/tcp/kick", "tcp"), ("/Opus/shutdown", "shut-down")] {
             let mut asking = request("POST", path, &[HOST, ("cookie", user.as_str()), ("x-opus", header)]);
             asking.query = format!("id={id}");
             let (answer, next) = route(&asking, 9996);
@@ -697,6 +731,28 @@ mod tests {
         // A GET is the wrong way round.
         let asking = request("GET", "/Opus/wwwhook/settings/save", &[HOST, ("cookie", admin.as_str())]);
         let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "405 Method Not Allowed");
+    }
+
+    #[test]
+    fn a_kick_needs_the_page_header_a_number_and_a_listening_door() {
+        let admin = cookie_for("admin");
+        let mut asking = request("POST", "/Opus/wwwhook/tcp/kick", &[HOST, ("cookie", admin.as_str())]);
+        asking.query = "id=1".to_string();
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "403 Forbidden");
+
+        let mut asking = request("POST", "/Opus/wwwhook/tcp/kick", &[HOST, ("cookie", admin.as_str()),
+                                                                   ("x-opus", "tcp")]);
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "400 Bad Request");
+
+        // Nothing is listening in a test, so no connection can be kicked.
+        asking.query = "id=1".to_string();
+        let (answer, _) = route(&asking, 9996);
+        assert_eq!(answer.status, "409 Conflict");
+
+        let (answer, _) = route(&request("GET", "/Opus/wwwhook/tcp/kick", &[HOST, ("cookie", admin.as_str())]), 9996);
         assert_eq!(answer.status, "405 Method Not Allowed");
     }
 

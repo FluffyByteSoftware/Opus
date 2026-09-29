@@ -5,6 +5,8 @@
 # The web admin: a small web server on 127.0.0.1 that shows how Conductor is
 # doing and is how the admin shuts it down.  A lib crate.  The web server is
 # written on the standard library's TcpListener, so there's no crate for it.
+# conductor-networking is here for the TCP tab: the door's ledger and the
+# kick.
 
 [package]
 name = "conductor-wgui"
@@ -13,4 +15,5 @@ edition = "2024"
 
 [dependencies]
 conductor-monitor = { path = "../conductor-monitor" }
+conductor-networking = { path = "../conductor-networking" }
 conductor-tools = { path = "../conductor-tools" }

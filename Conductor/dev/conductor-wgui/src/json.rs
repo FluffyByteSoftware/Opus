@@ -3,8 +3,8 @@
 //! Author:     Jacob Chacko
 //!
 //! Turns the server's switch, the monitor's snapshot, DiskMan's numbers,
-//! the open notices and Scribe's recent lines into the JSON the page asks
-//! for once a second.  Written by hand rather than with a crate: it's one
+//! networking's door, the open notices and Scribe's recent lines into the
+//! JSON the page asks for once a second.  Written by hand rather than with a crate: it's one
 //! shape, it only ever goes out, and JSON is simple enough to write as
 //! long as the text is escaped properly.
 //!
@@ -31,6 +31,12 @@
 //!                "big_write": { "file", "done_bytes", "total_bytes" },
 //!                "writes_done", "appends_done", "reads_done", "cache_hits", "bytes_written", "bytes_read",
 //!                "failures", "given_up", "last_failure": { "when", "what" }, "slowest_write_ms" },
+//!   "networking": { "tcp": "0.0.0.0:9997", "udp": "0.0.0.0:9998", "players": 1, "tickets": 0,
+//!                   "remember_seconds": 300,
+//!                   "connections": [ { "id": 7, "address": "192.168.1.20:51234", "host": "desk.lan",
+//!                                      "arrived": "...Z", "seconds_ago": 12, "stage": "in_line",
+//!                                      "text": "In Security's line: 2 ahead, about 400 ms",
+//!                                      "queued_ahead": 0, "done": false, "logged_in": false } ] },
 //!   "notices": { "open": 12, "newest": [ { "id", "when", "level", "source", "text" } ] },
 //!   "log": { "file": "...", "lines": [ { "number": 12, "priority": "Info", "text": "..." } ] } }
 //! ```
@@ -56,6 +62,19 @@
 //! has `null` for its numbers.  `diskman` also comes straight from DiskMan;
 //! its `big_write` is `null` when there isn't one under way, and so is
 //! `last_failure` when nothing has failed.
+//!
+//! `networking` comes straight from the networking crate.  `tcp` and
+//! `udp` are where each side listens, `null` while it doesn't, and the
+//! TCP tab is locked until both are there.  `connections` is every
+//! connection that reached the TCP listener in the last `remember_seconds`,
+//! newest first, and where each one is: `stage` is queued, handshake,
+//! login, checking, in_line, asked or done, and `text` says it in words
+//! (for in_line, how many are ahead and about how long; for done, how it
+//! ended).  `queued_ahead` is how many queued connections arrived before
+//! a queued one.  `host` is the address's name from reverse DNS, `null`
+//! until the lookup is back or when it has none.  `id` is what
+//! `/Opus/wwwhook/tcp/kick?id=N` takes.  No account name is in it, on
+//! purpose: the tab is about the door.
 //!
 //! `notices.newest` is the newest five open notices, newest first, for the
 //! bell.  `level` is Notice, Warn or Error.
@@ -103,6 +122,7 @@ use std::path::Path;
 
 use conductor_monitor::probe::{MachineMemory, ThreadReading};
 use conductor_monitor::{Disk, ProcessInUse, Snapshot, ThreadInUse};
+use conductor_networking::{Connection, End, Stage, Status as NetStatus};
 use conductor_tools::archivist::{SlowJob, Status};
 use conductor_tools::constellations::{ConfigFile, Kind, Reboot, Setting, Values};
 use conductor_tools::diskman::Status as DiskStatus;
@@ -120,6 +140,7 @@ pub(crate) fn status(switch: &ServerStatus,
                      snapshot: Option<&Snapshot>,
                      services: &[Service],
                      disk: &DiskStatus,
+                     networking: &NetStatus,
                      open_notices: usize,
                      newest_notices: &[Notice],
                      lines: &[RecentLine],
@@ -135,6 +156,7 @@ pub(crate) fn status(switch: &ServerStatus,
         .raw("monitor", snapshot.map_or_else(null, monitor))
         .raw("services", array(services.iter().map(service)))
         .raw("diskman", diskman(disk))
+        .raw("networking", net(networking))
         .raw("notices", Object::new()
             .whole("open", open_notices as u64)
             .raw("newest", array(newest_notices.iter().map(notice)))
@@ -329,6 +351,32 @@ fn diskman(status: &DiskStatus) -> String {
         .whole("given_up", status.given_up)
         .raw("last_failure", last_failure)
         .whole("slowest_write_ms", status.slowest_write.as_millis() as u64)
+        .done()
+}
+
+fn net(status: &NetStatus) -> String {
+    Object::new()
+        .raw("tcp", status.tcp.map_or_else(null, |address| text(&address.to_string())))
+        .raw("udp", status.udp.map_or_else(null, |address| text(&address.to_string())))
+        .whole("players", status.players as u64)
+        .whole("tickets", status.tickets as u64)
+        .whole("remember_seconds", conductor_networking::REMEMBER_FOR.as_secs())
+        .raw("connections", array(status.connections.iter().map(connection)))
+        .done()
+}
+
+fn connection(connection: &Connection) -> String {
+    Object::new()
+        .whole("id", connection.id)
+        .text("address", &connection.address.to_string())
+        .raw("host", connection.host.as_deref().map_or_else(null, text))
+        .text("arrived", &connection.arrived.line_stamp())
+        .whole("seconds_ago", connection.ago.as_secs())
+        .text("stage", connection.stage.word())
+        .text("text", &connection.stage.describe())
+        .whole("queued_ahead", connection.queued_ahead as u64)
+        .flag("done", connection.stage.is_done())
+        .flag("logged_in", connection.stage == Stage::Done(End::LoggedIn))
         .done()
 }
 
@@ -530,11 +578,39 @@ mod tests {
     fn before_the_first_look_the_monitor_is_null() {
         let switch = ServerStatus { state: conductor_tools::server::State::Stopped, note: "x".to_string(),
                                     since: None };
-        let answer = status(&switch, Role::User, None, &[], &conductor_tools::diskman::status(), 0, &[], &[], None);
+        let quiet = NetStatus { tcp: None, udp: None, players: 0, tickets: 0, connections: Vec::new() };
+        let answer = status(&switch, Role::User, None, &[], &conductor_tools::diskman::status(), &quiet, 0, &[], &[],
+                            None);
         assert!(answer.starts_with("{\"server\":{\"state\":\"stopped\",\"note\":\"x\",\"since\":null},\
             \"login\":{\"name\":\"user\",\"can_change\":false},\
             \"monitor\":null,\"services\":[],\"diskman\":{\"running\":false,"));
+        assert!(answer.contains("\"networking\":{\"tcp\":null,\"udp\":null,\"players\":0,\"tickets\":0,\
+            \"remember_seconds\":300,\"connections\":[]},"));
         assert!(answer.ends_with("\"notices\":{\"open\":0,\"newest\":[]},\"log\":{\"file\":null,\"lines\":[]}}"));
+    }
+
+    #[test]
+    fn a_connection_goes_out_with_its_stage_in_a_word_and_in_words() {
+        use conductor_tools::clock::Utc;
+        use std::time::Duration;
+
+        let waiting = Connection { id: 7, address: "192.168.1.20:51234".parse().unwrap(),
+                                   host: Some("desk.lan".to_string()), arrived: Utc::from_unix(1_790_000_000),
+                                   ago: Duration::from_millis(12_400),
+                                   stage: Stage::InLine { ahead: 2, wait: Duration::from_millis(400) },
+                                   queued_ahead: 0 };
+        assert_eq!(connection(&waiting), "{\"id\":7,\"address\":\"192.168.1.20:51234\",\"host\":\"desk.lan\",\
+            \"arrived\":\"02:13:20 PM - 09-21-26 Z\",\"seconds_ago\":12,\"stage\":\"in_line\",\
+            \"text\":\"In Security's line: 2 ahead, about 400 ms\",\"queued_ahead\":0,\"done\":false,\
+            \"logged_in\":false}");
+
+        let done = Connection { id: 8, address: "[::1]:40000".parse().unwrap(), host: None,
+                                arrived: Utc::from_unix(1_790_000_000), ago: Duration::from_secs(1),
+                                stage: Stage::Done(End::LoggedIn), queued_ahead: 0 };
+        let answer = connection(&done);
+        assert!(answer.contains("\"host\":null,"));
+        assert!(answer.ends_with("\"stage\":\"done\",\"text\":\"Logged in and handed a ticket for UDP\",\
+            \"queued_ahead\":0,\"done\":true,\"logged_in\":true}"));
     }
 
     #[test]

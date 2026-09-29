@@ -38,11 +38,18 @@
 //! wait FAILURE_HOLD before its next connection is taken at all.  The
 //! right password for an account already in the world gets asked what to
 //! do instead (sessions.rs); a right password otherwise gets a ticket.
+//!
+//! Every connection goes on the ledger (ledger.rs) as it's accepted, and
+//! moves along it a stage at a time, so the web admin's TCP tab can show
+//! where each one is.  A clone of every open socket is kept under its
+//! ledger number from accept until its login thread is done with it: that
+//! is what `stop()` shuts to wake the threads, and what `kick()` shuts
+//! when the admin kicks a connection from the tab.
 
 use std::collections::HashMap;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Shutdown, SocketAddr, TcpListener, TcpStream};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread::{self, JoinHandle};
@@ -55,9 +62,10 @@ use conductor_tools::security::{self, SecurityError, Ticket};
 use conductor_tools::services::{self, State};
 use conductor_tools::{archivist, threads};
 
+use crate::ledger::{self, End, Stage};
 use crate::protocol::{self, Choice, KickReason, LoginAnswer, LoginRequest, Packet, PacketType};
 use crate::settings::Settings;
-use crate::{sessions, timed_out, udp, wake_address};
+use crate::{dns, sessions, timed_out, udp, wake_address};
 
 /// How long a player gets to answer "this account is already logged in".
 /// A person is reading a prompt, so it's longer than the login deadline.
@@ -109,9 +117,29 @@ struct Setup {
 
 /// A connection the acceptor took, waiting for a login thread.
 struct Arrival {
+    /// Its number on the ledger, and its key in the `open` map.
+    id: u64,
     socket: TcpStream,
     peer: SocketAddr,
     arrived: Instant,
+}
+
+/// Every connection's socket from accept until its login thread is done
+/// with it, keyed by ledger number.  A clone: shutting it down shuts the
+/// socket the thread is reading, and the read comes back at once.
+type OpenSockets = Arc<Mutex<HashMap<u64, TcpStream>>>;
+
+/// What a kick from the TCP tab got.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kicked {
+    /// The socket is shut.  The login thread finds out on its next read,
+    /// or skips the connection if it was still queued.
+    Yes,
+    /// No connection with that number is open: finished already, or
+    /// never was.
+    NotOpen,
+    /// The TCP side isn't running.
+    NotListening,
 }
 
 /// The running TCP side.  Held in TCP below while the server is started.
@@ -122,9 +150,9 @@ struct TcpSide {
     address: SocketAddr,
     acceptor: JoinHandle<()>,
     workers: Vec<JoinHandle<()>>,
-    /// The sockets the login threads are serving right now, so `stop()`
-    /// can shut them down and wake the threads out of their reads.
-    serving: Arc<Mutex<HashMap<u64, TcpStream>>>,
+    /// Every open connection's socket, so `stop()` can shut them all and
+    /// wake the threads out of their reads, and `kick()` can shut one.
+    open: OpenSockets,
 }
 
 // Rust note: the same shape Security uses for its worker.  `None` means
@@ -135,9 +163,6 @@ static TCP: Mutex<Option<TcpSide>> = Mutex::new(None);
 /// FAILURE_HOLD matter, and the rest are cleared out as new failures come
 /// in, so it never grows for as long as the server runs.
 static RECENT_FAILURES: LazyLock<Mutex<HashMap<IpAddr, Instant>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
-
-/// Numbers the connections being served, for the `serving` map.
-static NEXT_SERVING: AtomicU64 = AtomicU64::new(1);
 
 /// The TLS connection once the handshake is done.  It reads and writes
 /// like a socket and does the encrypting and decrypting on the way.
@@ -164,7 +189,11 @@ pub fn start(settings: &Settings, tls: Arc<ServerConfig>) -> Result<(), String> 
         login_deadline: settings.login_deadline,
     });
     let stopping = Arc::new(AtomicBool::new(false));
-    let serving = Arc::new(Mutex::new(HashMap::new()));
+    let open: OpenSockets = Arc::new(Mutex::new(HashMap::new()));
+
+    // A fresh ledger for a fresh run, and the name lookups behind it.
+    ledger::clear();
+    dns::start();
 
     // Rust note: a sync_channel holds at most that many arrivals.  The
     // acceptor's try_send() says so when it's full instead of waiting,
@@ -177,8 +206,8 @@ pub fn start(settings: &Settings, tls: Arc<ServerConfig>) -> Result<(), String> 
         let arrivals = Arc::clone(&arrivals);
         let setup = Arc::clone(&setup);
         let stopping = Arc::clone(&stopping);
-        let serving = Arc::clone(&serving);
-        let handle = threads::spawn(&format!("net-login-{number}"), move || work(arrivals, setup, stopping, serving))
+        let open = Arc::clone(&open);
+        let handle = threads::spawn(&format!("net-login-{number}"), move || work(arrivals, setup, stopping, open))
             // If one won't start, `queue` is dropped on the way out of
             // here, and the ones already started see the queue close and
             // end.
@@ -187,13 +216,14 @@ pub fn start(settings: &Settings, tls: Arc<ServerConfig>) -> Result<(), String> 
     }
 
     let flag = Arc::clone(&stopping);
-    let acceptor = threads::spawn("net-tcp", move || accept(listener, queue, flag))
+    let sockets = Arc::clone(&open);
+    let acceptor = threads::spawn("net-tcp", move || accept(listener, queue, flag, sockets))
         .map_err(|e| format!("Couldn't start the TCP acceptor thread: {e}."))?;
 
     let note = format!("Listening on {address}.  {} login thread(s).", settings.login_threads);
     services::set(services::NETWORK_TCP, State::Running, &note);
     scribe::info(Channel::Network, &format!("TCP: {note}"));
-    *guard = Some(TcpSide { stopping, address, acceptor, workers, serving });
+    *guard = Some(TcpSide { stopping, address, acceptor, workers, open });
     Ok(())
 }
 
@@ -224,11 +254,11 @@ pub fn stop() {
 
     // Wake the login threads out of whatever read they're in.  A shutdown
     // on a clone shuts the socket itself, and the read comes back at
-    // once.
+    // once.  The queued ones are shut here too; nobody serves them now.
     {
-        let serving = side.serving.lock()
+        let open = side.open.lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner());
-        for socket in serving.values() {
+        for socket in open.values() {
             let _ = socket.shutdown(Shutdown::Both);
         }
     }
@@ -251,8 +281,39 @@ pub fn stop() {
             Stopping without them; they end when their connection does.", STOP_WAIT.as_secs()));
     }
 
+    dns::stop();
+    ledger::clear();
     services::set(services::NETWORK_TCP, State::Stopped, "Stopped.");
     scribe::info(Channel::Network, "TCP: stopped listening.");
+}
+
+/// The admin kicked connection `id` from the TCP tab.  The ledger says
+/// so first, so the login thread's own "hung up" a moment later doesn't
+/// overwrite it, then the socket is shut.  The client just sees the
+/// connection close.
+pub fn kick(id: u64) -> Kicked {
+    let open = {
+        let guard = TCP.lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        match guard.as_ref() {
+            Some(side) => Arc::clone(&side.open),
+            None => return Kicked::NotListening,
+        }
+    };
+    // Taken out of the map, so a second kick says it's gone.
+    let socket = {
+        let mut open = open.lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        open.remove(&id)
+    };
+    let Some(socket) = socket else {
+        return Kicked::NotOpen;
+    };
+    ledger::ended(id, End::Kicked);
+    let peer = socket.peer_addr().map_or_else(|_| "a closed socket".to_string(), |peer| peer.to_string());
+    let _ = socket.shutdown(Shutdown::Both);
+    scribe::info(Channel::Network, &format!("The admin kicked {peer} at the door."));
+    Kicked::Yes
 }
 
 /// Where the TCP side is listening, if it is.
@@ -266,9 +327,10 @@ pub fn listening_on() -> Option<SocketAddr> {
 // The acceptor
 // ---------------------------------------------------------------------------
 
-/// The acceptor's thread.  Each connection goes on the queue, unless its
-/// address failed a login a moment ago or the queue is full.
-fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<AtomicBool>) {
+/// The acceptor's thread.  Each connection goes on the ledger and then
+/// the queue, unless its address failed a login a moment ago or the
+/// queue is full, which the ledger says instead.
+fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<AtomicBool>, open: OpenSockets) {
     // Set once we've said the queue is full, so a flood gets one Warn and
     // not one per connection.
     let mut said_full = false;
@@ -279,17 +341,34 @@ fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<Atomi
                 if stopping.load(Ordering::SeqCst) {
                     return;
                 }
+                let id = ledger::arrived(peer);
                 if let Some(left) = hold_remaining(peer.ip()) {
+                    ledger::ended(id, End::Held);
                     scribe::debug(Channel::Network, &format!("{peer} failed a login less than {} seconds ago.  \
                         Closed at the door; {} ms of the hold left.", FAILURE_HOLD.as_secs(), left.as_millis()));
                     continue;
                 }
-                match queue.try_send(Arrival { socket, peer, arrived: Instant::now() }) {
+                // The clone that stop() and kick() shut.  Without one the
+                // connection is still served; it just can't be kicked.
+                match socket.try_clone() {
+                    Ok(clone) => {
+                        open.lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .insert(id, clone);
+                    }
+                    Err(e) => scribe::debug(Channel::Network, &format!("Couldn't clone {peer}'s socket: {e}.  It \
+                        can't be kicked or woken.")),
+                }
+                match queue.try_send(Arrival { id, socket, peer, arrived: Instant::now() }) {
                     Ok(()) => {
                         said_full = false;
                         scribe::debug(Channel::Network, &format!("Connection from {peer}."));
                     }
                     Err(TrySendError::Full(_)) => {
+                        ledger::ended(id, End::TurnedAway);
+                        open.lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .remove(&id);
                         if !said_full {
                             said_full = true;
                             scribe::warn(Channel::Network, "The login queue is full.  New connections are being \
@@ -321,8 +400,7 @@ fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<Atomi
 /// One login thread: takes connections off the queue until the queue
 /// closes.  A connection taken while we're stopping, or that waited past
 /// the login deadline, is closed unserved.
-fn work(arrivals: Arc<Mutex<Receiver<Arrival>>>, setup: Arc<Setup>, stopping: Arc<AtomicBool>,
-        serving: Arc<Mutex<HashMap<u64, TcpStream>>>) {
+fn work(arrivals: Arc<Mutex<Receiver<Arrival>>>, setup: Arc<Setup>, stopping: Arc<AtomicBool>, open: OpenSockets) {
     loop {
         // Rust note: the receiver is behind a lock because a channel has
         // one receiving end and there are several of us.  Whoever holds
@@ -336,69 +414,70 @@ fn work(arrivals: Arc<Mutex<Receiver<Arrival>>>, setup: Arc<Setup>, stopping: Ar
         let Ok(arrival) = next else {
             return;
         };
+        // Off the open list when this pass ends, whichever way.
+        let _open = Open::new(&open, arrival.id);
         if stopping.load(Ordering::SeqCst) {
+            ledger::ended(arrival.id, End::Stopped);
             continue;
         }
         if arrival.arrived.elapsed() >= setup.login_deadline {
+            ledger::ended(arrival.id, End::Unserved);
             scribe::debug(Channel::Network, &format!("{} waited in the login queue past the deadline.  Closed \
                 unserved.", arrival.peer));
             continue;
         }
-        serve(arrival, &setup, &stopping, &serving);
+        // Kicked while it waited: its socket is already shut.
+        if ledger::is_done(arrival.id) {
+            continue;
+        }
+        serve(arrival, &setup, &stopping);
     }
 }
 
 /// One connection, from the first byte to the last: TLS, then the login,
 /// then goodbye.  The deadline runs from when the connection arrived.
-fn serve(arrival: Arrival, setup: &Setup, stopping: &AtomicBool, serving: &Arc<Mutex<HashMap<u64, TcpStream>>>) {
-    let Arrival { socket, peer, arrived } = arrival;
+/// However it ends, the ledger is told.
+fn serve(arrival: Arrival, setup: &Setup, stopping: &AtomicBool) {
+    let Arrival { id, socket, peer, arrived } = arrival;
     let deadline = arrived + setup.login_deadline;
-
-    // A clone on the serving list, so stop() can wake us.  Off the list
-    // when this function ends, whichever way.
-    let clone = match socket.try_clone() {
-        Ok(clone) => clone,
-        Err(e) => {
-            scribe::debug(Channel::Network, &format!("Couldn't clone {peer}'s socket: {e}.  Closing it."));
-            return;
-        }
-    };
-    let _on_list = Serving::new(serving, clone);
 
     // Small messages go out straight away, instead of being held back to
     // be sent together.
     let _ = socket.set_nodelay(true);
     if socket.set_write_timeout(Some(WRITE_WAIT)).is_err() {
+        ledger::ended(id, End::HungUp);
         return;
     }
 
-    let Some(mut stream) = handshake(socket, peer, setup, deadline) else {
-        return;
+    ledger::set(id, Stage::Handshake);
+    let mut stream = match handshake(socket, peer, setup, deadline) {
+        Ok(stream) => stream,
+        Err(end) => {
+            ledger::ended(id, end);
+            return;
+        }
     };
-    talk(&mut stream, peer, setup, deadline, stopping);
+    let end = talk(&mut stream, id, peer, setup, deadline, stopping);
+    ledger::ended(id, end);
     goodbye(&mut stream);
 }
 
-/// Keeps a socket on the serving list for as long as it's held.
+/// Keeps a connection on the open list for as long as it's held.
 // Rust note: `Drop` is code that runs when a value goes away, here at the
-// end of serve(), however it ends.  So there's no way out that leaves a
-// closed socket on the list.
-struct Serving<'a> {
+// end of a pass through work()'s loop, however it ends.  So there's no
+// way out that leaves a closed socket on the list.
+struct Open<'a> {
     id: u64,
     list: &'a Mutex<HashMap<u64, TcpStream>>,
 }
 
-impl<'a> Serving<'a> {
-    fn new(list: &'a Mutex<HashMap<u64, TcpStream>>, socket: TcpStream) -> Serving<'a> {
-        let id = NEXT_SERVING.fetch_add(1, Ordering::Relaxed);
-        list.lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner())
-            .insert(id, socket);
-        Serving { id, list }
+impl<'a> Open<'a> {
+    fn new(list: &'a Mutex<HashMap<u64, TcpStream>>, id: u64) -> Open<'a> {
+        Open { id, list }
     }
 }
 
-impl Drop for Serving<'_> {
+impl Drop for Open<'_> {
     fn drop(&mut self) {
         self.list.lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -406,15 +485,15 @@ impl Drop for Serving<'_> {
     }
 }
 
-/// The TLS handshake, inside the deadline.  `None` means it didn't
-/// happen, and why is in the log.
-fn handshake(mut socket: TcpStream, peer: SocketAddr, setup: &Setup, deadline: Instant) -> Option<TlsStream> {
+/// The TLS handshake, inside the deadline.  An `Err` is how it didn't
+/// happen, for the ledger; why is in the log.
+fn handshake(mut socket: TcpStream, peer: SocketAddr, setup: &Setup, deadline: Instant) -> Result<TlsStream, End> {
     let started = Instant::now();
     let mut conn = match ServerConnection::new(Arc::clone(&setup.tls)) {
         Ok(conn) => conn,
         Err(e) => {
             scribe::warn(Channel::Network, &format!("Couldn't start TLS for {peer}: {e}.  Closing it."));
-            return None;
+            return Err(End::HungUp);
         }
     };
 
@@ -426,20 +505,20 @@ fn handshake(mut socket: TcpStream, peer: SocketAddr, setup: &Setup, deadline: I
         if !arm_read(&socket, deadline) {
             scribe::debug(Channel::Network, &format!("{peer} didn't finish TLS in {} seconds.  Closing it.",
                                                      setup.login_deadline.as_secs()));
-            return None;
+            return Err(End::TimedOut);
         }
         match conn.complete_io(&mut socket) {
             Ok(_) => {}
             Err(e) if timed_out(&e) => {}
             Err(e) => {
                 scribe::debug(Channel::Network, &format!("TLS with {peer} failed: {e}."));
-                return None;
+                return Err(End::HungUp);
             }
         }
     }
 
     scribe::debug(Channel::Network, &format!("TLS with {peer} is up, in {} ms.", started.elapsed().as_millis()));
-    Some(StreamOwned::new(conn, socket))
+    Ok(StreamOwned::new(conn, socket))
 }
 
 /// Sets the socket's read timeout to what's left before `deadline`, so the
@@ -452,11 +531,14 @@ fn arm_read(socket: &TcpStream, deadline: Instant) -> bool {
     socket.set_read_timeout(Some(left)).is_ok()
 }
 
-/// Everything after TLS: Hello, the Login, the answer.
-fn talk(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, deadline: Instant, stopping: &AtomicBool) {
+/// Everything after TLS: Hello, the Login, the answer.  Hands back how it
+/// ended, for the ledger.
+fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadline: Instant,
+        stopping: &AtomicBool) -> End {
     if send(stream, &protocol::hello()).is_err() {
-        return;
+        return End::HungUp;
     }
+    ledger::set(id, Stage::AwaitingLogin);
 
     // Bytes that have arrived and aren't a whole packet yet.
     let mut incoming: Vec<u8> = Vec::with_capacity(READ_CHUNK);
@@ -466,58 +548,60 @@ fn talk(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, deadline: Insta
         Err(Trouble::Timeout) => {
             scribe::debug(Channel::Network, &format!("{peer} didn't log in within {} seconds.  Closing it.",
                                                      setup.login_deadline.as_secs()));
-            return;
+            return End::TimedOut;
         }
         Err(Trouble::HungUp) => {
             scribe::debug(Channel::Network, &format!("{peer} hung up before logging in."));
-            return;
+            return End::HungUp;
         }
         Err(Trouble::Bad(why)) => {
             scribe::debug(Channel::Network, &format!("{peer} sent {why}.  Closing it."));
             refuse(stream, peer);
-            return;
+            return End::Junk;
         }
         Err(Trouble::Io(e)) => {
             scribe::debug(Channel::Network, &format!("Lost {peer}: {e}."));
-            return;
+            return End::HungUp;
         }
     };
     if packet.kind != PacketType::Login as u8 {
         scribe::debug(Channel::Network, &format!("{peer} sent packet type 0x{:02X} instead of a Login.  Closing \
             it.", packet.kind));
         refuse(stream, peer);
-        return;
+        return End::Junk;
     }
     let login = match protocol::read_login(&packet.payload) {
         Ok(login) => login,
         Err(why) => {
             scribe::debug(Channel::Network, &format!("{peer} sent a Login with {why}.  Closing it."));
             refuse(stream, peer);
-            return;
+            return End::Junk;
         }
     };
 
     // The clock starts the moment the login is in, and every path below
     // runs out the same floor before anything goes back.
     let arrived = Instant::now();
-    let outcome = log_in(stream, peer, setup, &login, stopping);
+    let outcome = log_in(stream, id, peer, setup, &login, stopping);
     security::pad_login_time(arrived);
 
     let account = match outcome {
         Outcome::In(account) => account,
         Outcome::Refused => {
             refuse(stream, peer);
-            return;
+            return End::Refused;
         }
         Outcome::Outdated => {
             let _ = send(stream, &protocol::login_result(LoginAnswer::Outdated));
-            return;
+            return End::Outdated;
         }
         Outcome::Unavailable => {
             let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
-            return;
+            return End::Unavailable;
         }
-        Outcome::Gone => return,
+        Outcome::Gone => {
+            return if stopping.load(Ordering::SeqCst) { End::Stopped } else { End::HungUp };
+        }
     };
 
     // The password was right.  Is the account already in the world?
@@ -525,20 +609,25 @@ fn talk(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, deadline: Insta
         scribe::info(Channel::Security, &format!("{account} is already in the world from {elsewhere}.  Asking \
             {peer} what to do."));
         if send(stream, &protocol::login_result(LoginAnswer::AlreadyLoggedIn)).is_err() {
-            return;
+            return End::HungUp;
         }
+        ledger::set(id, Stage::Asked);
         let packet = match read_packet(stream, &mut incoming, Instant::now() + CHOICE_DEADLINE) {
             Ok(packet) => packet,
-            Err(_) => {
+            Err(trouble) => {
                 scribe::debug(Channel::Network, &format!("{peer} didn't say what to do about the other session.  \
                     Closing it; the other session stands."));
-                return;
+                return match trouble {
+                    Trouble::Timeout => End::TimedOut,
+                    Trouble::Bad(_) => End::Junk,
+                    Trouble::HungUp | Trouble::Io(_) => End::HungUp,
+                };
             }
         };
         if packet.kind != PacketType::SessionChoice as u8 {
             scribe::debug(Channel::Network, &format!("{peer} sent packet type 0x{:02X} instead of a \
                 SessionChoice.  Closing it; the other session stands.", packet.kind));
-            return;
+            return End::Junk;
         }
         match protocol::read_session_choice(&packet.payload) {
             Ok(Choice::LogTheOtherOut) => {
@@ -550,12 +639,12 @@ fn talk(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, deadline: Insta
             Ok(Choice::HangUp) => {
                 scribe::info(Channel::Security, &format!("{peer} left the other session on {account} alone and \
                     hung up."));
-                return;
+                return End::LeftAlone;
             }
             Err(why) => {
                 scribe::debug(Channel::Network, &format!("{peer} sent {why}.  Closing it; the other session \
                     stands."));
-                return;
+                return End::Junk;
             }
         }
     }
@@ -564,11 +653,13 @@ fn talk(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, deadline: Insta
         Ok(token) => {
             scribe::info(Channel::Security, &format!("{peer} logged in as {account} and has a ticket for UDP."));
             let _ = send(stream, &protocol::ticket(&token, setup.udp_port));
+            End::LoggedIn
         }
         Err(e) => {
             scribe::error(Channel::Security, &format!("NO TICKET FOR {account}: Fingerprinter couldn't make a token \
                 ({e}).  Nobody can get past the login until the OS gives random bytes again."));
             let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
+            End::Unavailable
         }
     }
 }
@@ -590,8 +681,8 @@ enum Outcome {
 /// Checks a Login: the version, the secret word, the name, then the
 /// password through Archivist and Security.  It doesn't pad the time; the
 /// caller does that, on every path.
-fn log_in(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, login: &LoginRequest, stopping: &AtomicBool)
-          -> Outcome {
+fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, login: &LoginRequest,
+          stopping: &AtomicBool) -> Outcome {
     if !setup.client_versions.iter().any(|version| *version == login.client_version) {
         // `{:?}` puts the version in quotes with anything odd in it
         // escaped, so one line stays one line whatever the client sent.
@@ -616,6 +707,7 @@ fn log_in(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, login: &Login
 
     // The account's row, waited for on this thread.  Archivist's worker
     // does the reading; we only sleep until it's done.
+    ledger::set(id, Stage::Checking);
     let params: Vec<archivist::Param> = vec![Box::new(account.clone())];
     let stored: Option<String> = match archivist::query(ACCOUNT_SQL, params).wait() {
         Ok(rows) => rows.first().map(|row| row.get("password_hash")),
@@ -628,8 +720,8 @@ fn log_in(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, login: &Login
 
     // Into Security's line, one way or the other, and the same wait.
     let verified = match &stored {
-        Some(hash) => wait_in_line(stream, security::verify_password(&login.password, hash), stopping),
-        None => wait_in_line(stream, security::verify_no_account(&login.password), stopping)
+        Some(hash) => wait_in_line(stream, id, security::verify_password(&login.password, hash), stopping),
+        None => wait_in_line(stream, id, security::verify_no_account(&login.password), stopping)
             .map(|answer| answer.map(|()| false)),
     };
 
@@ -657,9 +749,9 @@ fn log_in(stream: &mut TlsStream, peer: SocketAddr, setup: &Setup, login: &Login
 }
 
 /// Waits for Security's answer, a second at a time, telling the client
-/// its place in the line in between.  `None` if the client went away or
-/// the server is stopping before the answer came.
-fn wait_in_line<T>(stream: &mut TlsStream, ticket: Ticket<T>, stopping: &AtomicBool)
+/// (and the ledger) its place in the line in between.  `None` if the
+/// client went away or the server is stopping before the answer came.
+fn wait_in_line<T>(stream: &mut TlsStream, id: u64, ticket: Ticket<T>, stopping: &AtomicBool)
                    -> Option<Result<T, SecurityError>> {
     loop {
         if let Some(answer) = ticket.wait_for(PLACE_EVERY) {
@@ -669,6 +761,7 @@ fn wait_in_line<T>(stream: &mut TlsStream, ticket: Ticket<T>, stopping: &AtomicB
             return None;
         }
         let place = ticket.place();
+        ledger::set(id, Stage::InLine { ahead: place.ahead, wait: place.wait });
         if send(stream, &protocol::in_line(place.ahead, place.wait.as_millis())).is_err() {
             return None;
         }
@@ -829,5 +922,6 @@ mod tests {
     fn stop_with_nothing_started_does_nothing() {
         stop();
         assert_eq!(listening_on(), None);
+        assert_eq!(kick(1), Kicked::NotListening);
     }
 }

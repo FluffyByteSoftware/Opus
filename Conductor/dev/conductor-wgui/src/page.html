@@ -7,14 +7,18 @@ Author:     Jacob Chacko
 The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
-of that answer is written down at the top of json.rs.  Eight tabs down the
-left side: the Control Panel, System, Conductor, Services, Storage,
+of that answer is written down at the top of json.rs.  Nine tabs down the
+left side: the Control Panel, System, Conductor, Services, Storage, TCP,
 Notifications History, Scribe's log and Settings.  The Control Panel is
 where the server is started and stopped, and it's all there is until the
 server is running: the other tabs are locked, bar the log and the
 settings, and the bell is hidden.
 Once the server is running the tabs open up, and while the database isn't
 connected they're locked again and the page under the header is blurred.
+The TCP tab stays locked until both of networking's listeners are up; it
+lists every connection that reached the login door in the last five
+minutes, by address and never by account, with where each one is and a
+KICK for admin.
 The Control Panel, the Log, the Settings and the bell stay above that
 lock, so the server can still be stopped and the log read to see why.
 SHUT DOWN is on the Control Panel, with the server buttons, and nowhere
@@ -203,6 +207,10 @@ OUT, sit at the bottom of the sidebar.
   .disk-big .meter .ours { min-width: 0; }
   .bad-ink { color: var(--red); }
   .warn-ink { color: var(--yellow); }
+  /* The TCP tab: a finished connection is greyed like a thread we didn't
+     start, and KICK is the small red cousin of ACK. */
+  tr.over td { color: var(--ink-faint); }
+  button.kick { padding: 3px 10px; font-size: 11px; letter-spacing: 0.08em; }
 
   .boxed { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
   .tall { min-height: 420px; max-height: 70vh; }
@@ -397,6 +405,7 @@ OUT, sit at the bottom of the sidebar.
     <button class="maintab" role="tab" data-tab="services" disabled>Services<span class="dot bad flash"
       id="services-badge" hidden></span></button>
     <button class="maintab" role="tab" data-tab="storage" disabled>Storage</button>
+    <button class="maintab" role="tab" data-tab="tcp" disabled>TCP</button>
     <button class="maintab" role="tab" data-tab="notices" disabled>Notifications History</button>
     <button class="maintab" role="tab" data-tab="log" disabled>Log</button>
     <button class="maintab" role="tab" data-tab="settings" disabled>Settings</button>
@@ -731,6 +740,44 @@ OUT, sit at the bottom of the sidebar.
   </div>
   </section>
 
+  <section class="tabpage" id="page-tcp">
+  <div class="grid">
+    <div class="panel span-12">
+      <div class="pair">
+        <div class="tile">
+          <div class="label">Listening</div>
+          <div class="value" id="tcp-listening">--</div>
+          <div class="small" id="tcp-udp">--</div>
+        </div>
+        <div class="tile">
+          <div class="label">At the door</div>
+          <div class="value" id="tcp-open">--</div>
+          <div class="small" id="tcp-open-note">--</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel span-12 boxed">
+      <div class="tall-head">
+        <h3>Connections</h3>
+        <div class="note mono" id="tcp-count"></div>
+      </div>
+      <div class="tall-body" style="max-height: 60vh;">
+        <table id="tcp">
+          <thead><tr>
+            <th>Address</th><th>Host</th><th>Arrived</th><th class="num">Ago</th><th>Where</th><th class="num"></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note" id="tcp-note">Every connection that reached the login door in the last few minutes,
+          newest first, by address only: who logged in as what is in the log, on purpose.  Host is the
+          address's name from reverse DNS, when it has one.  A finished connection is greyed and says how it
+          ended.  KICK closes a connection where it stands; the client sees the connection drop and nothing
+          else.</div>
+      </div>
+    </div>
+  </div>
+  </section>
+
   <section class="tabpage" id="page-notices">
     <div class="panel boxed tall">
       <div class="tall-head">
@@ -800,7 +847,7 @@ const MOST_LINES = 500;
 
 // The tabs, and the one that opens first when the browser hasn't remembered
 // one.
-const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "notices", "log", "settings"];
+const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "tcp", "notices", "log", "settings"];
 
 // The tabs that are always clickable: the server can always be stopped,
 // the log read to see why, and a setting changed for the next reboot.
@@ -1211,15 +1258,18 @@ function applyDbMode(mode, dbState, takenAt) {
 
 // Which sidebar tabs can be clicked.  The Control Panel, the Log and the
 // Settings always (OPEN_TABS).  The rest only with the server running and
-// the database connected.
+// the database connected, and the TCP tab only once both of networking's
+// listeners are up as well (Jacob's rule for it).
 let dbLocked = true;
+let netOnline = false;
 
 function lockTabs() {
   for (const tab of document.querySelectorAll(".maintab")) {
     const name = tab.dataset.tab;
     tab.disabled = OPEN_TABS.includes(name) ? false
-      : serverRunning ? dbLocked
-      : true;
+      : !serverRunning ? true
+      : name === "tcp" ? dbLocked || !netOnline
+      : dbLocked;
   }
 }
 
@@ -1487,6 +1537,71 @@ function drawServices(services) {
   $("services-count").textContent = healthy + " of " + services.length + " healthy";
   // With the server stopped, its pieces being down is the normal state.
   $("services-badge").hidden = down === 0 || !serverRunning;
+}
+
+// The TCP tab: the door, and every connection that reached it lately.
+// The tab locks itself while either listener is down; if it was the one
+// open, the page moves to the default tab rather than sit on a locked one.
+function drawTcp(n) {
+  if (!n) return;
+  const online = n.tcp !== null && n.udp !== null;
+  if (online !== netOnline) {
+    netOnline = online;
+    lockTabs();
+  }
+  if (!netOnline && serverRunning && currentTab === "tcp") showMainTab(DEFAULT_TAB);
+  $("tcp-listening").textContent = n.tcp === null ? "NOT LISTENING" : n.tcp;
+  $("tcp-listening").className = "value " + (n.tcp === null ? "bad-ink" : "");
+  $("tcp-udp").textContent = n.udp === null ? "UDP: not listening" : "UDP on " + n.udp + ", " + n.players
+    + " player(s), " + n.tickets + " ticket(s) unused";
+
+  const open = n.connections.filter(c => !c.done);
+  const queued = open.filter(c => c.stage === "queued").length;
+  const inLine = open.filter(c => c.stage === "in_line").length;
+  $("tcp-open").textContent = open.length + " open";
+  $("tcp-open-note").textContent = queued + " waiting for a login thread, " + inLine + " in Security's line, "
+    + (n.connections.length - open.length) + " finished in the last " + Math.round(n.remember_seconds / 60)
+    + " minutes";
+
+  const body = $("tcp").tBodies[0];
+  body.textContent = "";
+  for (const c of n.connections) {
+    const row = body.insertRow();
+    if (c.done) row.className = "over";
+    cell(row, c.address, "nowrap");
+    cell(row, c.host === null ? "--" : c.host, "wrap");
+    cell(row, c.arrived, "nowrap");
+    cell(row, c.seconds_ago + " s", "num");
+    const where = c.stage === "queued" ? c.text + " (" + c.queued_ahead + " ahead)" : c.text;
+    cell(row, where, "wrap " + (c.logged_in ? "good-ink" : ""));
+    const last = document.createElement("td");
+    last.className = "num";
+    if (!c.done) last.appendChild(kickButton(c.id, c.address));
+    row.appendChild(last);
+  }
+  $("tcp-count").textContent = n.connections.length + " in the last " + Math.round(n.remember_seconds / 60)
+    + " minutes";
+}
+
+// KICK, on one row of the TCP tab.  Admin only; the button is greyed for
+// user and Conductor turns the ask away anyway.  The next status answer
+// shows the connection as kicked.
+function kickButton(id, address) {
+  const button = document.createElement("button");
+  button.className = "kick";
+  button.textContent = "KICK";
+  button.disabled = !canChange;
+  button.addEventListener("click", async () => {
+    if (!confirm("Kick " + address + "?")) return;
+    button.disabled = true;
+    try {
+      const answer = await fetch("/Opus/wwwhook/tcp/kick?id=" + id, { method: "POST", headers: { "X-Opus": "tcp" } });
+      if (!answer.ok) alert("Conductor said no: " + await answer.text());
+    } catch (e) {
+      alert("The kick didn't go through: " + e);
+    }
+  });
+  return button;
 }
 
 // DiskMan's panel on the Storage tab.
@@ -1884,6 +1999,7 @@ async function ask() {
     drawMonitor(status.monitor);
     drawServices(status.services);
     drawDisk(status.diskman);
+    drawTcp(status.networking);
     drawBell(status.notices);
     // The whole history is only asked for while its tab is showing.
     if (currentTab === "notices") askNotices();
