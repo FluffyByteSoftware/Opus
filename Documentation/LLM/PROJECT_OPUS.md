@@ -84,6 +84,7 @@ Opus/
     └── LLM/
         ├── STATUS.md                  # the bridge between sessions
         ├── TODO.md                    # deferred work and ideas
+        ├── LONGTERM_TODO.md           # the big features: a run of sessions each, added as they come up
         ├── PROJECT_OPUS.md            # this file
         ├── PROTOCOL.md                # the server/client contract -- empty until networking
         ├── WRITINGSTYLE.md            # Jacob's voice for anything in the repo

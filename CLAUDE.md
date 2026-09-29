@@ -67,6 +67,7 @@ Opus/
     └── LLM/               # working docs
         ├── STATUS.md      # bridge between sessions
         ├── TODO.md        # pending work + future ideas
+        ├── LONGTERM_TODO.md # the big features, a run of sessions each
         ├── PROJECT_OPUS.md# skeletal layout of the whole project
         ├── PROTOCOL.md    # server/client contract
         ├── WRITINGSTYLE.md# my voice for public docs and comments
@@ -114,6 +115,8 @@ a `Content/` folder, or by creating `./Content` when neither works.
 - **Things that can't be done yet** (because a dependency isn't built) go in
   `Documentation/LLM/TODO.md`, not half-implemented in code.
 - **Future ideas** that come up in conversation also go in `Documentation/LLM/TODO.md`.
+  A feature that's a run of sessions on its own (a scripting language, say)
+  goes in `Documentation/LLM/LONGTERM_TODO.md` instead.
 - **I'm hands-off on the files in `Opus/`.** You make every edit, CLAUDE.md
   included. Don't hand me a list of changes to make by hand; make them and tell
   me what changed.

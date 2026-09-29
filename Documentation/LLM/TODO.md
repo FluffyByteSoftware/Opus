@@ -6,6 +6,8 @@ Author:     Jacob Chacko
 
 # Opus -- TODO
 
+The big features, the ones that are a run of sessions each, are in LONGTERM_TODO.md instead.
+
 ## Deferred
 
 Things that wait on a piece that doesn't exist yet.
