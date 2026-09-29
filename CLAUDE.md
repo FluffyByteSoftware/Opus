@@ -114,7 +114,7 @@ a `Content/` folder, or by creating `./Content` when neither works.
   reading would mean in practice. Don't fill gaps with guesses.
 - **The test checklist.** `Documentation/LLM/TEST_CHECKLIST.md` is the rolling list of what to check on
   `testing`: every session that changes what Conductor does adds its checks there, and the reply that
-  pushes to `testing` points at them.  Jacob's ask, 2026-09-29, so that once game features come, there's a
+  pushes to `testing` points at them.  Once he says a check passed, it comes out of the file.  Jacob's ask, 2026-09-29, so that once game features come, there's a
   reminder of what changed and what to look at in game.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
@@ -151,7 +151,8 @@ When I say we're wrapping up:
    files the session changed, so they match reality.
    Add the session's checks to `Documentation/LLM/TEST_CHECKLIST.md` (Jacob's ask, 2026-09-29): what to
    run on `testing` to see this session's change working, and what to look at in the game once there is
-   one.  A check is struck through with the date once he's done it, never deleted.
+   one.  A check that passes is taken out, not struck through; the file is his reminder of what's
+   left, not a history (Jacob, 2026-09-29; git keeps the old ones).
 3. Update `README.md` if anything about the project's overview changed.
 4. Update this CLAUDE.md with anything the session taught us, and tell me what
    changed.
