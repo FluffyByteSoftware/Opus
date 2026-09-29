@@ -210,6 +210,9 @@ When I say we're wrapping up:
 
 - **Never use `#[allow(dead_code)]`** or any other lint suppression. I would
   rather see the warnings.
+- **Benchmarks run with `--release`.** `cargo test` builds unoptimized, and
+  unoptimized Argon2 read six times slow. A timing test is an `#[ignore]`
+  test run by hand, and its doc comment gives the exact command.
 - Whenever you create a new crate, say explicitly whether it is a **bin** or a
   **lib**.
 - Prefer clear ownership and simple types over heavy generics or macros.

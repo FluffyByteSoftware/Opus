@@ -15,9 +15,13 @@ web admin at `http://127.0.0.1:9996/Opus`, and the only way to shut the server d
 (bin) starts all of it and waits on the web admin.  Ensemble hasn't been started.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29.**  `cargo build` clean with no warnings, `cargo test -p
-conductor-tools` passed 73 tests (1 ignored, the benchmark), and the benchmark ran in release.  The
-`Ticket` came after that run and is waiting on a build.  This session's
-branch is `infamous-saganism`, ready to merge when Jacob says so.  The Windows code has never been built.
+conductor-tools` passed 74 tests (1 ignored, the benchmark), and the benchmark ran in release.  This
+session's branch is `infamous-saganism`, ready to merge when Jacob says so.  The Windows code has never been
+built.
+
+**The tools are done**, as far as anything is done: DiskMan, Scribe, Constellations, Fingerprinter, Security,
+Archivist, the clock, threads, services, notices.  Jacob called it at the end of this session.  What comes
+next is the server itself, starting with networking, which is a lib crate the launcher starts, not a tool.
 
 ## Last session -- 2026-09-29
 
@@ -74,6 +78,8 @@ What Jacob decided:
 ## What's waiting
 
 - Merging `infamous-saganism`, when Jacob says.
+- Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
+  the client), PROTOCOL.md filled in.  The first piece of the server proper.  Its name is Jacob's to give.
 - Accounts: making, checking and logging in.  Security and Fingerprinter are ready for it; the login itself
   waits on networking.
 - Archivist retrying on its own every 5 seconds while disconnected, so the page's lock lifts when Postgres

@@ -194,6 +194,7 @@ every number is six times bigger, which is why the benchmark says to use `--rele
 
 What's open:
 
+- The queue place is worked out but not yet told to anyone.  Networking's, when there is a client to tell.
 - Rayon lanes would cut a single hash's wall time across cores at the same CPU cost, but it's a crate and
   its threads bypass `threads::spawn()`.  Not taken.
 - Not hashing at all on a reconnect (a token from Fingerprinter instead) is the biggest CPU saving there is,
