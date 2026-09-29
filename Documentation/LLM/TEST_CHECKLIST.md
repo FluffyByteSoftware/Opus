@@ -27,8 +27,10 @@ The account is `throwaway_01` / `Throwaway 1!`.  The client is `conductor-networ
 
 ### 0. The build
 
-- [ ] `cargo build` clean, no warnings; `cargo test` passes, 199.  Only `test_client.py` changed since
-      the last build (`--pause-before-login`), so the count doesn't move.
+- [x] ~~`cargo build` clean, no warnings; `cargo test` passes, 199.  Only `test_client.py` changed since
+      the last build (`--pause-before-login`), so the count doesn't move.~~  2026-09-29, after `cargo
+      clean`: no warnings, 199 passed (15 monitor, 59 networking, 91 tools with the benchmark ignored,
+      34 web admin).
 
 ### 1. The web admin before START SERVER
 
