@@ -90,14 +90,24 @@ What Jacob decided:
 
 ## What's waiting
 
-- **A new tab on the web admin showing who is connected to the server, Jacob's pick for the next
-  conversation.**  What it will need from networking: today `conductor_networking::status()` only counts
-  players and unused tickets.  The tab wants a list: each player's account, the address they're on, when
-  they connected, how long since they were last heard from, and probably the unused tickets the same way.
-  That's a `players()` on `sessions.rs` (a copy of the book, under its lock, at most once a second when
-  the page asks), a shape in `json.rs`, a ninth tab in `page.html` under the database lock like the other
-  data tabs, and the tab list in CLAUDE.md.  Kicking from that tab is client management and waits.  The
-  items below are unordered.
+- **Jacob's pick for the next conversation: a way to track connections in the queue at the login
+  server, and the accounts connected.**  Two lists, both networking's to keep and the web admin's to
+  show.  Nothing is built for it yet; what exists and what's missing:
+  - *The login side* (`tcp.rs`).  Today the acceptor's queue is a plain channel with no view into it, and
+    the `serving` map holds only sockets, for `stop()` to shut.  The tab wants, for every connection
+    that isn't done: its address, when it arrived, and where it is (waiting for a login thread, in TLS,
+    waiting for the Login packet, in Security's line with its `place()`, waiting on a SessionChoice).
+    That's a small ledger in `tcp.rs` updated at each stage change (a lock touched a handful of times per
+    login, not per byte), with counts of waiting and in-progress on top.  Logins that finished aren't
+    kept; the log has those.
+  - *The world side* (`sessions.rs`).  The book already holds it all; it only hands out counts.  A
+    `players()` that copies out each player's account, address, connected-since and last-heard, and each
+    unused ticket's account and issued-at.
+  - *The web admin*.  `conductor_networking::status()` grows the two lists; `json.rs` gets their shape
+    written at its top; a ninth tab in `page.html` under the database lock like the other data tabs,
+    pulled with the status once a second; the tab list in CLAUDE.md gains it.  Its name and where it sits
+    in the sidebar are Jacob's to say.  Kicking a player from the tab is client management and waits.
+  The items below are unordered.
 - **`cargo test`** from `Conductor/dev`: the build and the run are done, the tests haven't been pasted
   back.  Cargo.lock changed and the certificate exists; both wait on Jacob's commit.
 - **Not tried yet by hand**: two clients on one account (the kick-or-hang-up prompt), `--go-quiet` for
