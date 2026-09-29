@@ -56,7 +56,9 @@ Opus/
 │       ├── conductor-accounts/        # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools only
 │       │   └── src/
-│       │       └── lib.rs             # Account in memory: load(), save() if changed, new() and create(); the hash apart
+│       │       ├── lib.rs             # the accounts table: load(), list(), create(), edit(), delete(), stamp_login();
+│       │       │                      #   never held, the hash apart; the field checks
+│       │       └── desk.rs            # the account desk: the web admin's jobs that need a hash, on their own thread
 │       ├── conductor-monitor/         # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools only
 │       │   └── src/
@@ -75,7 +77,7 @@ Opus/
 │       │       ├── settings.rs        # networking.cfg as networking reads it; the file itself is Constellations'
 │       │       ├── tls.rs             # reads the certificate and key, builds rustls's server settings
 │       │       ├── protocol.rs        # the packets, byte for byte; PROTOCOL.md is the other half
-│       │       ├── sessions.rs        # the book: tickets by token, players by address, accounts by name; players() for the page
+│       │       ├── sessions.rs        # the book: tickets by token, players by address, accounts by name (the name only)
 │       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login flow, the failure hold, the kick
 │       │       ├── ledger.rs          # the door's ledger: every TCP connection since START SERVER, where it is, LINKDEAD
 │       │       ├── access.rs          # the whitelist and the blacklist: the two files, the entries and ranges, the verdict
@@ -85,15 +87,16 @@ Opus/
 │       │       ├── dns/other.rs       # macOS and the rest: no names yet
 │       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep
 │       ├── conductor-wgui/            # lib
-│       │   ├── Cargo.toml             # depends on conductor-tools, conductor-monitor and conductor-networking
+│       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -monitor and -networking
 │       │   └── src/
 │       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
+│       │       ├── accounts.rs        # the Accounts tab's routes: list, job, create, edit, password, delete
 │       │       ├── http.rs            # just enough HTTP: the head, then the body Content-Length says
 │       │       ├── login.rs           # the two accounts (user, admin) and the live logins, by cookie
 │       │       ├── json.rs            # every JSON answer the page reads; the shapes at its top
-│       │       └── page.html          # the page, baked in: the login card, eleven tabs, the bell, the locks
+│       │       └── page.html          # the page, baked in: the login card, twelve tabs, the bell, the locks
 │       └── conductor-launcher/        # bin -- the program
-│           ├── Cargo.toml             # depends on the four libs
+│           ├── Cargo.toml             # depends on the five libs
 │           └── src/
 │               └── main.rs            # boots the program, starts and stops the server on the Control Panel's say
 ├── Ensemble/                          # the client -- Unity, on Jacob's machine, not committed yet
@@ -139,6 +142,7 @@ Where each one lives is in the tree above.
 | Conductor          | The server.  It owns the game state.          | Tools, monitor, door, web admin |
 | Ensemble           | The client players run.  Unity 6000.6, C#.    | On Jacob's machine, uncommitted |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
+| conductor-accounts | Lib crate: the accounts table, and the account desk. | Written; the manager untested |
 | conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |
 | conductor-networking | Lib crate: the login over TLS, the game over UDP. | Runs on Linux              |
 | conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
@@ -155,4 +159,4 @@ Where each one lives is in the tree above.
 | Security           | Argon2id password hashing, one worker.        | Built and run on Linux       |
 | The server's switch| Stopped / starting / running / stopping.      | Built and tested on Linux    |
 | The access lists   | The whitelist and the blacklist at the door.  | Built, unit tested; hand checks open |
-| The protocol       | What Conductor and a client say to each other.| Version 3, written           |
+| The protocol       | What Conductor and a client say to each other.| Version 4, written           |

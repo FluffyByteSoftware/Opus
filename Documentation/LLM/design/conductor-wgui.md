@@ -15,18 +15,22 @@ accents, a terminal box), redone in plain CSS.
 
 ```
 conductor-wgui/
-├── Cargo.toml         depends on conductor-tools, conductor-monitor and conductor-networking (the Network Admin tabs)
+├── Cargo.toml         depends on conductor-tools, conductor-monitor, conductor-networking (the Network Admin tabs)
+│                        and conductor-accounts (the Accounts tab)
 └── src/
     ├── lib.rs         start(port) -> bool, has_ended(); the thread, route(), log_in(), only_admin(),
     │                    server_command(), settings_states(), settings_save(), settings_discard(), tcp_kick(),
     │                    networking_list(), unescape(), host_is_ours()
+    ├── accounts.rs    the Accounts tab's routes: list(), job(), create(), edit(), password(), delete(); the
+    │                    checks they share (admin, the page's header, the server running) and the body's fields
     ├── http.rs        read_request() (head, then the body Content-Length says), parse_head(), respond();
     │                    struct Request
     ├── login.rs       the two accounts and the live logins: log_in(), role_of(), log_out(), the cookie lines,
     │                    fields(); enum Role, enum Login
     ├── json.rs        status(switch, role, snapshot, services, disk, networking, open_notices, newest_notices, lines, log_file),
     │                    login(role), notices(open), threads_of(pid, threads), settings(files), problems(list),
-    │                    access(lists), changed() -> String; a small Object builder, text() escaping
+    │                    access(lists), changed(), accounts(list), account_job(number, outcome) -> String; a small
+    │                    Object builder, text() escaping
     └── page.html      the one page, baked in with include_str!
 ```
 
@@ -54,6 +58,12 @@ conductor-wgui/
 | GET    | `/Opus/networking`     | Both access lists, for the Whitelist and Blacklist tabs.  Reads only; `running` is false with empty lists while the server is stopped |
 | POST   | `/Opus/wwwhook/networking/addip?list=<whitelist or blacklist>&entry=<address or range>` | ADD on a list tab, or the Connections tab's menu.  Takes at once; a blacklisting while the blacklist is on is a ban.  Needs `X-Opus: networking`.  400 with the reason in words for an entry that isn't one, 409 while networking isn't running |
 | POST   | `/Opus/wwwhook/networking/removeip?list=...&entry=...` | REMOVE on a list tab, the same way; off the whitelist while the whitelist is on, a ban too |
+| GET    | `/Opus/Content/accounts` | Every game account, by name, for the Accounts tab.  `admin` only (403 to `user`), 409 while the server isn't running, 503 if the database doesn't answer in 5 seconds |
+| GET    | `/Opus/Content/accounts/job?id=N` | Where job N on the account desk is: working, done or failed, and what happened.  404 for a job it doesn't know |
+| POST   | `/Opus/wwwhook/accounts/create` | NEW ACCOUNT.  `username`, `first_name`, `last_name`, `email`, `password`, `password_again` lines in the body.  Needs `X-Opus: accounts`.  400 with the complaints as JSON, each with its field's name in front; 202 with the account desk's job number |
+| POST   | `/Opus/wwwhook/accounts/edit?name=<account>` | SAVE on an account's card: `first_name`, `last_name`, `email`.  Straight to the row; 400 for a field (an email another account has included), 404 for no such account |
+| POST   | `/Opus/wwwhook/accounts/password?name=<account>` | CHANGE PASSWORD: `password`, `password_again`.  202 with the job number; the account desk hashes it and writes it |
+| POST   | `/Opus/wwwhook/accounts/delete?name=<account>` | DELETE ACCOUNT.  Deletes the row, then takes its player out of the world with Kicked, account terminated.  `{ deleted, kicked }` |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
 A known path asked with the wrong method is a `405`, and anything else a `404`; `/Opus/` with the slash is
@@ -201,6 +211,22 @@ them.
   routes are `addip` and `removeip`, his names ("add" and "remove" were too generic), under
   `/Opus/wwwhook/networking/`.  The lists can't be changed while the server is stopped, by his rule:
   the tabs are locked then, and the files can be edited by hand.
+- **The Accounts tab** (2026-09-29), the game account management the old launcher menu planned.  Jacob's
+  list: create an account, list them, delete one, change its fields, the password included.  A GAME
+  ADMIN heading with its own rule, under Network Admin, with the one tab under it (he wants the sidebar
+  rethought next, since menus under headings are getting cluttered; TODO.md).  `admin` only: `user`
+  can't see the list, so the tab is greyed for `user` and the routes answer 403.  It's under the
+  database lock like the data tabs, and only works while the server is running (Jacob's call, after
+  first asking for passwords to be locked while it runs: Security and Archivist are server pieces).
+  An account's profile is a card, opened by clicking its name on the list, not a "finger" command.  A
+  password is typed twice, every time.  The username can't be changed.  The reads go under
+  `/Opus/Content/accounts` and the changes under `/Opus/wwwhook/accounts/`, his paths.  Every change
+  goes straight to the row: an account is never held in memory (his rule, decided the same session;
+  see `conductor-accounts.md`), so editing one whose player is online is safe.  Deleting one whose
+  player is online takes them out with Kicked, reason 5, and the client says ACCOUNT TERMINATED (his
+  words); protocol version 4.  The list, an edit and a delete are waited on (5 seconds at most); a new
+  account and a new password need a hash, so they go to the account desk and the page asks after the
+  job every half second, so the web admin's one thread never waits in Security's line.
 
 ## The page
 
@@ -212,13 +238,13 @@ stopped only the Control Panel, the Log and the Settings open, and the rest wait
 reads the Log and the Settings tab (read only); only `admin` has START, RESTART and STOP SERVER and SHUT
 DOWN.  (Jacob's notes from the 2026-09-29 test run.)
 
-**Sidebar**: the OP logo, and eleven tabs under it: Control Panel, System, Conductor, Services, Storage,
+**Sidebar**: the OP logo, and twelve tabs under it: Control Panel, System, Conductor, Services, Storage,
 Notifications History, then a rule and a NETWORK ADMIN heading with Connections, Whitelist and Blacklist
-indented under it, then Log, Settings.  The Control Panel shows whenever the server isn't running; once it
+indented under it, then another rule and a GAME ADMIN heading with Accounts under it, then Log, Settings.  The Control Panel shows whenever the server isn't running; once it
 is, the page moves to the tab the browser remembers, Conductor by default.  A locked tab is greyed and
 can't be clicked: with the server stopped that's everything but the Control Panel, the Log and the
-Settings, and with it running the database lock decides, and the three Network Admin tabs need both network
-listeners up on top of that.  The Services tab gets a flashing red dot when a
+Settings, and with it running the database lock decides, the three Network Admin tabs need both network
+listeners up on top of that, and Accounts needs `admin`.  The Services tab gets a flashing red dot when a
 service is down, only while the server is running (its pieces being down is the normal state before
 that).  At the bottom: who's logged in, whether they can change things, and LOG OUT.
 
@@ -301,6 +327,18 @@ too), a line saying what the last change did, a red line for a bad entry in Cond
 entries with REMOVE on each (asks first).  "Nothing on it." when empty.  Greyed for `user`.  Locked with
 the Connections tab.
 
+**Accounts**: the list on the left, a card on the right.  The list: the account's name (a blue link to its
+card), the owner, the email, the last login (`never` for none) and ONLINE (green IN THE WORLD while its
+player is, from the status, redrawn every second; the list itself is only asked for when the tab opens
+and after a change).  NEW ACCOUNT in its head.  An account's card: the name with a green IN THE WORLD tag
+while its player is in, the UUID, when it was made and the last login, then three parts: THE OWNER (first
+name, last name, email, SAVE), A NEW PASSWORD (the password twice, CHANGE PASSWORD) and DELETE (DELETE
+ACCOUNT, which asks first and says when the player is in the world).  The new account card: name, first
+name, last name, email, the password twice, CREATE.  Conductor's complaint about a field shows in red
+under it; what happened shows beside the button, green or red, "Working: waiting its turn in Security's
+line." while the account desk has it.  The card is never drawn again under somebody's typing: only the
+tag changes each second.
+
 **Notifications History**: every open notice, newest first: when, level (coloured), where from, what
 happened, and an ACK button.  ACK ALL (asks first) and TEST NOTIFICATION at the top.  The page asks
 `/Opus/notices` once a second, only while this tab is open.
@@ -336,11 +374,12 @@ Built on 2026-09-28, Zabbix style, the way the TLP at Jacob's work does it.  The
 | Archivist      | It's connected to Postgres                    | It can't connect, or lost the connection      |
 | Network (TCP)  | The acceptor is listening for logins          | The TLS files are missing, or it can't listen  |
 | Network (UDP)  | Its thread is listening; checks in every second | It can't listen (TCP comes back down too)     |
+| Account desk   | Its thread is up, waiting for account jobs    | Never; its thread couldn't start shows stopped |
 | Monitor        | Its thread is looking once a second           | Never; stuck shows as gone quiet after 5 s    |
 | Web admin      | It's listening                                | Never; if it can't listen, Conductor stops    |
 
 Any of them shows stopped once its thread has ended, whatever it last said.  Fingerprinter, Security,
-Archivist, the two network services and the monitor are the server: expected until the first START SERVER,
+Archivist, the account desk, the two network services and the monitor are the server: expected until the first START SERVER,
 stopped after a STOP SERVER.
 
 ## What's open
@@ -350,7 +389,5 @@ stopped after a STOP SERVER.
 - Two accounts and no more.  A list of named accounts is an idea in TODO.md.
 - `wgui_port` is moving from `conductor_globals.cfg` into `wgui.cfg` (Jacob, 2026-09-29).  In TODO.md.
 - The Connections tab's UDP list has no character column yet: there are no characters.
-- Game account management (make, delete, list, finger, change password), from the old launcher menu's
-  plans, goes here once there are game accounts.
 - The lock can't lift until Archivist reconnects, and Archivist only tries when a job comes in.  TODO.md.
   A STOP SERVER and a START SERVER is the way round it today.

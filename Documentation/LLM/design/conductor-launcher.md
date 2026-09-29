@@ -14,7 +14,8 @@ when the web admin stops.
 
 ```
 conductor-launcher/
-├── Cargo.toml         depends on conductor-tools, conductor-monitor, conductor-networking, conductor-wgui
+├── Cargo.toml         depends on conductor-tools, conductor-accounts, conductor-monitor, conductor-networking,
+│                        conductor-wgui
 └── src/
     └── main.rs        threads::name_this_thread("main")
                        -> diskman::start -> scribe::start -> constellations::load(&GLOBALS) -> scribe::move_to
@@ -23,8 +24,10 @@ conductor-launcher/
                             loop: wgui::has_ended()?  server::next_command() -> start_server() / stop_server(),
                                   or Restart: stop_server() then start_server()
                        -> stop_server() unless stopped -> wait_on_diskman() (which calls diskman::stop first)
-                       start_server(): fingerprinter -> security -> archivist -> networking -> monitor
-                       stop_server():  monitor -> networking -> security -> archivist -> fingerprinter
+                       start_server(): fingerprinter -> security -> archivist -> account desk -> networking
+                                       -> monitor
+                       stop_server():  monitor -> networking -> account desk -> security -> archivist
+                                       -> fingerprinter
                                        -> constellations::server_stopped()
 ```
 
@@ -34,8 +37,8 @@ conductor-launcher/
 - **The server starts from the Control Panel, not at boot** (2026-09-29).  Jacob's ask: the page Conductor
   greets you with is a control panel, and nothing but the log is up until START SERVER.  So main boots only
   what the page needs (DiskMan, Scribe, Constellations, the web admin) and `start_server()` /
-  `stop_server()` are the list of what the server is: Fingerprinter, Security, Archivist, networking and
-  the monitor today, the game later.  A new piece goes in both.  Security's 64 MiB arena comes and
+  `stop_server()` are the list of what the server is: Fingerprinter, Security, Archivist, the account desk,
+  networking and the monitor today, the game later.  A new piece goes in both.  Security's 64 MiB arena comes and
   goes with the server, so a stopped Conductor holds none of it.
 - **main does the starting and stopping, not the web admin's thread.**  The routes only drop a command in
   `server.rs`'s mailbox and answer; main picks it up within `COMMAND_WAIT` (250 ms).  Archivist's stop can
@@ -49,8 +52,10 @@ conductor-launcher/
 - **The order inside the server** has a reason at each step.  Fingerprinter before Security, since
   Security takes its salts from it.  Networking opens the door only once the three a login leans on
   (Fingerprinter, Security, Archivist) are up, and on the way down it shuts the door and tells every
-  player before they go.  Security stops before Archivist, so a hash on its way to the accounts table
-  still lands.
+  player before they go.  The account desk (conductor-accounts, 2026-09-29) comes after Security and
+  Archivist and goes before them, since its jobs are a hash and then a write: its `stop()` finishes the
+  jobs already handed in while both are still up.  Security stops before Archivist, so a hash on its way
+  to the accounts table still lands.
 - **DiskMan is first in and last out** (2026-09-28).  Every file goes through it, Scribe's log included, so it
   starts before Scribe; and anything else may hand it files on the way out, so it stops after Archivist.
 - **Shutdown waits on DiskMan.**  If it takes more than a second, the console counts down from 60 every 5

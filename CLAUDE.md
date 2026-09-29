@@ -54,7 +54,7 @@ Opus/
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
 │   │   ├── conductor-tools/    # lib: the tools (DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, ...)
-│   │   ├── conductor-accounts/ # lib: an account in memory, loaded from its row and saved back when let go
+│   │   ├── conductor-accounts/ # lib: the one way in to the accounts table, and the account desk
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── conductor-networking/ # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
@@ -257,8 +257,8 @@ When I say we're wrapping up:
   hard). Jacob's words, 2026-09-29.
 - **Conductor and the server are two things.** The program (DiskMan, Scribe,
   Constellations, the web admin) is up from boot. The server (Fingerprinter,
-  Security, Archivist, networking, the monitor, and the game when it
-  exists) only runs between START SERVER and STOP SERVER on the web admin's
+  Security, Archivist, the account desk, networking, the monitor, and the
+  game when it exists) only runs between START SERVER and STOP SERVER on the web admin's
   Control Panel: Conductor comes up with its door closed, and the admin opens
   it (and closes it) from there. Jacob's rule, 2026-09-29. The launcher does
   the calling on the Control Panel's say, so a new server piece goes in both
@@ -319,15 +319,19 @@ When I say we're wrapping up:
   time, hard limit, with everybody else in line.  Nothing else calls the
   argon2 crate, and nothing ever logs a password.
 - **Every account goes through `conductor-accounts`** (2026-09-29).
-  `Account` is the account in memory, Jacob's words: the Rust version of
-  its row, loaded with `load()` and dumped back with `save()`, which
-  skips the write when nothing changed.  It never holds the password hash
-  (`password_hash()` reads that on its own).  Nothing else writes SQL for
-  the `accounts` table.  The server holds a player's `Account` from the
-  login until they leave the world, and saves it then, however they
-  leave.  Its last login is the UDP connect, not the TLS login (Jacob,
-  for playtime).  Accounts are made by the admin on the web admin, never
-  by players.
+  Nothing else writes SQL for the `accounts` table.  **An account is
+  never held in memory** (Jacob's rule, the day after it was): whatever
+  needs one loads it from its row when it needs it (`load()`, `list()`),
+  and every change goes straight back to the row, so there's one copy and
+  nothing writes an old one over a new one.  Networking's book has the
+  account's name and nothing else.  `Account` never has the password hash
+  (`password_hash()` reads that on its own).  The last login is written
+  the moment the player connects over UDP (`stamp_login()`), not at the
+  TLS login (Jacob, for playtime).  Accounts are made by the admin on the
+  web admin's Accounts tab, never by players, and only while the server
+  is running.  Anything that hashes a password for the web admin goes
+  through the account desk (`desk.rs`), so the web admin's one thread
+  never waits in Security's line.
 - **Every Warn and Error becomes a notice** on the web admin's bell, and stays
   there until I ACK it. So a Warn is for something actually wrong, never
   chatter. Code can raise one on purpose with `notices::publish()`.
@@ -337,9 +341,12 @@ When I say we're wrapping up:
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
   adding a route that changes anything. Starting, restarting and stopping the
   server (`/Opus/wwwhook/start`, `/stop`, `/restart`), kicking a TCP
-  connection or the player its login became (`/Opus/wwwhook/tcp/kick`) and changing the access lists
+  connection or the player its login became (`/Opus/wwwhook/tcp/kick`), changing the access lists
   (`/Opus/wwwhook/networking/addip` and `/removeip`; Jacob's names, "add"
-  and "remove" alone were too generic) are already agreed to.
+  and "remove" alone were too generic) and the Accounts tab's changes
+  (`/Opus/wwwhook/accounts/create`, `/edit`, `/password`, `/delete`;
+  its reads are under `/Opus/Content/accounts`, Jacob's paths,
+  2026-09-29) are already agreed to.
   `wwwhook` is Jacob's name for a path the page posts to that makes something
   happen; the shutdown and ACK routes predate it and kept their paths.
   **Every new route goes through `/Opus/wwwhook/`**, and when a reply says
@@ -363,7 +370,8 @@ When I say we're wrapping up:
   test client are written from it; when either disagrees with the document,
   the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`,
   and so does a new value in a packet's enum (a Kicked reason took it to 2
-  on 2026-09-29, and another, kicked by the admin, to 3 the same day): `protocol.rs`, PROTOCOL.md and `test_client.py` all
+  on 2026-09-29, another, kicked by the admin, to 3 the same day, and
+  account terminated to 4, also the same day): `protocol.rs`, PROTOCOL.md and `test_client.py` all
   change together, and the document gets a line saying what the version
   added.
 - **The TLS pair is made by hand** with the openssl command in README.md, in
@@ -414,11 +422,21 @@ When I say we're wrapping up:
   is added, make sure the CSS for it exists.
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
-- The page is eleven tabs down the left sidebar, under the OP logo: Control
+- The page is twelve tabs down the left sidebar, under the OP logo: Control
   Panel, System, Conductor, Services, Storage, Notifications History, then
   a rule and a **Network Admin** subsection (Connections, Whitelist,
-  Blacklist; Jacob's layout, 2026-09-29), then Log, Settings. Anything new
-  goes on one of them, or is a new tab I agree to.
+  Blacklist; Jacob's layout, 2026-09-29), then another rule and a **Game
+  Admin** subsection (Accounts, 2026-09-29), then Log, Settings. Anything
+  new goes on one of them, or is a new tab I agree to.  The sidebar is to
+  be rethought (menus and submenus are getting cluttered; TODO.md).
+- **The Accounts tab** (2026-09-29) is the game's accounts, `admin` only
+  (`user` can't see the list).  The list, and a card per account opened by
+  clicking its name: the owner's names and email (SAVE), a new password
+  typed twice (CHANGE PASSWORD; every password is typed twice), and
+  DELETE ACCOUNT, which takes a player in the world out with Kicked,
+  reason 5, and the client says ACCOUNT TERMINATED (protocol version 4).
+  NEW ACCOUNT opens a card for a new one.  The username never changes.
+  Locked unless the server is running and the database connected.
 - **The Connections tab** (2026-09-29; it was the TCP tab) is the door and
   the world, TCP first then UDP: every connection that reached the TCP
   listener since START SERVER, by address and DNS name, never by account,

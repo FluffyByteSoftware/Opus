@@ -21,16 +21,17 @@ conductor-networking/
 └── src/
     ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections, in_world, access,
     │                      whitelisted, blacklisted },
-    │                      kick(id), access_lists(), list_address(), unlist_address(), enforce(); timed_out(), wake_address()
+    │                      kick(id), terminate(account), access_lists(), list_address(), unlist_address(), enforce();
+    │                      timed_out(), wake_address()
     ├── settings.rs      networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs           server_config(settings) -> Arc<ServerConfig>; MAKE_PAIR, the openssl command
     ├── protocol.rs      the packets, byte for byte: PacketType, LoginAnswer, ConnectAnswer, KickReason, Choice
     │                      frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                      connect_result(), keep_alive(), kicked(); read_login(), read_session_choice(), read_connect()
     ├── sessions.rs      the book: tickets by token, players by address, each account's whereabouts
-    │                      playing(), issue(), connect(), heard(), leave(), kick(), sweep(), clear(), counts(), players(),
-    │                      drop_where(); every ticket and player carries its ledger row, marked LINKDEAD on the
-    │                      way out through with_book()
+    │                      playing(), issue(), connect(), heard(), leave(), kick(), terminate(), sweep(), clear(),
+    │                      counts(), players(), drop_where(); every ticket and player carries its account's name and
+    │                      its ledger row, marked LINKDEAD on the way out through with_book()
     ├── ledger.rs        the door's ledger: every connection since START SERVER and its Stage; End; Gone; Connection
     │                      clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
     ├── access.rs        the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
@@ -90,12 +91,18 @@ because of the CPU cost.
 - **A ticket is a token from Fingerprinter, good once, for `token_deadline_seconds` (30).**  The first
   address to Connect with it is the player; the same address again gets the same answer (a lost reply);
   any other address is refused.  A second login for an account with an unused ticket replaces the ticket.
-- **The ticket holds the account, then the player does** (conductor-accounts, 2026-09-29).  The login
-  reads only the password hash for the check; once it's through, and any other session is logged out,
-  it loads the `Account`.  The ticket's Connect stamps its last login (the UDP time is the login time,
-  Jacob's call, for playtime later), and whenever a ticket or player leaves the book, however, its
-  account is saved once the book's lock is let go.  `clear()` saves everyone at STOP SERVER, before
-  Archivist stops.
+- **The ticket and the player have the account's name, and only the name** (2026-09-29, the day after
+  they held the whole `Account`).  An account is never held in memory: whatever needs one reads it from
+  the row (conductor-accounts), so the web admin can change an account while its player is online and
+  nothing writes an old copy back over it.  The login reads only the password hash.  The ticket's first
+  Connect stamps the account's login time straight in the row (`stamp_login()`, once the book's lock is
+  let go, not waited on): the UDP time is the login time, Jacob's call, for playtime later.  Nothing is
+  saved when a player leaves.
+- **Deleting an account takes its player out** (2026-09-29).  The web admin's Accounts tab deletes the
+  row, then calls `terminate(account)`: the player, if in the world, hears Kicked with reason `5`,
+  account terminated (the client says ACCOUNT TERMINATED, Jacob's words), and an unused ticket dies.
+  Their Connections row reads "LINKDEAD: account terminated".  The new reason took **the protocol to
+  version 4**.
 - **A player is known by their address.**  `sessions.rs` keeps three maps (tickets by token, players by
   address, accounts by name) so nothing is ever found by a search: a keep-alive is one map lookup and one
   send.  That's more memory per player for a cost that's the same with 5 or 5000.  Jacob's trade.

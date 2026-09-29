@@ -67,6 +67,10 @@
 //! - `POST /Opus/wwwhook/networking/removeip?list=...&entry=...` -- takes
 //!   one off, the same way; off the whitelist while the whitelist is on,
 //!   that's a kick too.
+//! - `GET /Opus/Content/accounts` and `/Opus/Content/accounts/job?id=N`,
+//!   and `POST /Opus/wwwhook/accounts/create`, `/edit`, `/password` and
+//!   `/delete` -- the Accounts tab: the game's accounts, `admin` only, and
+//!   only while the server is running.  See `accounts.rs`.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -81,6 +85,7 @@
 //! server buttons and the ACKs have to carry an `X-Opus` header, which a
 //! browser won't let another site's page add.
 
+mod accounts;
 mod http;
 mod json;
 mod login;
@@ -345,6 +350,12 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         }
         ("POST", "/Opus/wwwhook/networking/addip") => networking_list(request, role, ListChange::Add),
         ("POST", "/Opus/wwwhook/networking/removeip") => networking_list(request, role, ListChange::Remove),
+        ("GET", "/Opus/Content/accounts") | ("GET", "/Opus/Content/accounts/") => accounts::list(role),
+        ("GET", "/Opus/Content/accounts/job") => accounts::job(request, role),
+        ("POST", "/Opus/wwwhook/accounts/create") => accounts::create(request, role),
+        ("POST", "/Opus/wwwhook/accounts/edit") => accounts::edit(request, role),
+        ("POST", "/Opus/wwwhook/accounts/password") => accounts::password(request, role),
+        ("POST", "/Opus/wwwhook/accounts/delete") => accounts::delete(request, role),
         ("POST", "/Opus/wwwhook/start") => server_command(request, role, Command::Start),
         ("POST", "/Opus/wwwhook/stop") => server_command(request, role, Command::Stop),
         ("POST", "/Opus/wwwhook/restart") => server_command(request, role, Command::Restart),
@@ -365,7 +376,10 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         | (_, "/Opus/notices/test") | (_, "/Opus/wwwhook/start") | (_, "/Opus/wwwhook/stop")
         | (_, "/Opus/wwwhook/restart") | (_, "/Opus/settings") | (_, "/Opus/wwwhook/settings/save")
         | (_, "/Opus/wwwhook/settings/discard") | (_, "/Opus/wwwhook/tcp/kick") | (_, "/Opus/networking")
-        | (_, "/Opus/wwwhook/networking/addip") | (_, "/Opus/wwwhook/networking/removeip") | (_, "/Opus/shutdown") => {
+        | (_, "/Opus/wwwhook/networking/addip") | (_, "/Opus/wwwhook/networking/removeip") | (_, "/Opus/shutdown")
+        | (_, "/Opus/Content/accounts") | (_, "/Opus/Content/accounts/") | (_, "/Opus/Content/accounts/job")
+        | (_, "/Opus/wwwhook/accounts/create") | (_, "/Opus/wwwhook/accounts/edit")
+        | (_, "/Opus/wwwhook/accounts/password") | (_, "/Opus/wwwhook/accounts/delete") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
         _ => (Answer::plain("404 Not Found", "There's nothing here."), Next::KeepGoing),
@@ -892,6 +906,47 @@ mod tests {
             let (answer, _) = route(&request("GET", path, &[HOST, ("cookie", admin.as_str())]), 9996);
             assert_eq!(answer.status, "405 Method Not Allowed", "{path}");
         }
+    }
+
+    #[test]
+    fn the_accounts_are_admins_and_only_while_the_server_runs() {
+        let admin = cookie_for("admin");
+        let user = cookie_for("user");
+
+        // user can't even see the list.
+        for path in ["/Opus/Content/accounts", "/Opus/Content/accounts/job"] {
+            let (answer, _) = route(&request("GET", path, &[HOST, ("cookie", user.as_str())]), 9996);
+            assert_eq!(answer.status, "403 Forbidden", "{path}");
+        }
+        for path in ["/Opus/wwwhook/accounts/create", "/Opus/wwwhook/accounts/edit",
+                     "/Opus/wwwhook/accounts/password", "/Opus/wwwhook/accounts/delete"] {
+            let mut asking = request("POST", path, &[HOST, ("cookie", user.as_str()), ("x-opus", "accounts")]);
+            asking.query = "name=jacob_01".to_string();
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "403 Forbidden", "{path}");
+            assert!(String::from_utf8_lossy(&answer.body).starts_with("Only admin"), "{path}");
+
+            // Without the page's header, nothing is looked at.
+            let mut asking = request("POST", path, &[HOST, ("cookie", admin.as_str())]);
+            asking.query = "name=jacob_01".to_string();
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "403 Forbidden", "{path}");
+
+            // The server isn't running in a test, so there's nothing to
+            // change them with.
+            let mut asking = request("POST", path, &[HOST, ("cookie", admin.as_str()), ("x-opus", "accounts")]);
+            asking.query = "name=jacob_01".to_string();
+            let (answer, _) = route(&asking, 9996);
+            assert_eq!(answer.status, "409 Conflict", "{path}");
+            assert!(String::from_utf8_lossy(&answer.body).starts_with("Accounts can only"), "{path}");
+
+            let (answer, _) = route(&request("GET", path, &[HOST, ("cookie", admin.as_str())]), 9996);
+            assert_eq!(answer.status, "405 Method Not Allowed", "{path}");
+        }
+        let (answer, _) = route(&request("GET", "/Opus/Content/accounts", &[HOST, ("cookie", admin.as_str())]), 9996);
+        assert_eq!(answer.status, "409 Conflict");
+        let (answer, _) = route(&request("POST", "/Opus/Content/accounts", &[HOST, ("cookie", admin.as_str())]), 9996);
+        assert_eq!(answer.status, "405 Method Not Allowed");
     }
 
     #[test]

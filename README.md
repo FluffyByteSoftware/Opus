@@ -12,8 +12,8 @@ and Conductor decides.
 
 It is early.  What exists today is the server's skeleton: the tools every other piece leans on, a monitor,
 a web page to run it all from, and a front door that logs a player in over TLS and hands them a ticket to
-UDP, where the game will go.  There is no game yet, no way to make an account from outside yet, and
-Ensemble isn't in the repo.  Things will change and things will break.
+UDP, where the game will go.  There is no game yet, accounts are made by the admin on the web admin
+only, and Ensemble isn't in the repo.  Things will change and things will break.
 
 ## What's built
 
@@ -77,13 +77,16 @@ they come up a lot.
 
 ### Accounts (`conductor-accounts`)
 
-An account as the server holds it: every column of the `accounts` table but the password hash, loaded
-from its row, changed in memory, and saved back.  A save with nothing changed doesn't touch the database.
-The login loads the account after the password checks out, and it goes with the player until they leave
-the world, however they leave, and it's saved then.  Its last login is the moment the player came in over
-UDP, not the TLS login before it, since that's when playing starts.  The hash stays out of it on purpose,
-so it can never end up in a log line.  New accounts are made by the admin on the web admin (not built
-yet); `Account::new()` and `create()` are ready for it.
+The one way in to the `accounts` table.  An account is never held in memory: whatever needs one reads it
+from its row when it needs it, and every change goes straight back to the row, so there's only ever one
+copy and nothing can write an old one over a new one.  A player in the world is just their account's name
+to the server.  Their last login is written the moment they come in over UDP, not at the TLS login before
+it, since that's when playing starts.  The password hash is read on its own, only by the login, so it can
+never end up in a log line.
+
+Accounts are made by the admin on the web admin's Accounts tab, never by players.  Making one and
+changing a password both need a hash, which waits in Security's line with the logins, so those go to the
+account desk, a thread of its own, and the page asks after the job until it's done.
 
 ### The monitor (`conductor-monitor`)
 
@@ -128,7 +131,7 @@ The rest of the door:
   wouldn't be much of a ban.  Blacklisting an address while the blacklist is on, or taking it off the
   whitelist while the whitelist is on, drops everybody at that address on the spot.
 
-The whole contract, byte for byte, is in `Documentation/LLM/PROTOCOL.md`.  It's version 3.
+The whole contract, byte for byte, is in `Documentation/LLM/PROTOCOL.md`.  It's version 4.
 
 ### The web admin (`conductor-wgui`)
 
@@ -159,6 +162,10 @@ The page is a sidebar of tabs:
   world (every player on UDP, by account, with how long they've been in and how quiet they are).  Each
   connection has a menu to kick it or put its address on either list.  **Whitelist** and **Blacklist**
   are the two lists, with ADD and REMOVE.
+- **Game Admin** -- **Accounts**, `admin` only: every game account, and a card for each (click its name)
+  to change the owner's names and email, give it a new password (typed twice), or delete it.  Deleting
+  an account whose player is in the world takes them out, and the client says ACCOUNT TERMINATED.  NEW
+  ACCOUNT makes one.  It only works while the server is running.
 - **Log** -- the log as it's written, coloured by how bad each line is.
 - **Settings** -- every config file, a card each, drawn straight from Constellations' table.  A save
   waits for the file's reboot and says so.
@@ -262,8 +269,8 @@ hang up rather than log out a session already in the world, `--leave-after N` to
 seconds, `--go-quiet` to send nothing after connecting and watch the timeout drop it, and
 `--pause-before-login N` to sit N seconds after TLS before the Login, so the connection can be caught open.
 
-There's no way to make an account over the protocol yet.  A test account is a row in `accounts` put in
-by hand, with an Argon2id line made at Security's settings as its password.
+There's no way to make an account over the protocol, on purpose: a test account is made on the web
+admin's Accounts tab.
 
 ## Ensemble
 
@@ -276,7 +283,7 @@ Opus/
 ├── Conductor/
 │   ├── dev/                       a Cargo workspace
 │   │   ├── conductor-tools/       DiskMan, Scribe, Constellations, Security, Archivist and the rest
-│   │   ├── conductor-accounts/    an account in memory, loaded from its row and saved back when let go
+│   │   ├── conductor-accounts/    the accounts table, read on demand, never held; the account desk
 │   │   ├── conductor-monitor/     looks at the process and the machine once a second
 │   │   ├── conductor-networking/  the login over TLS, the game over UDP, the access lists; test_client.py
 │   │   ├── conductor-wgui/        the web admin

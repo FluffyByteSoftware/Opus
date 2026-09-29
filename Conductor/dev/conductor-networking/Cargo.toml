@@ -4,8 +4,8 @@
 #
 # Networking: the TLS front door players log in at over TCP, and the UDP
 # side the game runs on.  A lib crate, and a server piece: it comes up on
-# START SERVER and down on STOP SERVER.  conductor-accounts is the account
-# each ticket and player holds.
+# START SERVER and down on STOP SERVER.  conductor-accounts is how the
+# login reads a password hash and how a player's login time is written.
 #
 # rustls is the TLS.  Nobody writes their own, and this includes us.  Its
 # default features are off: "ring" picks the crypto (pure Rust plus a bit

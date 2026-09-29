@@ -12,6 +12,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+conductor-accounts = { path = "../conductor-accounts" }
 conductor-monitor = { path = "../conductor-monitor" }
 conductor-networking = { path = "../conductor-networking" }
 conductor-tools = { path = "../conductor-tools" }

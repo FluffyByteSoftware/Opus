@@ -31,13 +31,11 @@ Things that wait on a piece that doesn't exist yet.
 - Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
-- Accounts: making one.  `conductor-accounts` (2026-09-29) has `Account::new()` and `create()`; nothing
-  calls them yet.  Jacob: accounts are managed by the server admin on the web admin, not made by
-  players.  The form, its route, and checking the name, email and password (Security's
-  `check_password_rules()`) before the table does, are the web admin's game account management below.
 - **The protogame library** (Jacob's pick at the 2026-09-29 close): what takes over after the login,
   holds a reference to the player's account, and builds up the UDP session.  Today `sessions.rs` in
-  networking holds the account and the UDP side only keeps the player alive.  What moves where, what the
+  networking has the account's name and the UDP side only keeps the player alive.  An account is never
+  held in memory (Jacob's rule, 2026-09-29), so "a reference" is the name, and the row is read when
+  it's needed.  What moves where, what the
   crate is called, and whether it's the game loop's start, are for that session to ask.
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
@@ -56,19 +54,12 @@ Things that wait on a piece that doesn't exist yet.
   reboot is a bother.
 - Networking: reverse DNS on macOS.  `dns/other.rs` hands back no name; macOS has `getnameinfo` with its
   own `sockaddr` layout (a length byte first).  Waits on a Mac, like the monitor.
-- Networking: the protocol version in the Hello is `3` and the client versions are a list in
+- Networking: the protocol version in the Hello is `4` and the client versions are a list in
   `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
   which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
   `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
   rest.
-- Web admin: game account management.  Jacob's list, 2026-09-29: create, list, delete, change an
-  account's fields (the password included, typed twice), and write accounts to the database by hand;
-  an account's profile is a card opened by clicking its name on the list.  `admin` only: `user` can't
-  see the list.  Accounts are only changed while the server is running, since Security and Archivist
-  are server pieces (Jacob's redesign the same day, after first asking for passwords to be locked while
-  it runs).  Being built in its own session, 2026-09-29.  Not to be confused with
-  the web admin's own two accounts, which are in `wgui.cfg` and built.
 - **Web admin: rethink the sidebar** (Jacob, 2026-09-29).  With Network Admin and now an accounts
   subsection, each with its own rule, a flat list of tabs with headings is getting cluttered: menus and
   submenus, maybe.  Its own session, the one after the account manager.
@@ -92,8 +83,8 @@ Things that wait on a piece that doesn't exist yet.
   book.  A new table, so its own session.
 - **Stale words in the code**, found the same day, for whichever session next touches each file:
   `access.rs` has a Warn the admin sees that says "the web admin's Networking tab" (the tabs are Whitelist
-  and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs`, the web admin's `Cargo.toml` and a
-  comment in its `lib.rs` still say "the TCP tab"; `security.rs` says the arena is kept for as long as
+  and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs` and a comment in the web admin's
+  `lib.rs` still say "the TCP tab"; `security.rs` says the arena is kept for as long as
   Conductor runs (it goes with the server); `snapshot.rs` says uptime is a moment less than Conductor's
   (it's since START SERVER); `tcp.rs`'s header says a stop has no deadline (it has 2 seconds);
   `json.rs`'s notes and the Control Panel's note on the page leave out the Settings tab and networking;

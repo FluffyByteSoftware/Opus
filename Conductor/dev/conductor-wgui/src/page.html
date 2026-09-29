@@ -7,10 +7,11 @@ Author:     Jacob Chacko
 The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
-of that answer is written down at the top of json.rs.  Eleven tabs down
+of that answer is written down at the top of json.rs.  Twelve tabs down
 the left side: the Control Panel, System, Conductor, Services, Storage,
 Notifications History, a Network Admin subsection under a rule
-(Connections, Whitelist, Blacklist), Scribe's log and Settings.  The Control Panel is
+(Connections, Whitelist, Blacklist), a Game Admin subsection under
+another (Accounts), Scribe's log and Settings.  The Control Panel is
 where the server is started and stopped, and it's all there is until the
 server is running: the other tabs are locked, bar the log and the
 settings, and the bell is hidden.
@@ -22,6 +23,9 @@ login door since START SERVER, by address and never by account,
 with where each one is and a menu for admin (KICK, whitelist,
 blacklist), then every player in the world over UDP, by account.  The
 Whitelist and Blacklist tabs are the two access lists, changed at once.
+The Accounts tab is the game's accounts, admin's only: the list, a card
+for one account (its owner's details, a new password, DELETE), and a card
+for a new one.
 The Control Panel, the Log, the Settings and the bell stay above that
 lock, so the server can still be stopped and the log read to see why.
 SHUT DOWN is on the Control Panel, with the server buttons, and nowhere
@@ -242,6 +246,25 @@ OUT, sit at the bottom of the sidebar.
   input.list-entry { width: 240px; font-family: var(--mono); }
   .list-said, .list-problem { margin-bottom: 10px; }
   .list-said:empty, .list-problem:empty { display: none; }
+  /* The Accounts tab: an account's name is a link to its card, and the
+     card is in parts with a rule between each. */
+  button.link {
+    padding: 0; border: none; background: transparent; color: var(--blue);
+    font-family: var(--mono); font-size: 12px; text-align: left;
+  }
+  button.link:hover { background: transparent; text-decoration: underline; }
+  .panel[hidden] { display: none; }
+  .account-card h3 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .account-card h3 .tag { margin-left: 0; }
+  .account-card h3 .account-name { font-family: var(--mono); text-transform: none; letter-spacing: 0; }
+  .account-card h3 .tab { margin-left: auto; }
+  .account-facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 12px; }
+  .account-facts .mono { color: var(--ink); word-break: break-all; }
+  .account-part { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .account-part > .label { color: var(--ink); }
+  .account-part .setting { margin-top: 12px; }
+  .account-part .controls { align-items: center; margin-top: 16px; }
+  .account-said:empty, .account-problem:empty { display: none; }
 
   .boxed { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
   .tall { min-height: 420px; max-height: 70vh; }
@@ -270,6 +293,12 @@ OUT, sit at the bottom of the sidebar.
   .p-Warn { color: var(--yellow); }
   .p-Error { color: var(--red); }
   .note { color: var(--ink-faint); font-size: 12px; }
+  /* A note in a colour keeps it: .note comes after the colours above and
+     would otherwise grey them all (a bad entry's reason, a setting's
+     complaint). */
+  .note.good-ink { color: var(--green); }
+  .note.warn-ink { color: var(--yellow); }
+  .note.bad-ink { color: var(--red); }
 
   /* The database pill in the header, and the flashing that draws the eye
      when it's offline. */
@@ -448,6 +477,8 @@ OUT, sit at the bottom of the sidebar.
     <button class="maintab sub" role="tab" data-tab="connections" disabled>Connections</button>
     <button class="maintab sub" role="tab" data-tab="whitelist" disabled>Whitelist</button>
     <button class="maintab sub" role="tab" data-tab="blacklist" disabled>Blacklist</button>
+    <div class="tabs-heading">Game Admin</div>
+    <button class="maintab sub" role="tab" data-tab="accounts" disabled>Accounts</button>
     <button class="maintab" role="tab" data-tab="log" disabled>Log</button>
     <button class="maintab" role="tab" data-tab="settings" disabled>Settings</button>
   </nav>
@@ -936,6 +967,38 @@ OUT, sit at the bottom of the sidebar.
   </div>
   </section>
 
+  <section class="tabpage" id="page-accounts">
+  <div class="grid">
+    <div class="panel span-7 boxed">
+      <div class="tall-head">
+        <h3>Accounts</h3>
+        <div class="head-right">
+          <div class="note mono" id="accounts-count"></div>
+          <button class="go" id="accounts-new">NEW ACCOUNT</button>
+        </div>
+      </div>
+      <div class="tall-body" style="max-height: 70vh;">
+        <div class="note bad-ink list-problem" id="accounts-problem"></div>
+        <div class="note list-said" id="accounts-said"></div>
+        <table id="accounts-table">
+          <thead><tr>
+            <th>Account</th><th>Owner</th><th>Email</th><th>Last login</th><th>Online</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note">The game's accounts, the ones players log in with, by name.  Click a name for its
+          card: when it was made, the owner's details, a new password, and DELETE.  Every change goes straight
+          to the database; nothing about an account is held while its player is in the world, so a change to
+          one who is playing takes at once (a new password at their next login).  Deleting an account whose player is
+          in the world takes them out of it, and they're told ACCOUNT TERMINATED.  A new password is typed
+          twice, and waits its turn in Security's line with the logins, so it can take a moment.  Online is
+          whether the account's player is in the world over UDP right now.</div>
+      </div>
+    </div>
+    <div class="panel span-5 account-card" id="account-card" hidden></div>
+  </div>
+  </section>
+
   <section class="tabpage" id="page-notices">
     <div class="panel boxed tall">
       <div class="tall-head">
@@ -1008,7 +1071,7 @@ const MOST_LINES = 500;
 // The tabs, and the one that opens first when the browser hasn't remembered
 // one.
 const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "notices", "connections", "whitelist",
-                   "blacklist", "log", "settings"];
+                   "blacklist", "accounts", "log", "settings"];
 
 // The Network Admin subsection.  These three want both of networking's
 // listeners up as well as the database.
@@ -1423,8 +1486,9 @@ function applyDbMode(mode, dbState, takenAt) {
 
 // Which sidebar tabs can be clicked.  The Control Panel, the Log and the
 // Settings always (OPEN_TABS).  The rest only with the server running and
-// the database connected, and the Network Admin tabs only once both of
-// networking's listeners are up as well (Jacob's rule for them).
+// the database connected, the Network Admin tabs only once both of
+// networking's listeners are up as well (Jacob's rule for them), and the
+// Accounts tab only for admin (user can't see the list; Jacob's call).
 let dbLocked = true;
 let netOnline = false;
 
@@ -1434,6 +1498,7 @@ function lockTabs() {
     tab.disabled = OPEN_TABS.includes(name) ? false
       : !serverRunning ? true
       : NET_TABS.includes(name) ? dbLocked || !netOnline
+      : name === "accounts" ? dbLocked || !canChange
       : dbLocked;
   }
 }
@@ -1469,6 +1534,7 @@ function showMainTab(name) {
   if (name === "notices") askNotices();
   if (name === "settings") askSettings();
   if (name === "whitelist" || name === "blacklist") askLists();
+  if (name === "accounts") askAccounts();
   closeRowMenu();
   if (name !== "control") {
     try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
@@ -1582,6 +1648,13 @@ function drawWho(login) {
   // greyed (or not) for the old role.  Draw it again for the new one.
   if (roleChanged && currentTab === "settings") askSettings();
   if (roleChanged && (currentTab === "whitelist" || currentTab === "blacklist")) askLists();
+  // The accounts are admin's only, so whatever was on the tab goes.
+  if (roleChanged) {
+    lockTabs();
+    accountsList = [];
+    closeAccountCard();
+    if (currentTab === "accounts") askAccounts();
+  }
 }
 
 // True from the moment SHUT DOWN is sent, so the button stays greyed while
@@ -1595,7 +1668,7 @@ let shuttingDown = false;
 // server's state and calls this after, so here they're only ever greyed.
 function lockChanges() {
   for (const id of ["control-shut-down", "send-test", "history-ack-all", "tray-ack-all", "whitelist-entry",
-                    "whitelist-add", "blacklist-entry", "blacklist-add"]) {
+                    "whitelist-add", "blacklist-entry", "blacklist-add", "accounts-new"]) {
     $(id).disabled = !canChange;
   }
   if (shuttingDown) $("control-shut-down").disabled = true;
@@ -2040,6 +2113,423 @@ for (const list of ["whitelist", "blacklist"]) {
   $(list + "-entry").addEventListener("keydown", event => { if (event.key === "Enter") add(); });
 }
 
+// ---------------------------------------------------------------------------
+// The Accounts tab
+// ---------------------------------------------------------------------------
+
+// The accounts from the last ask, the names of the accounts whose player
+// is in the world (from every status answer), and which card is open:
+// null for none, "" for NEW ACCOUNT, or an account's name.
+let accountsList = [];
+let inWorld = new Set();
+let accountCard = null;
+
+// True when the last ask for the list didn't get it (the database still
+// connecting after START SERVER, say), so the status loop asks again once
+// the database is there.
+let accountsStale = false;
+
+// The list, asked for when the tab opens and after every change, never
+// once a second: it's a database read.  Online comes from the status.
+async function askAccounts() {
+  $("accounts-problem").textContent = "";
+  if (!canChange) {
+    accountsList = [];
+    drawAccounts();
+    return;
+  }
+  try {
+    const answer = await fetch("/Opus/Content/accounts", { cache: "no-store" });
+    if (!answer.ok) {
+      accountsStale = true;
+      $("accounts-problem").textContent = await answer.text();
+      return;
+    }
+    accountsList = (await answer.json()).accounts;
+  } catch (e) {
+    accountsStale = true;
+    $("accounts-problem").textContent = "Couldn't get the accounts: " + e;
+    return;
+  }
+  accountsStale = false;
+  drawAccounts();
+  // An account deleted from another browser takes its card with it.
+  if (accountCard && !accountsList.some(account => account.username === accountCard)) closeAccountCard();
+}
+
+function drawAccounts() {
+  const body = $("accounts-table").tBodies[0];
+  body.textContent = "";
+  $("accounts-count").textContent = canChange ? accountsList.length + " account(s)" : "";
+  if (!canChange) {
+    const row = body.insertRow();
+    cell(row, "Only admin can see the accounts.  Log in as admin.", "wrap");
+    row.className = "over";
+    row.cells[0].colSpan = 5;
+    return;
+  }
+  for (const account of accountsList) {
+    const row = body.insertRow();
+    if (account.username === accountCard) row.className = "picked";
+    const name = document.createElement("td");
+    const link = document.createElement("button");
+    link.className = "link";
+    link.textContent = account.username;
+    link.title = "Open this account's card";
+    link.addEventListener("click", () => openAccountCard(account.username));
+    name.appendChild(link);
+    row.appendChild(name);
+    cell(row, account.first_name + " " + account.last_name);
+    cell(row, account.email);
+    cell(row, account.last_login || "never", "nowrap");
+    const online = inWorld.has(account.username);
+    cell(row, online ? "IN THE WORLD" : "--", online ? "good-ink nowrap" : "nowrap");
+  }
+  if (accountsList.length === 0) {
+    const row = body.insertRow();
+    cell(row, "No accounts yet.  NEW ACCOUNT makes one.", "wrap");
+    row.className = "over";
+    row.cells[0].colSpan = 5;
+  }
+  drawCardOnline();
+}
+
+function closeAccountCard() {
+  accountCard = null;
+  $("account-card").hidden = true;
+  $("account-card").textContent = "";
+  drawAccounts();
+}
+
+// One field on a card: a label, the input, a line under it saying what
+// it takes, and a line for Conductor's complaint about it.  `field` is
+// the name Conductor calls it, so a complaint finds its way back.
+function accountField(labelText, field, value, about, secret) {
+  const box = document.createElement("div");
+  box.className = "setting";
+  const id = "account-" + field;
+  const label = document.createElement("label");
+  label.className = "label";
+  label.htmlFor = id;
+  label.textContent = labelText;
+  const input = document.createElement("input");
+  input.className = "field";
+  input.id = id;
+  input.dataset.field = field;
+  input.value = value;
+  input.spellcheck = false;
+  // Stops the browser filling in the web admin's own login here.
+  input.autocomplete = secret ? "new-password" : "off";
+  if (secret) input.type = "password";
+  const note = document.createElement("div");
+  note.className = "note";
+  note.textContent = about;
+  const problem = document.createElement("div");
+  problem.className = "note bad-ink setting-problem";
+  box.append(label, input, note, problem);
+  return box;
+}
+
+// A part of a card: its heading, its fields, a row of buttons, and a line
+// for what happened.
+function accountPart(heading, fields, buttons) {
+  const part = document.createElement("div");
+  part.className = "account-part";
+  const label = document.createElement("div");
+  label.className = "label";
+  label.textContent = heading;
+  part.appendChild(label);
+  for (const field of fields) part.appendChild(field);
+  const controls = document.createElement("div");
+  controls.className = "controls";
+  const said = document.createElement("span");
+  said.className = "note account-said";
+  controls.append(...buttons, said);
+  part.appendChild(controls);
+  const problem = document.createElement("div");
+  problem.className = "note bad-ink account-problem";
+  part.appendChild(problem);
+  return part;
+}
+
+function cardButton(text, go, onClick) {
+  const button = document.createElement("button");
+  if (go) button.className = "go";
+  button.textContent = text;
+  button.disabled = !canChange;
+  button.addEventListener("click", onClick);
+  return button;
+}
+
+// The card's title, with CLOSE at the end of it.
+function cardTitle(card, text) {
+  const title = document.createElement("h3");
+  const name = document.createElement("span");
+  name.textContent = text;
+  if (accountCard) name.className = "account-name";
+  const tag = document.createElement("span");
+  tag.className = "tag";
+  tag.id = "account-online";
+  tag.textContent = "IN THE WORLD";
+  tag.hidden = true;
+  const close = document.createElement("button");
+  close.className = "tab";
+  close.textContent = "CLOSE";
+  close.addEventListener("click", closeAccountCard);
+  title.append(name, tag, close);
+  card.appendChild(title);
+}
+
+// The IN THE WORLD tag on an open account's card, kept up to date with
+// the status without drawing the card again, which would wipe what's
+// being typed into it.
+function drawCardOnline() {
+  const tag = $("account-online");
+  if (tag) tag.hidden = !accountCard || !inWorld.has(accountCard);
+}
+
+const PASSWORD_ABOUT = "At least 8 characters, with a capital, a digit and a symbol.  Letters, digits, spaces and "
+  + "the symbols on a US keyboard.";
+
+function openNewAccountCard() {
+  accountCard = "";
+  $("accounts-said").textContent = "";
+  const card = $("account-card");
+  card.textContent = "";
+  cardTitle(card, "New account");
+  const said = document.createElement("div");
+  said.className = "small";
+  said.textContent = "The admin makes accounts; players don't.  The account's name is what they log in with, and "
+    + "it can't be changed afterwards.";
+  card.appendChild(said);
+  const part = accountPart("The account", [
+    accountField("Account name", "username", "", "8 to 32 characters: lowercase letters, digits and _ only."),
+    accountField("Owner's first name", "first_name", "", ""),
+    accountField("Owner's last name", "last_name", "", ""),
+    accountField("Email", "email", "", "One account per email, whatever the capitals."),
+    accountField("Password", "password", "", PASSWORD_ABOUT, true),
+    accountField("Password again", "password_again", "", "The same again, to catch a typo.", true),
+  ], [cardButton("CREATE", true, () => createAccount(part))]);
+  card.appendChild(part);
+  card.hidden = false;
+  drawAccounts();
+  card.querySelector("input").focus();
+}
+
+function openAccountCard(name) {
+  const account = accountsList.find(account => account.username === name);
+  if (!account) return;
+  accountCard = name;
+  $("accounts-said").textContent = "";
+  const card = $("account-card");
+  card.textContent = "";
+  cardTitle(card, account.username);
+
+  const facts = document.createElement("div");
+  facts.className = "account-facts";
+  for (const [label, value] of [["UUID", account.uuid], ["Created", account.created || "--"],
+                                ["Last login", account.last_login || "never"]]) {
+    const key = document.createElement("div");
+    key.className = "label";
+    key.textContent = label;
+    const shown = document.createElement("div");
+    shown.className = "mono";
+    shown.textContent = value;
+    facts.append(key, shown);
+  }
+  card.appendChild(facts);
+
+  const owner = accountPart("The owner", [
+    accountField("First name", "first_name", account.first_name, ""),
+    accountField("Last name", "last_name", account.last_name, ""),
+    accountField("Email", "email", account.email, "One account per email, whatever the capitals."),
+  ], [cardButton("SAVE", true, () => editAccount(name, owner))]);
+  const password = accountPart("A new password", [
+    accountField("New password", "password", "", PASSWORD_ABOUT, true),
+    accountField("New password again", "password_again", "", "The same again, to catch a typo.", true),
+  ], [cardButton("CHANGE PASSWORD", true, () => changePassword(name, password))]);
+  const remove = accountPart("Delete", [], [cardButton("DELETE ACCOUNT", false, () => deleteAccount(name, remove))]);
+  const warning = document.createElement("div");
+  warning.className = "note";
+  warning.textContent = "Deletes the account for good.  If its player is in the world, they're taken out of it and "
+    + "told ACCOUNT TERMINATED.";
+  remove.insertBefore(warning, remove.querySelector(".controls"));
+  card.append(owner, password, remove);
+  card.hidden = false;
+  drawAccounts();
+}
+
+// Every change is a POST with the page's header, the fields in the body
+// as `key = value` lines.
+function accountPost(what, name, fields) {
+  const body = fields.map(([key, value]) => key + " = " + value + "\n").join("");
+  const where = "/Opus/wwwhook/accounts/" + what + (name ? "?name=" + encodeURIComponent(name) : "");
+  return fetch(where, {
+    method: "POST", headers: { "X-Opus": "accounts", "Content-Type": "text/plain; charset=utf-8" }, body,
+  });
+}
+
+// The fields of a part, as [name, value] pairs, in the order they show.
+function partFields(part) {
+  return [...part.querySelectorAll("input.field")].map(input => [input.dataset.field, input.value]);
+}
+
+// Wipes a part's complaints and what it said last.
+function clearPart(part) {
+  for (const note of part.querySelectorAll(".setting-problem, .account-problem")) note.textContent = "";
+  const said = part.querySelector(".account-said");
+  said.textContent = "";
+  said.className = "note account-said";
+}
+
+function sayInPart(part, text, good) {
+  const said = part.querySelector(".account-said");
+  said.textContent = text;
+  said.className = "note account-said " + (good ? "good-ink" : "bad-ink");
+}
+
+// A change Conductor turned away.  A 400 carries the complaints as JSON,
+// each with its field's name in front, and each goes under its field;
+// anything else is words, under the part.
+async function showAccountProblems(answer, part) {
+  let problems = null;
+  if (answer.status === 400) {
+    try { problems = (await answer.json()).problems; } catch (e) { problems = null; }
+  }
+  if (!problems) {
+    part.querySelector(".account-problem").textContent = await answer.text();
+    return;
+  }
+  for (const problem of problems) {
+    const at = /^(\w+): /.exec(problem);
+    const input = at ? part.querySelector('input[data-field="' + at[1] + '"]') : null;
+    const target = input ? input.parentElement.querySelector(".setting-problem")
+      : part.querySelector(".account-problem");
+    const words = input ? problem.slice(at[0].length) : problem;
+    target.textContent = target.textContent ? target.textContent + "  " + words : words;
+  }
+}
+
+// The buttons of a part, greyed while its ask is out.
+function holdPart(part, held) {
+  for (const button of part.querySelectorAll("button")) button.disabled = held || !canChange;
+}
+
+// Asks after a job on the account desk every half second until it's
+// done or failed, saying so in the part.  `then` runs if it's done.
+async function followJob(number, part, then) {
+  const said = part.querySelector(".account-said");
+  said.className = "note account-said";
+  said.textContent = "Working: waiting its turn in Security's line.";
+  for (;;) {
+    await new Promise(wake => setTimeout(wake, 500));
+    let job;
+    try {
+      const answer = await fetch("/Opus/Content/accounts/job?id=" + number, { cache: "no-store" });
+      if (!answer.ok) {
+        sayInPart(part, "Lost track of the job: " + await answer.text(), false);
+        return;
+      }
+      job = await answer.json();
+    } catch (e) {
+      sayInPart(part, "Lost track of the job: " + e, false);
+      return;
+    }
+    if (job.state === "working") continue;
+    sayInPart(part, job.text, job.state === "done");
+    if (job.state === "done" && then) then(job);
+    return;
+  }
+}
+
+async function createAccount(part) {
+  clearPart(part);
+  const fields = partFields(part);
+  const name = fields.find(([key]) => key === "username")[1].trim();
+  holdPart(part, true);
+  try {
+    const answer = await accountPost("create", null, fields);
+    if (!answer.ok) {
+      await showAccountProblems(answer, part);
+      return;
+    }
+    const job = (await answer.json()).job;
+    await followJob(job, part, async done => {
+      await askAccounts();
+      openAccountCard(name);
+      $("accounts-said").textContent = done.text;
+    });
+  } catch (e) {
+    part.querySelector(".account-problem").textContent = "The account didn't go through: " + e;
+  } finally {
+    holdPart(part, false);
+  }
+}
+
+async function editAccount(name, part) {
+  clearPart(part);
+  holdPart(part, true);
+  try {
+    const answer = await accountPost("edit", name, partFields(part));
+    if (!answer.ok) {
+      await showAccountProblems(answer, part);
+      return;
+    }
+    sayInPart(part, "Saved.", true);
+    askAccounts();
+  } catch (e) {
+    part.querySelector(".account-problem").textContent = "The change didn't go through: " + e;
+  } finally {
+    holdPart(part, false);
+  }
+}
+
+async function changePassword(name, part) {
+  clearPart(part);
+  holdPart(part, true);
+  try {
+    const answer = await accountPost("password", name, partFields(part));
+    if (!answer.ok) {
+      await showAccountProblems(answer, part);
+      return;
+    }
+    const job = (await answer.json()).job;
+    await followJob(job, part, () => {
+      for (const input of part.querySelectorAll("input.field")) input.value = "";
+    });
+  } catch (e) {
+    part.querySelector(".account-problem").textContent = "The password didn't go through: " + e;
+  } finally {
+    holdPart(part, false);
+  }
+}
+
+async function deleteAccount(name, part) {
+  const playing = inWorld.has(name) ? "  Its player is in the world: they'll be taken out and told ACCOUNT "
+    + "TERMINATED." : "";
+  if (!confirm("Delete the account " + name + " for good?" + playing)) return;
+  clearPart(part);
+  holdPart(part, true);
+  try {
+    const answer = await accountPost("delete", name, []);
+    if (!answer.ok) {
+      await showAccountProblems(answer, part);
+      return;
+    }
+    const did = await answer.json();
+    closeAccountCard();
+    $("accounts-said").textContent = "Deleted the account " + name + "."
+      + (did.kicked ? "  Its player was taken out of the world: ACCOUNT TERMINATED." : "");
+    askAccounts();
+  } catch (e) {
+    part.querySelector(".account-problem").textContent = "The delete didn't go through: " + e;
+  } finally {
+    holdPart(part, false);
+  }
+}
+
+$("accounts-new").addEventListener("click", openNewAccountCard);
+
 // DiskMan's panel on the Storage tab.
 function drawDisk(d) {
   if (!d) return;
@@ -2436,6 +2926,10 @@ async function ask() {
     drawServices(status.services);
     drawDisk(status.diskman);
     drawTcp(status.networking);
+    inWorld = new Set(status.networking.in_world.map(player => player.account));
+    if (currentTab === "accounts") {
+      if (accountsStale && serverRunning && !dbLocked) askAccounts(); else drawAccounts();
+    }
     drawBell(status.notices);
     // The whole history is only asked for while its tab is showing.
     if (currentTab === "notices") askNotices();

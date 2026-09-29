@@ -180,6 +180,26 @@ pub fn kick(id: u64) -> Kicked {
     }
 }
 
+/// The admin deleted `account` on the web admin's Accounts tab.  Its
+/// player, if it has one in the world, is told Kicked, account
+/// terminated, and taken out; an unused ticket for it dies.  True if
+/// there was either.  Jacob's ask, 2026-09-29.
+pub fn terminate(account: &str) -> bool {
+    match sessions::terminate(account) {
+        sessions::Terminated::Player(address) => {
+            udp::tell(address, &protocol::kicked(protocol::KickReason::AccountTerminated));
+            scribe::info(Channel::Security, &format!("{account} at {address} was taken out of the world: the \
+                account was deleted."));
+            true
+        }
+        sessions::Terminated::Ticket => {
+            scribe::info(Channel::Security, &format!("{account}'s unused ticket died: the account was deleted."));
+            true
+        }
+        sessions::Terminated::Nobody => false,
+    }
+}
+
 /// Both access lists as they stand, for the web admin's Whitelist and
 /// Blacklist tabs.  `None` while the server isn't running: the lists
 /// only load with it, and can only be changed while it is.

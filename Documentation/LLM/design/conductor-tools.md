@@ -433,7 +433,7 @@ Tables today:
 `owner_first_name` and `owner_last_name` (as the owner capitalizes them), `owner_email` (loosely checked,
 one account per address ignoring case), `password_hash` (Security's Argon2 PHC string),
 `created_at`, `last_login_datetime` (empty until the first login; the moment the player last came in
-over UDP, written when they leave, by conductor-accounts).  Postgres checks the name and email
+over UDP, written that moment, by conductor-accounts).  Postgres checks the name and email
 itself, so even a bug in Conductor can't store a bad one.  `last_played_character` comes as a migration once
 there are characters.
 
@@ -471,7 +471,7 @@ What we decided:
   itself**: `services::set(name, state, note)`, with a note that says what it's doing or what went wrong.
 - **Every expected service is on the list from the start**, as "expected", so one that never started shows
   as missing.  The list is `EXPECTED` in `services.rs`: DiskMan, Scribe, Constellations, Fingerprinter,
-  Security, Archivist, Network (TCP), Network (UDP), Monitor, Web admin, each with the name of its thread
+  Security, Archivist, Network (TCP), Network (UDP), Account desk, Monitor, Web admin, each with the name of its thread
   if it has one.  Adding a service means adding it there.
 - A service with a thread is **stopped once that thread has ended**, whatever it last said.  A thread that
   panics says nothing on the way out.  This is worked out when the list is read, from `threads::list()`.

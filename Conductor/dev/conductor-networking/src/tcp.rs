@@ -38,9 +38,9 @@
 //! address wait FAILURE_HOLD before its next connection is taken at all.
 //! The right password for an account already in the world gets asked what
 //! to do instead (sessions.rs); a right password otherwise gets a ticket.
-//! The account itself is read then, and the ticket holds it from there.
-//! It's read after the other session is logged out, so whatever that
-//! one's save wrote is in the row.
+//! The ticket has the account's name and nothing else: an account is
+//! never held in memory (Jacob, 2026-09-29), so the row is read when
+//! something needs it.
 //!
 //! Every connection goes on the ledger (ledger.rs) as it's accepted, and
 //! moves along it a stage at a time, so the web admin's Connections tab
@@ -63,7 +63,6 @@ use std::time::{Duration, Instant};
 
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
-use conductor_accounts::Account;
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::security::{self, SecurityError, Ticket};
 use conductor_tools::services::{self, State};
@@ -98,11 +97,6 @@ const PLACE_EVERY: Duration = Duration::from_secs(1);
 /// How much we ask TLS for in one read.  Bigger than any packet we take,
 /// so one read can hold a whole one.
 const READ_CHUNK: usize = 8192;
-
-/// The account name rule, the same one the accounts table checks: 8 to 32
-/// of `a-z`, `0-9` and `_`.
-const NAME_MIN: usize = 8;
-const NAME_MAX: usize = 32;
 
 /// What every login thread needs, worked out once in `start()` and
 /// shared.
@@ -703,23 +697,14 @@ fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadli
         }
     }
 
-    let account = match load_account(&account, peer) {
-        Some(account) => account,
-        None => {
-            let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
-            return End::Unavailable;
-        }
-    };
-    let name = account.username().to_string();
-
-    match sessions::issue(account, id) {
+    match sessions::issue(&account, id) {
         Ok(token) => {
-            scribe::info(Channel::Security, &format!("{peer} logged in as {name} and has a ticket for UDP."));
+            scribe::info(Channel::Security, &format!("{peer} logged in as {account} and has a ticket for UDP."));
             let _ = send(stream, &protocol::ticket(&token, setup.udp_port));
             End::LoggedIn
         }
         Err(e) => {
-            scribe::error(Channel::Security, &format!("NO TICKET FOR {name}: Fingerprinter couldn't make a token \
+            scribe::error(Channel::Security, &format!("NO TICKET FOR {account}: Fingerprinter couldn't make a token \
                 ({e}).  Nobody can get past the login until the OS gives random bytes again."));
             let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
             End::Unavailable
@@ -763,7 +748,7 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
     // nothing away.  The name itself isn't logged: it could be a password
     // typed into the wrong box.
     let account = login.username.to_ascii_lowercase();
-    if !name_allowed(&account) {
+    if !conductor_accounts::username_allowed(&account) {
         scribe::info(Channel::Security, &format!("Login from {peer} as a name that isn't allowed failed."));
         return Outcome::Refused;
     }
@@ -805,26 +790,6 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
     }
 }
 
-/// Reads the account that just logged in, for its ticket to hold.  The
-/// login time goes on it later, when the ticket is used over UDP.
-/// `None` if it couldn't be read, or its row went between the password
-/// check and here; either way the player can't be let in without it.
-fn load_account(name: &str, peer: SocketAddr) -> Option<Account> {
-    match conductor_accounts::load(name).wait() {
-        Ok(Some(account)) => Some(account),
-        Ok(None) => {
-            scribe::warn(Channel::Security, &format!("{peer} logged in as {name}, but the account was gone by the \
-                time it was read.  Not let in."));
-            None
-        }
-        Err(e) => {
-            scribe::info(Channel::Security, &format!("{peer} logged in as {name}, but the account couldn't be \
-                read: {e}.  Not let in."));
-            None
-        }
-    }
-}
-
 /// Waits for Security's answer, a second at a time, telling the client
 /// (and the ledger) its place in the line in between.  `None` if the
 /// client went away or the server is stopping before the answer came.
@@ -843,14 +808,6 @@ fn wait_in_line<T>(stream: &mut TlsStream, id: u64, ticket: Ticket<T>, stopping:
             return None;
         }
     }
-}
-
-/// The account name rule: 8 to 32 of `a-z`, `0-9` and `_`.  The same rule
-/// the accounts table checks, so a name that passes here can be looked
-/// up and one that doesn't can't be a row.
-fn name_allowed(name: &str) -> bool {
-    (NAME_MIN..=NAME_MAX).contains(&name.len())
-        && name.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
 /// Sends the one failure answer and puts the address on hold.  Every way
@@ -950,20 +907,6 @@ fn hold_remaining(address: IpAddr) -> Option<Duration> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_name_rule_matches_the_table() {
-        assert!(name_allowed("jacob_01"));
-        assert!(name_allowed("a2345678"));
-        assert!(name_allowed(&"a".repeat(32)));
-
-        assert!(!name_allowed("jacob"));
-        assert!(!name_allowed(&"a".repeat(33)));
-        assert!(!name_allowed("Jacob_01"));
-        assert!(!name_allowed("jacob-01"));
-        assert!(!name_allowed("jacob 01"));
-        assert!(!name_allowed(""));
-    }
 
     #[test]
     fn a_failed_address_is_held_and_then_let_go() {
