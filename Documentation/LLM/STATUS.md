@@ -80,6 +80,8 @@ What Jacob decided:
 - Merging `infamous-saganism`, when Jacob says.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
   the client), PROTOCOL.md filled in.  The first piece of the server proper.  Its name is Jacob's to give.
+  **It's started from the web admin, not the launcher**: a button on the page opens the door.  Jacob's rule,
+  said at the end of this session, and in CLAUDE.md.
 - Accounts: making, checking and logging in.  Security and Fingerprinter are ready for it; the login itself
   waits on networking.
 - Archivist retrying on its own every 5 seconds while disconnected, so the page's lock lifts when Postgres

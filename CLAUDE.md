@@ -217,7 +217,11 @@ When I say we're wrapping up:
   **lib**.
 - Prefer clear ownership and simple types over heavy generics or macros.
 - `conductor-launcher` is the program. New server pieces (networking, the game)
-  are lib crates that the launcher starts, not programs of their own.
+  are lib crates, not programs of their own. The launcher starts the tools,
+  the monitor and the web admin. **The network is started by the web admin,
+  not the launcher**: Conductor comes up with its door closed, and the admin
+  opens it (and closes it) from a button on the page. Jacob's rule,
+  2026-09-29.
 - Anything that can be slow (database, disk, network) runs on its own thread,
   and callers get the answer back later (Archivist's `Pending`). The game loop
   never waits on it. No async runtime.
@@ -250,7 +254,8 @@ When I say we're wrapping up:
   only Scribe's output and takes no input. Anything an admin can do (shut down,
   and later accounts and config) is a page or a button there. It listens on
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
-  adding a route that changes anything.
+  adding a route that changes anything. Starting and stopping the network is
+  one of those, already agreed to.
 
 ### Linux and Windows
 
