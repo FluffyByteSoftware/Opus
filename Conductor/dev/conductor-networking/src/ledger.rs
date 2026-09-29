@@ -20,7 +20,17 @@
 //! byte.  One lock, held for a few instructions.  Entries are numbered as
 //! they arrive and kept in that order, so "how many are ahead of me in
 //! the queue" is a count of the queued entries with smaller numbers, and
-//! the sweep drops from the front.  A connection stays until STOP SERVER,
+//! the sweep drops from the front.
+//!
+//! A login's connection closes the moment its ticket is handed over, so
+//! its row says "Logged in" long before anything happens to the player
+//! it became.  So the ticket, and then the player, carry the row's number,
+//! and when the player leaves the world (or never arrives), the book of
+//! players marks the row LINKDEAD with how (`linkdead()`).  Without that,
+//! a row for a player who was logged out by a second login still read
+//! green, as if it were live.  Jacob's catch and his word, 2026-09-29.
+//!
+//! A connection stays until STOP SERVER,
 //! finished or not, so the Connections tab's Historical view is the whole
 //! run (Jacob's ask, 2026-09-29; it was five minutes before that).  A
 //! flood is capped at MOST_KEPT, the oldest finished ones making room; one
@@ -102,6 +112,38 @@ pub enum End {
     Banned,
 }
 
+/// How the player a login became has left, for a row marked LINKDEAD.
+/// Only ever put on a row that logged in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Gone {
+    /// A second login on the account logged them out, from this address.
+    Replaced { by: SocketAddr },
+    /// They said Goodbye.
+    SaidGoodbye,
+    /// Nothing heard from them for the UDP timeout.
+    WentQuiet,
+    /// The admin changed the access lists and their address isn't let in.
+    Banned,
+    /// Their ticket ran out before they came over UDP with it.
+    TicketRanOut,
+    /// A newer login on the account got a ticket before they used theirs.
+    TicketTaken,
+}
+
+impl Gone {
+    /// Why the row is LINKDEAD, in words, for the page.
+    pub fn describe(&self) -> String {
+        match self {
+            Gone::Replaced { by } => format!("LINKDEAD: logged out by a second login from {by}"),
+            Gone::SaidGoodbye => "LINKDEAD: said Goodbye".to_string(),
+            Gone::WentQuiet => "LINKDEAD: went quiet past the UDP timeout".to_string(),
+            Gone::Banned => "LINKDEAD: banned".to_string(),
+            Gone::TicketRanOut => "LINKDEAD: never came over UDP; the ticket ran out".to_string(),
+            Gone::TicketTaken => "LINKDEAD: never came over UDP; a newer login took the ticket".to_string(),
+        }
+    }
+}
+
 impl Stage {
     /// One word for the page to switch on.
     pub fn word(&self) -> &'static str {
@@ -177,6 +219,20 @@ pub struct Connection {
     /// For a queued connection, how many arrived before it and are still
     /// waiting too.  0 for anything else.
     pub queued_ahead: usize,
+    /// For one that logged in, how the player it became has left, once
+    /// they have.
+    pub gone: Option<Gone>,
+}
+
+impl Connection {
+    /// Where it is in words, for the page: LINKDEAD and why for a login
+    /// whose player has left, otherwise the stage's own words.
+    pub fn describe(&self) -> String {
+        match (self.stage, self.gone) {
+            (Stage::Done(End::LoggedIn), Some(gone)) => gone.describe(),
+            _ => self.stage.describe(),
+        }
+    }
 }
 
 /// One line of the ledger.
@@ -187,6 +243,8 @@ struct Entry {
     /// For the page.
     arrived: Utc,
     stage: Stage,
+    /// Set once, by `linkdead()`.
+    gone: Option<Gone>,
 }
 
 /// The whole ledger.  Entries are numbered as they arrive, and a BTreeMap
@@ -242,6 +300,13 @@ pub fn ended(id: u64, end: End) {
     set(id, Stage::Done(end));
 }
 
+/// The player connection `id` logged in as has left the world, or never
+/// came.  The first reason written wins; a row the ledger has forgotten
+/// is nothing to mark.
+pub fn linkdead(id: u64, how: Gone) {
+    linkdead_in(&mut ledger(), id, how);
+}
+
 /// Whether connection `id` is finished.  True for one the ledger has
 /// forgotten too: there's nothing left to do for it either way.
 pub fn is_done(id: u64) -> bool {
@@ -267,7 +332,7 @@ fn arrive_in(ledger: &mut Ledger, address: SocketAddr, now: Instant, stamp: Utc)
     sweep_in(ledger);
     let id = ledger.next;
     ledger.next += 1;
-    ledger.entries.insert(id, Entry { address, arrived_at: now, arrived: stamp, stage: Stage::Queued });
+    ledger.entries.insert(id, Entry { address, arrived_at: now, arrived: stamp, stage: Stage::Queued, gone: None });
     id
 }
 
@@ -277,6 +342,17 @@ fn set_in(ledger: &mut Ledger, id: u64, stage: Stage) {
     if let Some(entry) = ledger.entries.get_mut(&id) {
         if !entry.stage.is_done() {
             entry.stage = stage;
+        }
+    }
+}
+
+fn linkdead_in(ledger: &mut Ledger, id: u64, how: Gone) {
+    // Written whatever the stage says: in the moment between the ticket
+    // going out and the login thread writing "logged in", the row isn't
+    // finished yet, and the reason still belongs to it.
+    if let Some(entry) = ledger.entries.get_mut(&id) {
+        if entry.gone.is_none() {
+            entry.gone = Some(how);
         }
     }
 }
@@ -315,6 +391,7 @@ fn snapshot_in(ledger: &mut Ledger, now: Instant) -> Vec<Connection> {
                 ago: now.saturating_duration_since(entry.arrived_at),
                 stage: entry.stage,
                 queued_ahead,
+                gone: entry.gone,
             }
         })
         .collect();
@@ -426,6 +503,39 @@ mod tests {
         assert_eq!(ledger.entries.len(), MOST_KEPT);
         // The one in progress was the oldest of all, and it's still there.
         assert!(ledger.entries.contains_key(&live));
+    }
+
+    #[test]
+    fn a_login_whose_player_left_reads_linkdead_and_the_first_reason_stays() {
+        let mut ledger = fresh();
+        let now = Instant::now();
+        let first = arrive_in(&mut ledger, address("10.0.0.84:33750"), now, stamp());
+        let second = arrive_in(&mut ledger, address("10.0.0.84:44194"), now, stamp());
+        set_in(&mut ledger, first, Stage::Done(End::LoggedIn));
+        set_in(&mut ledger, second, Stage::Done(End::LoggedIn));
+
+        linkdead_in(&mut ledger, first, Gone::Replaced { by: address("10.0.0.84:44194") });
+        // A later reason for the same row doesn't take over, and a number
+        // the ledger doesn't know is nothing to mark.
+        linkdead_in(&mut ledger, first, Gone::WentQuiet);
+        linkdead_in(&mut ledger, 99, Gone::SaidGoodbye);
+
+        let listed = snapshot_in(&mut ledger, now);
+        assert_eq!(listed[1].id, first);
+        assert_eq!(listed[1].gone, Some(Gone::Replaced { by: address("10.0.0.84:44194") }));
+        assert_eq!(listed[1].describe(), "LINKDEAD: logged out by a second login from 10.0.0.84:44194");
+        // The second is still in the world, and says so the old way.
+        assert_eq!(listed[0].gone, None);
+        assert_eq!(listed[0].describe(), "Logged in and handed a ticket for UDP");
+    }
+
+    #[test]
+    fn every_reason_for_linkdead_has_words() {
+        let reasons = [Gone::Replaced { by: address("10.0.0.1:1") }, Gone::SaidGoodbye, Gone::WentQuiet,
+                       Gone::Banned, Gone::TicketRanOut, Gone::TicketTaken];
+        for reason in reasons {
+            assert!(reason.describe().starts_with("LINKDEAD: "));
+        }
     }
 
     #[test]

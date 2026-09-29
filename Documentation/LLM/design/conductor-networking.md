@@ -29,9 +29,10 @@ conductor-networking/
     │                      connect_result(), keep_alive(), kicked(); read_login(), read_session_choice(), read_connect()
     ├── sessions.rs      the book: tickets by token, players by address, each account's whereabouts
     │                      playing(), issue(), connect(), heard(), leave(), kick(), sweep(), clear(), counts(), players(),
-    │                      drop_where()
-    ├── ledger.rs        the door's ledger: every connection since START SERVER and its Stage; End; Connection
-    │                      clear(), arrived(), set(), ended(), is_done(), snapshot()
+    │                      drop_where(); every ticket and player carries its ledger row, marked LINKDEAD on the
+    │                      way out through with_book()
+    ├── ledger.rs        the door's ledger: every connection since START SERVER and its Stage; End; Gone; Connection
+    │                      clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
     ├── access.rs        the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
     │                      start(mode, paths), stop(), verdict(ip), add(), remove(), snapshot(), counts()
     ├── dns.rs           reverse DNS on thread net-dns, with a cache: start(), stop(), ask(), name_of()
@@ -172,6 +173,17 @@ because of the CPU cost.
   (address, account, when their Connect was accepted, how long they've been in, how long since their
   last packet), newest first, for the Connections tab's UDP list.  The account is on it, unlike the
   door's ledger: the world is about who's in it.
+- **LINKDEAD** (2026-09-29, the documentation pass), Jacob's catch: a second login logged the first
+  player out, and the first login's row on the door still read green, "Logged in and handed a ticket for
+  UDP", as if it were live.  It isn't a live connection (TCP closes at the ticket), so nothing ever went
+  back to it.  Now the ticket carries its row's number, the player takes it over from the ticket, and
+  every way out of the book marks the row LINKDEAD with why (`Gone`): logged out by a second login from
+  its address, said Goodbye, went quiet past the UDP timeout, banned, or never came over UDP (the ticket
+  ran out, or a newer login took it).  The row stays in both views, greyed instead of green.  Jacob's
+  word; he first said NETDEAD, then LINKDEAD.  The book notes the rows in `Book::gone` under its own
+  lock, and `with_book()` hands them to the ledger once that lock is let go, so the two locks are never
+  held together.  STOP SERVER marks nothing: it wipes the ledger anyway.  Still by address: the account
+  never goes on the row.
 - **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file
   (`--cert`, `Content/certs/conductor.crt` by default; with neither it checks nothing and says so),
   prints every packet, and asks whether to log out the other session (`--leave-other-alone` answers no

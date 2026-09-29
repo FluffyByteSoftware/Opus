@@ -172,7 +172,8 @@ them.
   open, waiting, in Security's line and finished since START SERVER), then the table, newest first, with the
   address, its reverse DNS name when one has come back, when it arrived and how long ago, where it is in
   words (a queued one says how many are ahead of it; one in Security's line says how many jobs are ahead
-  and about how long; a finished one says how it ended, greyed, green if it logged in), and KICK on
+  and about how long; a finished one says how it ended, greyed, green if it logged in and its player is still in the world,
+  LINKDEAD and why once they're not; see `conductor-networking.md`), and KICK on
   every open one (in the row's three-dot menu since the session after).  The ledger behind it, the DNS thread and the kick are networking's; see
   `conductor-networking.md`.
 - **The Network Admin subsection** (2026-09-29, the session after): Jacob's layout, "a subsection on the
@@ -279,7 +280,9 @@ arrived (UTC) and seconds ago, where it is in words, and a three-dot button (gre
 opens a small menu by the row: KICK on an open
 one (asks first), ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST (asks first, since it's a ban
 while the blacklist is on).  What the menu did shows in the panel's head.  A finished row is greyed and
-says how it ended; a logged-in one is green.  No account name on the TCP table.  Under it, UDP: every
+says how it ended; a logged-in one is green while its player is in the world, and reads "LINKDEAD:" and
+why, greyed, once they've left (a second login, Goodbye, the timeout, a ban, or a ticket never used).  No
+account name on the TCP table.  Under it, UDP: every
 player in the world, newest first: address, account (green), connected (UTC), playing for (as
 DD:HH:MM:SS), quiet for (yellow from 5 seconds).  Locked while either listener is down, and the page
 steps off it to the default tab if that happens while it's open.

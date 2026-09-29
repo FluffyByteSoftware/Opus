@@ -72,8 +72,11 @@
 //! newest first, and where each one is: `stage` is queued, handshake,
 //! login, checking, in_line, asked or done, and `text` says it in words
 //! (for in_line, how many are ahead and about how long; for done, how it
-//! ended).  `queued_ahead` is how many queued connections arrived before
-//! a queued one.  `host` is the address's name from reverse DNS, `null`
+//! ended, or "LINKDEAD: ..." and how for a login whose player has since
+//! left the world or never came).  `logged_in` is true only while that
+//! player is still in it, which is what the page colours green.
+//! `queued_ahead` is how many queued connections arrived before a queued
+//! one.  `host` is the address's name from reverse DNS, `null`
 //! until the lookup is back or when it has none.  `id` is what
 //! `/Opus/wwwhook/tcp/kick?id=N` takes.  No account name is in it, on
 //! purpose: the tab is about the door.
@@ -437,10 +440,10 @@ fn connection(connection: &Connection) -> String {
         .text("arrived", &connection.arrived.line_stamp())
         .whole("seconds_ago", connection.ago.as_secs())
         .text("stage", connection.stage.word())
-        .text("text", &connection.stage.describe())
+        .text("text", &connection.describe())
         .whole("queued_ahead", connection.queued_ahead as u64)
         .flag("done", connection.stage.is_done())
-        .flag("logged_in", connection.stage == Stage::Done(End::LoggedIn))
+        .flag("logged_in", connection.stage == Stage::Done(End::LoggedIn) && connection.gone.is_none())
         .done()
 }
 
@@ -657,6 +660,7 @@ mod tests {
 
     #[test]
     fn a_connection_goes_out_with_its_stage_in_a_word_and_in_words() {
+        use conductor_networking::Gone;
         use conductor_tools::clock::Utc;
         use std::time::Duration;
 
@@ -664,7 +668,7 @@ mod tests {
                                    host: Some("desk.lan".to_string()), arrived: Utc::from_unix(1_790_000_000),
                                    ago: Duration::from_millis(12_400),
                                    stage: Stage::InLine { ahead: 2, wait: Duration::from_millis(400) },
-                                   queued_ahead: 0 };
+                                   queued_ahead: 0, gone: None };
         assert_eq!(connection(&waiting), "{\"id\":7,\"address\":\"192.168.1.20:51234\",\"host\":\"desk.lan\",\
             \"arrived\":\"02:13:20 PM - 09-21-26 Z\",\"seconds_ago\":12,\"stage\":\"in_line\",\
             \"text\":\"In Security's line: 2 ahead, about 400 ms\",\"queued_ahead\":0,\"done\":false,\
@@ -672,11 +676,18 @@ mod tests {
 
         let done = Connection { id: 8, address: "[::1]:40000".parse().unwrap(), host: None,
                                 arrived: Utc::from_unix(1_790_000_000), ago: Duration::from_secs(1),
-                                stage: Stage::Done(End::LoggedIn), queued_ahead: 0 };
+                                stage: Stage::Done(End::LoggedIn), queued_ahead: 0, gone: None };
         let answer = connection(&done);
         assert!(answer.contains("\"host\":null,"));
         assert!(answer.ends_with("\"stage\":\"done\",\"text\":\"Logged in and handed a ticket for UDP\",\
             \"queued_ahead\":0,\"done\":true,\"logged_in\":true}"));
+
+        // The same login once a second one has logged its player out: no
+        // longer green, and it says why.
+        let replaced = Connection { gone: Some(Gone::Replaced { by: "10.0.0.84:44194".parse().unwrap() }), ..done };
+        assert!(connection(&replaced).ends_with("\"stage\":\"done\",\
+            \"text\":\"LINKDEAD: logged out by a second login from 10.0.0.84:44194\",\
+            \"queued_ahead\":0,\"done\":true,\"logged_in\":false}"));
     }
 
     #[test]

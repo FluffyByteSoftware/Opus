@@ -407,7 +407,8 @@ When I say we're wrapping up:
   the world, TCP first then UDP: every connection that reached the TCP
   listener since START SERVER, by address and DNS name, never by account,
   with where each one is (the queue, TLS, Security's line with its place,
-  finished and how) and a three-dot menu for `admin` (KICK, add the
+  finished and how; a login whose player has left the world, or never
+  came, reads LINKDEAD and why, Jacob's word, 2026-09-29) and a three-dot menu for `admin` (KICK, add the
   address to the whitelist, add it to the blacklist), in two views, Recent
   (the newest five) and Historical (the whole run; Jacob's ask,
   2026-09-29); then every player in

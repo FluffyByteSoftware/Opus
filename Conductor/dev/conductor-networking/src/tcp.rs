@@ -685,7 +685,7 @@ fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadli
         }
         match protocol::read_session_choice(&packet.payload) {
             Ok(Choice::LogTheOtherOut) => {
-                if let Some(address) = sessions::kick(&account) {
+                if let Some(address) = sessions::kick(&account, peer) {
                     udp::tell(address, &protocol::kicked(KickReason::LoggedInElsewhere));
                 }
                 scribe::info(Channel::Security, &format!("{peer} logged the other session on {account} out."));
@@ -703,7 +703,7 @@ fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadli
         }
     }
 
-    match sessions::issue(&account) {
+    match sessions::issue(&account, id) {
         Ok(token) => {
             scribe::info(Channel::Security, &format!("{peer} logged in as {account} and has a ticket for UDP."));
             let _ = send(stream, &protocol::ticket(&token, setup.udp_port));

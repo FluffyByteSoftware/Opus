@@ -183,3 +183,18 @@ changed for the new argument.  Nothing was built in the session.
       Take it out the same way.
 - [ ] Nothing else changed: STOP SERVER and START SERVER with no hand edits still come up clean, and the
       Storage tab's cache hits count up the same as before.
+
+## 2026-09-29 -- LINKDEAD on the Connections tab
+
+Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests: 2 in `ledger.rs`; the
+book's tests in `sessions.rs` changed for the row numbers and check the LINKDEAD rows; one in `json.rs`
+grew a LINKDEAD row.  Nothing was built in the session.
+
+- [ ] `cargo build` clean, no warnings; `cargo test` passes, 198 with the two new ones.
+- [ ] Two clients on one account, `y` to log the first out: the first client's TCP row greys and reads
+      "LINKDEAD: logged out by a second login from 10.0.0.84:<the second's port>", and the second's row
+      stays green "Logged in and handed a ticket for UDP".  The UDP table has only the second.
+- [ ] A client with `--leave-after 10`: once it says Goodbye, its row reads "LINKDEAD: said Goodbye".
+- [ ] A client with `--go-quiet`: 40 seconds on, "LINKDEAD: went quiet past the UDP timeout".
+- [ ] A ban from the row's menu (the blacklist on): "LINKDEAD: banned".
+- [ ] Both views: the LINKDEAD rows are in Recent (while among the newest five) and Historical alike.

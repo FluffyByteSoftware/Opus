@@ -41,7 +41,7 @@ mod tls;
 mod udp;
 
 pub use access::{Entry, List, Mode as AccessMode, Snapshot as AccessLists};
-pub use ledger::{Connection, End, Stage};
+pub use ledger::{Connection, End, Gone, Stage};
 pub use sessions::PlayerView as Player;
 pub use tcp::Kicked;
 

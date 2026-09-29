@@ -25,9 +25,10 @@ networking, the monitor, and whatever comes later) only starts when START SERVER
 admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  All three sit on the same commit: at the close of the
-documentation pass Jacob built `testing`, ran it (START SERVER, a Settings save and RESTART SERVER, the
-test client twice on one account), and said to merge to `main`.
+stable release, moved only when Jacob says.  At the close of the documentation pass Jacob built
+`testing`, ran it (START SERVER, a Settings save and RESTART SERVER, the test client twice on one
+account), and `main` moved up to it.  Then his LINKDEAD catch went onto `unstable` and `testing`, not
+built yet; `main` stays one step behind until it is.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
 build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
@@ -38,7 +39,8 @@ Windows code has never been built.
 ## Last session -- 2026-09-29, the documentation pass
 
 Jacob's pick: prune and review `Documentation/LLM/`, update it to what's been built, and overhaul
-README.md.  Then, at Jacob's word, one fix to `page.html` and DiskMan noticing hand edits.
+README.md.  Then, at Jacob's word, one fix to `page.html`, DiskMan noticing hand edits, and LINKDEAD
+rows on the Connections tab.
 
 What we did:
 
@@ -71,6 +73,13 @@ What we did:
   edit is read.  `cache.rs` (`Stamp`, `Held`, `checks`, `after_check()`, `current()`,
   `note_on_disk()`), `worker.rs` (the checks, the stamps after its own writes, streams), `diskman.rs`
   (`read()`); two new tests.  Not built yet: Jacob builds.
+- **LINKDEAD** (Jacob's catch after the release, his word): a second login logged the first player out,
+  and the first login's row on the Connections tab still read green, "Logged in", as if it were live.
+  Tickets and players now carry their door row's number, and every way out of the world marks the row
+  "LINKDEAD:" with why (a second login from its address, Goodbye, the timeout, a ban, or a ticket never
+  used), greyed.  `ledger.rs` (`Gone`, `linkdead()`, `Connection::describe()`), `sessions.rs` (the row
+  numbers, `Book::gone`, `with_book()`), two lines in `tcp.rs`, `json.rs` (green only while the player
+  is in).  No protocol change, no page change.  Not built yet.
 - **TEST_CHECKLIST.md**: the two-clients check named `--kick` and `--spare`, which the client never had.
 - PROJECT_OPUS.md: the tab count, the `.gitignore` line, the access lists as a named piece.
 
@@ -99,8 +108,9 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
   one" and the web admin's game account management (make, delete, list, finger, change password).  Open
   until the session asks: who makes an account (a player over the protocol, which is a new packet and
   protocol version 3, or the admin from the web admin, or both), and what each needs from the other.
-- **This session's checks**: it built and ran, but `cargo test` wasn't pasted back, and the hand checks
-  at the bottom of `TEST_CHECKLIST.md` (the page's greying, DiskMan noticing a hand edit) are open.
+- **This session's checks**: the release built and ran, but `cargo test` wasn't pasted back.  The hand
+  checks at the bottom of `TEST_CHECKLIST.md` are open: the page's greying, DiskMan noticing a hand edit,
+  and LINKDEAD (built and tested on `testing` first, then `main` moves up).
 - **The stale words in the code**, in TODO.md.
 - **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
   settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`
