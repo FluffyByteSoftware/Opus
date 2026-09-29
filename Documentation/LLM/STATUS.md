@@ -10,7 +10,7 @@ Author:     Jacob Chacko
 
 Conductor is six crates.  `conductor-tools` (lib) holds DiskMan, Scribe, Constellations, Fingerprinter,
 Security, Archivist, the notices, the clock, the thread list, the services list and the server's switch
-(`server.rs`).  `conductor-accounts` (lib) is an account as the server holds it in memory.
+(`server.rs`).  `conductor-accounts` (lib) is the one way in to the accounts table, and the account desk.
 `conductor-monitor` (lib) looks at the process and every process on the machine once a second.
 `conductor-networking` (lib) is the front door: a login over TLS on TCP that hands a player a ticket for
 UDP, the UDP side the game will run on, a ledger of every connection at the door, and a whitelist and a
@@ -21,78 +21,78 @@ on Jacob's machine, not in the repo.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The web admin has a login: `admin` / `admin` does everything,
-`user` / `user` looks, both passwords in `wgui.cfg`.  The server (Fingerprinter, Security, Archivist,
-networking, the monitor, and whatever comes later) only starts when START SERVER is pressed on the web
-admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
+`user` / `user` looks, both passwords in `wgui.cfg`.  The server (Fingerprinter, Security, Archivist, the
+account desk, networking, the monitor, and whatever comes later) only starts when START SERVER is pressed
+on the web admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  At this close all three are on the same commit: Jacob said
-to merge to `main`.
+stable release, moved only when Jacob says.  At this close `unstable` and `testing` are on the same
+commit, the account manager; `main` is still on the accounts-in-memory hand-off (`0a82d90`).
 
-**Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the accounts crate.
-`cargo build` with no warnings, `cargo test` 204 passed (4 accounts, 15 monitor, 60 networking, 91 tools
-with the benchmark ignored, 34 web admin).  Jacob cleared every open check.  The Windows code has never
-been built.
+**Built and tested on Linux (Nobara 44)**: everything up to the accounts-in-memory session (204 tests).
+**This session's code has not been built yet.**  It was written and pushed to `testing` without a
+compile (Jacob builds); only the page was checked, by a script syntax check and a headless render with
+made-up data.  Expect a round of compile fixes first.  The Windows code has never been built.
 
-## Last session -- 2026-09-29, the account in memory
+## Last session -- 2026-09-29, the account manager
 
-Jacob's pick: an accounts crate holding a real structure for an account from the database.
+Jacob's pick: an account manager on the web admin.  His list: create an account, list them, delete one,
+change its fields (the password included), and "write accounts to the database".
+
+How the design moved, in order, since each step was his call:
+
+- First he asked for passwords to be untouchable while the server runs, so a change never waits in
+  Security's line.  That can't work (Security and Archivist only run with the server), so he turned it
+  round: **accounts are only changed while the server is running**.
+- "Write accounts to DB" was the question of an account held in memory with its player: an edit from the
+  page would be written over when they left.  His answer: **an account is never held in memory**.  It's
+  loaded from its row when needed and every change goes straight back.  That undid the holding built the
+  session before.
+- Deleting an account whose player is online **kicks them, and the client says ACCOUNT TERMINATED**.
 
 What we did:
 
-- **`conductor-accounts`, a lib.**  `Account` is the account in memory, Jacob's words: "our rust
-  representation of an account from the database", which can be dumped back to it.  Every column but the
-  password hash (left out so it can never be logged or shown): `id()`, `uuid()`, `username()`,
-  `created_at()` read only; `first_name`, `last_name`, `email`, `last_login` changeable.  `load(name)`,
-  `account.save()` (writes only if something changed since the row was read or written; "the same if
-  it's the same, don't even bother writing"), `password_hash(name)` for the login, and `Account::new()`
-  plus `create(account, hash)` for making one.  Everything hands back Archivist's `Pending`.
-- **The login moved onto it.**  `tcp.rs` has no SQL of its own now.  It reads the hash, checks the
-  password, deals with an account already in the world, then loads the `Account` (after the kick, so
-  the kicked session's save is in the row first: Archivist has one worker and goes in order).
-- **The book holds the account.**  In `sessions.rs` a ticket holds it, then the player.  Every way out of
-  the book (Goodbye, quiet, kicked, banned, replaced, a ticket that ran out, STOP SERVER) saves it once
-  the lock is let go.  `sweep_in()` lost its two `retain()`s for find-then-remove, through the new
-  `remove_ticket_in()` and the old `remove_player_in()`.
-- **The login time is the UDP connect** (Jacob: "it's their UDP connection time we want", for playtime
-  metrics later).  Stamped in memory when the ticket is used, written when the player leaves.  Checked:
-  the row read 20:02:25Z, the second the log said the player was in the world.  If Conductor dies
-  without a clean stop, the login times of everyone in the world are lost (Ctrl-C isn't caught yet).
-- **Security's 64 MiB**: Jacob saw 74 MB on the page with the server up and nobody in.  That's the
-  arena, touched at START SERVER on purpose; the accounts are a few hundred bytes each.
-- **The folder rename** asked for mid-session went to TODO.md: folders only, crates keep `conductor-`.
+- **Accounts never held.**  Networking's book has the account's name only; the login no longer loads the
+  account; nothing is saved when a player leaves; the login time is written straight to the row at the
+  UDP connect (`stamp_login()`).  So a Ctrl-C of Conductor no longer loses login times either.
+- **`conductor-accounts`**: `list()`, `taken()`, `edit()`, `set_password()`, `delete()`, and the field
+  checks (the table's rules, in words, each complaint tagged with its field).  `create()` answers
+  `NameTaken` / `EmailTaken`.  The name rule moved here from `tcp.rs` (`username_allowed()`).
+- **The account desk** (`desk.rs`), a new server piece on thread `account-desk`, on the Services tab:
+  new accounts and new passwords are hashed and written there, and the page asks after the job, so the
+  web admin's one thread never waits in Security's line.  Started after Security and Archivist, stopped
+  before them, finishing what it was handed.
+- **The Accounts tab** under a new GAME ADMIN heading, `admin` only (`user` can't see the list, Jacob's
+  call).  The list; a card per account (click its name): the owner's details (SAVE), a new password typed
+  twice (every password is), DELETE ACCOUNT; NEW ACCOUNT's card.  The username never changes.  Reads at
+  `/Opus/Content/accounts` (and `/job?id=N`), changes at `/Opus/wwwhook/accounts/create`, `/edit`,
+  `/password`, `/delete`: Jacob's paths.
+- **Protocol version 4**: Kicked reason 5, account terminated.  `protocol.rs`, PROTOCOL.md and the test
+  client together.  The Connections row reads "LINKDEAD: account terminated".
+- **A page fix in passing**: every `note` coloured red, yellow or green was showing grey (the Whitelist
+  tab's bad entry, the Settings tab's complaints).  It keeps its colour now.
+- To TODO.md: the sidebar rethink (menus and submenus; Jacob's pick for next).  To LONGTERM_TODO.md: a
+  separate account management program, one day, for changing accounts beside a running Conductor.
 
 ## What's waiting
 
-- **The protogame library** (Jacob's pick at this close): what takes over after the login, holds a
-  reference to the player's account, and builds up the UDP session.  To build on: `sessions.rs` (the
-  book: tickets, players, each holding its `Account`, saved as it leaves), `udp.rs` (keep-alives,
-  Goodbye, the sweep), and conductor-accounts.  Open until the session asks: its name (a lib, by the
-  rule for server pieces), what moves out of networking into it, and whether the game loop starts here.
-- **Drop `conductor-` from the crate folders**, folders only; the crates keep their names.  In TODO.md.
+- **The web admin's layout: a better menu for the pages** (Jacob's pick at this close).  Twelve tabs
+  under two subsection headings is getting cluttered.  In TODO.md.
+- **Building and testing the account manager.**  The checks are under today's heading in
+  TEST_CHECKLIST.md.  The build changes `Cargo.lock` (three crates now depend on `conductor-accounts`),
+  which wants committing.
+- **The protogame library**: what takes over after the login and builds up the UDP session.  The account
+  is a name now, read from the row when needed.  In TODO.md.
+- **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.
-- **Making accounts from the web admin** (game account management).  `Account::new()` and `create()` are
-  ready; the form, its route and the checks on the fields aren't.  Jacob: the admin makes accounts,
-  players don't.
-- **The throwaway account.**  `throwaway_01` / `Throwaway 1!`, inserted by hand with an Argon2id line
-  made outside Conductor at Security's settings (64 MiB, one pass, one lane).
+- **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  In TODO.md.
 - **The stale words in the code**, in TODO.md.
-- **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  One entry
-  moves in `files.rs`; `Settings` / `settings()` in `constellations.rs` and the launcher's
-  `conductor_wgui::start(...)` call read it from `WGUI` instead; both committed `Content/cfg/` files
-  change; the boot line "Settings from ..." and the docs follow.  Both files are hard, so nothing about
-  reboots changes.
 - **Where the test client lives** and what it's called.  It's `Conductor/dev/conductor-networking/
   test_client.py` for now.
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.
-- The Debug switch in `conductor_globals.cfg`.  Networking's chatter is already Debug; the launcher's
-  start and stop lines and Archivist's aren't yet.
+- The Debug switch in `conductor_globals.cfg`.
 - Catching Ctrl-C.
-- The Windows build, whenever getting to that machine is less of a hassle.  `dns/windows.rs` joins the
-  monitor's Windows file as never built.
+- The Windows build, whenever getting to that machine is less of a hassle.
 - **Ensemble**, its own session.  The Unity project is `Ensemble/dev/Opus.Ensemble/`, on Jacob's machine
-  and untracked.  He added its `Assets/`, `Packages/` and `UserSettings/` to `.gitignore` himself (his
-  lines, kept as he wrote them), which keeps the purchased art out and, for now, the project's own
-  scripts too.  Before any of it is committed, a look together: what a Unity project commits, where the
-  purchased art goes (CLAUDE.md says `Content/Assets/`, but Unity wants assets under the project's
-  `Assets/`), and LFS for anything big.
+  and untracked.  Before any of it is committed, a look together: what a Unity project commits, where the
+  purchased art goes, and LFS for anything big.

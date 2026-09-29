@@ -125,7 +125,11 @@ a `Content/` folder, or by creating `./Content` when neither works.
 - **One feature per session.** If a new feature comes up mid-session, add it to
   `Documentation/LLM/TODO.md` and keep going on the current one. It gets its own session later.
 - **Plan before building** anything bigger than a small fix: tell me the files
-  you'll touch and the approach, and wait for my OK.
+  you'll touch and the approach, and wait for my OK.  Check the plan against
+  the rules already here first, and say when an ask runs into one (on
+  2026-09-29, "passwords can't change while the server runs" ran into
+  Security and Archivist being server pieces; Jacob turned it round once he
+  saw why).
 - **Things that can't be done yet** (because a dependency isn't built) go in
   `Documentation/LLM/TODO.md`, not half-implemented in code.
 - **Future ideas** that come up in conversation also go in `Documentation/LLM/TODO.md`.
@@ -148,7 +152,9 @@ When I say we're wrapping up:
 
 1. Update `Documentation/LLM/STATUS.md`. It holds only the last session plus any earlier session
    that directly matters for the next one. It is a bridge, not a rolling log.
-   List what's waiting, unordered.
+   List what's waiting, unordered.  If the session's code hasn't been built
+   by Jacob yet, STATUS.md says so plainly, so the next session starts by
+   expecting compile fixes (2026-09-29: the account manager closed unbuilt).
 2. Update `Documentation/LLM/TODO.md`, `Documentation/LLM/PROJECT_OPUS.md`, and any `Documentation/LLM/design/`
    files the session changed, so they match reality.
    Add the session's checks to `Documentation/LLM/TEST_CHECKLIST.md` (Jacob's ask, 2026-09-29): what to
