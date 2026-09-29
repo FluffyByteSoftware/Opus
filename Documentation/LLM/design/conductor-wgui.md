@@ -126,7 +126,8 @@ them.
   straight to the OS, so it works with the server stopped) in an `HttpOnly; SameSite=Strict` cookie, kept
   in `login.rs`'s list in memory, so Conductor shutting down forgets every login and a page reload
   doesn't.  The cookie lasts 30 days on the browser's side, so closing the browser doesn't log you out
-  either while Conductor runs.  No idle timeout.  A wrong login says "Wrong name or password" whichever
+  either while Conductor runs.  No idle timeout, ever (Jacob, at the wrap-up): the login is about roles,
+  who may change the server, not security, and the page only listens on this machine.  A wrong login says "Wrong name or password" whichever
   half was wrong, and is an Info line in the log, not a Warn: a typo on a local page isn't a notice.  LOG
   OUT sits at the bottom of the sidebar with who's logged in; the header still has no buttons but the
   bell.  For `user`, every button that changes something is greyed, and Conductor turns the ask away
@@ -258,8 +259,8 @@ Archivist and the monitor are the server: expected until the first START SERVER,
 
 - The passwords in `wgui.cfg` are plain text.  Hashing them through Security means Security up from boot,
   or a hash on the caller's thread; a decision for another day, in TODO.md.
-- Two accounts and no more.  A list of named accounts, and a timeout on an idle login, are ideas in
-  TODO.md.
+- Two accounts and no more.  A list of named accounts is an idea in TODO.md.
+- `wgui_port` is moving from `conductor_globals.cfg` into `wgui.cfg` (Jacob, 2026-09-29).  In TODO.md.
 - Game account management (make, delete, list, finger, change password), from the old launcher menu's
   plans, goes here once there are game accounts.
 - The lock can't lift until Archivist reconnects, and Archivist only tries when a job comes in.  TODO.md.

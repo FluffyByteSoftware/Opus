@@ -40,6 +40,8 @@ Things that wait on a piece that doesn't exist yet.
   rest.  (Was the launcher's S.)
 - Web admin: game account management (make, delete, list, finger, change password).  Waits on accounts.
   Not to be confused with the web admin's own two accounts, which are in `wgui.cfg` and built.
+- **Web admin: move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`.**  Jacob's call at the
+  2026-09-29 wrap-up, once the web admin had a file of its own.  The steps are in STATUS.md.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
   on shutdown: Ctrl-C loses whatever it hasn't written yet.  Catching it on both Linux and Windows without a crate means a
   signal handler on one and a console handler on the other.
@@ -87,8 +89,6 @@ Things we thought of along the way.  None of them are promised.
 - Web admin: saved page layouts, per account.  Jacob's long-term idea from the docking talk on
   2026-09-28.  The web admin has two accounts now (`user` and `admin`); today the only thing remembered is
   the last tab, in the browser.
-- Web admin: a login that times out when idle.  Today one lasts until LOG OUT or Conductor shutting
-  down.  Jacob didn't ask for a timeout on 2026-09-29.
 - Web admin: more accounts than `user` and `admin`, with names of their own.  Two fixed ones were
   Jacob's ask for now.
 - Web admin: the Settings tab could offer the default beside a field, and a "back to default" click.

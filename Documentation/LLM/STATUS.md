@@ -85,14 +85,22 @@ What Jacob decided:
 - `user` is read only; `admin` can edit config files (and everything else).
 - A card over the full page until you log in; a login every time Conductor is started; one that survives
   reloading the page.
-
-`wgui_port` stayed in `conductor_globals.cfg`; only the passwords went in `wgui.cfg`.  Say if it should
-move.
+- **No idle timeout, ever.**  The login is about roles (who may change the server), not security; the
+  page only listens on this machine.  Said at the wrap-up.
+- **`wgui_port` moves into `wgui.cfg`.**  Said at the wrap-up, after the port had gone in with the
+  passwords staying separate.  Not done this session (no code at hand-off); it's first in "what's
+  waiting".
 
 ## What's waiting
 
-- Jacob's test run left his `Content/cfg/conductor_globals.cfg` on `wgui_port = 9995`, so it shows as
-  modified in his `git status`.  The committed one says 9996.  His call which stands.
+- **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  One entry
+  moves in `files.rs`; `Settings` / `settings()` in `constellations.rs` and the launcher's
+  `conductor_wgui::start(...)` call read it from `WGUI` instead; both committed `Content/cfg/` files
+  change; the boot line "Settings from ..." and the docs (CLAUDE.md's file rule, the tools design
+  doc's table, README, PROJECT_OPUS) follow.  Both files are hard, so nothing about reboots changes.  A
+  file that lacks the setting gets it appended with the default on the next load, so an old
+  `wgui.cfg` on Jacob's machine is fine; the stale line in `conductor_globals.cfg` would read as "no
+  setting called wgui_port" and be Warned about once, so the committed file drops it.
 - The `user` account hasn't been tried in a real run yet, only in the tests and the headless check.
 - On GitHub, by hand: delete `claude/gracious-ramanujan-j5ojyq` and `testing_/charming-euler-jlyos7`.
   Jacob said he'd do it.

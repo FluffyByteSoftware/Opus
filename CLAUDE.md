@@ -355,6 +355,10 @@ When I say we're wrapping up:
   that changes something needs `admin` (403 to `user`): a new route that
   changes anything goes behind `only_admin()` in `lib.rs`, and the page
   greys its button for `user` in `lockChanges()`. `login.rs` holds it.
+  **No idle timeout, ever**: the login is about roles (who may change the
+  server), not security; the page only listens on this machine. Jacob's
+  words, 2026-09-29. `wgui_port` is moving from `conductor_globals.cfg`
+  into `wgui.cfg` (his call the same day; in TODO.md until it's done).
 - **The Settings tab is the config editor**, drawn from Constellations'
   table through `/Opus/settings`, with `/Opus/wwwhook/settings/save` and
   `/discard` behind it. A new config file or setting shows up there with
