@@ -26,6 +26,9 @@ Content/certs/*.key
 # Rust, in case target/ ever lands in dev/
 **/target/
 
+# Python's compiled cache, from running the test client
+**/__pycache__/
+
 # Unity caches
 Ensemble/dev/**/[Ll]ibrary/
 Ensemble/dev/**/[Tt]emp/
