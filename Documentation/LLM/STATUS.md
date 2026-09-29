@@ -25,7 +25,8 @@ admin's Control Panel, and STOP SERVER takes it back down with Conductor still r
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests (the session
 pushes `unstable` onto it when a round is ready), `main` is the stable release, moved only when Jacob
-says.  `main` sits on the login and the Settings tab; `unstable` and `testing` carry networking on top.
+says.  He said so at the close of the networking session, so `main`, `testing` and `unstable` all sit on
+the same commit: networking and everything before it.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**, from `testing` at `c4cfd59`: the login and the
 Settings tab.  `cargo test` passed 132 (15 monitor, 89 tools with the benchmark ignored, 28 web admin), and
