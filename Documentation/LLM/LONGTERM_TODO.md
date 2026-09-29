@@ -38,3 +38,15 @@ Nothing is decided yet.  What has to be, when it opens:
   the game, and the game decides.  That keeps a bad quest from being a bad server.
 
 Its name is Jacob's to give when it opens.
+
+## A program of its own for account management
+
+Jacob's, 2026-09-29, while the web admin's account manager was being planned: "eventually we will make a
+separate account management program I think for running the modifications and updating the database while
+its running."  Today a password can't be changed while the server is running, so hashing it never holds
+up a login in Security's line.  A separate program would do its own hashing and write to the database
+beside a running Conductor.
+
+Open when it opens: its name (a third piece gets named by Jacob before it's made), how it and a running
+Conductor agree on an account that's in the world while it's changed, and whether the web admin's
+account manager stays or moves into it.

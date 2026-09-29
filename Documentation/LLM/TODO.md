@@ -62,8 +62,15 @@ Things that wait on a piece that doesn't exist yet.
   which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
   `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
   rest.
-- Web admin: game account management (make, delete, list, finger, change password).  Waits on accounts.
-  Not to be confused with the web admin's own two accounts, which are in `wgui.cfg` and built.
+- Web admin: game account management.  Jacob's list, 2026-09-29: create, list, delete, change an
+  account's fields (the password included, typed twice), and write accounts to the database by hand;
+  an account's profile is a card opened by clicking its name on the list.  `admin` only: `user` can't
+  see the list.  A password can't be touched while the server is running, so a change never waits in
+  Security's line behind a login.  Being built in its own session, 2026-09-29.  Not to be confused with
+  the web admin's own two accounts, which are in `wgui.cfg` and built.
+- **Web admin: rethink the sidebar** (Jacob, 2026-09-29).  With Network Admin and now an accounts
+  subsection, each with its own rule, a flat list of tabs with headings is getting cluttered: menus and
+  submenus, maybe.  Its own session, the one after the account manager.
 - **Web admin: move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`.**  Jacob's call at the
   2026-09-29 wrap-up, once the web admin had a file of its own.  The steps are in STATUS.md.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
