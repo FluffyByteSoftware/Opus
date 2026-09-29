@@ -30,6 +30,8 @@ Things that wait on a piece that doesn't exist yet.
 - Accounts: a login token on reconnect (`fingerprinter::new_token()`), so a player who drops and comes back
   doesn't pay for a hash.  The biggest CPU saving Security can't make on its own.
 - Security: TLS for the welcome TCP connection.  Waits on networking, and on a crate we'd have to pick.
+- Web admin: a "Manage System" screen when Conductor first boots up.  Jacob's pick for the next conversation
+  (2026-09-29).  What it holds and where it sits (a new tab, or what the page opens on) is open.
 - Web admin: start / stop the network, and later the game.  **The network is started by the web admin, not
   the launcher** (Jacob, 2026-09-29): Conductor comes up with its door closed, and a button on the page opens
   it.  A `POST` with the `X-Opus` header, like Shut Down.  Waits on networking.  (Was the launcher's S.)

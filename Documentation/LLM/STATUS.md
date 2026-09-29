@@ -71,6 +71,10 @@ What Jacob decided:
   design doc.
 - **One login at a time, hard limit.**  Other clients wait in the queue.  Security's worker is that queue;
   accounts and networking build on it.  In TODO.
+- **Next: the web admin.**  Jacob's pick for the next conversation: further improvements to the page, and a
+  "Manage System" screen that shows when Conductor first boots up.  What's on it, and whether it's a new
+  tab or the first thing the page shows before the six tabs, is his to say when it opens.  The network
+  start / stop button (below) is the obvious first thing it would hold.
 - **A waiting client is told its place in line and about how long.**  Added this session: the three
   functions hand back a `Ticket` (the `Pending` plus `place()`), from a job number, the worker's finished
   count and a running average of one hash.  Networking does the telling, later.
@@ -78,6 +82,8 @@ What Jacob decided:
 ## What's waiting
 
 - Merging `infamous-saganism`, when Jacob says.
+- **The web admin: a "Manage System" screen at first boot, and further improvements.**  Jacob's pick for the
+  next conversation.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
   the client), PROTOCOL.md filled in.  The first piece of the server proper.  Its name is Jacob's to give.
   **It's started from the web admin, not the launcher**: a button on the page opens the door.  Jacob's rule,
