@@ -6,8 +6,8 @@ Author:     Jacob Chacko
 
 # conductor-wgui
 
-A lib crate.  The web admin: a small web server on a thread of its own that shows how Conductor is doing and
-is the only way to shut it down.  Named by Jacob.  Modeled on how the TLP at Jacob's work is laid out:
+A lib crate.  The web admin: a small web server on a thread of its own that shows how Conductor is doing,
+starts and stops the server, and is the only way to shut Conductor down.  Named by Jacob.  Modeled on how the TLP at Jacob's work is laid out:
 critical service status at a glance.  The look came from a mockup Gemini drew (dark slate panels, emerald
 accents, a terminal box), redone in plain CSS.
 
@@ -17,9 +17,9 @@ accents, a terminal box), redone in plain CSS.
 conductor-wgui/
 ├── Cargo.toml         depends on conductor-tools and conductor-monitor, nothing else
 └── src/
-    ├── lib.rs         start(port) -> bool, wait(); the thread, route(), host_is_ours()
+    ├── lib.rs         start(port) -> bool, has_ended(); the thread, route(), server_command(), host_is_ours()
     ├── http.rs        read_request(), parse_head(), respond(); struct Request
-    ├── json.rs        status(snapshot, services, disk, open_notices, newest_notices, lines, log_file),
+    ├── json.rs        status(switch, snapshot, services, disk, open_notices, newest_notices, lines, log_file),
     │                    notices(open), threads_of(pid, threads) -> String;
     │                    a small Object builder, text() escaping
     └── page.html      the one page, baked in with include_str!
@@ -31,12 +31,15 @@ conductor-wgui/
 |--------|------------------------|---------------------------------------------------------------------|
 | GET    | `/`                    | Sends the browser to `/Opus`                                        |
 | GET    | `/Opus`                | The page                                                            |
-| GET    | `/Opus/status?after=N` | The monitor's look, the services, DiskMan, the notices, the log     |
+| GET    | `/Opus/status?after=N` | The server's switch, the monitor's look, the services, DiskMan, the notices, the log |
 | GET    | `/Opus/threads?pid=N`  | One process's threads, for the System tab.  Reads only.             |
 | GET    | `/Opus/notices`        | Every open notice, for the Notifications History tab.  Reads only.  |
 | POST   | `/Opus/notices/ack?id=N` | Clears one notice.  Needs `X-Opus: ack`                           |
 | POST   | `/Opus/notices/ack-all`| Clears every notice.  Needs `X-Opus: ack`                           |
 | POST   | `/Opus/notices/test`   | Raises a test notice.  Needs `X-Opus: ack`                          |
+| POST   | `/Opus/server/start`   | Asks the launcher to start the server.  Needs `X-Opus: server`.  409 if it isn't stopped |
+| POST   | `/Opus/server/stop`    | Asks the launcher to stop it.  Needs `X-Opus: server`.  409 if it isn't running |
+| POST   | `/Opus/server/restart` | Stop, then start.  Needs `X-Opus: server`.  409 if it isn't running |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
 The JSON shapes are written out at the top of `json.rs`.  The page's script is the other half of them.
@@ -50,9 +53,9 @@ The JSON shapes are written out at the top of `json.rs`.  The page's script is t
   connection, with a 2 second limit to send the request.  One admin asking once a second doesn't need more.
 - **Offline.**  The page pulls nothing from the internet.  Gemini's mockup used Tailwind and Google Fonts from
   the web; the page keeps the colours and uses the fonts already on the machine.
-- **The console takes no input.**  The launcher starts everything and waits on the web admin.  Shut Down on
-  the page stops the web admin's thread, main wakes up, the monitor and Archivist stop, and the program ends,
-  which ends the console with it.  Ctrl-C still kills it outright, without the clean-up.  Closing the console
+- **The console takes no input.**  The launcher boots the program and waits on the web admin.  Shut Down on
+  the page stops the web admin's thread, main wakes up, stops the server if it's running, and the program
+  ends, which ends the console with it.  Ctrl-C still kills it outright, without the clean-up.  Closing the console
   window kills it too (TODO.md has the ways around that).
 - If the web admin can't start (the port is taken), Conductor shuts straight back down with a capitals Error,
   since there would be no way to stop it cleanly.
@@ -80,16 +83,40 @@ The JSON shapes are written out at the top of `json.rs`.  The page's script is t
   History tab is locked like every other tab.
 - Another process's threads are asked for one process at a time, only while it's picked and the System tab is
   open.  Every process's threads every second would be thousands of rows nobody is looking at.
+- **The Control Panel** (2026-09-29).  Jacob: the page Conductor greets you with is a control panel, with
+  only the log reachable in the tabs, no notifications while nothing is started, and START / RESTART / STOP
+  SERVER or SHUTDOWN; once the server is running, the pages as they were.  So the server (Fingerprinter,
+  Archivist, the monitor, and whatever comes later) is off until START SERVER, and the tab is first in the
+  sidebar.  The three server routes answer at once and the launcher does the work, so the web admin's one
+  thread is never stuck behind an Archivist that's finishing a long query on the way down; the page sees
+  the state change through the status.  The state flips to starting or stopping in `server::ask()` itself,
+  under its lock, so two clicks can't both get through.
+- **The Control Panel stays above the database lock**, like the header and the bell, so the server can be
+  stopped while the database is offline.  The Log is locked there as before; opening it too is in TODO.
+- **The bell is hidden while the server isn't running.**  Notices raised anyway (a config complaint at boot,
+  say) are still there once it is, and in the log meanwhile.
 
 ## The page
 
-**Sidebar**: the OP logo, and six tabs under it: System, Conductor, Services, Storage, Notifications
-History, Log.  Conductor opens
-first, unless the browser remembers another.  The Services tab gets a flashing red dot when a service is down.
+**Sidebar**: the OP logo, and seven tabs under it: Control Panel, System, Conductor, Services, Storage,
+Notifications History, Log.  The Control Panel shows whenever the server isn't running; once it is, the
+page moves to the tab the browser remembers, Conductor by default.  A locked tab is greyed and can't be
+clicked: with the server stopped that's everything but the Control Panel and the Log, and with it running
+the database lock decides.  The Services tab gets a flashing red dot when a service is down, only while the
+server is running (its pieces being down is the normal state before that).
 
 **Header, on every tab**: the name; a status line (NOMINAL, or what's wrong: `DATABASE NOT CONNECTED`,
-`2 SERVICES DOWN`); a DB pill (DB ONLINE green, DB CONNECTING grey, DB OFFLINE flashing red); uptime as
-DD:HH:MM:SS; SHUT DOWN (asks first); and the bell in the corner.
+`2 SERVICES DOWN`, or `SERVER STOPPED` while it is); a pill (DB ONLINE green, DB CONNECTING grey, DB OFFLINE
+flashing red, or SERVER STOPPED / STARTING / STOPPING grey); uptime as DD:HH:MM:SS, dashes while the server
+is stopped; SHUT DOWN (asks first); and the bell in the corner, hidden while the server isn't running.
+
+**Control Panel**: the server's state big (STOPPED plain, STARTING and STOPPING yellow, RUNNING green), the
+launcher's note under it and since when; then START SERVER (green), RESTART SERVER (green, asks first),
+STOP SERVER (red, asks first) and SHUT DOWN (red, asks first), each greyed when it doesn't fit the state.
+Beside it a short services list (dot, name, state, what it says) from the same list as the Services tab; a
+piece that's expected or stopped is grey while the server is down and red once it's up.  The buttons post
+to the server routes and the next status answer sets them right again; a 409 comes back as an alert with
+Conductor's words.
 
 **The bell**: a red badge counts the open notices, 1 to 5, then `5+`.  Clicking it pulls out a tray over
 whatever tab is open with the newest five, each a card with its level, where it came from, when, the text
@@ -137,10 +164,12 @@ happened, and an ACK button.  ACK ALL (asks first) and TEST NOTIFICATION at the 
 `/Opus/notices` once a second, only while this tab is open.
 
 **Log**: Scribe's terminal, the height of the window, coloured by priority, keeping the last 500 lines, and
-staying at the bottom unless the admin has scrolled up.
+staying at the bottom unless the admin has scrolled up.  Open while the server is stopped, so the admin
+can read why a start went wrong.
 
-If the server stops answering, the page covers itself with a note and stops asking.  After SHUT DOWN it says
-Conductor is shutting down, and that the console counts down while DiskMan finishes.
+If Conductor stops answering, the page covers itself with a note and stops asking.  After SHUT DOWN it says
+Conductor is shutting down, that the server stops first if it's running, and that the console counts down
+while DiskMan finishes.
 
 ## Services
 
@@ -152,11 +181,13 @@ Built on 2026-09-28, Zabbix style, the way the TLP at Jacob's work does it.  The
 | DiskMan        | Its thread is up; checks in every second      | A file is failing to write (see the log)      |
 | Scribe         | It has a log file for today                   | DiskMan can't write the file: console only    |
 | Constellations | The config loaded, or it wrote the defaults   | The file can't be read or written: defaults   |
+| Fingerprinter  | The OS gave it random bytes on START SERVER   | The OS won't give random bytes                |
 | Archivist      | It's connected to Postgres                    | It can't connect, or lost the connection      |
 | Monitor        | Its thread is looking once a second           | Never; stuck shows as gone quiet after 5 s    |
 | Web admin      | It's listening                                | Never; if it can't listen, Conductor stops    |
 
-Any of them shows stopped once its thread has ended, whatever it last said.
+Any of them shows stopped once its thread has ended, whatever it last said.  Fingerprinter, Archivist and
+the monitor are the server: expected until the first START SERVER, stopped after a STOP SERVER.
 
 ## What's open
 
@@ -165,3 +196,5 @@ Any of them shows stopped once its thread has ended, whatever it last said.
 - Accounts and config management, from the old launcher menu's plans, go here.  The settings shown and
   changed live are planned in TODO.md.
 - The lock can't lift until Archivist reconnects, and Archivist only tries when a job comes in.  TODO.md.
+  A STOP SERVER and a START SERVER is the way round it today.
+- Two SHUT DOWN buttons on the Control Panel tab (the header's and its own).

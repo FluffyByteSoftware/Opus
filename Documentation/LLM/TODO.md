@@ -25,7 +25,9 @@ Things that wait on a piece that doesn't exist yet.
 - The rest of Conductor's tools, each its own session: the Fingerprinter (Jacob's pick for the next
   session) and Security (TLS for the welcome TCP connection, password hashing).  Stratum had a Fingerprinter
   (UUIDs) and a Security worker; whether Opus wants the same shapes is Jacob's call when each comes up.
-- Web admin: start / stop the game.  Waits on networking and a game loop.  (Was the launcher's S.)
+- Web admin: the Control Panel starts and stops the server (2026-09-29), which today is Fingerprinter,
+  Archivist and the monitor.  Networking and the game loop go in `start_server()` and `stop_server()` in
+  the launcher when they exist.
 - Web admin: account management (make, delete, list, finger, change password).  Waits on accounts.
 - Web admin: the settings, shown and changed live (Jacob asked on 2026-09-28).  Showing them is small: a
   read-only route and a Settings tab.  Changing them live needs:
@@ -82,6 +84,14 @@ Things we thought of along the way.  None of them are promised.
   growing in memory.  A cap (the oldest dropped) if it ever matters.
 - Web admin: keep the CPU and memory history on the server, so a page opened late still sees the last few
   minutes.
+- Web admin: a setting in `conductor_globals.cfg` that starts the server on its own when Conductor boots,
+  for a machine nobody sits at.  Today it always waits on START SERVER.
+- Web admin: the Log tab is open while the server is stopped but locked under the database lock while it's
+  running.  Opening it there too would let the admin read why the database is offline without stopping the
+  server.  Jacob's call.
+- Web admin: the header's SHUT DOWN and the Control Panel's are the same button twice on that tab.  One
+  could go.
+- Web admin: a Control Panel line saying what a RESTART is for (a changed `postgres.cfg` is read again).
 - Web admin: a Debug on / off switch for the Log tab, once Scribe has its Debug switch.
 - Web admin: saved page layouts, per user, once the web admin has users.  Jacob's long-term idea from the
   docking talk on 2026-09-28.  Today the only thing remembered is the last tab, in the browser.

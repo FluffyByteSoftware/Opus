@@ -215,6 +215,13 @@ When I say we're wrapping up:
 - Prefer clear ownership and simple types over heavy generics or macros.
 - `conductor-launcher` is the program. New server pieces (networking, the game)
   are lib crates that the launcher starts, not programs of their own.
+- **Conductor and the server are two things.** The program (DiskMan, Scribe,
+  Constellations, the web admin) is up from boot. The server (Fingerprinter,
+  Archivist, the monitor, and whatever comes later) only runs between START
+  SERVER and STOP SERVER on the web admin's Control Panel. A new server piece
+  goes in both `start_server()` and `stop_server()` in the launcher, and has
+  to be able to stop and start again in the same run. Its state lives in
+  `server.rs` in `conductor-tools`; the launcher does the starting.
 - Anything that can be slow (database, disk, network) runs on its own thread,
   and callers get the answer back later (Archivist's `Pending`). The game loop
   never waits on it. No async runtime.
@@ -275,12 +282,16 @@ When I say we're wrapping up:
   is added, make sure the CSS for it exists.
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
-- The page is six tabs down the left sidebar, under the OP logo: System,
-  Conductor, Services, Storage, Notifications History, Log. Anything new goes
-  on one of them, or is a new tab I agree to.
-- While the database isn't connected, the page is blurred and locked with SHUT
-  DOWN the only thing that works. Anything new on the page sits under that
-  lock; only the header stays above it (the bell and its tray included).
+- The page is seven tabs down the left sidebar, under the OP logo: Control
+  Panel, System, Conductor, Services, Storage, Notifications History, Log.
+  Anything new goes on one of them, or is a new tab I agree to.
+- Until the server is running, only the Control Panel and the Log can be
+  clicked, and the bell is hidden. The Control Panel is the only place the
+  server is started, restarted and stopped.
+- While the server is running and the database isn't connected, the page is
+  blurred and locked, with the Control Panel and SHUT DOWN the only things
+  that work. Anything new on the page sits under that lock; only the header
+  (the bell and its tray included) and the Control Panel stay above it.
 - When talking about the page, name the panel or tab ("the Log tab"), not the
   tool behind it. "Where does Scribe go?" read as moving the crate.
 - [FILL IN the tick rate once there is a game loop]

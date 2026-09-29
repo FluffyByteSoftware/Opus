@@ -7,8 +7,8 @@ Author:     Jacob Chacko
 # conductor-tools
 
 A lib crate.  The pieces the rest of Conductor leans on but that know nothing about the game: the disk, the
-log, the config, the database, the clock, the list of threads we started, the list of services we expect,
-and the notices the admin has to acknowledge.  One
+log, the config, the database, the UUIDs, the clock, the list of threads we started, the list of services we
+expect, the notices the admin has to acknowledge, and the switch that starts and stops the server.  One
 dependency, `postgres` (the blocking Postgres client), for Archivist.  It pulls in tokio behind the scenes,
 but nothing of ours is async.
 
@@ -18,8 +18,8 @@ but nothing of ours is async.
 conductor-tools/
 ├── Cargo.toml
 └── src/
-    ├── lib.rs             pub mod archivist; clock; constellations; diskman; notices; pending; scribe;
-    │                        services; threads;
+    ├── lib.rs             pub mod archivist; clock; constellations; diskman; fingerprinter; notices; pending;
+    │                        scribe; server; services; threads;
     ├── archivist.rs       the front door: start(), stop(), status(), config_path()
     │                        execute(sql, params) -> Pending<u64>, query(sql, params) -> Pending<Vec<Row>>
     │                        batch(sql) -> Pending<()>, transaction(name, |tx| ...) -> Pending<T>
@@ -50,6 +50,9 @@ conductor-tools/
     ├── pending.rs         Pending<T, E> { check() never waits, wait() does }, trait NotRunning
     ├── constellations.rs  struct Settings { scribe_log_dir, wgui_port }
     │                        load(), settings(), log_dir(), content_dir(), config_path()
+    ├── server.rs          enum State { Stopped, Starting, Running, Stopping }, enum Command { Start, Stop, Restart }
+    │                        ask(command) -> Result<(), State>, next_command(wait) -> Option<Command>
+    │                        set(state, note), status() -> Status { state, note, since }
     ├── services.rs        enum State { Expected, Starting, Running, Trouble, Stopped }
     │                        set(name, state, note), seen(name), list() -> Vec<Service>
     │                        Service { name, state, note, since, seen_ago }, healthy(); the names as consts
@@ -122,6 +125,30 @@ What we decided:
   restart wipes them.  (A table couldn't hold "the database dropped" anyway.)  No cap.
 - Nothing in here writes to Scribe; Scribe calls in here before taking its own lock.
 - The bell, its tray and the Notifications History tab are in `conductor-wgui.md`.
+
+## The server's switch
+
+`server.rs`, built 2026-09-29 for the web admin's Control Panel.
+
+What we decided:
+
+- **Conductor and the server are two things.**  The program is DiskMan, Scribe, Constellations and the web
+  admin.  The server is the rest, and it's off until START SERVER.  This file only holds the state and the
+  mailbox; the launcher knows what the pieces are (see `conductor-launcher.md`).
+- **`ask()` flips the state itself**, under its lock, before posting the command: stopped becomes starting,
+  running becomes stopping.  An ask that doesn't fit (start while running, stop while stopped, anything
+  while starting or stopping) comes back `Err` with the state it found, and changes nothing.  So two clicks
+  in a row can't both get through, without the launcher having to sort that out.
+- The mailbox is one `mpsc` channel made on first use, the launcher's end behind a Mutex.  `next_command()`
+  waits with a time limit so the launcher can look up between asks and see whether the web admin is still
+  there.
+- Nothing in here writes to Scribe.  The web admin and the launcher say what happened in their own words.
+- The one test walks the whole switch in order, since the switch is one for the whole program.
+
+Since Archivist and the monitor can now stop and start again: Archivist's settings ride with its worker
+onto the thread (they were in a write-once `OnceLock`) and `postgres.cfg` is read again on every start; a
+start while running is a Warn and does nothing, for both.  The monitor's stop drops its last look.
+Fingerprinter has a `stop()` that only tells the Services tab.
 
 ## Scribe
 

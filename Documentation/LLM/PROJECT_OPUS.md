@@ -37,6 +37,7 @@ Opus/
 │       │       ├── notices.rs     # what the admin has to ACK: every Warn and Error, and more
 │       │       ├── pending.rs     # Pending, the answer on its way, shared by Archivist and DiskMan
 │       │       ├── scribe.rs          # the log: a file per UTC day (via DiskMan), the console, the last 200
+│       │       ├── server.rs          # the server's switch: stopped / starting / running / stopping, the mailbox
 │       │       ├── services.rs        # the services we expect, each reporting how it's doing
 │       │       └── threads.rs         # threads::spawn(): every thread we start, who asked and when
 │       ├── conductor-monitor/         # lib
@@ -55,11 +56,11 @@ Opus/
 │       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
 │       │       ├── http.rs            # just enough HTTP
 │       │       ├── json.rs            # the status answer, written by hand
-│       │       └── page.html          # the page, baked in: six tabs, the bell, and the database lock
+│       │       └── page.html          # the page, baked in: the Control Panel and six tabs, the bell, the locks
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml
 │           └── src/
-│               └── main.rs            # starts it all, waits on the web admin, shuts down
+│               └── main.rs            # boots the program, starts and stops the server on the Control Panel's say
 ├── Ensemble/                          # the client -- not started
 ├── Content/                           # committed, except Assets/ and logs/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
@@ -94,7 +95,7 @@ Where each one lives is in the tree above.
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
 | conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |
 | conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
-| conductor-launcher | Bin crate: the program.  Starts everything.   | Runs on Linux                |
+| conductor-launcher | Bin crate: the program.  Boots, then waits on the Control Panel. | Runs on Linux |
 | Scribe             | The log.                                      | Built and tested             |
 | Constellations     | The config file and the settings it holds.    | Built and tested             |
 | Archivist          | The database: PostgreSQL on its own thread.   | Built and tested             |
@@ -103,3 +104,5 @@ Where each one lives is in the tree above.
 | Services           | The services we expect, and how each is doing.| Built and tested             |
 | DiskMan            | Every file read and write, one worker thread. | Built and tested on Linux    |
 | Notices            | What the admin has to ACK, on the bell.       | Built and tested             |
+| Fingerprinter      | Version 7 UUIDs and tokens from the OS.       | Written, not yet built       |
+| The server's switch| Stopped / starting / running / stopping.      | Written, not yet built       |

@@ -28,10 +28,13 @@ cargo run -p conductor-launcher
 ```
 
 That starts Conductor.  The console shows the log as it's written and takes no input.  Everything else is
-done from the web admin at <http://127.0.0.1:9996/Opus>, in a browser on the same machine.  It has a tab
-each for the machine and every process on it, Conductor's own CPU, memory, disk and threads, its services,
-the database and the disk manager, the open notifications, and the log, plus the Shut Down button.  Every
-warning and error lands on a bell in the corner and stays there until somebody acknowledges it.  While the database is offline, the page shows that
+done from the web admin at <http://127.0.0.1:9996/Opus>, in a browser on the same machine.  It opens on
+the Control Panel, where START SERVER brings the server up (the database connection and the monitor, and
+the game once there is one), STOP SERVER takes it back down, and SHUT DOWN closes Conductor.  Until the
+server is running, the only other tab that works is the log.  Once it is, there's a tab each for the
+machine and every process on it, Conductor's own CPU, memory, disk and threads, its services, the database
+and the disk manager, the open notifications, and the log.  Every warning and error lands on a bell in the
+corner and stays there until somebody acknowledges it.  While the database is offline, the page shows that
 and nothing else, since the game can't run without it.  It only listens on 127.0.0.1, so it can't be
 reached from anywhere else.  The port is `wgui_port` in `conductor_globals.cfg`.
 
