@@ -54,13 +54,15 @@ turned into the answer on Archivist's thread.
 ## Who holds one
 
 The login (`tcp.rs`) reads the hash, checks the password, deals with an account already in the world,
-then loads the `Account` and puts the login time on it in memory.  The ticket holds it, then the
-player (`sessions.rs`).  Whenever a ticket or player leaves the book, for any reason (Goodbye, gone
+then loads the `Account`.  The ticket holds it, then the player (`sessions.rs`).  The login time goes on
+it when the ticket is used and the player is in the world over UDP, not at the TLS login: that's when
+playing starts, and playtime metrics will count from it (Jacob, 2026-09-29).  A ticket that dies unused
+leaves the account unchanged, so nothing is written for it.  Whenever a ticket or player leaves the book, for any reason (Goodbye, gone
 quiet, logged out by another login, kicked, banned, a ticket that ran out or was replaced, STOP
 SERVER), its account is saved once the book's lock is let go.
 
 The load comes after the other session is logged out on purpose.  Archivist has one worker and runs
 jobs in order, so the kicked session's save is in the row before the new load reads it.
 
-`last_login_datetime` is written when the player leaves, not when they log in.  If Conductor dies
+`last_login_datetime` is written when the player leaves, not when they come in.  If Conductor dies
 without a clean stop (Ctrl-C isn't caught yet), the login time of everyone in the world is lost.

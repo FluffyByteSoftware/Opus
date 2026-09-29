@@ -74,6 +74,10 @@ Things that wait on a piece that doesn't exist yet.
   `conductor` name, so code still says `conductor_tools::scribe`.  Touches the workspace `Cargo.toml`,
   every `path = "../conductor-..."`, the `File:` lines, the `include_str!` paths that climb out of a
   crate (same depth, so likely none), CLAUDE.md, PROJECT_OPUS.md and the design docs.
+- **Playtime metrics** (Jacob, 2026-09-29: "cool metrics later").  `last_login_datetime` is when a player
+  came in over UDP, but only the latest one is kept, and nothing records when they left.  Playtime needs
+  a table of play sessions (account, in, out, how it ended), a row written as each player leaves the
+  book.  A new table, so its own session.
 - **Stale words in the code**, found the same day, for whichever session next touches each file:
   `access.rs` has a Warn the admin sees that says "the web admin's Networking tab" (the tabs are Whitelist
   and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs`, the web admin's `Cargo.toml` and a

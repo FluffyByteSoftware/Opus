@@ -38,6 +38,10 @@
 //!
 //! Each ticket and each player holds its account (conductor-accounts),
 //! read from the database at the login and kept here while they're in.
+//! The account's last login is the moment its ticket is used and the
+//! player is in the world over UDP, not the TLS login before it: that's
+//! when playing starts, and it's what playtime will be counted from.
+//! Jacob, 2026-09-29.  A ticket that dies unused leaves it as it was.
 //! Whenever one leaves the book, for any reason, its account goes on
 //! `Book::leaving`, and is saved to the database once the lock is let go:
 //! written if anything about it changed, skipped if nothing did.  Jacob's
@@ -51,7 +55,7 @@ use std::io;
 use std::mem;
 use std::net::SocketAddr;
 use std::sync::{LazyLock, Mutex};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime};
 
 use conductor_accounts::Account;
 use conductor_tools::clock::Utc;
@@ -327,8 +331,10 @@ fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> C
         return Connected::Refused;
     };
     let door = ticket.door;
-    let account = ticket.account;
+    let mut account = ticket.account;
     let name = account.username().to_string();
+    // In the world from now: this is their login time.
+    account.last_login = Some(SystemTime::now());
 
     // The book says the account holds this ticket.  If it somehow says
     // the account is playing from elsewhere too, that entry is stale,
@@ -490,6 +496,20 @@ mod tests {
 
         assert_eq!(book.accounts.get("jacob"), Some(&Whereabouts::Playing(home)));
         assert!(book.tickets.is_empty());
+    }
+
+    #[test]
+    fn the_login_time_is_when_the_ticket_is_used() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, account("jacob"), "abc", 15, now);
+        assert_eq!(book.tickets["abc"].account.last_login, None);
+
+        let before = SystemTime::now();
+        connect_in(&mut book, "abc", home, now);
+        let stamped = book.players[&home].account.last_login.unwrap();
+        assert!(stamped >= before && stamped <= SystemTime::now());
     }
 
     #[test]

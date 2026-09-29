@@ -38,9 +38,9 @@
 //! address wait FAILURE_HOLD before its next connection is taken at all.
 //! The right password for an account already in the world gets asked what
 //! to do instead (sessions.rs); a right password otherwise gets a ticket.
-//! The account itself is read then, with the login time put on it in
-//! memory, and the ticket holds it from there.  It's read after the other
-//! session is logged out, so whatever that one's save wrote is in the row.
+//! The account itself is read then, and the ticket holds it from there.
+//! It's read after the other session is logged out, so whatever that
+//! one's save wrote is in the row.
 //!
 //! Every connection goes on the ledger (ledger.rs) as it's accepted, and
 //! moves along it a stage at a time, so the web admin's Connections tab
@@ -59,7 +59,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, SyncSender, TrySendError};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, Instant};
 
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 
@@ -805,16 +805,13 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
     }
 }
 
-/// Reads the account that just logged in, and puts the login time on it
-/// in memory.  It's written to the row when the account leaves the book.
+/// Reads the account that just logged in, for its ticket to hold.  The
+/// login time goes on it later, when the ticket is used over UDP.
 /// `None` if it couldn't be read, or its row went between the password
 /// check and here; either way the player can't be let in without it.
 fn load_account(name: &str, peer: SocketAddr) -> Option<Account> {
     match conductor_accounts::load(name).wait() {
-        Ok(Some(mut account)) => {
-            account.last_login = Some(SystemTime::now());
-            Some(account)
-        }
+        Ok(Some(account)) => Some(account),
         Ok(None) => {
             scribe::warn(Channel::Security, &format!("{peer} logged in as {name}, but the account was gone by the \
                 time it was read.  Not let in."));
