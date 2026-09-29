@@ -20,8 +20,9 @@ Every command is one line, from `Conductor/dev`.
 Hand tests the networking session left untried (STATUS.md had them; they live here now):
 
 - [x] ~~`cargo test` from `Conductor/dev` after networking.~~  2026-09-29: passed with the TCP tab's, 178 in all.
-- [ ] Two clients on one account: the second gets the kick-or-hang-up prompt (`--kick` and `--spare` on
-      `test_client.py`); with `--kick` the first hears a Kicked over UDP.
+- [ ] Two clients on one account: the second gets the kick-or-hang-up prompt ("Already logged in.  Log
+      the other session out?"; `--leave-other-alone` on `test_client.py` answers no without asking);
+      answer `y` and the first hears a Kicked over UDP.
 - [ ] `--go-quiet`: the player is dropped after the 40-second UDP timeout and the log says so.
 - [ ] A wrong secret word: refused without a hash (no Security line in the log).
 - [ ] A wrong password, then a connection straight after from the same machine: closed at the door for

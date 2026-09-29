@@ -46,12 +46,12 @@ Things that wait on a piece that doesn't exist yet.
   reboot is a bother.
 - Networking: reverse DNS on macOS.  `dns/other.rs` hands back no name; macOS has `getnameinfo` with its
   own `sockaddr` layout (a length byte first).  Waits on a Mac, like the monitor.
-- Networking: the protocol version in the Hello is `1` and the client versions are a list in
+- Networking: the protocol version in the Hello is `2` and the client versions are a list in
   `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
-  which today is Fingerprinter, Security, Archivist and the monitor.  Networking and the game loop go in
-  `start_server()` and `stop_server()` in the launcher when they exist, and come up and down with the
-  rest.  (Was the launcher's S.)
+  which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
+  `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
+  rest.
 - Web admin: game account management (make, delete, list, finger, change password).  Waits on accounts.
   Not to be confused with the web admin's own two accounts, which are in `wgui.cfg` and built.
 - **Web admin: move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`.**  Jacob's call at the
@@ -62,9 +62,6 @@ Things that wait on a piece that doesn't exist yet.
 - Ensemble has no way to find `Content/` yet.  Decide how once the engine is picked.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
-
-- **Documentation: clean-up and management.**  Jacob's pick for the session after the access lists, said
-  mid-session on 2026-09-29.  What that covers is his to say when it opens.
 
 ## Ideas
 
