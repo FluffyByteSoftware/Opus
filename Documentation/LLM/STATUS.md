@@ -27,9 +27,9 @@ admin's Control Panel, and STOP SERVER takes it back down with Conductor still r
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
 stable release, moved only when Jacob says.  At the close of the documentation pass Jacob built
 `testing`, ran it (START SERVER, a Settings save and RESTART SERVER, the test client twice on one
-account), and `main` moved up to it.  Then his LINKDEAD catch went onto `unstable` and `testing`; he
-said it was all working, and asked for KICK on every row, which followed it there, not built yet.
-`main` stays behind both until he says to move it.
+account), and `main` moved up to it.  Then his LINKDEAD catch and KICK on every row went onto `unstable`
+and `testing`, and he built them there: `cargo clean`, a clean build, 199 tests passed, and a run with
+three kicks and a second login.  `main` stays on the release before them until he says to move it.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
 build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
@@ -73,14 +73,14 @@ What we did:
   STOP SERVER, edit `postgres.cfg` or `networking.cfg` or a list or the TLS files, START SERVER, and the
   edit is read.  `cache.rs` (`Stamp`, `Held`, `checks`, `after_check()`, `current()`,
   `note_on_disk()`), `worker.rs` (the checks, the stamps after its own writes, streams), `diskman.rs`
-  (`read()`); two new tests.  Not built yet: Jacob builds.
+  (`read()`); two new tests.  Built and its tests pass; the hand checks are open.
 - **LINKDEAD** (Jacob's catch after the release, his word): a second login logged the first player out,
   and the first login's row on the Connections tab still read green, "Logged in", as if it were live.
   Tickets and players now carry their door row's number, and every way out of the world marks the row
   "LINKDEAD:" with why (a second login from its address, Goodbye, the timeout, a ban, or a ticket never
   used), greyed.  `ledger.rs` (`Gone`, `linkdead()`, `Connection::describe()`), `sessions.rs` (the row
   numbers, `Book::gone`, `with_book()`), two lines in `tcp.rs`, `json.rs` (green only while the player
-  is in).  No protocol change, no page change.  Not built yet.
+  is in).  No protocol change, no page change.  Built; Jacob's screenshot showed the row.
 - **KICK on any row** (Jacob's ask once LINKDEAD was working, his screenshot of the three dots):
   KICK is in every TCP row's menu.  An open connection is closed at the door, as before; a login whose
   player is in the world has the player kicked out, told a Kicked with a new reason `4`, kicked by the
@@ -88,7 +88,7 @@ What we did:
   same route, `/Opus/wwwhook/tcp/kick` (Jacob: "we can use the existing ROUTE").  `sessions.rs`
   (`kick_login()`), `lib.rs` (`kick()` tries the door, then the book), `tcp.rs` (`Kicked::FromWorld`),
   `protocol.rs` and `test_client.py` (reason 4, version 3), `ledger.rs` (LINKDEAD "kicked by the
-  admin"), the web admin's route and menu.  Not built yet.
+  admin"), the web admin's route and menu.  Built and run on his machine: the kick three ways, 199 tests.
 - **TEST_CHECKLIST.md**: the two-clients check named `--kick` and `--spare`, which the client never had.
 - PROJECT_OPUS.md: the tab count, the `.gitignore` line, the access lists as a named piece.
 
@@ -117,9 +117,11 @@ in `design/conductor-networking.md` and `design/conductor-wgui.md`.
   one" and the web admin's game account management (make, delete, list, finger, change password).  Open
   until the session asks: who makes an account (a player over the protocol, which is a new packet and
   protocol version 3, or the admin from the web admin, or both), and what each needs from the other.
-- **This session's checks**: the release built and ran, but `cargo test` wasn't pasted back.  The hand
-  checks at the bottom of `TEST_CHECKLIST.md` are open: the page's greying, DiskMan noticing a hand edit,
-  LINKDEAD (the two-client row passed), and KICK on any row.
+- **This session's checks**: everything built clean and 199 tests passed on `testing`.  The hand checks
+  still open at the bottom of `TEST_CHECKLIST.md`: the page's greying, DiskMan noticing a hand edit,
+  LINKDEAD's Goodbye, quiet and ban rows, and KICK's greyed, open-connection and `user` rows.
+- **Moving `main` up to `testing`**, when Jacob says: the one line is `git checkout main && git pull &&
+  git merge --ff-only testing && git push origin main`, or the session pushes it at his word.
 - **The stale words in the code**, in TODO.md.
 - **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
   settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`

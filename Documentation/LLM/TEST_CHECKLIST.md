@@ -174,7 +174,9 @@ Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests
 write of ours, then a hand edit, then a hand delete) and 1 in `diskman/cache.rs`; two in `cache.rs`
 changed for the new argument.  Nothing was built in the session.
 
-- [ ] `cargo build` clean, no warnings; `cargo test` passes, 196 (91 tools) with the two new ones.
+- [x] ~~`cargo build` clean, no warnings; `cargo test` passes, 196 (91 tools) with the two new ones.~~
+      2026-09-29, from `testing` after `cargo clean`: no warnings,
+      199 passed (15 monitor, 59 networking, 91 tools with the benchmark ignored, 34 web admin).
 - [ ] A soft file: START SERVER, STOP SERVER, change `slow_job_ms` in `Content/cfg/postgres.cfg` by hand
       (Conductor still running), START SERVER.  The Settings tab shows the new value as running.  Before
       this, it showed the old one until Conductor was run again.  Put it back after.
@@ -190,7 +192,8 @@ Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests
 book's tests in `sessions.rs` changed for the row numbers and check the LINKDEAD rows; one in `json.rs`
 grew a LINKDEAD row.  Nothing was built in the session.
 
-- [ ] `cargo build` clean, no warnings; `cargo test` passes, 198 with the two new ones.
+- [x] ~~`cargo build` clean, no warnings; `cargo test` passes, 198 with the two new ones.~~  The same run:
+      199 with KICK's on top.
 - [x] ~~Two clients on one account, `y` to log the first out: the first client's TCP row greys and reads
       "LINKDEAD: logged out by a second login from 10.0.0.84:<the second's port>", and the second's row
       stays green "Logged in and handed a ticket for UDP".  The UDP table has only the second.~~
@@ -208,12 +211,15 @@ Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests
 client says 3 too, so an old copy of it stops at the Hello.  The menu was opened headless in the session
 with made-up rows (an open connection, a live login, a LINKDEAD one); that isn't Conductor.
 
-- [ ] `cargo build` clean, no warnings; `cargo test` passes, 199.
-- [ ] Log the client in and leave it in the world.  Its TCP row's three dots: KICK is red and live.
+- [x] ~~`cargo build` clean, no warnings; `cargo test` passes, 199.~~  2026-09-29, from `testing` after
+      `cargo clean`: no warnings, 199 passed (15 monitor, 59 networking, 91 tools with the benchmark ignored, 34 web admin).
+- [x] ~~Log the client in and leave it in the world.  Its TCP row's three dots: KICK is red and live.
       KICK, confirm ("Kick the player who logged in from ... out of the world?"): the client prints a
       Kicked "kicked by the admin" and "Back to the login screen.", the UDP table empties, the row reads
       "LINKDEAD: kicked by the admin", and the log has "The admin kicked throwaway_01 at ... out of the
-      world."  Run the client again: it logs straight back in.
+      world."  Run the client again: it logs straight back in.~~  2026-09-29: the log has the kick three
+      times, the client logged straight back in after the first, and the third came after a second login
+      had logged the first out.  Jacob: "we looking good".
 - [ ] A LINKDEAD or refused row's three dots: KICK is there, greyed, and its tooltip says there's nothing
       to kick.
 - [ ] An open connection (the client Ctrl-Z'd after TLS): KICK closes it at the door, as before.
