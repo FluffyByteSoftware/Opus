@@ -350,14 +350,21 @@ When I say we're wrapping up:
 
 ## Git rules
 
-- **Each session's work goes on its own branch** and reaches `main` through a
-  pull request. You may commit and push to that session branch. When I say to
-  merge, open the pull request and merge it yourself. Never push straight to
-  `main`, and never merge without me saying so.
-- If I've pushed to the session branch from my machine, fetch and merge it
-  before pushing. Never rebase or force-push over my commits.
-- After a merge, delete the session branch on GitHub, so `main` is the only
-  branch that lingers. Then tell me the commands to bring my machine in line.
+- **Three branches, since 2026-09-29.**
+  - `unstable` is where you write. Every session commits and pushes here.
+  - `testing` is where I test. **When a round of edits is done and you want
+    me to test it, push `unstable` onto `testing` yourself** (a fast-forward:
+    `git push origin unstable:testing`), then tell me what to run. Don't wait
+    to be asked.
+  - `main` is the stable release. It moves only when I say so, from
+    `testing`, never from `unstable`. Never push to `main` on your own.
+- The session-branch-and-pull-request way (each session on its own branch,
+  merged into `main`) is over. `infamous-saganism` was the last one; it's
+  kept as history and isn't written to.
+- If I've pushed to `unstable` from my machine, fetch and merge it before
+  pushing. Never rebase or force-push over my commits, on any branch.
+- Deleting a branch on GitHub can't be done from the session (the push is
+  refused), so I do that by hand when one is finished with.
 - The whole `Opus/` folder is one **private** repo: code, docs, and assets.
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
@@ -367,5 +374,5 @@ When I say we're wrapping up:
   shows up in `git status`, tell me and suggest a `.gitignore` line.
 - Large binary assets (models, textures, audio, `.blend`, `.unitypackage`) go
   through Git LFS. If you see one about to be committed without LFS, flag it.
-- The hand-off ends with the work committed and pushed to the session branch,
-  ready to merge when I say so.
+- The hand-off ends with the work committed and pushed to `unstable`, and
+  onto `testing` if it's ready for me to test.

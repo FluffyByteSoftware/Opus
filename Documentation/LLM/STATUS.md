@@ -15,9 +15,15 @@ web admin at `http://127.0.0.1:9996/Opus`, and the only way to shut the server d
 (bin) starts all of it and waits on the web admin.  Ensemble hasn't been started.
 
 **Built and tested on Linux (Nobara 44), 2026-09-29.**  `cargo build` clean with no warnings, `cargo test -p
-conductor-tools` passed 74 tests (1 ignored, the benchmark), and the benchmark ran in release.  This
-session's branch is `infamous-saganism`, ready to merge when Jacob says so.  The Windows code has never been
-built.
+conductor-tools` passed 74 tests (1 ignored, the benchmark), and the benchmark ran in release.  The Windows
+code has never been built.
+
+**The branches changed at the end of this session.**  `unstable` is where the sessions write, `testing` is
+where Jacob tests (the session pushes `unstable` onto it when a round is ready), and `main` is the stable
+release, moved by Jacob alone.  Both new branches start at this session's last commit, so Security is on
+`testing` now, waiting for a run of the whole server.  `main` still sits before Security.  The old
+session-branch-and-pull-request way is over; `infamous-saganism` stays as history.  The rules are in
+CLAUDE.md.
 
 **The tools are done**, as far as anything is done: DiskMan, Scribe, Constellations, Fingerprinter, Security,
 Archivist, the clock, threads, services, notices.  Jacob called it at the end of this session.  What comes
@@ -81,7 +87,10 @@ What Jacob decided:
 
 ## What's waiting
 
-- Merging `infamous-saganism`, when Jacob says.
+- Running Conductor with Security in it (from `testing`): the Services tab should show Security running with
+  "64 MiB arena, huge pages asked for.", and the log an Info line saying so.  Then `main`, when Jacob says.
+- On GitHub, by hand: delete `developing`, `experimental` and `stable` (made and then renamed in the last
+  minutes of the session; the session can't delete branches), and switch the default branch to `unstable`.
 - **The web admin: a "Manage System" screen at first boot, and further improvements.**  Jacob's pick for the
   next conversation.
 - Networking: the welcome TCP connection, the login flow on Security's line (with the queue place told to
