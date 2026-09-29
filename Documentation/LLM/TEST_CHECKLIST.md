@@ -78,9 +78,9 @@ Build and tests: `cargo build` and `cargo test` from `Conductor/dev`.  New tests
 now**: the Python client says 2 too, so an old copy of it stops at the Hello.  The page was rendered headless with made-up numbers in the session
 and clicked through (the three tabs, the row menu, ADD, REMOVE); that isn't Conductor.
 
-- [ ] Build and tests: `cargo build` clean, no warnings, `cargo test` passes.  If the build says
-      anything about `Result::is_ok_and` or `Ipv6Addr::to_ipv4_mapped`, say so: both are standard
-      library and should be fine on a current toolchain.
+- [x] ~~Build and tests: `cargo build` clean, no warnings, `cargo test` passes.~~  2026-09-29: clean, 194
+      passed (15 monitor, 56 networking, 89 tools with the benchmark ignored, 34 web admin).  The first
+      run read both list files (0 entries) and said "Access lists: off".
 - [ ] Before START SERVER: the sidebar has a rule and a NETWORK ADMIN heading under Notifications
       History, with Connections, Whitelist and Blacklist indented under it, all three greyed, then Log
       and Settings.  Nothing else in the sidebar moved.
