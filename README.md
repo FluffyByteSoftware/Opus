@@ -10,15 +10,16 @@ Opus is a multiplayer game I'm building as a hobby.  It's two programs: **Conduc
 **Ensemble**, the client players run.  Conductor is authoritative -- it owns the game state, clients ask,
 and Conductor decides.
 
-It is early.  Conductor has its first tools (a disk manager every file goes through, a log, a config file
-and a PostgreSQL connection), a monitor that watches the process and the machine, and a web page to run it
-from, and that's all.  There is no game yet, and
+It is early.  Conductor has its first tools (a disk manager every file goes through, a log, a config file,
+a UUID maker, a password hasher and a PostgreSQL connection), a monitor that watches the process and the
+machine, and a web page to run it from, and that's all.  There is no game yet, and
 Ensemble hasn't been started.  Things will change and things will break.
 
 ## Building and running Conductor
 
-Conductor is Rust, edition 2024.  The one crate so far is `postgres`, for the database.  The web admin and
-the monitor use only the standard library and what the OS already has.  From the repo root:
+Conductor is Rust, edition 2024.  Two crates so far: `postgres`, for the database, and `argon2`, for
+password hashing.  The web admin and the monitor use only the standard library and what the OS already has.
+From the repo root:
 
 ```
 cd Conductor/dev
@@ -69,7 +70,7 @@ Not started.  The engine isn't picked yet.
 Opus/
 ├── Conductor/          the server
 │   └── dev/            a Cargo workspace
-│       ├── conductor-tools/      the disk, the log, the config, the database, notices, the clock
+│       ├── conductor-tools/      the disk, the log, the config, UUIDs, password hashing, the database, notices
 │       ├── conductor-monitor/    watches the process: CPU, memory, disk, threads
 │       ├── conductor-wgui/       the web admin
 │       └── conductor-launcher/   the program: starts it all

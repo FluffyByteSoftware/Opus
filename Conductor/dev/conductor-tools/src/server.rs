@@ -9,8 +9,8 @@
 //! Conductor the program and "the server" are two different things.  The
 //! program is DiskMan, Scribe, Constellations and the web admin, and it's
 //! up from the moment the launcher runs.  The server is everything else
-//! (Fingerprinter, Archivist, the monitor, and later the network and the
-//! game), and it only runs once somebody presses START SERVER on the web
+//! (Fingerprinter, Security, Archivist, the monitor, and later the network
+//! and the game), and it only runs once somebody presses START SERVER on the web
 //! admin's Control Panel.  The launcher is what starts and stops the
 //! pieces, since it's the one that knows what they are.  This file only
 //! keeps the state and passes the asks along.

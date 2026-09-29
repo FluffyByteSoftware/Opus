@@ -4,8 +4,8 @@
 //!
 //! Entry point.  Brings up the program -- DiskMan, Scribe, Constellations
 //! and the web admin -- and then waits on the web admin's Control Panel.
-//! The server itself (Fingerprinter, Archivist, the monitor, and whatever
-//! comes later) doesn't start until the admin presses START SERVER there,
+//! The server itself (Fingerprinter, Security, Archivist, the monitor, and
+//! whatever comes later) doesn't start until the admin presses START SERVER there,
 //! and STOP SERVER takes it back down while the program keeps running.
 //! The console is only Scribe's output, and typing in it does nothing.
 //! When the admin presses SHUT DOWN, the web admin stops, main wakes up,
@@ -23,7 +23,7 @@
 use std::thread;
 use std::time::{Duration, Instant};
 
-use conductor_tools::{archivist, constellations, diskman, fingerprinter, threads};
+use conductor_tools::{archivist, constellations, diskman, fingerprinter, security, threads};
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::server::{self, Command, State};
 
@@ -107,32 +107,36 @@ fn take_commands() {
 
 /// Brings up everything that is the server, in order.  Fingerprinter
 /// checks the OS will give it random bytes before anything needs a UUID;
-/// Archivist comes straight back and connects on its own thread; the
-/// monitor starts looking once a second.  None of them can fail to the
-/// point of stopping this: each says how it went in the log and on the
-/// Services tab.
+/// Security allots its hash arena on its own thread, and takes its salts
+/// from Fingerprinter, so it comes after it; Archivist comes straight back
+/// and connects on its own thread; the monitor starts looking once a
+/// second.  None of them can fail to the point of stopping this: each says
+/// how it went in the log and on the Services tab.
 fn start_server() {
-    server::set(State::Starting, "Starting Fingerprinter, Archivist and the monitor.");
+    server::set(State::Starting, "Starting Fingerprinter, Security, Archivist and the monitor.");
     scribe::info(Channel::System, "The server is starting.");
 
     fingerprinter::start();
+    security::start();
     archivist::start();
     conductor_monitor::start();
 
-    server::set(State::Running, "Fingerprinter, Archivist and the monitor were started.  \
+    server::set(State::Running, "Fingerprinter, Security, Archivist and the monitor were started.  \
         The Services tab says how each one is doing.");
     scribe::info(Channel::System, "The server is running.");
 }
 
-/// Takes the server back down, in the opposite order.  Archivist goes
-/// after the monitor so the jobs already in its mailbox get done first,
-/// and anything it hands DiskMan on the way out is written by the DiskMan
+/// Takes the server back down, in the opposite order.  Security goes
+/// before Archivist, so a hash on its way to the accounts table still
+/// gets there; Archivist finishes the jobs already in its mailbox, and
+/// anything it hands DiskMan on the way out is written by the DiskMan
 /// that's still running.
 fn stop_server() {
-    server::set(State::Stopping, "Stopping the monitor, Archivist and Fingerprinter.");
+    server::set(State::Stopping, "Stopping the monitor, Security, Archivist and Fingerprinter.");
     scribe::info(Channel::System, "The server is stopping.");
 
     conductor_monitor::stop();
+    security::stop();
     archivist::stop();
     fingerprinter::stop();
 

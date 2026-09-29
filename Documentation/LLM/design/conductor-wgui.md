@@ -86,8 +86,9 @@ The JSON shapes are written out at the top of `json.rs`.  The page's script is t
 - **The Control Panel** (2026-09-29).  Jacob: the page Conductor greets you with is a control panel, with
   only the log reachable in the tabs, no notifications while nothing is started, and START / RESTART / STOP
   SERVER or SHUTDOWN; once the server is running, the pages as they were.  So the server (Fingerprinter,
-  Archivist, the monitor, and whatever comes later) is off until START SERVER, and the tab is first in the
-  sidebar.  The three server routes answer at once and the launcher does the work, so the web admin's one
+  Security, Archivist, the monitor, and whatever comes later) is off until START SERVER, and the tab is
+  first in the sidebar.  This is the "Manage System" screen the Security session's hand-off said was next;
+  Jacob called it the control panel when it opened, so that's its name.  The three server routes answer at once and the launcher does the work, so the web admin's one
   thread is never stuck behind an Archivist that's finishing a long query on the way down; the page sees
   the state change through the status.  The state flips to starting or stopping in `server::ask()` itself,
   under its lock, so two clicks can't both get through.
@@ -184,13 +185,14 @@ Built on 2026-09-28, Zabbix style, the way the TLP at Jacob's work does it.  The
 | DiskMan        | Its thread is up; checks in every second      | A file is failing to write (see the log)      |
 | Scribe         | It has a log file for today                   | DiskMan can't write the file: console only    |
 | Constellations | The config loaded, or it wrote the defaults   | The file can't be read or written: defaults   |
-| Fingerprinter  | The OS gave it random bytes on START SERVER   | The OS won't give random bytes                |
+| Fingerprinter  | The OS gave it random bytes on START SERVER   | It wouldn't: nothing can get a UUID           |
+| Security       | Its arena is allotted; checks in every second | Its thread wouldn't start                     |
 | Archivist      | It's connected to Postgres                    | It can't connect, or lost the connection      |
 | Monitor        | Its thread is looking once a second           | Never; stuck shows as gone quiet after 5 s    |
 | Web admin      | It's listening                                | Never; if it can't listen, Conductor stops    |
 
-Any of them shows stopped once its thread has ended, whatever it last said.  Fingerprinter, Archivist and
-the monitor are the server: expected until the first START SERVER, stopped after a STOP SERVER.
+Any of them shows stopped once its thread has ended, whatever it last said.  Fingerprinter, Security,
+Archivist and the monitor are the server: expected until the first START SERVER, stopped after a STOP SERVER.
 
 ## What's open
 

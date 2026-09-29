@@ -15,19 +15,25 @@ Things that wait on a piece that doesn't exist yet.
   Asked on 2026-09-28, not answered yet.
 - Monitor on macOS: `proc_pidinfo` / `proc_pid_rusage` from libproc for memory, CPU, disk and per-thread
   times.  Waits on a Mac to test it on.  Today macOS builds and runs and the page says "not measured".
-- Web admin: a login.  Anything on this machine can reach it today.  Wants Security (password hashing) first,
-  and matters most once the page has buttons that change things.
+- Web admin: a login.  Anything on this machine can reach it today.  Security can hash the password now;
+  it matters most once the page has buttons that change things.
 - Web admin: HTTPS, once Security brings in TLS for the game.
 - Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
-- Accounts: making, checking and logging in.  Waits on Security for the Argon2 hashing.
-- The rest of Conductor's tools, each its own session: the Fingerprinter (Jacob's pick for the next
-  session) and Security (TLS for the welcome TCP connection, password hashing).  Stratum had a Fingerprinter
-  (UUIDs) and a Security worker; whether Opus wants the same shapes is Jacob's call when each comes up.
-- Web admin: the Control Panel starts and stops the server (2026-09-29), which today is Fingerprinter,
-  Archivist and the monitor.  Networking and the game loop go in `start_server()` and `stop_server()` in
-  the launcher when they exist.
+- Accounts: making, checking and logging in.  Security's `hash_password()` and `verify_password()` are
+  ready for it; Fingerprinter's `new_uuid()` names the row.  Waits on networking for the login itself.
+- Accounts and networking: **one login at a time, hard limit.**  Jacob's rule from 2026-09-29.  Security's
+  worker already hashes one at a time with the rest in line; the login flow has to lean on that line, never
+  work around it (no hashing anywhere else, no second worker).  The client is told its place and about how
+  long: `Ticket::place()` has the numbers; the message to the client is networking's.
+- Accounts: a login token on reconnect (`fingerprinter::new_token()`), so a player who drops and comes back
+  doesn't pay for a hash.  The biggest CPU saving Security can't make on its own.
+- Security: TLS for the welcome TCP connection.  Waits on networking, and on a crate we'd have to pick.
+- Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
+  which today is Fingerprinter, Security, Archivist and the monitor.  Networking and the game loop go in
+  `start_server()` and `stop_server()` in the launcher when they exist, and come up and down with the
+  rest.  (Was the launcher's S.)
 - Web admin: account management (make, delete, list, finger, change password).  Waits on accounts.
 - Web admin: the settings, shown and changed live (Jacob asked on 2026-09-28).  Showing them is small: a
   read-only route and a Settings tab.  Changing them live needs:
@@ -84,13 +90,22 @@ Things we thought of along the way.  None of them are promised.
   growing in memory.  A cap (the oldest dropped) if it ever matters.
 - Web admin: keep the CPU and memory history on the server, so a page opened late still sees the last few
   minutes.
-- Web admin: a setting in `conductor_globals.cfg` that starts the server on its own when Conductor boots,
-  for a machine nobody sits at.  Today it always waits on START SERVER.
-- Web admin: a Control Panel line saying what a RESTART is for (a changed `postgres.cfg` is read again).
 - Web admin: a Debug on / off switch for the Log tab, once Scribe has its Debug switch.
 - Web admin: saved page layouts, per user, once the web admin has users.  Jacob's long-term idea from the
   docking talk on 2026-09-28.  Today the only thing remembered is the last tab, in the browser.
 - Web admin: pin Conductor to the top of the System tab's process list, if busiest-first buries it.
+- Web admin: a setting in `conductor_globals.cfg` that starts the server on its own when Conductor boots,
+  for a machine nobody sits at.  Today it always waits on START SERVER.
+- Web admin: a Control Panel line saying what a RESTART is for (a changed `postgres.cfg` is read again).
+- Security: raise the memory (128 MiB, say) once the benchmark shows what a one-pass 64 MiB hash costs on
+  Jacob's machine.  The arena grows with it, and stays allotted.
+- Security: the `parallel` (rayon) feature would split one hash's lanes across cores, cutting its wall time
+  at the same CPU cost.  A crate, and its threads bypass `threads::spawn()`, so it's not taken.
+- Security: say on the Services tab whether the huge pages actually landed, not just that they were asked
+  for.  Linux says in `/proc/self/smaps` (`AnonHugePages`), which would have to be read past DiskMan the
+  way the monitor reads `/proc`.
+- Security: wipe passwords from memory once they're hashed (the crate's `zeroize` feature and a wipe of the
+  job's `String`).  Off for now; a hobby server, and the theory matters more than the polish.
 - Running Conductor with no console window.  The page's Log tab shows everything the console does, but
   closing the console kills Conductor today (Linux sends the terminal's hang-up signal, Windows ends the
   process), so it goes down without a clean shutdown.  Ways to fix it: start it detached (`setsid` or
