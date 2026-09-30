@@ -383,7 +383,7 @@ Tables today:
 | Table                  | Made by                         | What it is                                              |
 |------------------------|---------------------------------|---------------------------------------------------------|
 | `accounts`             | `schemas/accounts.sql`          | One row per account.  Columns below.                    |
-| `player_characters`    | `schemas/player_characters.sql` | One row per character.  Columns below.  Not run yet.    |
+| `player_characters`    | `schemas/player_characters.sql` | One row per character.  Columns below.                  |
 | `archivist_migrations` | Archivist itself                | Which migrations have run, and when.  `uuid` from 0001. |
 
 `archivist_migrations` is keyed by the migration's number and has no `id`: it's Archivist's bookkeeping, not

@@ -48,16 +48,15 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       and the spawn reads the position without running anything).  Every UPDATE rewrites the row whole,
       so how often it's saved doesn't pick the shape; what SQL needs to see does.
     - **The account's slots point at the character by `id`**, per CLAUDE.md ("refer to CLAUDE on this").
-    - **Written, not run yet** (2026-09-30): the schema file `player_characters.sql` and migration
-      `0002_character_slots_on_accounts.sql`.  **A character's name is 4 to 20 letters, a to z, and only
-      the first can be a capital** (Jacob: "Character names are 4 to 20 alphabetical only, can start with a
-      capital.  All names must be unique"), unique across the server whatever the capital: "Jacob is fine
-      JaCob is not Mckay is fine but not McKay".  The position is three `REAL` columns, an f32 each like
-      the Transform (Jacob's yes).  Not run yet when this was set (DataGrip showed only `accounts` and
-      `archivist_migrations`), so the schema file took the rule rather than a migration.
-  - **The long name is the player's to capitalize, later** (Jacob: "there will be a way to set your _LONG_
-    to be capitalized how you want in game but when creating its this way").  The name rule above is for
-    making a character; `LongName` is where "McKay" goes.
+    - **Built and in the database** (2026-09-30, every check passed): the schema file
+      `player_characters.sql` and migration `0002_character_slots_on_accounts.sql`.  **A character's name
+      is 4 to 20 letters, a to z, and only the first can be a capital** (Jacob: "Character names are 4 to
+      20 alphabetical only, can start with a capital.  All names must be unique"), unique across the
+      server whatever the capital: "Jacob is fine JaCob is not Mckay is fine but not McKay".  The position
+      is three `REAL` columns, an f32 each like the Transform (Jacob's yes).
+    - **The long name is the player's to capitalize, later** (Jacob: "there will be a way to set your
+      _LONG_ to be capitalized how you want in game but when creating its this way").  The name rule
+      above is for making a character; `LongName` is where "McKay" goes.
     - **The functions in `conductor-accounts`**: make, list, load and save a character, and delete one.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
