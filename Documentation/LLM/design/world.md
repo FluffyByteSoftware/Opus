@@ -35,6 +35,13 @@ time it sees it.  Until then the server reads running, so STOP SERVER works, and
 the Services tab say they're waiting on the world.  A run where a chunk there can't be had never opens the
 door.
 
+**Nothing acts before the ground is in either** (Jacob, 2026-09-30: "I don't want NPCs acting while the
+server world isn't ready").  The GameClock beats from START SERVER as before, but until
+`conductor_gameclock::ready()` only housekeeping runs (it's what takes the chunks in); input, AI, movement
+and broadcast each get their 50 ms and do nothing with them.  Its Services line says so.  The spawn system,
+when it goes in housekeeping, has to wait for `ready()` itself.  (Pausing the GameClock outright was
+talked about first, and Jacob was fine with it ticking through.)
+
 `game.cfg` is in Constellations' table (soft) with one setting, `view_chunks` (1 to 16, default 4).
 `save_minutes` goes in with part two, when something reads it.
 

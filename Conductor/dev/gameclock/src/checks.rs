@@ -8,6 +8,11 @@
 //! takes in the chunks GameWorld has sent): nothing in the world moves,
 //! and the protocol has no input packet.  Each says what goes in it.
 //!
+//! Until the ground around 0,0,0 is in, only housekeeping runs, so it can
+//! take the chunks in.  The other four wait their turn and do nothing:
+//! "I don't want NPCs acting while the server world isn't ready" (Jacob,
+//! 2026-09-30).  The GameClock still beats through it.
+//!
 //! Jacob's order, 2026-09-30: what the players asked for comes in first,
 //! then the AI decides, then everything moves, then the positions go out,
 //! so a player is sent this cycle's positions and not last cycle's.
@@ -25,16 +30,18 @@ pub struct Check {
     // the functions below and `(check.run)(&mut world, &mut terrain)`
     // calls it.
     pub run: fn(&mut World, &mut Terrain),
+    /// Whether it runs before the ground around 0,0,0 is in.
+    pub before_ready: bool,
 }
 
 /// Every check, in the order they run.  Five, at 50 ms each, is what makes
 /// the cycle 250 ms, so adding one makes every cycle longer.
 pub const ALL: [Check; 5] = [
-    Check { name: "input", run: input },
-    Check { name: "AI", run: ai },
-    Check { name: "movement", run: movement },
-    Check { name: "broadcast", run: broadcast },
-    Check { name: "housekeeping", run: housekeeping },
+    Check { name: "input", run: input, before_ready: false },
+    Check { name: "AI", run: ai, before_ready: false },
+    Check { name: "movement", run: movement, before_ready: false },
+    Check { name: "broadcast", run: broadcast, before_ready: false },
+    Check { name: "housekeeping", run: housekeeping, before_ready: true },
 ];
 
 /// What the players asked for since the last cycle.  Networking gets it
@@ -56,8 +63,10 @@ fn movement(_world: &mut World, _terrain: &mut Terrain) {}
 fn broadcast(_world: &mut World, _terrain: &mut Terrain) {}
 
 /// The rest.  The chunks GameWorld has finished with come into the
-/// terrain here.  The spawn system topping up the goblins goes here when
-/// it comes.
+/// terrain here.  This is the one check that runs before the ground is
+/// in, so the spawn system topping up the goblins, when it comes here,
+/// has to wait for `crate::ready()` itself: no NPC acts before there's
+/// ground under it.
 fn housekeeping(_world: &mut World, terrain: &mut Terrain) {
     terrain.take_arrivals();
 }

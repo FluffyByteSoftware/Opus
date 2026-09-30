@@ -151,9 +151,15 @@ fn run(stopped: Receiver<()>) {
         let mut busy = Duration::ZERO;
         let mut slowest = (checks::ALL[0].name, Duration::ZERO);
 
+        let ready = READY.load(Ordering::SeqCst);
         for (number, check) in checks::ALL.iter().enumerate() {
             if !wait_until(&stopped, due(cycle_start, number)) {
                 break 'beating;
+            }
+            // Until the ground is in, a check that doesn't run before then
+            // still gets its 50 ms, and does nothing with them.
+            if !ready && !check.before_ready {
+                continue;
             }
             let began = Instant::now();
             (check.run)(&mut world, &mut terrain);
@@ -248,6 +254,9 @@ fn may_warn(last_warn: Option<Instant>, now: Instant) -> bool {
 /// How the terrain is doing, for the Services tab.
 fn chunks(terrain: &Terrain) -> String {
     let mut words = format!("{} of the {} chunks around 0,0,0 are in.", terrain.held(), terrain.asked());
+    if !ready() {
+        words.push_str("  Until they all are, only housekeeping runs.");
+    }
     if terrain.failed() > 0 {
         words.push_str(&format!("  {} couldn't be had (the log says why).", terrain.failed()));
     }
@@ -278,6 +287,12 @@ mod tests {
     fn the_checks_run_in_jacobs_order() {
         let names: Vec<&str> = checks::ALL.iter().map(|check| check.name).collect();
         assert_eq!(names, vec!["input", "AI", "movement", "broadcast", "housekeeping"]);
+    }
+
+    #[test]
+    fn only_housekeeping_runs_before_the_ground_is_in() {
+        let early: Vec<&str> = checks::ALL.iter().filter(|check| check.before_ready).map(|check| check.name).collect();
+        assert_eq!(early, vec!["housekeeping"]);
     }
 
     #[test]

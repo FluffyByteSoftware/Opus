@@ -274,6 +274,15 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
+      Nothing acts before the ground is in.  While a new world is being made, the GameClock's line on the
+      Services tab counts cycles and ends "Until they all are, only housekeeping runs."  Once the chunks are
+      in, that sentence goes, and every test still passes (the GameClock's new one says only housekeeping
+      runs early).
+    </span></label>
+    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-gameclock</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
       STOP SERVER still works while the door is shut and the world is being made: the Network lines read
       "Stopped.  The door never opened this run."
     </span></label>
