@@ -55,6 +55,7 @@ to call it before creating it.
 ```
 Opus/
 ├── CLAUDE.md              # this file
+├── WINDOWS_INSTALL.md     # building Conductor on Windows (2026-09-30); grows as Windows is tried
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
