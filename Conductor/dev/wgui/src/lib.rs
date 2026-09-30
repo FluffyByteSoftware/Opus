@@ -71,6 +71,9 @@
 //!   and `POST /Opus/wwwhook/accounts/create`, `/edit`, `/password` and
 //!   `/delete` -- the Accounts tab: the game's accounts, `admin` only, and
 //!   only while the server is running.  See `accounts.rs`.
+//! - `GET /Opus/Content/characters` -- the Characters tab: every
+//!   player's character, `admin` and `user` both, only while the server
+//!   is running.  It only reads.  See `characters.rs`.
 //! - `POST /Opus/shutdown` -- shuts Conductor down.
 //!
 //! One request at a time, one per connection.  It's one admin with one
@@ -86,6 +89,7 @@
 //! browser won't let another site's page add.
 
 mod accounts;
+mod characters;
 mod http;
 mod json;
 mod login;
@@ -356,6 +360,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         ("POST", "/Opus/wwwhook/accounts/edit") => accounts::edit(request, role),
         ("POST", "/Opus/wwwhook/accounts/password") => accounts::password(request, role),
         ("POST", "/Opus/wwwhook/accounts/delete") => accounts::delete(request, role),
+        ("GET", "/Opus/Content/characters") | ("GET", "/Opus/Content/characters/") => characters::list(),
         ("POST", "/Opus/wwwhook/start") => server_command(request, role, Command::Start),
         ("POST", "/Opus/wwwhook/stop") => server_command(request, role, Command::Stop),
         ("POST", "/Opus/wwwhook/restart") => server_command(request, role, Command::Restart),
@@ -379,7 +384,8 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
         | (_, "/Opus/wwwhook/networking/addip") | (_, "/Opus/wwwhook/networking/removeip") | (_, "/Opus/shutdown")
         | (_, "/Opus/Content/accounts") | (_, "/Opus/Content/accounts/") | (_, "/Opus/Content/accounts/job")
         | (_, "/Opus/wwwhook/accounts/create") | (_, "/Opus/wwwhook/accounts/edit")
-        | (_, "/Opus/wwwhook/accounts/password") | (_, "/Opus/wwwhook/accounts/delete") => {
+        | (_, "/Opus/wwwhook/accounts/password") | (_, "/Opus/wwwhook/accounts/delete")
+        | (_, "/Opus/Content/characters") | (_, "/Opus/Content/characters/") => {
             (Answer::plain("405 Method Not Allowed", "Not like that."), Next::KeepGoing)
         }
         _ => (Answer::plain("404 Not Found", "There's nothing here."), Next::KeepGoing),
@@ -947,6 +953,27 @@ mod tests {
         assert_eq!(answer.status, "409 Conflict");
         let (answer, _) = route(&request("POST", "/Opus/Content/accounts", &[HOST, ("cookie", admin.as_str())]), 9996);
         assert_eq!(answer.status, "405 Method Not Allowed");
+    }
+
+    #[test]
+    fn the_characters_are_for_both_and_only_while_the_server_runs() {
+        // Nobody logged in gets nothing.
+        let (answer, _) = route(&request("GET", "/Opus/Content/characters", &[HOST]), 9996);
+        assert_eq!(answer.status, "401 Unauthorized");
+
+        // user and admin both get past the login; the server isn't running
+        // in a test, so there's nothing to read.
+        for name in ["user", "admin"] {
+            let cookie = cookie_for(name);
+            for path in ["/Opus/Content/characters", "/Opus/Content/characters/"] {
+                let (answer, _) = route(&request("GET", path, &[HOST, ("cookie", cookie.as_str())]), 9996);
+                assert_eq!(answer.status, "409 Conflict", "{name} {path}");
+                assert!(String::from_utf8_lossy(&answer.body).starts_with("Characters can only"), "{name} {path}");
+
+                let (answer, _) = route(&request("POST", path, &[HOST, ("cookie", cookie.as_str())]), 9996);
+                assert_eq!(answer.status, "405 Method Not Allowed", "{name} {path}");
+            }
+        }
     }
 
     #[test]

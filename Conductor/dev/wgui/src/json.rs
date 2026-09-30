@@ -135,6 +135,15 @@
 //! reads that from the status's `networking.in_world`, which it has every
 //! second anyway.
 //!
+//! `/Opus/Content/characters` is every player's character for the
+//! Characters tab, by name: its name, UUID, where it last stood (x, y, z,
+//! with y up, as of its last save) and the account it belongs to:
+//!
+//! ```text
+//! { "characters": [ { "name": "Jacob", "uuid": "0199...", "account": "jacob_01",
+//!                     "x": 0.00, "y": 0.00, "z": 0.00 } ] }
+//! ```
+//!
 //! `/Opus/wwwhook/accounts/create` and `/password` answer `{ "job": 7 }`,
 //! the account desk's number for the job, and `/Opus/Content/accounts/job`
 //! says where it is.  `state` is working, done or failed, and `text` says
@@ -176,6 +185,7 @@ use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use conductor_accounts::Account;
+use conductor_accounts::characters::CharacterSnapshot;
 use conductor_accounts::desk::Outcome;
 use conductor_monitor::probe::{MachineMemory, ThreadReading};
 use conductor_monitor::{Disk, ProcessInUse, Snapshot, ThreadInUse};
@@ -593,6 +603,25 @@ fn when(time: Option<SystemTime>) -> String {
     // did, it would show as 1970 rather than stop the answer.
     let seconds = time.duration_since(UNIX_EPOCH).map_or(0, |since| since.as_secs() as i64);
     text(&Utc::from_unix(seconds).line_stamp())
+}
+
+/// The whole answer to `/Opus/Content/characters`.
+pub(crate) fn characters(list: &[CharacterSnapshot]) -> String {
+    Object::new()
+        .raw("characters", array(list.iter().map(character)))
+        .done()
+}
+
+fn character(character: &CharacterSnapshot) -> String {
+    let [x, y, z] = character.position();
+    Object::new()
+        .text("name", character.name())
+        .text("uuid", character.uuid())
+        .text("account", character.account_username())
+        .raw("x", decimal(Some(f64::from(x))))
+        .raw("y", decimal(Some(f64::from(y))))
+        .raw("z", decimal(Some(f64::from(z))))
+        .done()
 }
 
 /// The whole answer to `/Opus/Content/accounts/job?id=N`.

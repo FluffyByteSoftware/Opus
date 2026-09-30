@@ -58,8 +58,8 @@ Opus/
 │       │   └── src/
 │       │       ├── lib.rs             # the accounts table: load(), list(), create(), edit(), delete(), stamp_login();
 │       │       │                      #   never held, the hash apart; the field checks
-│       │       ├── characters.rs      # player_characters and the account's slots: list, load, create, save,
-│       │       │                      #   delete; the name rule; the unplayable flag, for the run
+│       │       ├── characters.rs      # player_characters and the account's slots: list, list_all, load,
+│       │       │                      #   create, save, delete; the name rule; the unplayable flag, for the run
 │       │       └── desk.rs            # the account desk: the web admin's jobs that need a hash, on their own thread
 │       ├── monitor/                   # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools only
@@ -129,6 +129,7 @@ Opus/
 │       │   └── src/
 │       │       ├── lib.rs             # the web admin's thread and its routes, on 127.0.0.1
 │       │       ├── accounts.rs        # the Accounts tab's routes: list, job, create, edit, password, delete
+│       │       ├── characters.rs      # the Characters tab's route: every player's character, look only
 │       │       ├── http.rs            # just enough HTTP: the head, then the body Content-Length says
 │       │       ├── login.rs           # the two accounts (user, admin) and the live logins, by cookie
 │       │       ├── json.rs            # every JSON answer the page reads; the shapes at its top

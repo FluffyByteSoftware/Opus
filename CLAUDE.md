@@ -402,7 +402,8 @@ When I say we're wrapping up:
     alone were too generic); the Settings tab (`/Opus/wwwhook/settings/save`
     and `/discard`); the Accounts tab's changes
     (`/Opus/wwwhook/accounts/create`, `/edit`, `/password`, `/delete`, with
-    its reads under `/Opus/Content/accounts`).
+    its reads under `/Opus/Content/accounts`); the Characters tab's read
+    (`/Opus/Content/characters`).
 
 ### Lua, the game library, the world and the GameClock
 
@@ -534,7 +535,7 @@ When I say we're wrapping up:
   - CONFIGURATION: Settings, Whitelist, Blacklist
   - LOGS: Log, Notifications History
   - ACCOUNT MANAGEMENT: Accounts
-  - GAME MANAGEMENT: Connections
+  - GAME MANAGEMENT: Connections, Characters
 
   A tab says its section with `data-section` in `page.html`.  Anything new
   goes on one of the tabs, or is a new tab (or section) I agree to.  The
@@ -558,6 +559,11 @@ When I say we're wrapping up:
   whole run); then every player in the world over UDP, by account, with when
   they connected and how quiet they are.  The character goes there once
   there is one.
+- **The Characters tab** (2026-09-30) is every player's character, look
+  only, for `admin` and `user` both: name, UUID, x, y, z (as of its last
+  save) and account.  Asked for when the tab opens and on REFRESH, never
+  once a second.  Editing characters and NPCs from GAME MANAGEMENT is to
+  come (TODO.md).
 - **The Whitelist and Blacklist tabs** are the two access lists: the entries,
   REMOVE on each, an ADD field.  A change takes at once and writes the file.
   Which list the door checks is `access_list` in `networking.cfg` (off,

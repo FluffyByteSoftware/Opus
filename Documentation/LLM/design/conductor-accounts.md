@@ -21,7 +21,7 @@ accounts/
     │                load(), list(), password_hash(), taken(), create(), edit(), stamp_login(),
     │                set_password(), delete(); the field checks (username_allowed(), check_*())
     ├── characters.rs  struct CharacterSnapshot, struct CharacterSave, enum CharacterCreated;
-    │                list(), load(), create(), save(), delete(); mark_unplayable(), is_unplayable(),
+    │                list(), list_all(), load(), create(), save(), delete(); mark_unplayable(), is_unplayable(),
     │                forget_unplayable(); character_name_allowed(), check_character_name()
     └── desk.rs    the account desk: start(), stop(), hand_in(Job) -> Result<number, words>,
                      outcome(number) -> Option<Outcome { progress, text }>
@@ -128,9 +128,10 @@ Lua and never reads what's in it: the game writes the text (primlib's `to_lua()`
 (lua-parser's `read_save()`).
 
 - **`CharacterSnapshot`**: a look at a row without the save, for character select and the web admin: `id()`,
-  `uuid()`, `account_id()`, `slot()` (1 to 3), `name()`, `position()` (x, y, z), `created_at()`,
+  `uuid()`, `account_id()`, `account_username()`, `slot()` (1 to 3), `name()`, `position()` (x, y, z), `created_at()`,
   `saved_at()`, `unplayable()`.  All read only; it's the last save, and never written back.
 - **`list(username)`**: an account's characters in slot order.  No Lua is run.
+- **`list_all()`**: every character on the server, by name, for the web admin's Characters tab.
 - **`load(username, uuid)`** -> `Option<CharacterSave>`: the snapshot and `save_lua`, for the spawn.  Only
   finds a character on that account, so a player only ever loads their own.
 - **`create(username, name, save_lua)`** -> `CharacterCreated`: one transaction that locks the account's

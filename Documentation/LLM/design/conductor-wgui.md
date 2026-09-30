@@ -24,6 +24,7 @@ wgui/
     │                    host_is_ours(); struct Answer, enum Next, enum ListChange
     ├── accounts.rs    the Accounts tab's routes: list(), job(), create(), edit(), password(), delete(); the
     │                    checks they share (allowed(), changing()), account_named(), the body's fields()
+    ├── characters.rs  the Characters tab's route: list()
     ├── http.rs        read_request() (head, then the body Content-Length says), parse_head(), respond();
     │                    struct Request with header() and query_value()
     ├── login.rs       the two accounts and the live logins: log_in(), role_of(), log_out(), cookie_line(),
@@ -31,7 +32,7 @@ wgui/
     ├── json.rs        status(switch, role, snapshot, services, disk, networking, open_notices,
     │                    newest_notices, lines, log_file), login(role), notices(open), threads_of(pid,
     │                    threads), settings(files), problems(list), access(lists), changed(changed),
-    │                    accounts(list), account_job(number, outcome) -> String; struct FileState; a small
+    │                    accounts(list), characters(list), account_job(number, outcome) -> String; struct FileState; a small
     │                    Object builder, text() escaping
     └── page.html      the one page, baked in with include_str!
 ```
@@ -72,6 +73,9 @@ wgui/
 - `POST /Opus/wwwhook/accounts/delete?name=<account>`: deletes the row, then takes its player out of the world
   with Kicked, account terminated.  `{ deleted, kicked }`.
 - `POST /Opus/shutdown` (`X-Opus: shut-down`): shuts Conductor down.
+
+- `GET /Opus/Content/characters` (or with the slash): every player's character, for `admin` and `user` both.
+  409 while the server isn't running, 503 if the database doesn't answer in 5 seconds.
 
 The account routes are `admin` only, reads included, answer 409 while the server isn't running, and the four
 that change something need `X-Opus: accounts`.  A known path asked with the wrong method is a `405`, anything
@@ -153,7 +157,7 @@ puts it up with "Logged out.".  The status loop stops while it's up.
 | CONFIGURATION | Settings, Whitelist, Blacklist |
 | LOGS | Log, Notifications History |
 | ACCOUNT MANAGEMENT | Accounts |
-| GAME MANAGEMENT | Connections |
+| GAME MANAGEMENT | Connections, Characters |
 
 Opening a tab opens its section.  A click on a section keeps the open tab if it's in that section, or opens its
 first tab that isn't locked; if all are locked the side menu shows them greyed with a line saying why ("These
@@ -257,6 +261,14 @@ online takes them out with Kicked, reason 5, and the client says ACCOUNT TERMINA
 version 4.  The list, an edit and a delete are waited on (5 seconds at most); a new account and a new password
 need a hash, so they go to the account desk and the page asks after the job every half second, and the web
 admin's one thread never waits in Security's line.
+
+**Characters** (2026-09-30), under GAME MANAGEMENT: every player's character, look only.  Jacob: "I just want
+it to show their name, their X,Y,Z, and which account they're connected to", and the UUID.  So the columns are
+name, UUID, x, y, z (as of the last save, to two places) and account, by name.  `admin` and `user` both see it
+(Jacob's pick, though it shows account names, which the Accounts tab keeps from `user`).  Locked like the
+other data tabs: the server running and the database connected.  The list is asked for when the tab opens and
+on REFRESH, never once a second, since it's a database read; an ask that fails is asked again by the status
+loop once the database is there.  Editing a character or an NPC from here is its own conversation (TODO.md).
 
 **Notifications History**: every open notice, newest first (when, level, source, text, ACK), with ACK ALL
 (asks first) and TEST NOTIFICATION.  The page asks `/Opus/notices` once a second, only while it's open.

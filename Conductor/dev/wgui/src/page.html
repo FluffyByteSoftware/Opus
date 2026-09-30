@@ -15,7 +15,7 @@ tabs of the one that's open:
   CONFIGURATION       Settings, Whitelist, Blacklist
   LOGS                Log, Notifications History
   ACCOUNT MANAGEMENT  Accounts
-  GAME MANAGEMENT     Connections
+  GAME MANAGEMENT     Connections, Characters
 
 The Server tab (it was the Control Panel tab before the sections) is
 where the server is started and stopped, and it's all there is until the
@@ -31,7 +31,9 @@ blacklist), then every player in the world over UDP, by account.  The
 Whitelist and Blacklist tabs are the two access lists, changed at once.
 The Accounts tab is the game's accounts, admin's only: the list, a card
 for one account (its owner's details, a new password, DELETE), and a card
-for a new one.
+for a new one.  The Characters tab is every player's character, for
+admin and user both, to look at only: its name, UUID, where it last
+stood and its account, from /Opus/Content/characters.
 The Server tab, the Log, the Settings and the header (the bell and the
 sections) stay above that lock, so the server can still be stopped and
 the log read to see why.  SHUT DOWN is on the Server tab, with the server
@@ -549,6 +551,7 @@ OUT, sit at the bottom of the side menu.
       History</button>
     <button class="maintab" role="tab" data-section="accounts" data-tab="accounts" disabled>Accounts</button>
     <button class="maintab" role="tab" data-section="game" data-tab="connections" disabled>Connections</button>
+    <button class="maintab" role="tab" data-section="game" data-tab="characters" disabled>Characters</button>
   </nav>
   <div class="note side-note" id="side-note"></div>
   <div class="who" id="who" hidden>
@@ -933,6 +936,34 @@ OUT, sit at the bottom of the side menu.
   </div>
   </section>
 
+  <section class="tabpage" id="page-characters">
+  <div class="grid">
+    <div class="panel span-12 boxed">
+      <div class="tall-head">
+        <h3>Characters</h3>
+        <div class="head-right">
+          <div class="note mono" id="characters-count"></div>
+          <button class="ack" id="characters-refresh">REFRESH</button>
+        </div>
+      </div>
+      <div class="tall-body" style="max-height: 70vh;">
+        <div class="note bad-ink list-problem" id="characters-problem"></div>
+        <table id="characters-table">
+          <thead><tr>
+            <th>Name</th><th>UUID</th><th class="num">X</th><th class="num">Y</th><th class="num">Z</th>
+            <th>Account</th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+        <div class="note">Every player's character, by name: its UUID, where it stood when it was last saved
+          (x, y and z, with y up), and the account it belongs to.  Players make their characters at character
+          select; nothing here changes one.  The list is read from the database when the tab opens and on
+          REFRESH, not every second.</div>
+      </div>
+    </div>
+  </div>
+  </section>
+
   <section class="tabpage" id="page-whitelist">
   <div class="grid">
     <div class="panel span-12">
@@ -1127,7 +1158,7 @@ const MOST_LINES = 500;
 // The tabs, and the one that opens first when the browser hasn't remembered
 // one.
 const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "notices", "connections", "whitelist",
-                   "blacklist", "accounts", "log", "settings"];
+                   "blacklist", "accounts", "characters", "log", "settings"];
 
 // The tabs networking draws: Connections, and the two lists.  These three
 // want both of networking's listeners up as well as the database.
@@ -1662,6 +1693,7 @@ function showMainTab(name) {
   if (name === "settings") askSettings();
   if (name === "whitelist" || name === "blacklist") askLists();
   if (name === "accounts") askAccounts();
+  if (name === "characters") askCharacters();
   closeRowMenu();
   if (name !== "control") {
     try { localStorage.setItem("opus.tab", name); } catch (e) { /* remembering is a nicety */ }
@@ -2244,6 +2276,58 @@ for (const list of ["whitelist", "blacklist"]) {
 }
 
 // ---------------------------------------------------------------------------
+// The Characters tab
+// ---------------------------------------------------------------------------
+
+// True when the last ask for the list didn't get it (the database still
+// connecting after START SERVER, say), so the status loop asks again once
+// the database is there.
+let charactersStale = false;
+
+// The list, asked for when the tab opens and on REFRESH, never once a
+// second: it's a database read.  admin and user both see it.
+async function askCharacters() {
+  $("characters-problem").textContent = "";
+  let list;
+  try {
+    const answer = await fetch("/Opus/Content/characters", { cache: "no-store" });
+    if (!answer.ok) {
+      charactersStale = true;
+      $("characters-problem").textContent = await answer.text();
+      return;
+    }
+    list = (await answer.json()).characters;
+  } catch (e) {
+    charactersStale = true;
+    $("characters-problem").textContent = "Couldn't get the characters: " + e;
+    return;
+  }
+  charactersStale = false;
+  drawCharacters(list);
+}
+
+function drawCharacters(list) {
+  const body = $("characters-table").tBodies[0];
+  body.textContent = "";
+  $("characters-count").textContent = list.length + " character(s)";
+  for (const character of list) {
+    const row = body.insertRow();
+    cell(row, character.name);
+    cell(row, character.uuid, "mono nowrap");
+    cell(row, character.x === null ? "--" : character.x.toFixed(2), "num mono");
+    cell(row, character.y === null ? "--" : character.y.toFixed(2), "num mono");
+    cell(row, character.z === null ? "--" : character.z.toFixed(2), "num mono");
+    cell(row, character.account);
+  }
+  if (list.length === 0) {
+    const row = body.insertRow();
+    cell(row, "No characters yet.  Players make them at character select.", "wrap");
+    row.className = "over";
+    row.cells[0].colSpan = 6;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // The Accounts tab
 // ---------------------------------------------------------------------------
 
@@ -2659,6 +2743,7 @@ async function deleteAccount(name, part) {
 }
 
 $("accounts-new").addEventListener("click", openNewAccountCard);
+$("characters-refresh").addEventListener("click", askCharacters);
 
 // DiskMan's panel on the Storage tab.
 function drawDisk(d) {
@@ -3064,6 +3149,7 @@ async function ask() {
     if (currentTab === "accounts") {
       if (accountsStale && serverRunning && !dbLocked) askAccounts(); else drawAccounts();
     }
+    if (currentTab === "characters" && charactersStale && serverRunning && !dbLocked) askCharacters();
     drawBell(status.notices);
     // The whole history is only asked for while its tab is showing.
     if (currentTab === "notices") askNotices();

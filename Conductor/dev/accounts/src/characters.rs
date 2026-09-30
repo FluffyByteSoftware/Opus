@@ -56,9 +56,9 @@ const NAME_MIN: usize = 4;
 const NAME_MAX: usize = 20;
 
 /// Every column a snapshot needs, from the character's row and its
-/// account's (`pc` and `a`).  `slot` is which of the account's slots
+/// account's (`pc` and `a`), the account's name included.  `slot` is which of the account's slots
 /// points at it, 1 to 3, or 0 if none does (which shouldn't happen).
-const SNAPSHOT_COLUMNS: &str = "pc.id, pc.uuid::text AS uuid, pc.account_id, pc.character_name, \
+const SNAPSHOT_COLUMNS: &str = "pc.id, pc.uuid::text AS uuid, pc.account_id, a.account_username, pc.character_name, \
     pc.position_x, pc.position_y, pc.position_z, pc.created_at, pc.saved_at, \
     CASE pc.id WHEN a.character_slot_1 THEN 1 WHEN a.character_slot_2 THEN 2 \
     WHEN a.character_slot_3 THEN 3 ELSE 0 END AS slot";
@@ -101,6 +101,7 @@ pub struct CharacterSnapshot {
     id: i64,
     uuid: String,
     account_id: i64,
+    account_username: String,
     slot: u8,
     name: String,
     position: [f32; 3],
@@ -125,6 +126,11 @@ impl CharacterSnapshot {
     /// The row's number of the account it belongs to.
     pub fn account_id(&self) -> i64 {
         self.account_id
+    }
+
+    /// The name of the account it belongs to.
+    pub fn account_username(&self) -> &str {
+        &self.account_username
     }
 
     /// Which of the account's slots it's in, 1 to 3.
@@ -166,6 +172,7 @@ impl CharacterSnapshot {
             id,
             uuid: row.get("uuid"),
             account_id: row.get("account_id"),
+            account_username: row.get("account_username"),
             slot: slot_number(row.get("slot")),
             name: row.get("character_name"),
             position: [row.get("position_x"), row.get("position_y"), row.get("position_z")],
@@ -210,6 +217,17 @@ pub fn list(username: &str) -> Pending<Vec<CharacterSnapshot>> {
         let sql = format!("SELECT {SNAPSHOT_COLUMNS} FROM player_characters pc \
             JOIN accounts a ON a.id = pc.account_id WHERE a.account_username = $1 ORDER BY slot, pc.id");
         let rows = tx.query(sql.as_str(), &[&username])?;
+        Ok(rows.iter().map(CharacterSnapshot::from_row).collect())
+    })
+}
+
+/// Every character on the server, by name, for the web admin's
+/// Characters tab.  No Lua is run.
+pub fn list_all() -> Pending<Vec<CharacterSnapshot>> {
+    archivist::transaction("list every character", move |tx| {
+        let sql = format!("SELECT {SNAPSHOT_COLUMNS} FROM player_characters pc \
+            JOIN accounts a ON a.id = pc.account_id ORDER BY lower(pc.character_name)");
+        let rows = tx.query(sql.as_str(), &[])?;
         Ok(rows.iter().map(CharacterSnapshot::from_row).collect())
     })
 }
@@ -275,6 +293,7 @@ pub fn create(username: &str, name: &str, save_lua: String) -> io::Result<Pendin
             id,
             uuid,
             account_id,
+            account_username: username,
             slot: slot_index as u8 + 1,
             name,
             position: [0.0, 0.0, 0.0],
@@ -426,6 +445,7 @@ mod tests {
     fn every_job_with_no_archivist_says_so() {
         // The tests never start Archivist, so there is no worker to answer.
         assert!(matches!(list("jacob_01").wait(), Err(ArchivistError::NotRunning)));
+        assert!(matches!(list_all().wait(), Err(ArchivistError::NotRunning)));
         let loaded = load("jacob_01", "0192a7c4-0000-7000-8000-000000000000").wait();
         assert!(matches!(loaded, Err(ArchivistError::NotRunning)));
         let made = create("jacob_01", "Jacob", "return {}".to_string()).unwrap().wait();
