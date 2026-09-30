@@ -135,8 +135,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   characters", then "this is going to be a heading under Game Management to edit player characters or
   NPCs since they're 'in game' entities").  So it edits, not only looks, and covers NPCs as well as
   players' characters.  The admin doesn't delete a player's character there (only the player does).
-  Open: its name, what it shows and what can be edited, whether an edit goes to the row or to the copy in
-  the world (only the GameClock's thread touches the `World`), and its routes under `/Opus/wwwhook/`.
+  **Seeing the characters is built first** (Jacob, 2026-09-30: "implement the improvement to the web gui
+  for character visibility under Game Management"), look only.  **Editing is its own conversation**
+  (Jacob: "Next conversation we do this"): whether an edit goes to the row or to the copy in the world
+  (only the GameClock's thread touches the `World`), what can be edited, NPCs, and its routes under
+  `/Opus/wwwhook/`.
 - **A list of blocked names** (Jacob, 2026-09-30), its own session:
   - `Content/cfg/blocked_names.txt`, beside the two access lists, one entry a line and not in
     Constellations' table, so CLAUDE.md's "one exception" becomes three files.
