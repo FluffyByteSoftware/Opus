@@ -58,34 +58,21 @@ more stuff to the menu".
   shorter one blocking nothing, read on START SERVER.  A Blocked Names tab under CONFIGURATION.  Not
   built.
 
-## Jacob's pick for next: the protocore
+## Jacob's pick for next: protogame
 
 His words at the close: "write and build the first parts of the game protocore - the character and the
 world, and the voxels so that you can select a character from login and be put into the world itself."
-It's the protogame library in TODO.md, renamed.  By CLAUDE.md's rule of one small step a session, that's
-more than one session's worth, so the first thing to settle is where the first step stops.  The
-questions it opens with, none answered yet (the TODO.md entry has them too):
-
-- **The crate**: its name (`conductor-protocore`?), a lib like every server piece, in `start_server()`
-  and `stop_server()`, named in `services.rs`, its threads through `threads::spawn()`.
-- **The character**: a `characters` table (its own schema file, `id` and `uuid`, pointing at its account
-  by `id`), what's in it at first (a name, where it stands), how many an account can have, and who makes
-  one: the player from the client, or the admin on the web admin the way accounts are made.  Held in
-  memory while it's in the world, or never held like an account.
-- **Selecting one**: at the TLS login (the character list comes back with the ticket) or after the UDP
-  connect.  Either way a packet change, so `PROTOCOL_VERSION` goes to 5, with PROTOCOL.md, `protocol.rs`
-  and `test_client.py` together.
-- **The world and its voxels**: the size of a chunk and of the world, flat or generated, where it's kept
-  (files in `Content/` through DiskMan, or the database), and what the client is sent to be "put into the
-  world" (its position, the chunks around it; a chunk has to fit UDP packets).
-- **The tick**: whether this is the game loop's start, and its tick rate (CLAUDE.md has a FILL IN for it).
-- **What shows it working**: the test client listing characters, picking one and printing where it stands
-  and what it was sent; the character beside the account on the Connections tab (TODO.md has that).
-  Ensemble is still on Jacob's machine, not in the repo.
+Its name went back to **protogame** in a design talk on 2026-09-30 (no code yet), which also settled:
+Actor, Character and Agent live in a separate game library; protogame holds a read-only
+`CharacterSnapshot` (name, where it is) and the messages to and from a character; a new
+`player_characters` table; and three slots on the account, `character_slot_1` to `_3`, each a
+character's `id`, by migration.  Deleting an account wipes its characters.  The TODO.md entry has all
+of it and what's still open.  By CLAUDE.md's rule of one small step a session, it's more than one
+session's worth, so the first thing to settle is where the first step stops.
 
 ## What's waiting
 
-- **The protocore**, above.  Jacob's pick.
+- **Protogame**, above.  Jacob's pick.
 - **The blocked names list**, in TODO.md with his answers.
 - **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.
