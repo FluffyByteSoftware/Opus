@@ -221,7 +221,7 @@ because of the CPU cost.
 - **Built and run on Linux, 2026-09-29**, the same day it was written: one Cargo.toml fix (a feature
   that didn't exist) and then the Python client did the whole loop against a throwaway account inserted
   by hand.  Two clients on one account, the quiet drop, the hold and a kick at STOP SERVER haven't been
-  tried by hand yet (TEST_CHECKLIST.md has them); the unit tests cover the book and the bytes.
+  tried by hand yet (TEST_CHECKLIST.html has them); the unit tests cover the book and the bytes.
 - **Client management** is all TODO: a player limit ("The server is full."), reconnecting with a token
   instead of a fresh hash, and anything an admin does to a player from the web admin.
 - **NAT rebinding.**  A player is their address, so a home router that changes the port mid-session ends

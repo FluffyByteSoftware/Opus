@@ -102,17 +102,6 @@ Things that wait on a piece that doesn't exist yet.
 - **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
   the access lists, 2026-09-29.  Kicking is built, from the TCP row the player's login came through.
-- **TEST_CHECKLIST.md becomes an HTML page with checkboxes** (Jacob, 2026-09-30, going through the 09-29
-  checks): "a local browser html page only, it's just to help me track what I cleared."  So:
-  - Opened from the disk in the browser; a tick is kept in the browser's own storage and nowhere else.
-    Nothing in the repo or in Conductor changes when a box is ticked, and no session sees it.
-  - The rule stays as it is: Jacob tells the session which checks passed, and the session takes them out
-    of the file.  The ticks are only his place-keeping while he goes through them.
-  - A tick is keyed by the check's own words, so a session rewriting the file (new checks, passed ones
-    gone) doesn't move the ticks onto the wrong lines.
-  - Pulls nothing from the internet, like the web admin's page.  It lives where the .md does
-    (`Documentation/LLM/TEST_CHECKLIST.html`), and the sessions write the new checks into it at every
-    hand-off.  CLAUDE.md names TEST_CHECKLIST.md in three places, which change with it.
 - **The whitelist and blacklist changeable from the page while the server is stopped** (Jacob,
   2026-09-30, going through the 09-29 checks).  Today it runs into a rule in CLAUDE.md: the Whitelist
   and Blacklist tabs are locked until both of networking's listeners are up, and `addip` / `removeip`

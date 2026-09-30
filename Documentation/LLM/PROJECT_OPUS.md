@@ -129,7 +129,7 @@ Opus/
         ├── PROJECT_OPUS.md            # this file
         ├── PROTOCOL.md                # the server/client contract: the login over TLS, the game over UDP
         ├── WRITINGSTYLE.md            # Jacob's voice for anything in the repo
-        ├── TEST_CHECKLIST.md          # what's still to check on testing; a passed check comes out
+        ├── TEST_CHECKLIST.html        # what's still to check on testing, a page with boxes; a passed check comes out
         └── design/
             ├── conductor-tools.md     # the tools crate
             ├── conductor-accounts.md  # the accounts crate

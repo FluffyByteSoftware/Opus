@@ -79,12 +79,15 @@ whole of it.
   underneath.  So `log.error` writes a Warn, and there's a 1 s time limit, a 64 MB memory limit and 50
   log lines a run (his "go with your suggestion for now").
 - New: the `Script` channel in Scribe, the "Lua" service, Lua in `start_server()` / `stop_server()`.
+- **TEST_CHECKLIST.md became TEST_CHECKLIST.html** (Jacob's ask, the TODO entry of the same day): a page
+  opened from the disk, a box per check, ticks kept in the browser only, a COPY button on each command.
+  CLAUDE.md says how a session adds a check to it.
 - Jacob, asked where scripts live, wondered about working like Unity (a script attached to an object
   fires off behaviour, or it comes prepackaged).  He's thinking it over; LONGTERM_TODO.md has it.
 
 ## What's waiting
 
-- **Lua's first step**, above: waiting on Jacob's build and the checks in TEST_CHECKLIST.md.
+- **Lua's first step**, above: waiting on Jacob's build and the checks in TEST_CHECKLIST.html.
 - **Protogame** and the ECS, paused behind the language.  TODO.md's protogame entry has all of it.  Jacob,
   2026-09-30, opening the Lua session: the ECS is to be built once Lua is in, "in case I forget".
 - **The blocked names list**, in TODO.md with his answers.

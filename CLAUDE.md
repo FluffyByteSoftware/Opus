@@ -82,7 +82,7 @@ Opus/
         ├── PROJECT_OPUS.md# skeletal layout of the whole project
         ├── PROTOCOL.md    # server/client contract
         ├── WRITINGSTYLE.md# my voice for public docs and comments
-        ├── TEST_CHECKLIST.md # what's still to check on testing
+        ├── TEST_CHECKLIST.html # what's still to check on testing, with boxes to tick
         └── design/        # one markdown file per system or feature
 ```
 
@@ -116,10 +116,14 @@ a `Content/` folder, or by creating `./Content` when neither works.
   sure you understand what I mean, then write it out. When something I ask for
   could mean more than one thing, ask before building, and say what each
   reading would mean in practice. Don't fill gaps with guesses.
-- **The test checklist.** `Documentation/LLM/TEST_CHECKLIST.md` is the rolling list of what to check on
+- **The test checklist.** `Documentation/LLM/TEST_CHECKLIST.html` is the rolling list of what to check on
   `testing`: every session that changes what Conductor does adds its checks there, and the reply that
   pushes to `testing` points at them.  Once he says a check passed, it comes out of the file.  Jacob's ask, 2026-09-29, so that once game features come, there's a
-  reminder of what changed and what to look at in game.
+  reminder of what changed and what to look at in game.  It's a page he opens from the disk
+  (2026-09-30; it was a .md): a check is an `<li class="check">`, a command a one-line
+  `<pre class="cmd">` that gets a COPY button.  His ticks live in his browser only and
+  no session sees them; he says which passed (COPY WHAT'S TICKED gives the words), the
+  same as before.  A tick is keyed by the check's words, so rewording a check drops its tick.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another
@@ -167,7 +171,7 @@ When I say we're wrapping up:
    expecting compile fixes (2026-09-29: the account manager closed unbuilt).
 2. Update `Documentation/LLM/TODO.md`, `Documentation/LLM/PROJECT_OPUS.md`, and any `Documentation/LLM/design/`
    files the session changed, so they match reality.
-   Add the session's checks to `Documentation/LLM/TEST_CHECKLIST.md` (Jacob's ask, 2026-09-29): what to
+   Add the session's checks to `Documentation/LLM/TEST_CHECKLIST.html` (Jacob's ask, 2026-09-29): what to
    run on `testing` to see this session's change working, and what to look at in the game once there is
    one.  A check that passes is taken out, not struck through; the file is his reminder of what's
    left, not a history (Jacob, 2026-09-29; git keeps the old ones).
