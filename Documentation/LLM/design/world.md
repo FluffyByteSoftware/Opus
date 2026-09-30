@@ -55,26 +55,10 @@ side, so it can sit inside a hill or with air under it.
 All under `Content/world/`, gitignored.  Every number is little-endian.  `region.map` is a contract with
 Ensemble as well, so a change to it bumps its version.
 
-`region.map`:
-
-```text
-8 bytes   OPUSRMAP
-u16       version, 1
-u64       the seed the world was made from
-i16       the westmost chunk's x (-256)
-i16       the southmost chunk's z (-256)
-u16       how many chunks east-west (512)
-u16       how many chunks north-south (512)
-u8        how many rows up and down (2)
-u8        how many regions, then for each:
-            u8   its ground: 0 flat, 1 heights
-            u8   its name's length, then the name, UTF-8
-u8 x every chunk   the number of the region it's in, counted from 0 in
-                   the list above: the lower row first; in a row, the
-                   south line first; in a line, west to east.
-```
-
-524,330 bytes for the first world.
+`region.map`: **`Documentation/LLM/REGION_MAP.md`** has it, byte for byte, with a worked example, the
+checks a reader makes, a C# reader for Ensemble and a one-line Python look at a real file (Jacob's ask,
+2026-09-30: "a thorough document that explains how to read our new binary map file").  That document is
+the contract, like PROTOCOL.md, so it isn't copied here.  524,330 bytes for the first world.
 
 `Regions/<Region>/<region>.heights` (Omega's, today):
 

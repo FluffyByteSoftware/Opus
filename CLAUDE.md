@@ -92,6 +92,7 @@ Opus/
         ├── LONGTERM_TODO.md # the big features, a run of sessions each
         ├── PROJECT_OPUS.md# skeletal layout of the whole project
         ├── PROTOCOL.md    # server/client contract
+        ├── REGION_MAP.md  # region.map, byte for byte: the world's other server/client contract
         ├── WRITINGSTYLE.md# my voice for public docs and comments
         ├── TEST_CHECKLIST.html # what's still to check on testing, with boxes to tick
         └── design/        # one markdown file per system or feature
@@ -426,6 +427,11 @@ When I say we're wrapping up:
 
 ### Networking (conductor-networking)
 
+- **`REGION_MAP.md` is `region.map`'s contract**, byte for byte, the same
+  way PROTOCOL.md is the packets' (Jacob asked for it, 2026-09-30).
+  `gameworld/src/regionmap.rs` is written from it; a change to the layout
+  bumps the file's version, and the code and the document change together,
+  with a line in its version history.
 - **The door waits on the world** (Jacob, 2026-09-30).  Networking isn't
   started in `start_server()`: the launcher's `take_commands()` starts it,
   TCP and UDP both, once `conductor_gameclock::ready()` says the chunks

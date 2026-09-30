@@ -11,7 +11,10 @@
 //! It's binary, since it's "a summary that tells the chunks how to
 //! assemble themselves for the server _AND_ the client" (Jacob): Ensemble
 //! will read the same file, so its layout is a contract, the same as a
-//! packet.  A change to it bumps its version.
+//! packet.  `Documentation/LLM/REGION_MAP.md` is that contract, with a
+//! worked example; when this file and it disagree, this file is what gets
+//! fixed.  A change to the layout bumps its version, and both change
+//! together.
 //!
 //! ```text
 //! 8 bytes   OPUSRMAP
