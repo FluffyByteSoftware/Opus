@@ -39,9 +39,10 @@ const MIGRATION_DIR: &str = "psql/migrations";
 /// from here.  The file on disk is the one that gets run.
 // Rust note: `include_str!` reads the file when the program is compiled
 // and pastes its text in as a string.  The path is taken from this file's
-// folder, so five `..` climb from src/archivist/ up to Opus/.
+// folder, so five `..` climb from tools/src/archivist/ up to Opus/.
 const DEFAULT_SCHEMAS: &[(&str, &str)] = &[
     ("accounts.sql", include_str!("../../../../../Content/psql/defaults/schemas/accounts.sql")),
+    ("player_characters.sql", include_str!("../../../../../Content/psql/defaults/schemas/player_characters.sql")),
 ];
 
 /// The table that remembers which migrations have run.
@@ -261,8 +262,10 @@ mod tests {
             assert!(name.ends_with(".sql"), "{name}");
             // Anything that drops or changes a table would run on every
             // connect.  That's a migration, and it doesn't belong here.
+            // "DELETE FROM" rather than "DELETE ", since a foreign key's
+            // ON DELETE CASCADE is part of making a table.
             let upper = text.to_ascii_uppercase();
-            for word in ["DROP ", "ALTER ", "DELETE ", "TRUNCATE "] {
+            for word in ["DROP ", "ALTER ", "DELETE FROM", "TRUNCATE "] {
                 assert!(!upper.contains(word), "{name} has {word}");
             }
         }

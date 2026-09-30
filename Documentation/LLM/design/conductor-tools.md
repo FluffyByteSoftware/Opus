@@ -380,10 +380,11 @@ The database, named by Jacob.
 
 Tables today:
 
-| Table                  | Made by                | What it is                                              |
-|------------------------|------------------------|---------------------------------------------------------|
-| `accounts`             | `schemas/accounts.sql` | One row per account.  Columns below.                    |
-| `archivist_migrations` | Archivist itself       | Which migrations have run, and when.  `uuid` from 0001. |
+| Table                  | Made by                         | What it is                                              |
+|------------------------|---------------------------------|---------------------------------------------------------|
+| `accounts`             | `schemas/accounts.sql`          | One row per account.  Columns below.                    |
+| `player_characters`    | `schemas/player_characters.sql` | One row per character.  Columns below.  Not run yet.    |
+| `archivist_migrations` | Archivist itself                | Which migrations have run, and when.  `uuid` from 0001. |
 
 `archivist_migrations` is keyed by the migration's number and has no `id`: it's Archivist's bookkeeping, not
 game data, and CLAUDE.md makes it the one exception to "`id` and `uuid` on everything" (Jacob, 2026-09-30).
@@ -393,8 +394,14 @@ game data, and CLAUDE.md makes it the one exception to "`id` and `uuid` on every
 one account per address ignoring case), `password_hash` (Security's PHC string), `created_at`,
 `last_login_datetime` (empty until the first login; the moment the player last came in over UDP, written
 by conductor-accounts).  Postgres checks the name and email itself, so even a bug in Conductor can't store
-a bad one.  Characters come as a new table and a migration on `accounts` (`player_characters` and three
-slots, under Protogame in TODO.md).
+a bad one.  Migration 0002 adds `character_slot_1` to `character_slot_3`, each a `player_characters` `id` or
+empty (`ON DELETE SET NULL`).
+
+`player_characters`: `id`, `uuid`, `account_id` (`ON DELETE CASCADE`, so an account's characters go with it),
+`character_name` (1 to 32 characters, unique across the server ignoring case), `position_x`, `position_y`,
+`position_z` (`REAL`, where it last stood), `save_lua` (the whole GameObject as primlib's Lua text),
+`created_at`, `saved_at`.  The name and position are columns so character select and the spawn never run
+Lua.  Only conductor-accounts writes it.
 
 What's open:
 

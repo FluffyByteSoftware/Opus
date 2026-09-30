@@ -48,6 +48,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       and the spawn reads the position without running anything).  Every UPDATE rewrites the row whole,
       so how often it's saved doesn't pick the shape; what SQL needs to see does.
     - **The account's slots point at the character by `id`**, per CLAUDE.md ("refer to CLAUDE on this").
+    - **Written, not run yet** (2026-09-30): the schema file `player_characters.sql` and migration
+      `0002_character_slots_on_accounts.sql`.  My picks in them, Jacob's to turn round before the first
+      START SERVER freezes them: a name is 1 to 32 characters, unique across the server whatever the
+      capitals; the position is three `REAL` columns (an f32 each, like the Transform).
     - **The functions in `conductor-accounts`**: make, list, load and save a character, and delete one.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
@@ -159,8 +163,6 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - `protocol.rs` says the client will most likely be C# (it is), and `LoginAnswer::Unavailable`'s comment
     leaves out Fingerprinter failing to make a token.
   - gameworld: `Ground::Flat`'s doc leaves out BEDROCK at -16; `lib.rs` says saving chunks "comes next".
-  - `archivist/schemas.rs`: the `include_str!` note counts the `..` from `src/archivist/`; it's
-    `tools/src/archivist/`.
   - `test_client.py`'s usage lines only work from inside `networking/` (the terminal sits in
     `Conductor/dev`), and its `--cert` example is relative to the working directory.
   - `security/windows.rs`, `fingerprinter/windows.rs` and `fingerprinter.rs` say the Windows code was never

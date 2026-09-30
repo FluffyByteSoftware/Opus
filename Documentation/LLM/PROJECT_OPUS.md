@@ -158,7 +158,9 @@ Opus/
 │   ├── world/Regions/<Region>/*.chunk # a chunk somebody changed, whole (none yet) -- never committed
 │   └── psql/
 │       ├── defaults/schemas/accounts.sql  # the accounts table as first made
-│       └── migrations/                # the rules in README.md; 0001 put a uuid on every table
+│       ├── defaults/schemas/player_characters.sql # a player's characters: account, name, position, save
+│       └── migrations/                # the rules in README.md; 0001 put a uuid on every table, 0002 the
+│                                      #   three character slots on accounts
 └── Documentation/
     ├── HowTo/                         # how-tos for a person, not the sessions' working docs
     │   └── WINDOWS_INSTALL.md         # building Conductor on Windows: MSVC and the Build Tools

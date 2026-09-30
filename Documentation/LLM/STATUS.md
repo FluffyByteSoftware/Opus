@@ -104,8 +104,8 @@ has every answer in his words; `REGION_MAP.md` is new.
   remembering its templates, `saved()` / `load()` per component, a save as Lua text (`primlib/src/save.rs`)
   and `read_save()` in lua-parser (which now depends on primlib).  Every check passed, START SERVER
   included.  The `Cargo.lock` change is Jacob's to commit.  `design/primlib.md` has the design.
-- **The character, Part B**: the `player_characters` table, the slots and the functions in
-  `conductor-accounts`.  TODO.md, under Protogame.
+- **The character, Part B**: the `player_characters` schema and migration `0002` (the three slots) are
+  written, **not run yet**; the functions in `conductor-accounts` are next.  TODO.md, under Protogame.
 - **The world's part two**: saving changed chunks on STOP SERVER and every `save_minutes`, with the first
   thing that changes a block.  `design/world.md`.
 - **Sending chunks to a client**, and how Ensemble gets `region.map`.  A protocol change.

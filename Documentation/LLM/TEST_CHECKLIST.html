@@ -196,6 +196,40 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>The character, Part B: the player_characters table and the slots (2026-09-30)</h2>
+<p class="soft">Once START SERVER has run these, the schema file is frozen and every change is a new
+migration, so read <code>Content/psql/defaults/schemas/player_characters.sql</code> first.</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      It builds, and the tools' tests pass (the schema check now looks for <code>DELETE FROM</code>, so the
+      new table's <code>ON DELETE CASCADE</code> is allowed).
+    </span></label>
+    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-tools</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      START SERVER: the Log tab says Archivist ran 2 of 2 schema files, and migration 0002 ran, with no
+      Error on the bell.
+    </span></label>
+    <pre class="cmd">cargo run -p conductor-launcher</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The table is there: id, uuid, account_id, character_name, the three positions, save_lua, created_at and
+      saved_at, the name index and the account index.
+    </span></label>
+    <pre class="cmd">psql -h localhost -U opus_game -d opusdb -c '\d player_characters'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      accounts has character_slot_1 to character_slot_3, each pointing at player_characters, and the
+      migration list ends at 2.
+    </span></label>
+    <pre class="cmd">psql -h localhost -U opus_game -d opusdb -c '\d accounts' -c 'SELECT number, file_name FROM archivist_migrations ORDER BY number'</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">
