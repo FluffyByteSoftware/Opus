@@ -32,8 +32,8 @@ still on the accounts-in-memory hand-off (`0a82d90`).
 
 **Built on Linux (Nobara 44)**: everything up to and including this session.  Jacob built `testing` with
 the account manager and the sections on it (the build's `Cargo.lock` is committed) and said the page
-"looks great".  Which of the checks passed wasn't said, so both headings are still in TEST_CHECKLIST.md
-(2026-09-30, the sections; 2026-09-29, the account manager).  The Windows code has never been built.
+"looks great".  Every check for the sections passed and came out of TEST_CHECKLIST.md; the account
+manager's (2026-09-29) are still there until he says.  The Windows code has never been built.
 
 ## Last session -- 2026-09-29 to 30, the web admin's sections
 
@@ -86,8 +86,7 @@ questions it opens with, none answered yet (the TODO.md entry has them too):
 ## What's waiting
 
 - **The protocore**, above.  Jacob's pick.
-- **The checks on `testing`**: the sections and the account manager, in TEST_CHECKLIST.md, until Jacob
-  says which passed.
+- **The account manager's checks on `testing`**, in TEST_CHECKLIST.md, until Jacob says which passed.
 - **The blocked names list**, in TODO.md with his answers.
 - **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.

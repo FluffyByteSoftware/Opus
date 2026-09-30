@@ -16,31 +16,6 @@ reminder of what changed and what to look at in game.
 Every command is one line, from `Conductor/dev`.  The test account is `throwaway_01` / `Throwaway 1!`,
 and the client is `conductor-networking/test_client.py`.
 
-## 2026-09-30 -- the web admin's sections
-
-Only `page.html` changed, so this is all looking at the page.
-
-- [ ] The header is two rows: the logo, the name and status line, the pill, the uptime and the bell, then
-      CONTROL PANEL | CONFIGURATION | LOGS | ACCOUNT MANAGEMENT | GAME MANAGEMENT under them.
-- [ ] Each section's side menu, in this order: Server, System, Conductor, Services, Storage /
-      Settings, Whitelist, Blacklist / Log, Notifications History / Accounts / Connections.  The tab
-      you're on says its section and its name at the top.
-- [ ] With the server stopped: CONTROL PANEL > Server shows.  Clicking CONFIGURATION opens Settings, LOGS
-      opens Log.  ACCOUNT MANAGEMENT and GAME MANAGEMENT show their one tab greyed with "These open once
-      the server is running." and leave the open tab where it was.
-- [ ] START SERVER: the page moves to the remembered tab (Conductor the first time) and its section.
-      Every tab opens as it did before, by the same rules.  Logged in as `user`, ACCOUNT MANAGEMENT says
-      "Only admin can open the accounts."
-- [ ] STOP SERVER from any section goes back to CONTROL PANEL > Server.
-- [ ] Stop Postgres with the server running: the side menu of a section with nothing open says it's
-      waiting on the database, and the blur and its card are as before.
-- [ ] A service down while running: the red dot flashes on the Services tab and on CONTROL PANEL.
-- [ ] The bell: the tray has HISTORY beside ACK ALL, and HISTORY opens LOGS > Notifications History and
-      closes the tray.  With no open notices the bell still opens the tray, saying "No open notices.",
-      with HISTORY only.
-- [ ] The Log tab's black box fills down to near the bottom of the window without the page scrolling.
-- [ ] With the server running, reload the page: you land back on the same tab, in its section.
-
 ## 2026-09-29 -- the account manager, and accounts never held
 
 The test client speaks protocol version 4 now, and an older copy of it is turned away at the Hello.
