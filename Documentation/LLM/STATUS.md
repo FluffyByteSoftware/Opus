@@ -85,7 +85,8 @@ waits for his OK:
 ## What's waiting
 
 - **Lua's first step**, above.  Jacob's pick.
-- **Protogame** and the ECS, paused behind the language.  TODO.md's protogame entry has all of it.
+- **Protogame** and the ECS, paused behind the language.  TODO.md's protogame entry has all of it.  Jacob,
+  2026-09-30, opening the Lua session: the ECS is to be built once Lua is in, "in case I forget".
 - **The blocked names list**, in TODO.md with his answers.
 - **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.
