@@ -55,7 +55,17 @@ At the world session's close, his next: "Next session we are going to further im
 network I think."  Nothing about it is designed yet.  The pieces it would touch are in "What's waiting":
 the GameClock's input and broadcast checks, sending chunks to a client, and players who move.
 
-## Last session -- 2026-09-30, the world
+## Last session -- 2026-09-30, the docs tidied
+
+No code.  Jacob asked for the docs to be re-evaluated, the fat and old session notes trimmed, and the layout
+brought up to date.  The README is a shorter front page now: where every piece stands and the 0.0.1 goal.
+TODO.md, LONGTERM_TODO.md, CLAUDE.md and every design file keep each decision and Jacob's words, and drop
+the story of how it was reached; the skeletons were checked against the code (GameWorld in the launcher's
+order, networking opened from the command loop, `game.cfg`, ten crates).  `design/ecs-discussion.md` is gone.
+The contracts (PROTOCOL.md, REGION_MAP.md) were checked byte for byte and agree with the code.  The stale
+comments found in the code on the way are listed in TODO.md, for whichever session next touches each file.
+
+## The session before -- 2026-09-30, the world
 
 Designed with Jacob from nothing, then part one built, tested and passed the same day.  `design/world.md`
 has every answer in his words; `REGION_MAP.md` is new.
@@ -90,6 +100,7 @@ has every answer in his words; `REGION_MAP.md` is new.
 
 ## What's waiting
 
+- **The 0.0.1 goal**: a player spawned in the world and able to chat.  Chat isn't designed (TODO.md).
 - **Jacob's next**: the tie between the game and networking.  Not designed.
 - **The one check left** on TEST_CHECKLIST.html: only housekeeping runs until the ground is in.
 - **The world's part two**: saving changed chunks on STOP SERVER and every `save_minutes`, with the first

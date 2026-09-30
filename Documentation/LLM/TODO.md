@@ -154,6 +154,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     `tools/src/archivist/`.
   - `test_client.py`'s usage lines only work from inside `networking/` (the terminal sits in
     `Conductor/dev`), and its `--cert` example is relative to the working directory.
+  - `security/windows.rs`, `fingerprinter/windows.rs` and `fingerprinter.rs` say the Windows code was never
+    built (it was, 2026-09-30).  The tools' `Cargo.toml` header lists only some of what's in the crate.
+  - `accounts.sql`'s header says a player gets a clear message (the admin makes accounts now).  The file is
+    frozen, so it stays.
+- `archivist_migrations` has `number` as its key and a `uuid`, but no `id`, against CLAUDE.md's "every table
+  has both".  Asked, 2026-09-30.
 - `RegionMap::from_bytes` never checks for a count of 0 regions.  REGION_MAP.md says 1 to 255, and a map of
   0 is refused anyway unless its width or depth is also 0.  The code is what gets fixed, if it's worth it.
 
