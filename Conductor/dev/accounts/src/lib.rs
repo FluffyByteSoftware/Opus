@@ -27,8 +27,11 @@
 //! has one worker and does its jobs in the order they came.
 //!
 //! `desk.rs` is the web admin's side of it: the jobs that need a password
-//! hashed first, done on a thread of their own.
+//! hashed first, done on a thread of their own.  `characters.rs` is the
+//! player_characters table, and the account's three slots that point at
+//! them.
 
+pub mod characters;
 pub mod desk;
 
 use std::io;

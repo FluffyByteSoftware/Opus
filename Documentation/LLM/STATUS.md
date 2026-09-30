@@ -91,6 +91,12 @@ needed.
 **Tested by Jacob, all passed**: the build, primlib's 41 tests, lua-parser's 16, everything else, START SERVER
 green, the table and its indexes, the slots, and the migration list ending at 2.
 
+## This session so far (2026-09-30)
+
+The character functions are **written, not built yet**: `accounts/src/characters.rs` (list, load, create,
+save, delete, the name rule, the unplayable flag), and the launcher's `stop_server()` forgets the unplayable
+flags.  `design/conductor-accounts.md`, "Characters", has it.
+
 ## Where the next session starts
 
 The functions in `conductor-accounts` for `player_characters`, the last of step 1.  Read

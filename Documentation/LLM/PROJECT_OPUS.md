@@ -58,6 +58,8 @@ Opus/
 │       │   └── src/
 │       │       ├── lib.rs             # the accounts table: load(), list(), create(), edit(), delete(), stamp_login();
 │       │       │                      #   never held, the hash apart; the field checks
+│       │       ├── characters.rs      # player_characters and the account's slots: list, load, create, save,
+│       │       │                      #   delete; the name rule; the unplayable flag, for the run
 │       │       └── desk.rs            # the account desk: the web admin's jobs that need a hash, on their own thread
 │       ├── monitor/                   # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools only
@@ -196,7 +198,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Ensemble             | The client players run.  Unity 6000.6, C#.              | Project settings committed       |
 | Soundcheck           | The patcher: hands each client a certificate.           | Named, not started               |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
-| conductor-accounts   | Lib: the accounts table, and the account desk.          | Tested                           |
+| conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested; characters.rs not built  |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |
 | conductor-networking | Lib: the login over TLS, the game over UDP.             | Tested                           |
 | conductor-lua-parser | Lib: runs the Lua scripts, locked down.                 | Tested                           |

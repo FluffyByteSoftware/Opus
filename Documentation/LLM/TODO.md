@@ -66,9 +66,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         their character from their account that's it."  Not the admin.
       - **The unplayable flag is built with them** (Jacob: "Now"), though nothing calls it until the spawn
         loads a save.
+      - **Written, not built yet** (2026-09-30): `accounts/src/characters.rs`.  `design/conductor-accounts.md`,
+        "Characters", has what each does.
     - **A corrupted character** (Jacob, 2026-09-30): a save that won't load fails the whole character
-      (built), "send a notification to admin and mark this as a corrupted player character somehow" (not
-      built).  Jacob's answers:
+      (built), "send a notification to admin and mark this as a corrupted player character somehow" (written,
+      not built).  Jacob's answers:
       - **The mark is "unplayable", and that's all**: "it should just flag a character as unplayable so
         the admin has to go and figure out if its salvageable or delete it".
       - **The notice is an Error.**
@@ -80,6 +82,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       - **The flag lives in memory, for the run only** (Jacob's pick): "the admin will need ot restart the
         server to have it attempt again".  STOP SERVER and START SERVER forget it, and the next try loads
         the save again.  No column and no migration; the Error in that day's log keeps the why.
+      - Written in `characters.rs` (`mark_unplayable()`, `is_unplayable()`, `forget_unplayable()`); what's
+        left is the spawn calling it, and the unplayable flag in the character list packet.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
 

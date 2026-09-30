@@ -173,20 +173,21 @@ fn start_server() {
     scribe::info(Channel::System, "The server is running.");
 }
 
-/// Takes the server back down, in the opposite order.  Networking goes
-/// first (if the door ever opened; stopping it is safe either way), so
-/// the door is shut and every player told before the pieces a login
-/// leans on go; the GameClock stops once nobody is left in the
-/// world, and the world goes with it; GameWorld goes after it, once
-/// nobody is left to ask for a chunk; Lua goes once nobody is left in the
-/// world its scripts will run; the account desk finishes the jobs the web
-/// admin handed it while Security and Archivist are still there to do
-/// them; Security goes before Archivist, so a hash on its way to the
-/// accounts table still gets there; Archivist finishes the jobs already in
-/// its mailbox, and anything it hands DiskMan on the way out is written by
-/// the DiskMan that's still running.  Last, with every server piece down,
-/// any config file saved from the web admin while they ran is swapped in,
-/// so the next START SERVER reads the new one.
+/// Takes the server back down, in the opposite order.  Networking goes first
+/// (if the door ever opened; stopping it is safe either way), so the door is
+/// shut and every player told before the pieces a login leans on go; the
+/// GameClock stops once nobody is left in the world, and the world goes with
+/// it; GameWorld goes after it, once nobody is left to ask for a chunk; Lua
+/// goes once nobody is left in the world its scripts will run, and every
+/// character found unplayable this run is forgotten, so the next start tries
+/// its save again; the account desk finishes the jobs the web admin handed it
+/// while Security and Archivist are still there to do them; Security goes
+/// before Archivist, so a hash on its way to the accounts table still gets
+/// there; Archivist finishes the jobs already in its mailbox, and anything it
+/// hands DiskMan on the way out is written by the DiskMan that's still
+/// running.  Last, with every server piece down, any config file saved from
+/// the web admin while they ran is swapped in, so the next START SERVER reads
+/// the new one.
 fn stop_server() {
     server::set(State::Stopping, "Stopping the monitor, networking, the GameClock, GameWorld, Lua, the account \
         desk, Security, Archivist and Fingerprinter.");
@@ -197,6 +198,7 @@ fn stop_server() {
     conductor_gameclock::stop();
     conductor_gameworld::stop();
     conductor_lua_parser::stop();
+    conductor_accounts::characters::forget_unplayable();
     conductor_accounts::desk::stop();
     security::stop();
     archivist::stop();

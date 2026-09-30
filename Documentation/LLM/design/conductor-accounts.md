@@ -6,9 +6,9 @@ Author:     Jacob Chacko
 
 # conductor-accounts
 
-A lib crate.  The one way in to the `accounts` table: nothing else in Conductor writes SQL for it.  Once
-`player_characters` exists, that table is this crate's too (Jacob, 2026-09-30: making or deleting a
-character writes both, so one crate writes them, in one transaction).  Everything goes through Archivist
+A lib crate.  The one way in to the `accounts` table: nothing else in Conductor writes SQL for it.
+`player_characters` is this crate's too (Jacob, 2026-09-30: making or deleting a character writes both, so
+one crate writes them, in one transaction); see "Characters" below.  Everything goes through Archivist
 (and, for the account desk, Security), so it works exactly while they do: only while the server is running.
 
 ## Skeleton
@@ -20,6 +20,9 @@ accounts/
     ├── lib.rs     struct Account (Account::new(), save()); enum Created, enum Edited
     │                load(), list(), password_hash(), taken(), create(), edit(), stamp_login(),
     │                set_password(), delete(); the field checks (username_allowed(), check_*())
+    ├── characters.rs  struct CharacterSnapshot, struct CharacterSave, enum CharacterCreated;
+    │                list(), load(), create(), save(), delete(); mark_unplayable(), is_unplayable(),
+    │                forget_unplayable(); character_name_allowed(), check_character_name()
     └── desk.rs    the account desk: start(), stop(), hand_in(Job) -> Result<number, words>,
                      outcome(number) -> Option<Outcome { progress, text }>
                      enum Job { Create, Password }, enum Progress { Working, Done, Failed }
@@ -116,3 +119,40 @@ TERMINATED, Jacob's words), and any unused ticket dies.  Their Connections row r
 terminated".  A login already past its password check in the few milliseconds between the delete and the
 kick could still get a ticket; its login time would write to no row.  Not worth closing while the admin
 is the only one who deletes.
+
+## Characters (`characters.rs`)
+
+Written 2026-09-30, not built yet.  The one way in to `player_characters`, and to the three slots on
+`accounts` that point at a character by `id` (`character_slot_1` to `_3`).  This file never runs the save's
+Lua and never reads what's in it: the game writes the text (primlib's `to_lua()`) and reads it back
+(lua-parser's `read_save()`).
+
+- **`CharacterSnapshot`**: a look at a row without the save, for character select and the web admin: `id()`,
+  `uuid()`, `account_id()`, `slot()` (1 to 3), `name()`, `position()` (x, y, z), `created_at()`,
+  `saved_at()`, `unplayable()`.  All read only; it's the last save, and never written back.
+- **`list(username)`**: an account's characters in slot order.  No Lua is run.
+- **`load(username, uuid)`** -> `Option<CharacterSave>`: the snapshot and `save_lua`, for the spawn.  Only
+  finds a character on that account, so a player only ever loads their own.
+- **`create(username, name, save_lua)`** -> `CharacterCreated`: one transaction that locks the account's
+  row, takes **the first empty slot** (Jacob's pick), checks the name whatever the capitals, inserts the
+  row with a UUID from Fingerprinter, and points the slot at it.  `NoSuchAccount`, **`SlotsFull`** ("we
+  refuse to even allow them to create") and `NameTaken` come back as answers, and nothing is written.  The
+  save text comes from the caller, the Character template with the player's name; `PlayerCharacter` saves
+  nothing, so the text can be written before the row has an `id`.  Fails before sending only if the OS
+  won't give random bytes.
+- **`save(character_id, position, save_lua)`**: the text and the position columns together, and
+  `saved_at`.  By the row's `id`, since that's what `PlayerCharacter` carries in the world.
+- **`delete(username, uuid)`**: only a character on that account.  **Only the player deletes a character**
+  (Jacob: "Player can delete their character from their account that's it"), not the admin.  The slot
+  empties on its own (`ON DELETE SET NULL`).
+- **The name rule**, the table's, by hand: 4 to 20 letters, a to z, only the first a capital
+  (`character_name_allowed()`, `check_character_name()` in words for the player).
+- **Unplayable** (Jacob, 2026-09-30): whatever finds a save won't load calls `mark_unplayable(id, name,
+  why)`, which raises an Error (on the bell) and flags the character.  `list()` and `load()` carry the flag
+  in the snapshot, so the client greys it at character select, and `is_unplayable()` is for the spawn to
+  turn the player away too.  In memory only: the launcher's `stop_server()` calls `forget_unplayable()`,
+  so the next START SERVER tries the save again.  Nothing calls `mark_unplayable()` until the spawn loads a
+  save.
+
+Archivist has one worker that does its jobs in order, so two characters made on one account at once can't
+take the same slot; the row lock (`FOR UPDATE`) is there for the day there's more than one.
