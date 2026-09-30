@@ -69,9 +69,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         display characters packet to the client a boolean for this?"  So the list of characters carries
         an unplayable flag per character (protocol version 5, with character select).  The server turns
         it away too, since a changed client could ignore the flag.
-      - **Trying again**: "the admin will need ot restart the server to have it attempt again?"  Being
-        talked through: whether the flag lives in memory for the run (a STOP SERVER and START SERVER
-        clears it, no migration) or in a column that every START SERVER clears.
+      - **The flag lives in memory, for the run only** (Jacob's pick): "the admin will need ot restart the
+        server to have it attempt again".  STOP SERVER and START SERVER forget it, and the next try loads
+        the save again.  No column and no migration; the Error in that day's log keeps the why.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
 

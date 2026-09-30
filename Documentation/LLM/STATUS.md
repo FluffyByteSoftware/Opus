@@ -104,8 +104,8 @@ who can delete a character (the player, the admin on the Accounts tab, or both),
 tab shows an account's characters.  And the corrupted character (Jacob, after the hand-off: "fail out the
 character and send a notification to admin and mark this as a corrupted player character somehow"): an
 Error, the character flagged unplayable, still listed at character select with a flag the client greys out
-(and the server refuses).  Open: whether the flag is kept in memory for the run or in a column, cleared by a
-restart either way (TODO.md, under Protogame).
+(and the server refuses).  The flag lives in memory for the run, so a restart tries again; no migration
+(TODO.md, under Protogame).
 
 ## What's waiting
 
