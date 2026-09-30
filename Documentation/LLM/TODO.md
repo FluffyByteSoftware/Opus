@@ -54,7 +54,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     - **The save is the GameObject**: "our save needs to be the GameObject and all of its components, and
       the components settings", and the templates it took in.  "We may when creating the components,
       need to define what needs to be [saved]."  **Per field** (Jacob, 2026-09-30): "I think we do it per
-      field and attribute?  like we add this above in C# or something [SavedField]".
+      field and attribute?  like we add this above in C# or something [SavedField]".  Written the plain
+      way (Jacob: "plain way I'll get used to it either way"): a `saved()` function right under each
+      component's struct names the fields it keeps, since a real attribute would be a macro crate and two
+      new dependencies.
     - **The player component is `PlayerCharacter`** (the account's `id` and the character's row `id`).
     - **The built-in templates (Living, Character) live in `primlib/src/gameobject.rs`** (Jacob's name).
     - **Part A first** (Jacob's yes): the GameObject side in primlib and lua-parser, no database.  Part B,
