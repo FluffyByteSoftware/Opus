@@ -49,7 +49,9 @@ world (voxel information and zone management after that)".  His to change.
    on each chunk in `region.map`, not an area on a clock of its own.  What a region does in the game
    (what grows, what spawns) is open in `design/world.md`.
 
-At this session's close, his next: "Next session we are going to further improve the tie between game and
+**The 0.0.1 goal** (Jacob, 2026-09-30): "get a player spawned in the world and able to chat."
+
+At the world session's close, his next: "Next session we are going to further improve the tie between game and
 network I think."  Nothing about it is designed yet.  The pieces it would touch are in "What's waiting":
 the GameClock's input and broadcast checks, sending chunks to a client, and players who move.
 
