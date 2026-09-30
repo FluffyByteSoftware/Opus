@@ -53,6 +53,16 @@ Things that wait on a piece that doesn't exist yet.
 - **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
   the access lists, 2026-09-29.  Kicking a player from it is client management, above.
+- **The whitelist and blacklist changeable from the page while the server is stopped** (Jacob,
+  2026-09-30, going through the 09-29 checks).  Today it runs into a rule in CLAUDE.md: the Whitelist
+  and Blacklist tabs are locked until both of networking's listeners are up, and `addip` / `removeip`
+  answer 409 while networking isn't running, so a stopped server means editing the files by hand.  What
+  it would take: the two tabs open while stopped, the way Settings is; `/Opus/networking` reading the
+  files when networking isn't running (today it answers `running: false` with empty lists); and a change
+  while stopped written straight to `whitelist.cfg` / `blacklist.cfg` through DiskMan, with nothing to
+  enforce (nobody's connected) and the next START SERVER reading it as it does now.  Open when it comes:
+  whether the lists stay locked while the server runs without the database, like today, and whether
+  Connections keeps its own lock.  CLAUDE.md's rule gets rewritten with it.
 - **Networking: `access_list` switchable from the page at once.**  Today the switch is in `networking.cfg`
   and takes on the next START SERVER, while the lists themselves take at once.  Jacob's call if the
   reboot is a bother.
