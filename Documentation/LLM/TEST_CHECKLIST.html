@@ -196,30 +196,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>2026-09-30 -- the crate folders lose their conductor-</h2>
-<p class="soft">
-  Folders only: the crates keep their names, so <code>-p conductor-tools</code> and the code are the same as
-  before.  The old folders' <code>target/</code> leftovers don't matter; cargo keeps one <code>target/</code>
-  for the workspace.
-</p>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The folders under <code>Conductor/dev</code> are <code>tools</code>, <code>accounts</code>,
-      <code>monitor</code>, <code>networking</code>, <code>lua-parser</code>, <code>primlib</code>,
-      <code>wgui</code> and <code>launcher</code>, and no <code>conductor-</code> folder is left behind.
-    </span></label>
-    <pre class="cmd">ls</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Conductor runs, START SERVER brings every service up green on the Services tab, and a log line's
-      Caller reads <code>launcher/src/main.rs</code> (not <code>conductor-launcher/...</code>).
-    </span></label>
-    <pre class="cmd">cargo run -p conductor-launcher</pre>
-  </li>
-</ul>
-
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">
