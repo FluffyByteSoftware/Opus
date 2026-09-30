@@ -233,6 +233,28 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>2026-09-30 -- primlib, the game library's first part</h2>
+<p class="soft">
+  Rust only: entities, the nine components from the sample NPC, the world, templates and blueprints.
+  Nothing runs it yet, so there's nothing to see on the web admin; the tests are the check.
+</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>primlib</code> builds with no <code>warning:</code> lines naming it.
+    </span></label>
+    <pre class="cmd">cargo build -p conductor-primlib</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      All of primlib's tests pass: the entity slots and generations, the stores, the pools and titles, the
+      template and blueprint changes, a hundred goblin_as each with their own health, and a despawned
+      goblin leaving nothing behind.
+    </span></label>
+    <pre class="cmd">cargo test -p conductor-primlib</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">

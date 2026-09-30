@@ -149,6 +149,15 @@ A script can't take the server down either.  One with an error is a Warn with it
 rest still run.  One still going after a second is stopped, one that holds more than 64 MB is stopped,
 and past 50 log lines in a run the rest are dropped.
 
+### The game library (`conductor-primlib`)
+
+"Prim" for primitive.  It's where the world's objects will live, as an ECS (entity, component, system): an
+entity is only a number, and the components hung on it (a position, a health pool, a name) are what make
+it a goblin or a sword.  A template (`NPC`) is a cheat sheet of components and their defaults, so I don't
+write the same 50 lines in 50 NPCs, and a blueprint (`goblin_a`) starts from a template and changes what
+it needs.  The world spawns copies of a blueprint, each with its own values.  For now it's Rust and its
+tests only; nothing runs it yet, and the templates and blueprints get written in Lua later.
+
 ### The web admin (`conductor-wgui`)
 
 A small web server on `http://127.0.0.1:9996/Opus`, and the only way to run Conductor: the console shows
@@ -311,6 +320,7 @@ Opus/
 │   │   ├── monitor/               looks at the process and the machine once a second
 │   │   ├── networking/            the login over TLS, the game over UDP, the access lists; test_client.py
 │   │   ├── lua-parser/            runs the Lua scripts, locked down
+│   │   ├── primlib/               the game library: entities, components, templates and blueprints
 │   │   ├── wgui/                  the web admin
 │   │   └── launcher/              the program: boots, then runs the server on the Control Panel's say
 │   └── build/                     compiled output, never committed

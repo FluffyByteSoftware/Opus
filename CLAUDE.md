@@ -58,6 +58,7 @@ Opus/
 │   │   ├── monitor/            # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── networking/         # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
 │   │   ├── lua-parser/         # lib (conductor-lua-parser): runs the Lua scripts in Content/scripts/, locked down
+│   │   ├── primlib/            # lib (conductor-primlib): the game library -- entities, components, templates, blueprints
 │   │   ├── wgui/               # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── launcher/           # bin: the program -- boots, then starts and stops the server on the Control Panel's say
 │   └── build/             # compiled output -- never committed

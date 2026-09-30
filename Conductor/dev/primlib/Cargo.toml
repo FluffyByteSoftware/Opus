@@ -1,0 +1,16 @@
+# File:       Opus/Conductor/dev/primlib/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# primlib, the game library ("prim" for primitive): the world's objects,
+# the components that make them what they are, and the templates and
+# blueprints they're made from.  A lib crate.  No dependencies, not even
+# our own tools yet: it's plain data in memory, and nothing in it touches
+# the disk, the log or a thread.
+
+[package]
+name = "conductor-primlib"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]

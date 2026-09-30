@@ -6,11 +6,12 @@
 # else leans on, conductor-accounts is an account as the server holds it,
 # conductor-monitor keeps an eye on the process, conductor-networking
 # talks to players, conductor-lua-parser runs the Lua scripts,
-# conductor-wgui is the web admin, and conductor-launcher is the program.
+# conductor-primlib is the game library, conductor-wgui is the web admin,
+# and conductor-launcher is the program.
 #
 # The members are folders, named without the conductor- in front (tools,
 # accounts, ...).  The crates keep it, so code still says conductor_tools.
 
 [workspace]
-members = ["tools", "accounts", "monitor", "networking", "lua-parser", "wgui", "launcher"]
+members = ["tools", "accounts", "monitor", "networking", "lua-parser", "primlib", "wgui", "launcher"]
 resolver = "3"

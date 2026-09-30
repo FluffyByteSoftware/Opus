@@ -14,7 +14,7 @@ components that make them what they are, and the templates and blueprints they'r
 ## Where it stands
 
 The first part is Rust only (Jacob, 2026-09-30): the entities, the first components, the world that
-holds them, templates and blueprints, and tests.  Nothing calls it yet.  It isn't a server piece yet
+holds them, templates and blueprints, and tests.  **Written 2026-09-30, not built yet.**  Nothing calls it yet.  It isn't a server piece yet
 either, since there's no game loop to run it; it goes in `start_server()` and `stop_server()` when there
 is one.
 
