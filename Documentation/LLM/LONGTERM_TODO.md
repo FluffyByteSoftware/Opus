@@ -117,7 +117,9 @@ the blueprint (`goblin_a`, their starting values), and the copies in the world.
 Jacob's map at the 2026-09-30 close (STATUS.md has it): the world tick first, "then after that we build
 our world (voxel information and zone management after that)".  The tick is built (the GameClock,
 2026-09-30), so the world is what's next on his map.  The world is going to be **voxels**.
-Nothing about it is designed yet.  Open when it opens:
+**Being designed in `design/world.md`** (2026-09-30), which is the master copy from here on: the world is
+the total sum of everything, cut into zones (biomes), zones into chunks, chunks into voxels.  What was
+open when it opened:
 
 - **Voxel information**: what a voxel holds; the chunk size; the world's size; flat or generated; where
   it's kept (the database, files through DiskMan, or both) and when it's saved; what the client is sent
