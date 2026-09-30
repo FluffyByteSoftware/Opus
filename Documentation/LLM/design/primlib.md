@@ -96,6 +96,12 @@ today builds the blueprint once and copies it); whether `awake()` runs on every 
   - **Every so often and on STOP SERVER**, through Archivist, the game loop never waiting: a restart
     brings back the same goblins, hurt where they were hurt.  A table (or tables) for them.
   - Players' characters are saved either way (`player_characters`, in TODO.md).
+- **Visuals** (Jacob, 2026-09-30, mid-session): a component for what the client draws: which model
+  Ensemble loads, which animation it's in (if any), and whether it's animated at all.  "May need to
+  divide our current components up more."  Open: one `Visuals` component, or split the way Unity
+  does (a `Model` component, and an `Animation` component only on what moves, so "is it animated" is
+  whether it has one); what names a model (a name Ensemble looks up, or a path under `Content/Assets/`);
+  and which of the first nine get split too.
 - **Which blueprint a copy came from.**  The spawn system (in TODO.md) needs to count the goblin_as,
   so a copy will need to know its blueprint.  Whether that's a component or something every entity has
   "baked" (the question TODO.md already has for characters) waits on the spawn system.
