@@ -118,7 +118,8 @@ Jacob's map at the 2026-09-30 close (STATUS.md has it): the world tick first, "t
 our world (voxel information and zone management after that)".  The tick is built (the GameClock,
 2026-09-30), so the world is what's next on his map.  The world is going to be **voxels**.
 **Being designed in `design/world.md`** (2026-09-30), which is the master copy from here on: the world is
-the total sum of everything, cut into chunks and chunks into voxels; whether zones sit between is open.
+the total sum of everything, seamless, cut into chunks and chunks into voxels; a zone is a region marked
+on them, the same as a biome.
 What was open when it opened:
 
 - **Voxel information**: what a voxel holds; the chunk size; the world's size; flat or generated; where
