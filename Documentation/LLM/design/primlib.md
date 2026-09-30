@@ -166,10 +166,10 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
   its default.
 - **A broken save fails the whole character** (Jacob, 2026-09-30: "we should fail out the character and send
   a notification to admin and mark this as a corrupted player character somehow").  Nothing half-right
-  spawns: one bad field and `character_from_save()` turns it away, as built.  Not built yet: the notice to
-  the admin, and marking the row as corrupted (a column on `player_characters`, so a migration, since the
-  table exists).  Open: how it's marked, what the player sees at character select, and who clears the mark
-  once the row is fixed.
+  spawns: one bad field and `character_from_save()` turns it away, as built.  Not built yet: an Error to
+  the admin, and the character flagged unplayable ("so the admin has to go and figure out if its salvageable
+  or delete it"), still listed at character select but not playable.  TODO.md, under Protogame, has the
+  rest.
 - Open: when a character is saved (leaving the world, STOP SERVER, every so often), for spawning.
 
 ## Lua, part two

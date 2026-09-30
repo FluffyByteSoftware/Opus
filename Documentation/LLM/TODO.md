@@ -60,10 +60,18 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     - **The functions in `conductor-accounts`**: make, list, load and save a character, and delete one.
     - **A corrupted character** (Jacob, 2026-09-30): a save that won't load fails the whole character
       (built), "send a notification to admin and mark this as a corrupted player character somehow" (not
-      built).  The mark is a column on `player_characters`, so a migration (`0003`), since the table is in.
-      Open: what the mark holds (when, and why it failed), what the player sees at character select (the
-      character listed but locked, or not listed), who clears it once the row is fixed (the admin, maybe
-      on the Accounts tab), and whether the notice is a Warn or an Error.
+      built).  Jacob's answers:
+      - **The mark is "unplayable", and that's all**: "it should just flag a character as unplayable so
+        the admin has to go and figure out if its salvageable or delete it".
+      - **The notice is an Error.**
+      - **The player still sees it at character select, and can't play it**: "the player would see the
+        character name but unable to play it (it won't let you in the client) so maybe we send in the
+        display characters packet to the client a boolean for this?"  So the list of characters carries
+        an unplayable flag per character (protocol version 5, with character select).  The server turns
+        it away too, since a changed client could ignore the flag.
+      - **Trying again**: "the admin will need ot restart the server to have it attempt again?"  Being
+        talked through: whether the flag lives in memory for the run (a STOP SERVER and START SERVER
+        clears it, no migration) or in a column that every START SERVER clears.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
 

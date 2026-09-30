@@ -102,9 +102,10 @@ columns kept in step with the save), delete one.  Everything through Archivist, 
 waits.  Not settled yet, to ask: which slot a new character takes, what happens when all three are full,
 who can delete a character (the player, the admin on the Accounts tab, or both), and whether the Accounts
 tab shows an account's characters.  And the corrupted character (Jacob, after the hand-off: "fail out the
-character and send a notification to admin and mark this as a corrupted player character somehow"): the
-mark is a migration on `player_characters`; what it holds, what the player sees and who clears it are open
-(TODO.md, under Protogame).
+character and send a notification to admin and mark this as a corrupted player character somehow"): an
+Error, the character flagged unplayable, still listed at character select with a flag the client greys out
+(and the server refuses).  Open: whether the flag is kept in memory for the run or in a column, cleared by a
+restart either way (TODO.md, under Protogame).
 
 ## What's waiting
 
