@@ -78,7 +78,12 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 - **A region, a zone and a biome are one thing**: "a biome name / zone or collection of chunks" (Jacob,
   2026-09-30).  **A chunk is in one zone only**, never across two.
 - **Which chunk is in which region is written in `Content/world/region.map`** (Jacob, 2026-09-30), since
-  a chunk nobody changed has no file to say so.  Gitignored with the rest of `Content/world/`.
+  a chunk nobody changed has no file to say so.  Gitignored with the rest of `Content/world/`.  **It's a
+  binary file**, not text (Jacob, the same day): "its a summary that tells the chunks how to assemble
+  themselves for the server _AND_ the client".  So its layout is a contract with Ensemble, written down
+  under "The files" below.
+- **Every player starts at 0,0,0, for now** (Jacob, 2026-09-30).  So until there's movement, "the chunks
+  near a player" is the chunks around 0,0,0, and that's what GameWorld loads on START SERVER.
 - **The world starts with two regions, Alpha and Omega** (Jacob, 2026-09-30).  **Alpha is purely flat**,
   the three layers above.  **Omega is bumpy**: "random noise with +/- 5 on the Y", so its ground rises and
   falls up to 5 blocks (2.5 m) either side of 0, in **smooth rolling hills**, with **one block of dirt on
@@ -107,6 +112,5 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 ## Still open
 
 - What's in a chunk's file beyond its blocks (a version number, at least).
-- What's in `region.map` and how it's laid out.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
