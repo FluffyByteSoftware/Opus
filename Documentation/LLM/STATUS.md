@@ -63,28 +63,28 @@ No code.  Everything settled went into the docs and was pushed as it came (CLAUD
   said yes to the dependency).  A CLAUDE.md rule: a script never gets `io`, `os` or anything else that
   reaches the disk, the network or the database.
 
-## Jacob's pick for next: Lua's first step
+## This session -- 2026-09-30, Lua's first step: written, NOT BUILT YET
 
-Agreed in outline at the close (Jacob: "yes"); the plan with files still comes first, per CLAUDE.md, and
-waits for his OK:
+Jacob hasn't built this yet, so the next thing is likely compile fixes.  `design/lua-parser.md` has the
+whole of it.
 
-- A new **lib** crate that embeds Lua 5.4 through `mlua` (vendored).  Jacob named it **`lua-parser`**.
-  Ask first: is the crate `conductor-lua-parser` like the others (its folder losing `conductor-` with
-  the rest when that TODO comes), or plain `lua-parser`?  And "parser" is a fair name for now, though
-  `mlua` does the parsing and the crate mostly runs scripts; his call.
-- It loads the `.lua` files from a folder under `Content/` through DiskMan (the folder's name isn't
-  picked; `Content/scripts/` was offered) and runs each in a locked-down Lua.
-- It reports to `services.rs`, its threads go through `threads::spawn()`, and it's in `start_server()`
-  and `stop_server()`.
-- A script with an error logs its file and line, and the server keeps running.
-- The only thing a script can call is a log function, so a `hello.lua` shows on the Log tab.
-- No ECS, no templates.  It proves Lua runs safely inside Conductor.
-- `mlua` builds Lua with the C compiler; the first build changes `Cargo.lock`, so Jacob gets the
-  commit commands for it.  Windows needs Visual Studio's compiler, untested like the rest of Windows.
+- **`lua-parser`**, a lib crate (`conductor-lua-parser` in code), the first folder without `conductor-`.
+  `mlua` 0.12 with Lua 5.4 built from source.  Jacob's Rust is 1.98.1; `mlua` needs 1.88.
+- On START SERVER its `lua` thread runs every `.lua` under `Content/scripts/` (Jacob's pick for the root)
+  once, each in a fresh locked-down Lua.  `Content/scripts/hello.lua` says hello on the Log tab.
+- A script gets `string`, `table`, `math`, `utf8`, `coroutine` and the log (`log.debug/info/warn/error`,
+  `print` as debug).  No `io`, `os`, `package`, `debug`, `dofile`, `loadfile`, `load`, `warn`,
+  `string.dump`.
+- Jacob: anything wrong from Lua is a **Warn**, never an Error, and a script can't crush what's
+  underneath.  So `log.error` writes a Warn, and there's a 1 s time limit, a 64 MB memory limit and 50
+  log lines a run (his "go with your suggestion for now").
+- New: the `Script` channel in Scribe, the "Lua" service, Lua in `start_server()` / `stop_server()`.
+- Jacob, asked where scripts live, wondered about working like Unity (a script attached to an object
+  fires off behaviour, or it comes prepackaged).  He's thinking it over; LONGTERM_TODO.md has it.
 
 ## What's waiting
 
-- **Lua's first step**, above.  Jacob's pick.
+- **Lua's first step**, above: waiting on Jacob's build and the checks in TEST_CHECKLIST.md.
 - **Protogame** and the ECS, paused behind the language.  TODO.md's protogame entry has all of it.  Jacob,
   2026-09-30, opening the Lua session: the ECS is to be built once Lua is in, "in case I forget".
 - **The blocked names list**, in TODO.md with his answers.

@@ -133,6 +133,22 @@ The rest of the door:
 
 The whole contract, byte for byte, is in `Documentation/LLM/PROTOCOL.md`.  It's version 4.
 
+### Lua (`lua-parser`)
+
+The game's content is going to be written in Lua 5.4, run inside Conductor through the `mlua` crate, with
+Lua built from source along with it.  For now it's the first step: on START SERVER every `.lua` file
+under `Content/scripts/` (and the folders inside it) runs once, each in a Lua of its own, and
+`hello.lua` says hello on the Log tab.  RESTART SERVER runs them again, so a changed script takes then.
+
+A script can't reach the disk, the network or the database: Lua's `io`, `os`, `package` and `debug`
+libraries are never loaded, and `dofile`, `loadfile`, `load` and `string.dump` are taken out.  It gets
+`string`, `table`, `math`, `utf8`, `coroutine`, and a log: `log.debug()`, `log.info()`, `log.warn()` and
+`log.error()` (`print()` is `log.debug()`).  Whatever a script says is wrong is a Warn, never an Error.
+
+A script can't take the server down either.  One with an error is a Warn with its file and line, and the
+rest still run.  One still going after a second is stopped, one that holds more than 64 MB is stopped,
+and past 50 log lines in a run the rest are dropped.
+
 ### The web admin (`conductor-wgui`)
 
 A small web server on `http://127.0.0.1:9996/Opus`, and the only way to run Conductor: the console shows
@@ -181,8 +197,11 @@ it.  Connections, Whitelist and Blacklist also wait for both of the network's li
 
 ## What it needs
 
-- **Rust**, edition 2024.  Three crates from outside: `postgres` for the database, `argon2` for password
-  hashing and `rustls` for TLS.  Everything else is the standard library and what the OS already has.
+- **Rust**, edition 2024, 1.88 or newer.  Four crates from outside: `postgres` for the database, `argon2`
+  for password hashing, `rustls` for TLS and `mlua` for Lua.  Everything else is the standard library and
+  what the OS already has.
+- **A C compiler**, because `mlua` builds Lua from its C source.  Nobara and Fedora have `gcc`; on Windows
+  it's Visual Studio's.
 - **PostgreSQL 18**, on the same machine.  18 because every table's `uuid` column falls back on its
   `uuidv7()`.
 - **openssl**, once, to make the TLS certificate.
@@ -291,6 +310,7 @@ Opus/
 │   │   ├── conductor-accounts/    the accounts table, read on demand, never held; the account desk
 │   │   ├── conductor-monitor/     looks at the process and the machine once a second
 │   │   ├── conductor-networking/  the login over TLS, the game over UDP, the access lists; test_client.py
+│   │   ├── lua-parser/            runs the Lua scripts, locked down
 │   │   ├── conductor-wgui/        the web admin
 │   │   └── conductor-launcher/    the program: boots, then runs the server on the Control Panel's say
 │   └── build/                     compiled output, never committed
@@ -298,6 +318,7 @@ Opus/
 ├── Content/
 │   ├── cfg/                       the config files and the two access lists
 │   ├── certs/                     the TLS certificate (committed) and its key (never)
+│   ├── scripts/                   the Lua scripts, hello.lua for now
 │   ├── psql/defaults/schemas/     the tables as first made, one file each
 │   ├── psql/migrations/           every change to a table since, numbered
 │   ├── logs/                      one log file per UTC day, never committed

@@ -160,7 +160,8 @@ Things that wait on a piece that doesn't exist yet.
   Jacob's pick: the folders only (`Conductor/dev/tools/`, `accounts/`, ...); every crate keeps its
   `conductor` name, so code still says `conductor_tools::scribe`.  Touches the workspace `Cargo.toml`,
   every `path = "../conductor-..."`, the `File:` lines, the `include_str!` paths that climb out of a
-  crate (same depth, so likely none), CLAUDE.md, PROJECT_OPUS.md and the design docs.
+  crate (same depth, so likely none), CLAUDE.md, PROJECT_OPUS.md and the design docs.  `lua-parser`
+  (2026-09-30) was made without it from the start; its crate is `conductor-lua-parser`.
 - **Playtime metrics** (Jacob, 2026-09-29: "cool metrics later").  `last_login_datetime` is when a player
   came in over UDP, but only the latest one is kept, and nothing records when they left.  Playtime needs
   a table of play sessions (account, in, out, how it ended), a row written as each player leaves the

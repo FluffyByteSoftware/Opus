@@ -34,7 +34,7 @@ conductor-tools/
     ├── clock.rs           Utc { year, month, day, hour, minute, second }
     │                        Utc::now(), Utc::from_unix(seconds)
     │                        date(), file_stamp() -> "2026_09_28", line_stamp() -> "02:16:43 PM - 09-28-26 Z"
-    ├── scribe.rs          enum Channel { System, Network, Security, Database, Game }
+    ├── scribe.rs          enum Channel { System, Network, Security, Database, Game, Script }
     │                      enum Priority { Debug, Info, Warn, Error }
     │                        start(dir), move_to(dir), current_file()
     │                        recent_lines(after) -> Vec<RecentLine { number, priority, text }>
@@ -471,12 +471,12 @@ What we decided:
   itself**: `services::set(name, state, note)`, with a note that says what it's doing or what went wrong.
 - **Every expected service is on the list from the start**, as "expected", so one that never started shows
   as missing.  The list is `EXPECTED` in `services.rs`: DiskMan, Scribe, Constellations, Fingerprinter,
-  Security, Archivist, Network (TCP), Network (UDP), Account desk, Monitor, Web admin, each with the name of its thread
+  Security, Archivist, Network (TCP), Network (UDP), Account desk, Monitor, Lua, Web admin, each with the name of its thread
   if it has one.  Adding a service means adding it there.
 - A service with a thread is **stopped once that thread has ended**, whatever it last said.  A thread that
   panics says nothing on the way out.  This is worked out when the list is read, from `threads::list()`.
 - A service can **check in** with `seen(name)`.  One that has checked in and then goes quiet for more than
-  `QUIET_LIMIT` (5 seconds) isn't healthy.  The monitor, DiskMan, Security and the UDP side do; the others
+  `QUIET_LIMIT` (5 seconds) isn't healthy.  The monitor, DiskMan, Security, Lua and the UDP side do; the others
   have no loop to check in from.
 - Healthy means running and not gone quiet.  The page shows starting as yellow, not down.
 - **Nothing in `services.rs` writes to Scribe.**  Scribe reports to the list, so a call the other way could

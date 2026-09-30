@@ -1,0 +1,22 @@
+# File:       Opus/Conductor/dev/lua-parser/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# The Lua side of Conductor: loads the scripts in Content/scripts/ and runs
+# each one in a Lua that can't reach the disk, the network or the
+# database.  A lib crate.  Its folder is lua-parser, without the
+# conductor- the older crates' folders still have, and its name is
+# conductor-lua-parser, so code says conductor_lua_parser.
+#
+# mlua is the one dependency beyond our own tools.  "lua54" picks Lua 5.4,
+# and "vendored" builds Lua from source inside mlua with the C compiler, so
+# there's nothing to install on the machine but the compiler itself.
+
+[package]
+name = "conductor-lua-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-tools = { path = "../conductor-tools" }
+mlua = { version = "0.12", features = ["lua54", "vendored"] }

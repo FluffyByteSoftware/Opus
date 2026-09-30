@@ -57,6 +57,7 @@ Opus/
 │   │   ├── conductor-accounts/ # lib: the one way in to the accounts table, and the account desk
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── conductor-networking/ # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
+│   │   ├── lua-parser/         # lib (conductor-lua-parser): runs the Lua scripts in Content/scripts/, locked down
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── conductor-launcher/ # bin: the program -- boots, then starts and stops the server on the Control Panel's say
 │   └── build/             # compiled output -- never committed
@@ -68,6 +69,7 @@ Opus/
 │   ├── Assets/            # purchased art -- never committed
 │   ├── cfg/               # config files (conductor_globals, wgui, postgres, networking, whitelist, blacklist .cfg)
 │   ├── certs/             # the TLS certificate (committed) and its key (never committed), made with openssl
+│   ├── scripts/           # the Lua scripts, folders inside it and all (Jacob, 2026-09-30)
 │   ├── logs/              # log files -- never committed
 │   └── psql/
 │       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
@@ -265,6 +267,11 @@ When I say we're wrapping up:
   crate with Lua built in (Jacob, 2026-09-30).  A script never gets Lua's
   `io` or `os` libraries, or anything else that reaches the disk, the
   network or the database; it asks the game, and the game decides.
+  It lives in `lua-parser` (`sandbox.rs` is the lock).  **Whatever a
+  script says is wrong, and every error in one, is a Warn, never an
+  Error**, and nothing a script does can take down what's underneath
+  it: a time limit, a memory limit and a cap on its log lines, each
+  a Warn when hit (Jacob, 2026-09-30).
 - `conductor-launcher` is the program. New server pieces (networking, the game)
   are lib crates, not programs of their own.
 - **Two kinds of restart.** A *soft reboot* is RESTART SERVER on the Control

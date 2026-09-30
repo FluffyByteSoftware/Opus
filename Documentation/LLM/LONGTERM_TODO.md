@@ -29,20 +29,32 @@ written as Lua.
 controls or changes what it does.  He'd like GOAP (goal-oriented action planning) for the thinking; not
 settled.
 
+**Like Unity, maybe** (Jacob, 2026-09-30, asked where the scripts live): "I was thinking we'd just
+develop like Unity -- I attach a script to an object and it fires off behaviour, or comes prepackaged
+with behaviour to manipulate the object."  He wants to think it over.  Open: whether a script is
+attached to an object the way a Unity component is, whether a template or blueprint comes with its
+behaviour already attached, and how the folder is laid out for that.  It's the ECS's question as much as
+Lua's.
+
 Still to settle:
 
 - **What it looks like.**  Jacob's NPC sample is below; an item and a quest in the same shape, in Lua,
   before any code.
 - **Where it runs.**  Conductor reads and runs it, since Conductor is authoritative.  Whether Ensemble
   ever sees any of it (an item's description, say) is the protocol's question.
-- **Where the files live.**  `Content/` is where both programs' data goes, so somewhere under it, with a
-  name that says whose they are.  Through DiskMan, like every file.
-- **How it loads.**  At server start, and again on a soft reboot; whether a changed file can be picked
-  up without one is the same question the config editor has.
-- **What a mistake looks like.**  A script with an error in it names the file and the line, the way
-  Constellations complains about a bad config line, and never takes the server down.
-- **What it can't do.**  A script can't touch the disk, the network or the database on its own; it asks
-  the game, and the game decides.  That keeps a bad quest from being a bad server.
+- **How the folder is laid out** under `Content/scripts/`, once the Unity question above is answered.
+- **Hot loading.**  Scripts load at START SERVER and again on RESTART SERVER; whether a changed file can
+  be picked up without one is the same question the config editor has.  No, for now.
+
+Settled with the first step (`lua-parser`, 2026-09-30; `design/lua-parser.md` has the rest):
+
+- **Where the files live**: `Content/scripts/`, the root of every script, folders inside it and all
+  (Jacob).  Read through DiskMan.
+- **What a mistake looks like**: a Warn naming the file and the line, and the rest still run.  "Any
+  errors or warnings from Lua" are Warns, never Errors, and a script "shouldn't be able to do anything
+  to crush the underlying systems" (Jacob): a second's time limit, 64 MB, and 50 log lines a run.
+- **What it can't do**: no `io`, `os`, `package` or `debug`, no `dofile`, `loadfile`, `load` or
+  `string.dump`.  The log is all it can call.  That keeps a bad quest from being a bad server.
 
 
 **Jacob's first sample** (2026-09-30, while the game library's ECS was talked through), MudOS / LPC in

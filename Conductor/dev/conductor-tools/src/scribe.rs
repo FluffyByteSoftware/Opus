@@ -61,6 +61,8 @@ pub enum Channel {
     Security,
     Database,
     Game,
+    /// What a Lua script logs, and what goes wrong in one.
+    Script,
 }
 
 impl fmt::Display for Channel {

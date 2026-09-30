@@ -5,9 +5,13 @@
 # The server, as a Cargo workspace.  conductor-tools is the lib everything
 # else leans on, conductor-accounts is an account as the server holds it,
 # conductor-monitor keeps an eye on the process, conductor-networking
-# talks to players, conductor-wgui is the web admin, and
-# conductor-launcher is the program.
+# talks to players, conductor-lua-parser runs the Lua scripts,
+# conductor-wgui is the web admin, and conductor-launcher is the program.
+#
+# The members are folders.  lua-parser is the first without the
+# conductor- in front; the rest lose theirs when that rename comes.
 
 [workspace]
-members = ["conductor-tools", "conductor-accounts", "conductor-monitor", "conductor-networking", "conductor-wgui", "conductor-launcher"]
+members = ["conductor-tools", "conductor-accounts", "conductor-monitor", "conductor-networking", "lua-parser",
+           "conductor-wgui", "conductor-launcher"]
 resolver = "3"
