@@ -659,6 +659,10 @@ When I say we're wrapping up:
   `main` into `unstable`, so the next release is a plain catch-up.
 - Deleting a branch on GitHub can't be done from the session (the push is
   refused), so I do that by hand when one is finished with.
+- **On the Windows laptop, git is Git GUI** (a clone in
+  `C:\TEMP\download2`, 2026-09-30).  Git steps for that machine are
+  Git GUI's menus (Remote > Fetch from > origin, Branch > Checkout),
+  with the one-line command beside them.
 - **Tell me explicitly when to touch git from my terminal, and give the exact
   commands.** I don't keep the branch model in my head; you do. Every time
   one of these happens, the reply says so in a line of its own, with the
