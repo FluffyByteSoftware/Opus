@@ -29,8 +29,8 @@ is up from the moment the launcher runs.  The server (Fingerprinter, Security, A
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
-**The branches**: `unstable` and `testing` are on this hand-off.  `main` is still at Jacob's Ensemble
-project settings commit, behind both; it moves when Jacob says.
+**The branches**: `main` was released from `testing` at this hand-off (`8bf9f70`, Jacob's say, a
+fast-forward); `unstable` and `testing` carry this note on top.  `main` moves again when Jacob says.
 
 **Built and tested on Linux**: everything, this session's code included.  The only check left on
 TEST_CHECKLIST.html is the Parked Windows one.  **On Windows**: built and runs, START SERVER included,
