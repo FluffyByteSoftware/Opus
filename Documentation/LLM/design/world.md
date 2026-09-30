@@ -47,9 +47,9 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   from +16 to +47, all air at the start, with nothing allowed above +30.
 - **8 km by 8 km to start** (Jacob, 2026-09-30), "it may _grow_ later".  16,384 blocks a side, 512 by 512
   chunks across, 524,288 chunks in all with two rows.
-- **Every chunk starts the same**, so a chunk nobody has changed needn't be stored at all: it's made from
-  the three layers when it's needed, and only a changed chunk is kept.  Put forward, 2026-09-30.
-- **A changed chunk is saved as a file in `Content/world/chunks/`** (Jacob, 2026-09-30), through DiskMan,
+- **A chunk nobody has changed isn't stored at all**: it's made from its region's rule when it's needed
+  (flat for Alpha, the noise for Omega), and only a changed chunk is kept.  Put forward, 2026-09-30.
+- **A changed chunk is saved as a file under `Content/world/`** (Jacob, 2026-09-30), through DiskMan,
   not in the database.  **`Content/world/` is gitignored** (his yes, the same day): it's the game's save.
 - **It's saved on STOP SERVER, and by a global save every 15 minutes** (Jacob, 2026-09-30).  The GameClock
   never waits on it: it hands over copies of what changed, and the writing is done on another thread.
@@ -71,15 +71,26 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   on the Services tab, for the slow part: reading and writing chunk files through DiskMan, handing chunks
   over when they're ready.
 - **Chunk files go in a folder named after their region** (Jacob, 2026-09-30): "when we generate the world
-  we are going to name regions and name the chunk folders after them then place that chunk in there".  So
-  `Content/world/chunks/<region>/`, one file per changed chunk.
+  we are going to name regions and name the chunk folders after them then place that chunk in there".
+  One file per changed chunk, his example being `Content/world/Regions/Alpha/alpha_03_-15_0.chunk`.
+- **A region, a zone and a biome are one thing**: "a biome name / zone or collection of chunks" (Jacob,
+  2026-09-30).  **A chunk is in one zone only**, never across two.
+- **Which chunk is in which region is written in `Content/world/region.map`** (Jacob, 2026-09-30), since
+  a chunk nobody changed has no file to say so.  Gitignored with the rest of `Content/world/`.
+- **The world starts with two regions, Alpha and Omega** (Jacob, 2026-09-30).  **Alpha is purely flat**,
+  the three layers above.  **Omega is bumpy**: "random noise with +/- 5 on the Y", so its ground rises and
+  falls up to 5 blocks (2.5 m) either side of 0.  An Omega chunk isn't the same as its neighbour, so the
+  noise has to come out the same on every START SERVER (a fixed seed), or an unchanged chunk would be
+  rebuilt different each time.  The noise is written by hand, no crate.
 
 ## Still open
 
-- What a chunk's file is called and holds.
-- Whether a region is the same thing as a zone (a biome), or something else.
-- How many regions the flat world starts with, and who names them: the generator, or Jacob by hand.
-- Where it's written which chunk is in which region.  An unchanged chunk has no file, so its folder can't
-  say; something else has to.
+- What's in a chunk's file beyond its blocks (a version number, at least).  The name's numbers are read as
+  east, north and row, from `alpha_03_-15_0`; whether they're padded ("03") and to how many digits, and
+  whether the world's middle is chunk 0 (so -256 to 255 across) or a corner is (0 to 511).
+- How the 8 km is split between Alpha and Omega (halves, and which way).
+- What Omega's noise looks like: smooth rolling bumps, or each 50 cm column its own random height (spiky).
+  And under Omega's bumps, whether it's still one block of dirt on top and stone below it to -15.
+- What's in `region.map` and how it's laid out.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.

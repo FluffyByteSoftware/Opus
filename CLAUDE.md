@@ -78,7 +78,7 @@ Opus/
 │   ├── certs/             # the TLS certificate (committed) and its key (never committed), made with openssl
 │   ├── scripts/           # the Lua scripts, folders inside it and all (Jacob, 2026-09-30)
 │   ├── logs/              # log files -- never committed
-│   ├── world/chunks/      # the chunks players have changed, the game's save -- never committed
+│   ├── world/             # the game's save: region.map, and Regions/<region>/ with the chunks players changed -- never committed
 │   └── psql/
 │       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
 │       └── migrations/    # every change to a table after that, numbered
