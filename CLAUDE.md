@@ -122,6 +122,12 @@ a `Content/` folder, or by creating `./Content` when neither works.
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another
   conversation.
+- **Design talk is written down as it settles.**  Each answer goes into
+  its TODO.md entry (or design file) and is pushed as it comes, not saved
+  for the hand-off, so a lost or deleted chat loses nothing (2026-09-30,
+  after one was).  A design Jacob wants to talk through in a separate
+  chat gets a brief in `Documentation/LLM/design/`, written for that chat
+  to read cold, ending with the shape its summary comes back in.
 - **One feature per session.** If a new feature comes up mid-session, add it to
   `Documentation/LLM/TODO.md` and keep going on the current one. It gets its own session later.
 - **Plan before building** anything bigger than a small fix: tell me the files
@@ -583,6 +589,10 @@ When I say we're wrapping up:
   kept as history and isn't written to.
 - If I've pushed to `unstable` from my machine, fetch and merge it before
   pushing. Never rebase or force-push over my commits, on any branch.
+  The same goes for `main`: I sometimes commit there from my machine (on
+  2026-09-30, `bind_address = 10.0.0.84` in `networking.cfg`, my machine's
+  address and correct).  When `main` has a commit `unstable` doesn't, merge
+  `main` into `unstable`, so the next release is a plain catch-up.
 - Deleting a branch on GitHub can't be done from the session (the push is
   refused), so I do that by hand when one is finished with.
 - **Tell me explicitly when to touch git from my terminal, and give the exact

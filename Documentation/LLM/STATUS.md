@@ -26,53 +26,50 @@ account desk, networking, the monitor, and whatever comes later) only starts whe
 on the web admin's Server tab (CONTROL PANEL > Server), and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  At this close all three are on the same commit, this
-hand-off: Jacob said to release once every check had passed, so `main` moved up from the
-accounts-in-memory hand-off (`0a82d90`) to take in the account manager and the sections.
+stable release, moved only when Jacob says.  At this close `unstable` and `testing` are on this hand-off.
+`main` has two commits of Jacob's own from his machine (`bind_address = 10.0.0.84` in `networking.cfg`,
+his machine's address and correct, and a merge); `unstable` took them in, so `main` is behind by this
+session's doc commits only, and its next release is a plain catch-up to `testing`.
 
-**Built and tested on Linux (Nobara 44)**: everything up to and including this session.  Jacob built
-`testing` with the account manager and the sections on it (the build's `Cargo.lock` is committed) and went
-through every check for both; all passed, and TEST_CHECKLIST.md is down to its Parked list.  The Windows
-code has never been built.
+**Built and tested on Linux (Nobara 44)**: everything.  This session changed no code, so there's nothing
+to build and nothing new on TEST_CHECKLIST.md, which is down to its Parked list.  The Windows code has
+never been built.
 
-## Last session -- 2026-09-29 to 30, the web admin's sections
+## Last session -- 2026-09-30, a soft review and the protogame design talk
 
-Jacob's pick: the sidebar rethink, "a better menu for navigating as we are going to be adding more and
-more stuff to the menu".
+- **The soft review.**  Two chats had got mixed up (the other was deleted, and had pushed nothing).
+  The repo was sound: code and docs agreed, the protocol version was 4 everywhere.  Four doc slips
+  were fixed: CLAUDE.md said questions go at the top in one place (they go at the bottom), said
+  "nothing hot swaps" after naming the access lists as the exception, and it and TODO.md still had
+  kicking from the web admin as not built; the folder layout now names the two list files.
+- **The protogame design talk**, no code.  Every answer went into TODO.md's protogame entry as it came
+  and was pushed, so the entry is the whole of it.  Settled: the name is **protogame** again; Actor,
+  Character and Agent live in a separate **game library**; a read-only **`CharacterSnapshot`** (name,
+  where it is, from the last save) lives in `conductor-accounts` beside `Account`, since protogame in
+  its place would make a circle of crates; a **`player_characters`** table, each row with its
+  `account_id`; **three slots** on `accounts` (`character_slot_1` to `_3`, each a character's `id`, by
+  migration); **`conductor-accounts` writes the SQL for both tables** (CLAUDE.md says so now);
+  **Postgres does the wiping** (`ON DELETE CASCADE` from the account, `ON DELETE SET NULL` on a slot);
+  the **first step is the database side** (the table, the slots, the functions).
+- **Then Jacob stepped back: the game library is going to be an ECS**, and a character is a few
+  components, not one type.  The database step waits on it, for what's in the row.  He's taking the
+  ECS to a separate chat with a brief written at this close
+  (`Documentation/LLM/design/ecs-discussion.md`), and bringing what comes out of it back here.
 
-- **Four mockups first**, clickable, on a design canvas (claude.ai, kept off the repo on Jacob's say:
-  "just on the canvas"): folding groups, an icon rail with a panel, sections across the top, and today's
-  list with find and pins.  He picked sections across the top and named them himself: **CONTROL PANEL |
-  CONFIGURATION | LOGS | ACCOUNT MANAGEMENT | GAME MANAGEMENT**.  Nothing remembered about the menu, no
-  pins ("no need").
-- **Built into `page.html`**, nothing else in Conductor changed.  The header is two rows (the name, pill,
-  uptime and bell, then the sections); the side menu lists the open section's tabs, with a line saying
-  why when they're all locked; the top of the tab says its section and name.  The Control Panel tab is
-  **Server** now.  The notices are the bell and LOGS (his words): the tray has HISTORY, and opens even
-  with nothing in it.  The Services dot flashes on CONTROL PANEL too.  The tabs, their locks, the
-  routes and the remembered tab are as they were.  The table of what's under which section is in
-  CLAUDE.md and `design/conductor-wgui.md`.
-- **Blocked names**, asked for mid-session, went to TODO.md with Jacob's answers: a list of curse words
-  in `Content/cfg/blocked_names.txt` beside the two access lists, checked against account usernames, a
-  word of 4 letters or more blocking any name with the whole word in it ("Shitfox", "Bastardfox"), a
-  shorter one blocking nothing, read on START SERVER.  A Blocked Names tab under CONFIGURATION.  Not
-  built.
+## Jacob's pick for next: what the ECS chat decided
 
-## Jacob's pick for next: protogame
-
-His words at the close: "write and build the first parts of the game protocore - the character and the
-world, and the voxels so that you can select a character from login and be put into the world itself."
-Its name went back to **protogame** in a design talk on 2026-09-30 (no code yet), which also settled:
-Actor, Character and Agent live in a separate game library; protogame holds a read-only
-`CharacterSnapshot` (name, where it is) and the messages to and from a character; a new
-`player_characters` table; and three slots on the account, `character_slot_1` to `_3`, each a
-character's `id`, by migration.  Deleting an account wipes its characters.  The TODO.md entry has all
-of it and what's still open.  By CLAUDE.md's rule of one small step a session, it's more than one
-session's worth, so the first thing to settle is where the first step stops.
+The next session here starts with what Jacob brings back from the ECS chat.  The brief asks that chat
+to end with a summary in a fixed shape (decisions, open questions, a sketch); fold the decisions into
+TODO.md's protogame entry and the brief, ask about anything that runs into a rule in CLAUDE.md, and
+only then plan the first step (the database side, now with its columns).  The questions the brief
+carries: written by hand or a crate (`bevy_ecs`, `hecs`: a dependency, heavy on generics and macros);
+which components a character is and what makes an Actor; how a character's components are saved (a
+column each on `player_characters`, a table per component, or one column holding them all); the tick
+and the world's size; where the world and the voxels live.
 
 ## What's waiting
 
-- **Protogame**, above.  Jacob's pick.
+- **Protogame**, waiting on the ECS chat, above.  Jacob's pick.
 - **The blocked names list**, in TODO.md with his answers.
 - **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.
