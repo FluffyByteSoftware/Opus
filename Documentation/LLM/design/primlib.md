@@ -100,13 +100,17 @@ today builds the blueprint once and copies it); whether `awake()` runs on every 
   characters are saved too (`player_characters`, in TODO.md).
 - **Every copy has a UUID** (Jacob, 2026-09-30): "you will be able to search NPCs by their UUIDs (which
   is unique to every instantiated one)".  From Fingerprinter (`new_uuid()`), like every row's.  The
-  entity number is only good while the server runs; the UUID is the copy's name for good.
-- **And an internal name**, "like goblin_archer_1", made from the copy's `ShortName` with its spaces
-  made `_` (Jacob, 2026-09-30), and a number.  Since the copies come back after a restart, their names
-  come back with them, and the number carries on from the highest one in use, so there are never two
-  goblin_archer_1s.  Open: whether two blueprints with the same short name share the count (they would,
-  going by the name alone); what a copy with no `ShortName` is called; whether it's a component or
-  something every entity has "baked", along with its UUID.
+  entity number is only good while the server runs; the UUID is the copy's name for good.  Built
+  together with saving (Jacob, 2026-09-30), not before: that's where it starts to matter, and it's
+  when primlib first needs `conductor-tools`.
+- **And an internal name**, made from the copy's `ShortName` with its spaces made `_`, then `_` and a
+  number (Jacob, 2026-09-30): "goblin" gives `goblin_1`, `goblin_2`, `goblin_3`, and "goblin archer"
+  gives `goblin_archer_1`.  A short name that already ends in a number just gets another:
+  "goblin_1" gives `goblin_1_1`, `goblin_1_2`.  The count goes by the name, so two blueprints whose
+  copies share a short name share it.  Since the copies come back after a restart, their names come
+  back with them, and the number carries on from the highest one in use, so there are never two
+  `goblin_1`s.  Built with the UUID, together with saving.  Open: what a copy with no `ShortName` is
+  called; whether the name and the UUID are a component or something every entity has "baked".
 - **Visuals, split up** (Jacob, 2026-09-30, mid-session: "may need to divide our current components up
   more").  Decided:
   - **`Transform`** takes over Position, Rotation and Scale, the way Unity has it.  Jacob said it
@@ -118,8 +122,9 @@ today builds the blueprint once and copies it); whether `awake()` runs on every 
   - **`Animator`**: "controls animation state on the server".  A skeleton for now (Jacob, 2026-09-30:
     "I'm not worried about animations in game yet"): `is_looping_currently`, and `current_track`, the
     name of what the model is doing, sent to the client.
-  - **The model itself** is being talked through (Jacob, 2026-09-30: "Let's zoom out and discuss this
-    a bit").
+  - **`Model`**: a string, the path the client loads the model from (Jacob, 2026-09-30: "in a previous
+    iteration I tried using an enum but that got messy").  The server never opens it; it's the
+    client's to make sense of, and the PrimitiveShape is what the client falls back on when it can't.
 - **Which blueprint a copy came from.**  The spawn system (in TODO.md) needs to count the goblin_as,
   so a copy will need to know its blueprint.  Whether that's a component or something every entity has
   "baked" (the question TODO.md already has for characters) waits on the spawn system.
