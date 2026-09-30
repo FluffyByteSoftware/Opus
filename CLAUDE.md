@@ -103,7 +103,8 @@ named so it's clear who owns them (`conductor_globals.cfg`, `*.scribe.log`).
 Don't create new top-level folders without asking me.
 
 `Content/` is committed, except `Content/Assets/` (the purchased art),
-`Content/logs/` and `Content/world/` (the game's save; Jacob, 2026-09-30). Even so, programs must create it and any file they need there
+`Content/logs/` and `Content/world/` (the game's save; Jacob, 2026-09-30).
+Even so, programs must create it and any file they need there
 (config, logs, saves, schemas) with sensible defaults when it's missing, and
 never crash because it's absent. Conductor finds it through the `OPUS_CONTENT`
 environment variable, or by walking up from the working directory until it sees
