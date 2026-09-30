@@ -177,8 +177,13 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
 - **When a character is saved** (Jacob, 2026-09-30, preparing the game library for the spawn):
   - **When the player leaves the world**, for any reason, and STOP SERVER with it, since everybody leaves
     then.
-  - **And every 50th complete cycle** while they play ("on every 50th complete tick cycle?  (so 250 ms =
-    one tick)").  A tick is a cycle, 250 ms, so that's every 12.5 seconds.
+  - **And in a world save every 15 minutes** of real time ("every 15 minutes of real time lol whatever
+    that is in ticks"): a tick is a cycle, 250 ms, so 3,600 cycles.  First said as every 50th cycle (12.5
+    seconds), which was the wrong number, not the idea.
+  - **The world save is global**, not each player on their own count: "its what I want is a global save
+    to happen where the world state is pushed in a tick cycle".  One cycle takes every copy's save at once,
+    so what's written is the world as it stood at one moment.  Players' characters today; primlib's other
+    copies join it once they're saved (below).
 - **Leaving takes the copy out**: "when the character's registered as quit out the game removes them".
   Saved, then despawned at once; no linkdead body left standing in the world.
 
