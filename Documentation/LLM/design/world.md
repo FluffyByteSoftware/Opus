@@ -23,13 +23,19 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   GameClock on one thread is sized for that.
 - **The world is blocky** (Jacob, 2026-09-30): you see the cubes, the way Minecraft looks, not smooth ground
   drawn over the voxels.
+- **The blocks are smaller than Minecraft's, with high-res textures** (Jacob, 2026-09-30): "our average
+  block is smaller (1/4 the size of a minecraft block should work)".  Whether that's a quarter the width
+  or a quarter the volume is open.
 
 ## Still open
 
 - **Whether the zone flag is on the chunk or on the voxel.**  On the chunk, a biome's edge runs in steps a
   chunk wide and the flag costs next to nothing.  On the voxel, the edge can run anywhere, and every voxel
   carries it.
-- A voxel's size in the game's units: about a metre, like Minecraft, or another size.
+- **"1/4 the size" of a Minecraft block: a quarter the width, or a quarter the volume.**  A quarter the
+  width is 25 cm a side: a player is about seven blocks tall, and a cubic metre holds 64 blocks where
+  Minecraft's holds one.  A quarter the volume is about 63 cm a side: a player about three blocks tall,
+  and four blocks to a cubic metre.
 - The chunk's size, and whether chunks are cubes stacked up and down or columns the world's full height.
 - What a voxel holds.
 - The world's size; flat, generated, or drawn by hand.
