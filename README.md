@@ -222,7 +222,9 @@ it.  Connections, Whitelist and Blacklist also wait for both of the network's li
   for password hashing, `rustls` for TLS and `mlua` for Lua.  Everything else is the standard library and
   what the OS already has.
 - **A C compiler**, because `mlua` builds Lua from its C source.  Nobara and Fedora have `gcc`; on Windows
-  it's Visual Studio's.
+  it's Visual Studio's (the Build Tools, with "Desktop development with C++"), and Rust has to be on its
+  MSVC toolchain (`rustup default stable-x86_64-pc-windows-msvc`).  Rust's GNU toolchain stops at
+  "error calling dlltool" unless MinGW is installed too.
 - **PostgreSQL 18**, on the same machine.  18 because every table's `uuid` column falls back on its
   `uuidv7()`.
 - **openssl**, once, to make the TLS certificate.
