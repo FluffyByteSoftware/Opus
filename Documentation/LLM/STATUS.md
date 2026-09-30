@@ -27,8 +27,8 @@ on the web admin's Server tab (CONTROL PANEL > Server), and STOP SERVER takes it
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
 stable release, moved only when Jacob says.  At this close `unstable` and `testing` are on the same
-commit, the `Cargo.lock` from Jacob's build of the account manager and the sections (`bee6af5`); `main` is
-still on the accounts-in-memory hand-off (`0a82d90`).
+commit: Jacob's build of the account manager and the sections (the `Cargo.lock`, `bee6af5`), then only
+docs.  `main` is still on the accounts-in-memory hand-off (`0a82d90`).
 
 **Built and tested on Linux (Nobara 44)**: everything up to and including this session.  Jacob built
 `testing` with the account manager and the sections on it (the build's `Cargo.lock` is committed) and went
