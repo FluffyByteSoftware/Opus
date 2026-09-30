@@ -64,6 +64,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         client isn't offered it, and the server turns it away too.
       - **Only the player deletes a character, and only one on their own account**: "Player can delete
         their character from their account that's it."  Not the admin.
+      - **The unplayable flag is built with them** (Jacob: "Now"), though nothing calls it until the spawn
+        loads a save.
     - **A corrupted character** (Jacob, 2026-09-30): a save that won't load fails the whole character
       (built), "send a notification to admin and mark this as a corrupted player character somehow" (not
       built).  Jacob's answers:
@@ -126,9 +128,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   for it (like the monitor's `latest()`); its read path under `/Opus/`, asked for when it's built.
   Nothing on it changes anything, so no `wwwhook` route.
 - **The character on the Connections tab's UDP list**, beside the account, once there are characters.
-- **A tab for the characters** (Jacob, 2026-09-30: "Yes let's build a tab for characters").  The admin
-  doesn't delete one there (only the player does).  Open: which section it's under, what it shows, and
-  its read route.
+- **A tab for the game's entities under GAME MANAGEMENT** (Jacob, 2026-09-30: "Yes let's build a tab for
+  characters", then "this is going to be a heading under Game Management to edit player characters or
+  NPCs since they're 'in game' entities").  So it edits, not only looks, and covers NPCs as well as
+  players' characters.  The admin doesn't delete a player's character there (only the player does).
+  Open: its name, what it shows and what can be edited, whether an edit goes to the row or to the copy in
+  the world (only the GameClock's thread touches the `World`), and its routes under `/Opus/wwwhook/`.
 - **A list of blocked names** (Jacob, 2026-09-30), its own session:
   - `Content/cfg/blocked_names.txt`, beside the two access lists, one entry a line and not in
     Constellations' table, so CLAUDE.md's "one exception" becomes three files.
