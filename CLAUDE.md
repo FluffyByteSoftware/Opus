@@ -72,12 +72,13 @@ Opus/
 │   ├── dev/               # source code
 │   │   └── Opus.Ensemble/ # the Unity project.  Its Assets/, Packages/ and UserSettings/ are gitignored (Jacob, 2026-09-29)
 │   └── build/             # compiled output -- never committed
-├── Content/               # data both programs read and write -- committed, except Assets/ and logs/
+├── Content/               # data both programs read and write -- committed, except Assets/, logs/ and world/
 │   ├── Assets/            # purchased art -- never committed
 │   ├── cfg/               # config files (conductor_globals, wgui, postgres, networking, whitelist, blacklist .cfg)
 │   ├── certs/             # the TLS certificate (committed) and its key (never committed), made with openssl
 │   ├── scripts/           # the Lua scripts, folders inside it and all (Jacob, 2026-09-30)
 │   ├── logs/              # log files -- never committed
+│   ├── world/chunks/      # the chunks players have changed, the game's save -- never committed
 │   └── psql/
 │       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
 │       └── migrations/    # every change to a table after that, numbered
@@ -101,8 +102,8 @@ what the compiler makes. Runtime data for both components lives in one shared
 named so it's clear who owns them (`conductor_globals.cfg`, `*.scribe.log`).
 Don't create new top-level folders without asking me.
 
-`Content/` is committed, except `Content/Assets/` (the purchased art) and
-`Content/logs/`. Even so, programs must create it and any file they need there
+`Content/` is committed, except `Content/Assets/` (the purchased art),
+`Content/logs/` and `Content/world/` (the game's save; Jacob, 2026-09-30). Even so, programs must create it and any file they need there
 (config, logs, saves, schemas) with sensible defaults when it's missing, and
 never crash because it's absent. Conductor finds it through the `OPUS_CONTENT`
 environment variable, or by walking up from the working directory until it sees
@@ -686,7 +687,7 @@ When I say we're wrapping up:
   It must stay private -- it holds purchased art assets that can't be
   redistributed. Never suggest making it public or pushing it anywhere else.
 - Never commit build output, logs, purchased art, or engine caches: both
-  `build/` folders, `Content/Assets/`, `Content/logs/`, Rust `target/`, Unity `Library/` `Temp/`
+  `build/` folders, `Content/Assets/`, `Content/logs/`, `Content/world/`, Rust `target/`, Unity `Library/` `Temp/`
   `Obj/` `Logs/`, Godot `.godot/`. If something like that
   shows up in `git status`, tell me and suggest a `.gitignore` line.
 - Large binary assets (models, textures, audio, `.blend`, `.unitypackage`) go

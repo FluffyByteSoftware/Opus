@@ -13,9 +13,11 @@ Ensemble/build/
 # The configs hold a placeholder database password, and Postgres only
 # listens on this machine, so that's fine.  The logs stay out, since they
 # change every run.  Content/Assets/ is the purchased art, which stays out
-# for now.
+# for now.  Content/world/ is the game's save, the chunks players have
+# changed, which changes every time somebody digs.
 Content/Assets/
 Content/logs/
+Content/world/
 Ensemble/dev/Opus.Ensemble/Assets/
 Ensemble/dev/Opus.Ensemble/Packages/
 Ensemble/dev/Opus.Ensemble/UserSettings/
