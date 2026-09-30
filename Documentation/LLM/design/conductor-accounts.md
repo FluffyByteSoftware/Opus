@@ -122,7 +122,7 @@ is the only one who deletes.
 
 ## Characters (`characters.rs`)
 
-Written 2026-09-30, not built yet.  The one way in to `player_characters`, and to the three slots on
+Built and tested 2026-09-30; nothing calls it until character select.  The one way in to `player_characters`, and to the three slots on
 `accounts` that point at a character by `id` (`character_slot_1` to `_3`).  This file never runs the save's
 Lua and never reads what's in it: the game writes the text (primlib's `to_lua()`) and reads it back
 (lua-parser's `read_save()`).

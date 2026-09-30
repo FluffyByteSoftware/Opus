@@ -66,11 +66,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         their character from their account that's it."  Not the admin.
       - **The unplayable flag is built with them** (Jacob: "Now"), though nothing calls it until the spawn
         loads a save.
-      - **Written, not built yet** (2026-09-30): `accounts/src/characters.rs`.  `design/conductor-accounts.md`,
+      - **Built and tested** (2026-09-30): `accounts/src/characters.rs`.  `design/conductor-accounts.md`,
         "Characters", has what each does.
     - **A corrupted character** (Jacob, 2026-09-30): a save that won't load fails the whole character
-      (built), "send a notification to admin and mark this as a corrupted player character somehow" (written,
-      not built).  Jacob's answers:
+      (built), "send a notification to admin and mark this as a corrupted player character somehow" (built).  Jacob's answers:
       - **The mark is "unplayable", and that's all**: "it should just flag a character as unplayable so
         the admin has to go and figure out if its salvageable or delete it".
       - **The notice is an Error.**

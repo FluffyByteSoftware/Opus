@@ -198,7 +198,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Ensemble             | The client players run.  Unity 6000.6, C#.              | Project settings committed       |
 | Soundcheck           | The patcher: hands each client a certificate.           | Named, not started               |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
-| conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested; characters.rs not built  |
+| conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested; characters not called yet |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |
 | conductor-networking | Lib: the login over TLS, the game over UDP.             | Tested                           |
 | conductor-lua-parser | Lib: runs the Lua scripts, locked down.                 | Tested                           |

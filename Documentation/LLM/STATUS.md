@@ -93,9 +93,10 @@ green, the table and its indexes, the slots, and the migration list ending at 2.
 
 ## This session so far (2026-09-30)
 
-The character functions are **written, not built yet**: `accounts/src/characters.rs` (list, load, create,
-save, delete, the name rule, the unplayable flag), and the launcher's `stop_server()` forgets the unplayable
-flags.  `design/conductor-accounts.md`, "Characters", has it.
+The character functions are **built and tested** (the build with no warnings, 13 tests in the accounts
+crate, START and STOP SERVER clean): `accounts/src/characters.rs` (list, load, create, save, delete, the name
+rule, the unplayable flag), and the launcher's `stop_server()` forgets the unplayable flags.  Nothing calls
+them until character select.  `design/conductor-accounts.md`, "Characters", has it.
 
 ## Where the next session starts
 

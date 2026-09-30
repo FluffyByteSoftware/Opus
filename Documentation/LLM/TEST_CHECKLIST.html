@@ -196,25 +196,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>The character functions in conductor-accounts</h2>
-<p class="soft">Nothing calls them until character select, so these are the build and the tests.</p>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      It builds with no warnings, and the accounts crate's tests pass, the four new ones in
-      <code>characters.rs</code> included (the name rule, the slot number, no Archivist, the unplayable flag).
-    </span></label>
-    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-accounts</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      START SERVER, then STOP SERVER: both still go clean, with nothing on the bell (the stop now forgets the
-      unplayable characters on the way down).
-    </span></label>
-    <pre class="cmd">cargo run -p conductor-launcher</pre>
-  </li>
-</ul>
-
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">
