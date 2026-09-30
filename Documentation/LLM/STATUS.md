@@ -30,10 +30,10 @@ stable release, moved only when Jacob says.  At this close `unstable` and `testi
 commit, the `Cargo.lock` from Jacob's build of the account manager and the sections (`bee6af5`); `main` is
 still on the accounts-in-memory hand-off (`0a82d90`).
 
-**Built on Linux (Nobara 44)**: everything up to and including this session.  Jacob built `testing` with
-the account manager and the sections on it (the build's `Cargo.lock` is committed) and said the page
-"looks great".  Every check for the sections passed and came out of TEST_CHECKLIST.md; the account
-manager's (2026-09-29) are still there until he says.  The Windows code has never been built.
+**Built and tested on Linux (Nobara 44)**: everything up to and including this session.  Jacob built
+`testing` with the account manager and the sections on it (the build's `Cargo.lock` is committed) and went
+through every check for both; all passed, and TEST_CHECKLIST.md is down to its Parked list.  The Windows
+code has never been built.
 
 ## Last session -- 2026-09-29 to 30, the web admin's sections
 
@@ -86,7 +86,6 @@ questions it opens with, none answered yet (the TODO.md entry has them too):
 ## What's waiting
 
 - **The protocore**, above.  Jacob's pick.
-- **The account manager's checks on `testing`**, in TEST_CHECKLIST.md, until Jacob says which passed.
 - **The blocked names list**, in TODO.md with his answers.
 - **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.
