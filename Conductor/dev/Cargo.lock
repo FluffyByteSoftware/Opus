@@ -169,6 +169,7 @@ dependencies = [
 name = "conductor-lua-parser"
 version = "0.1.0"
 dependencies = [
+ "conductor-primlib",
  "conductor-tools",
  "mlua",
 ]
