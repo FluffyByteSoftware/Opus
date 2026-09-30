@@ -128,7 +128,8 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Written, not built 
   requirement."  `check_living()` holds a Living blueprint to that: all five, and a short name that isn't
   blank.
 - **A Character is `Transform`, Living, `PrimitiveShape` (capsule) and `PlayerCharacter`.**  "Nothing else for
-  now."
+  now."  **A new one starts with 10 health, 10 endurance and 10 mana** (Jacob: "10 hp, 10 endurance, 10
+  mana"), set in the Character template (`STARTING_POOLS`), not in Living."
 - **A GameObject remembers the templates it came from**, its own first (`Character`, `Living`), so the game
   can ask `world.is(entity, "Living")`, the way Discworld's `living(ob)` did.  Blueprints carry the list, and
   the world keeps it per entity beside the stores (not a component: nothing adds or drops it after).
@@ -139,7 +140,7 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Written, not built 
   in C# or something [SavedField]"), the plain way (Jacob: "plain way I'll get used to it either way"): a
   `saved()` right under each struct names the fields it keeps, and a `load()` reads them back.  A field not
   named isn't saved and keeps the template's value.  Today:
-  - `Transform`: `position` and `rotation`.  Not the scale, which is the template's.
+  - `Transform`: `position`, `rotation` and `scale` ("Transform should probably hold scale as well").
   - `ShortName`, `LongName`: `text`.
   - `Titles`: `list`, and `picked` counted from 1 (0 is none).
   - `Health`, `Endurance`, `Mana`: `current` and `max`.
@@ -150,7 +151,8 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Written, not built 
   return {
     templates = { "Character", "Living" },
     components = {
-      Transform = { position = { x = 12.5, y = 0, z = -7.25 }, rotation = { x = 0, y = 90, z = 0 } },
+      Transform = { position = { x = 12.5, y = 0, z = -7.25 }, rotation = { x = 0, y = 90, z = 0 },
+                    scale = { x = 1, y = 1, z = 1 } },
       ShortName = { text = "jacob" },
       Health = { current = 150, max = 200 },
     },
@@ -162,8 +164,7 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Written, not built 
 - **Hydrating**: `character_from_save()` starts from the Character template, lays the save over it, then
   puts the `PlayerCharacter` on from the row.  A component added to Character later turns up on old saves at
   its default.
-- Open: a new character's starting health, endurance and mana (Living's defaults are 0), for character
-  creation; when a character is saved (leaving the world, STOP SERVER, every so often), for spawning.
+- Open: when a character is saved (leaving the world, STOP SERVER, every so often), for spawning.
 
 ## Lua, part two
 

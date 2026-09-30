@@ -58,16 +58,17 @@ impl Transform {
         Transform { position, rotation: Vector3::default(), scale: Vector3::new(1.0, 1.0, 1.0) }
     }
 
-    /// Saved: where it is and which way it faces.  Not the scale, which is
-    /// always what the template says.
+    /// Saved: where it is, which way it faces, and how big it is.
     pub fn saved(&self, out: &mut Fields) {
         out.put_vector3("position", self.position);
         out.put_vector3("rotation", self.rotation);
+        out.put_vector3("scale", self.scale);
     }
 
     pub fn load(&mut self, from: &Fields) -> Result<(), String> {
         from.read_vector3("position", &mut self.position)?;
-        from.read_vector3("rotation", &mut self.rotation)
+        from.read_vector3("rotation", &mut self.rotation)?;
+        from.read_vector3("scale", &mut self.scale)
     }
 }
 
@@ -588,16 +589,16 @@ mod tests {
     }
 
     #[test]
-    fn a_transform_keeps_its_scale_from_the_template() {
+    fn a_transform_reads_back_whole() {
         let mut moved = Transform::at(Vector3::new(1.0, 2.0, 3.0));
-        moved.scale = Vector3::new(9.0, 9.0, 9.0);
+        moved.rotation = Vector3::new(0.0, 45.0, 0.0);
+        moved.scale = Vector3::new(2.0, 2.0, 2.0);
         let mut saved = Fields::new();
         moved.saved(&mut saved);
 
         let mut read = Transform::default();
         assert_eq!(read.load(&saved), Ok(()));
-        assert_eq!(read.position, Vector3::new(1.0, 2.0, 3.0));
-        assert_eq!(read.scale, Vector3::new(1.0, 1.0, 1.0), "the scale isn't saved");
+        assert_eq!(read, moved);
     }
 
     #[test]

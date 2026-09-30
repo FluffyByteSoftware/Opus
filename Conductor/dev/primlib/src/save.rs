@@ -407,7 +407,8 @@ mod tests {
             .find(|(kind, _)| *kind == Kind::Transform)
             .map(|(_, fields)| fields.clone())
             .unwrap_or_default();
-        assert!(transform.get("position").is_some() && transform.get("scale").is_none());
+        assert!(transform.get("position").is_some() && transform.get("scale").is_some());
+        assert!(transform.get("parent").is_none(), "only the fields saved() names");
     }
 
     #[test]

@@ -14,9 +14,10 @@
 //!
 //! `Character` is a player's character: Living, a place in the world, a
 //! capsule to draw until there are models, and the `PlayerCharacter` that
-//! says whose it is.
+//! says whose it is.  A new one starts with 10 health, 10 endurance and 10
+//! mana.
 
-use crate::components::{Component, Kind, PlayerCharacter, PrimitiveShape};
+use crate::components::{Component, Kind, PlayerCharacter, Pool, PrimitiveShape};
 use crate::save::Save;
 use crate::template::{Blueprint, Template};
 
@@ -35,12 +36,19 @@ pub fn living_template() -> Template {
     living
 }
 
-/// Character: Living, plus a `Transform` (at 0, 0, 0, where everybody
-/// starts for now), a capsule, and a `PlayerCharacter` belonging to nobody
-/// until one is made from a save.
+/// A new character's health, endurance and mana, each.  Jacob's numbers.
+pub const STARTING_POOLS: u32 = 10;
+
+/// Character: Living with its pools full at `STARTING_POOLS`, plus a
+/// `Transform` (at 0, 0, 0, where everybody starts for now), a capsule,
+/// and a `PlayerCharacter` belonging to nobody until one is made from a
+/// save.
 pub fn character_template() -> Template {
     let mut character = Template::new(CHARACTER);
     character.take_in(&living_template());
+    character.add(Component::Health(Pool::full(STARTING_POOLS)));
+    character.add(Component::Endurance(Pool::full(STARTING_POOLS)));
+    character.add(Component::Mana(Pool::full(STARTING_POOLS)));
     character.add_default(Kind::Transform);
     character.add(Component::PrimitiveShape(PrimitiveShape::Capsule));
     character.add_default(Kind::PlayerCharacter);
@@ -78,7 +86,7 @@ pub fn check_living(blueprint: &Blueprint) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::{LongName, Pool, ShortName, Transform, Vector3};
+    use crate::components::{LongName, ShortName, Transform, Vector3};
     use crate::save::Fields;
     use crate::world::World;
 
@@ -119,6 +127,10 @@ mod tests {
             Kind::Transform, Kind::PrimitiveShape, Kind::PlayerCharacter,
         ]);
         assert!(character.components().contains(&Component::PrimitiveShape(PrimitiveShape::Capsule)));
+        for pool in [Component::Health(Pool::full(10)), Component::Endurance(Pool::full(10)),
+                     Component::Mana(Pool::full(10))] {
+            assert!(character.components().contains(&pool), "a new character starts with 10 of each");
+        }
     }
 
     #[test]
@@ -136,7 +148,7 @@ mod tests {
         assert_eq!(world.transform(jacob).map(|transform| transform.position), Some(Vector3::new(10.0, 0.0, -4.0)));
         assert_eq!(world.transform(jacob).map(|transform| transform.scale), Some(Transform::default().scale));
         assert_eq!(world.health(jacob), Some(&Pool { current: 80, max: 100 }));
-        assert_eq!(world.mana(jacob), Some(&Pool::default()), "not in the save, so the template's");
+        assert_eq!(world.mana(jacob), Some(&Pool::full(10)), "not in the save, so the template's");
         assert_eq!(world.primitive_shape(jacob), Some(&PrimitiveShape::Capsule));
     }
 
