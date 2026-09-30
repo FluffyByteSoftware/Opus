@@ -53,7 +53,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       see does.)
     - **The save is the GameObject**: "our save needs to be the GameObject and all of its components, and
       the components settings", and the templates it took in.  "We may when creating the components,
-      need to define what needs to be [saved]."
+      need to define what needs to be [saved]."  **Per field** (Jacob, 2026-09-30): "I think we do it per
+      field and attribute?  like we add this above in C# or something [SavedField]".
+    - **The player component is `PlayerCharacter`** (the account's `id` and the character's row `id`).
+    - **The built-in templates (Living, Character) live in `primlib/src/gameobject.rs`** (Jacob's name).
+    - **Part A first** (Jacob's yes): the GameObject side in primlib and lua-parser, no database.  Part B,
+      the `player_characters` table, the slots and the functions in `conductor-accounts`, after.
     - **The account's slots point at the character by `id`**, per CLAUDE.md ("refer to CLAUDE on this").
     - **Living is a "micro template"** (Jacob): it holds health, endurance and mana, and is added instead
       of adding each one.  "Some objects may have health and no endurance... but all living objects will
