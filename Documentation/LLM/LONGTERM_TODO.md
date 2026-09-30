@@ -114,25 +114,23 @@ the blueprint (`goblin_a`, their starting values), and the copies in the world.
 
 ## The world: voxels and zones
 
-Jacob's map at the 2026-09-30 close (STATUS.md has it): the world tick first, "then after that we build
-our world (voxel information and zone management after that)".  The tick is built (the GameClock,
-2026-09-30), so the world is what's next on his map.  The world is going to be **voxels**.
-**Being designed in `design/world.md`** (2026-09-30), which is the master copy from here on: the world is
-the total sum of everything, seamless, cut into chunks and chunks into voxels; a zone is a region marked
-on them, the same as a biome.
-What was open when it opened:
+Jacob's map at the 2026-09-30 close: the world tick first, "then after that we build our world (voxel
+information and zone management after that)".  **Designed and part one built, 2026-09-30:
+`conductor-gameworld`**, with everything settled in `design/world.md`.  The world is seamless, 8 km a side,
+in 50 cm blocks and chunks of 32 blocks a side, two chunks tall.  Zones turned out to be regions marked on
+the chunks (a region is a zone is a biome), written in `region.map` (`REGION_MAP.md`), not areas on clocks
+of their own.  The first world is Alpha (flat) and Omega (hills).
 
-- **Voxel information**: what a voxel holds; the chunk size; the world's size; flat or generated; where
-  it's kept (the database, files through DiskMan, or both) and when it's saved; what the client is sent
-  and when (the server decides what each client sees, so a player gets the chunks near them, not the
-  world).
-- **Whether the world belongs to primlib**, beside its `World` of entities, or is a piece of its own, and
-  whether chunks are entities or something beside the ECS.  TODO.md's protogame entry has asked since
-  2026-09-30.
-- **Zone management**: what a zone is (a fixed square of chunks, or drawn by hand), what it's for (who
-  hears what, what gets ticked, spawn areas for the spawn system, loading and unloading what nobody is
-  near), and how the tick handles one.
-- How it's seen on the web admin, if at all.
+What's left, a session or more each, open in `design/world.md`:
+
+- **Saving changed chunks** (part two): on STOP SERVER and every `save_minutes` (15, a setting in
+  `game.cfg`).  Comes with the first thing that changes a block.
+- **What a region does in the game** beyond its name: what grows and what spawns there.
+- **Sending chunks to a client**: only the ones near it, since the server decides what each client sees.
+  A protocol change.  And how Ensemble gets `region.map`.
+- **Loading around players who move**, instead of only around 0,0,0.
+- **Blending one biome into the next** where two regions meet (TODO.md's Ideas).
+- **A bigger world** ("it may _grow_ later"): `region.map` keeps its size in its header for that.
 
 ## Soundcheck, the patcher, and a certificate for every client
 

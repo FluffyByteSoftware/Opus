@@ -12,8 +12,10 @@ same day: `conductor-gameworld`.
 
 ## Where it stands
 
-**Part one is built and ran** (2026-09-30: Jacob's first world took 19 seconds to make).  The door waiting
-on the world, the sharp divide and BEDROCK came after, and aren't built yet.
+**Part one is built and tested on Linux** (2026-09-30: Jacob's first world took 19 seconds to make).  Every
+run check passed, the door waiting on the world, the sharp divide and BEDROCK included.  The last change,
+only housekeeping running until the ground is in, is pulled on Jacob's machine and its check is still on
+TEST_CHECKLIST.html.
 
 `conductor-gameworld` (lib, folder `Conductor/dev/gameworld/`) is a server piece with its own thread,
 `gameworld`, and a GameWorld line on the Services tab.  On START SERVER it reads `region.map`, or makes the

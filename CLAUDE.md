@@ -75,7 +75,7 @@ Opus/
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/, logs/ and world/
 │   ├── Assets/            # purchased art -- never committed
-│   ├── cfg/               # config files (conductor_globals, wgui, postgres, networking, whitelist, blacklist .cfg)
+│   ├── cfg/               # config files (conductor_globals, wgui, postgres, networking, game, whitelist, blacklist .cfg)
 │   ├── certs/             # the TLS certificate (committed) and its key (never committed), made with openssl
 │   ├── scripts/           # the Lua scripts, folders inside it and all (Jacob, 2026-09-30)
 │   ├── logs/              # log files -- never committed
@@ -312,6 +312,14 @@ When I say we're wrapping up:
   four matches, two getters).  The world lives in memory and the game
   loop never waits on the database: copies are written to it on STOP
   SERVER and read back on START SERVER (Jacob, 2026-09-30).
+- **The ground is `conductor-gameworld`** (folder `gameworld`, 2026-09-30;
+  `design/world.md` has all of it).  GameWorld's thread does the slow part
+  (making the world, reading `region.map`, the heights and chunk files
+  through DiskMan, building a chunk nobody changed); the chunks in memory
+  are the GameClock's `Terrain`, touched only on its thread.  A block's
+  number never changes once it's out there (AIR 0 to BEDROCK 5).  A
+  chunk's own file always wins over its region's ground, and a bad file is
+  never built over: it may be the only copy of somebody's digging.
 - `conductor-launcher` is the program. New server pieces (networking, the game)
   are lib crates, not programs of their own.
 - **Two kinds of restart.** A *soft reboot* is RESTART SERVER on the Control
@@ -693,7 +701,10 @@ When I say we're wrapping up:
   - You've pushed to `unstable` and I've hand-edited or built on my machine:
     `git pull` on `unstable`, so my copy matches before I do anything.
   - A build changed `Cargo.lock`: the `git add`, `git commit -m` and
-    `git push` for it.
+    `git push` for it, with a `git pull --no-rebase --no-edit` before the
+    push and the push naming both branches (`git push origin HEAD:testing
+    HEAD:unstable`).  On 2026-09-30 the session had pushed again while he
+    built, and a plain `git push origin` was turned away.
   - I've said to release: the commands that move `main` to `testing`.
   - A branch needs deleting on GitHub: the `git push origin --delete` line.
   If nothing on my side needs doing, say that too ("nothing to run in git"),

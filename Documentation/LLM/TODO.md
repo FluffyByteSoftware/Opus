@@ -65,12 +65,12 @@ Things that wait on a piece that doesn't exist yet.
     game library call them and never write SQL.
   - **Postgres does the wiping**: `account_id` is `ON DELETE CASCADE`, so an account's characters go
     with its row, and each slot is `ON DELETE SET NULL`, so a deleted character empties its slot.
-  Still open: the rest of the ECS (below); whether the world and the voxels are primlib's (and
-  LONGTERM_TODO.md's "The world" entry); which messages protogame carries (the client's UDP traffic to
+  Still open: the rest of the ECS (below); which messages protogame carries (the client's UDP traffic to
   its character, chat between characters, or the game telling a character what happened); who makes a
   character (the player from the client, or the admin); whether one is chosen at the TLS login or after
-  the UDP connect (protocol version 5 either way); the chunk and world sizes and where the world is
-  kept; the tick rate; how the test client shows it working.  More than one session's step, so the
+  the UDP connect (protocol version 5 either way); how the test client shows it working.  (The world
+  and its voxels became their own crate, `conductor-gameworld`, and the tick the GameClock, both
+  2026-09-30: `design/world.md`, `design/gameclock.md`.)  More than one session's step, so the
   first one picks where to stop.
   - **The ECS, so far** (Jacob, 2026-09-30, talked through here after the separate chat didn't
     work out): component driven.  An object is packed with components, and the components make it
@@ -193,8 +193,9 @@ Things that wait on a piece that doesn't exist yet.
   page, like the monitor's `latest()`); its read path under `/Opus/`, asked for when it's built.
   Nothing on it changes anything, so no `wwwhook` route.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
-  which today is Fingerprinter, Security, Archivist, the account desk, Lua, the GameClock, networking and
-  the monitor.  The game loop is in (the GameClock, 2026-09-30), and comes up and down with the rest.
+  which today is Fingerprinter, Security, Archivist, the account desk, Lua, GameWorld, the GameClock,
+  networking and the monitor.  The game loop is in (the GameClock, 2026-09-30), and comes up and down with
+  the rest.  Networking opens last, once the ground around 0,0,0 is in (2026-09-30).
 - **A list of blocked names** (Jacob, 2026-09-30, while the sections were drawn): names nobody gets to use,
   one a line, with a Blocked Names page under the web admin's CONFIGURATION heading (REMOVE on each, an
   ADD field, like the Whitelist and Blacklist tabs).  Its own session.  Jacob's answers:

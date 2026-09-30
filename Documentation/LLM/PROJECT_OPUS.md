@@ -100,11 +100,24 @@ Opus/
 │       │       ├── components.rs      # the components (Transform, PrimitiveShape, ...); Kind (which one, by name); Component (one, with its value)
 │       │       ├── world.rs           # World: the entities and a store per kind; spawn, despawn, add, remove, get
 │       │       └── template.rs        # Template (NPC) and Blueprint (goblin_a)
-│       ├── gameclock/                 # lib, conductor-gameclock -- the GameClock, the game loop; a server piece
-│       │   ├── Cargo.toml             # depends on conductor-tools and conductor-primlib
+│       ├── gameworld/                 # lib, conductor-gameworld -- the ground; a server piece, its thread is gameworld
+│       │   ├── Cargo.toml             # depends on conductor-tools
 │       │   └── src/
-│       │       ├── lib.rs             # start(), stop(); the GameClock's thread: five checks of 50 ms, a 250 ms cycle
-│       │       └── checks.rs          # the five checks in order: input, AI, movement, broadcast, housekeeping
+│       │       ├── lib.rs             # start(), stop(); reads the world (or makes it) and hands the GameClock chunks
+│       │       ├── make.rs            # making the world: a seed, Omega's heights, then region.map last
+│       │       ├── block.rs           # Block: AIR, DIRT, STONE, WOOD, GOLD, BEDROCK; the numbers never change
+│       │       ├── chunk.rs           # ChunkPos and Chunk (32 blocks a side), and a changed chunk's .chunk file
+│       │       ├── regionmap.rs       # region.map: which region every chunk is in (REGION_MAP.md is its contract)
+│       │       ├── heights.rs         # a heights region's file (omega.heights): the dirt's height per column
+│       │       ├── noise.rs           # Omega's rolling hills, from the seed, written by hand
+│       │       ├── build.rs           # an untouched chunk, built from its region's ground
+│       │       ├── terrain.rs         # Terrain: the chunks in memory, held by the GameClock's thread
+│       │       └── bytes.rs           # reading the binary files a number at a time, little-endian
+│       ├── gameclock/                 # lib, conductor-gameclock -- the GameClock, the game loop; a server piece
+│       │   ├── Cargo.toml             # depends on conductor-tools, conductor-primlib and conductor-gameworld
+│       │   └── src/
+│       │       ├── lib.rs             # start(), stop(), ready(); five checks of 50 ms, a 250 ms cycle; holds the Terrain
+│       │       └── checks.rs          # the five checks in order; only housekeeping runs until the ground is in
 │       ├── wgui/                      # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -monitor and -networking
 │       │   └── src/
@@ -115,16 +128,17 @@ Opus/
 │       │       ├── json.rs            # every JSON answer the page reads; the shapes at its top
 │       │       └── page.html          # the page, baked in: the login card, five sections of tabs, the bell, the locks
 │       └── launcher/                  # bin -- the program
-│           ├── Cargo.toml             # depends on seven of the libs (not primlib; the GameClock has it)
+│           ├── Cargo.toml             # depends on eight of the libs (not primlib; the GameClock has it)
 │           └── src/
-│               └── main.rs            # boots the program, starts and stops the server on the Control Panel's say
+│               └── main.rs            # boots, starts and stops the server; opens the door once the world is ready
 ├── Ensemble/                          # the client -- Unity, on Jacob's machine, not committed yet
-├── Content/                           # committed, except Assets/ and logs/; made on first run if missing
+├── Content/                           # committed, except Assets/, logs/ and world/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
 │   ├── cfg/wgui.cfg                   # the web admin's two accounts: user's and admin's passwords (hard)
 │   ├── cfg/postgres.cfg               # where Postgres is, the login, the time limit, the slow-job limit (soft)
 │   ├── cfg/networking.cfg             # the address and ports, the TLS files, the deadlines, the access switch (soft)
+│   ├── cfg/game.cfg                   # the game world: view_chunks, how far around a player is loaded (soft)
 │   ├── cfg/whitelist.cfg              # the whitelist: one address or range a line; read on START SERVER, written by the page
 │   ├── cfg/blacklist.cfg              # the blacklist, the same way
 │   ├── certs/conductor.crt            # the TLS certificate, made by hand with openssl -- committed
@@ -132,6 +146,9 @@ Opus/
 │   ├── scripts/hello.lua              # the Lua scripts live under scripts/; this one says hello on the Log tab
 │   ├── cfg/*.wait4server              # a change saved from the web admin, waiting for its reboot -- never committed
 │   ├── logs/YYYY_MM_DD.scribe.log     # one log file per UTC day -- never committed
+│   ├── world/region.map               # the game's save starts here: which region every chunk is in -- never committed
+│   ├── world/Regions/Omega/omega.heights # Omega's hills, made once from the seed -- never committed
+│   ├── world/Regions/<Region>/*.chunk # a chunk somebody changed, whole (none yet) -- never committed
 │   └── psql/
 │       ├── defaults/schemas/accounts.sql  # the accounts table as first made
 │       └── migrations/                # the rules in README.md; 0001 put a uuid on every table
@@ -157,6 +174,7 @@ Opus/
             ├── lua-parser.md          # the Lua crate: what a script gets, what it can't do, the limits
             ├── primlib.md             # the game library: entities, components, templates, blueprints; what's open
             ├── gameclock.md           # the GameClock: the beat, the order of the checks, a late cycle; what's open
+            ├── world.md               # the world: regions, chunks, blocks, its files; GameWorld; what's open
             └── ecs-discussion.md      # the ECS brief for another chat; answered by primlib, kept as history
 ```
 
@@ -175,6 +193,7 @@ Where each one lives is in the tree above.
 | conductor-networking | Lib crate: the login over TLS, the game over UDP. | Runs on Linux              |
 | conductor-lua-parser | Lib crate (folder `lua-parser`): runs the Lua scripts, locked down. | Built and tested on Linux |
 | conductor-primlib  | Lib crate (folder `primlib`): the game library, an ECS. | Built and tested on Linux    |
+| conductor-gameworld | Lib crate (folder `gameworld`): GameWorld, the ground. | Built and tested on Linux |
 | conductor-gameclock | Lib crate (folder `gameclock`): the GameClock, the game loop. | Built and tested on Linux |
 | conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
 | conductor-launcher | Bin crate: the program.  Boots, then waits on the Control Panel. | Runs on Linux |

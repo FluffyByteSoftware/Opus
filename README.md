@@ -158,12 +158,26 @@ write the same 50 lines in 50 NPCs, and a blueprint (`goblin_a`) starts from a t
 it needs.  The world spawns copies of a blueprint, each with its own values.  For now it's Rust only; the
 GameClock runs a world of it, and the templates and blueprints get written in Lua later.
 
+### The ground (`conductor-gameworld`)
+
+GameWorld.  The world is 8 km a side, seamless, made of blocks 50 cm a side (a player is 4 blocks tall),
+in chunks of 32 blocks a side, two chunks tall: you can dig down to -15 and build up to +30.  It's cut into
+regions, and a region is a biome.  The first world has two: Alpha to the west of 0,0,0, flat, and Omega to
+the east, in rolling hills.  The block at 0,0,0 is gold, so the middle can be seen.
+
+The first START SERVER makes the world (about 20 seconds), and every one after reads it back from
+`Content/world/`, which is the game's save and stays out of git.  A chunk nobody has changed isn't saved at
+all: it's built from its region's ground when it's needed.  `region.map` says which region every chunk is
+in, and `Documentation/LLM/REGION_MAP.md` explains it byte for byte.  Nobody gets in until the ground
+around 0,0,0, where everybody starts for now, is loaded.
+
 ### The GameClock (`conductor-gameclock`)
 
-The game loop.  It owns the world and steps it forward on a fixed beat: a full cycle is 250 ms, cut into
-five checks of 50 ms, and each check does its own job on its own group of objects.  In order: the
-players' input, the AI's brains, movement, the positions going out to everybody, and housekeeping.  The
-checks are empty for now, since nothing in the world moves yet.
+The game loop.  It owns the world and the ground, and steps them forward on a fixed beat: a full cycle is
+250 ms, cut into five checks of 50 ms, and each check does its own job on its own group of objects.  In
+order: the players' input, the AI's brains, movement, the positions going out to everybody, and
+housekeeping.  Until the ground around 0,0,0 is in, only housekeeping runs, so nothing acts on thin air.
+The checks are mostly empty for now, since nothing in the world moves yet.
 
 The rate is fixed in the code on purpose.  From my testing on an earlier go at this, anything faster than
 250 ms is a problem; slower is fine.  A check that runs long makes the next one late, and nothing is
@@ -337,6 +351,7 @@ Opus/
 │   │   ├── networking/            the login over TLS, the game over UDP, the access lists; test_client.py
 │   │   ├── lua-parser/            runs the Lua scripts, locked down
 │   │   ├── primlib/               the game library: entities, components, templates and blueprints
+│   │   ├── gameworld/             GameWorld: the ground, its blocks, chunks and regions, and their files
 │   │   ├── gameclock/             the GameClock: the game loop, five checks of 50 ms to a 250 ms cycle
 │   │   ├── wgui/                  the web admin
 │   │   └── launcher/              the program: boots, then runs the server on the Control Panel's say
@@ -349,10 +364,12 @@ Opus/
 │   ├── psql/defaults/schemas/     the tables as first made, one file each
 │   ├── psql/migrations/           every change to a table since, numbered
 │   ├── logs/                      one log file per UTC day, never committed
+│   ├── world/                     the game's save: region.map and the regions' files, never committed
 │   └── Assets/                    the purchased art, never committed
 └── Documentation/                 design notes, the protocol, and the working docs
 ```
 
-Build output, logs, the purchased art in `Content/Assets/` and the engines' caches stay out of git.  Large
+Build output, logs, the game's save in `Content/world/`, the purchased art in `Content/Assets/` and the
+engines' caches stay out of git.  Large
 binary assets go through Git LFS.  The repo is private and stays that way: the art in it can't be
 redistributed.

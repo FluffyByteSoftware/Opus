@@ -8,131 +8,109 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor is nine crates, each in a folder without the `conductor-` in front (`Conductor/dev/tools/`)
-while the crate keeps it (`conductor-tools`, `conductor_tools::` in code; the prefix is what tells our
-crates apart from everybody else's, Jacob's reason).  `conductor-tools` (lib) holds DiskMan, Scribe,
-Constellations, Fingerprinter, Security, Archivist, the notices, the clock, the thread list, the services
-list and the server's switch (`server.rs`).  `conductor-accounts` (lib) is the one way in to the accounts
-table, and the account desk.  `conductor-monitor` (lib) looks at the process and every process on the
-machine once a second.  `conductor-networking` (lib) is the front door: a login over TLS on TCP that hands
-a player a ticket for UDP, the UDP side the game will run on, a ledger of every connection at the door,
-and a whitelist and a blacklist.  `conductor-lua-parser` (lib, folder `lua-parser`) runs the Lua scripts
-in `Content/scripts/`, locked down.  `conductor-primlib` (lib, folder `primlib`) is the game library:
-entities, components, templates and blueprints, in memory.  **`conductor-gameclock`** (lib, folder
-`gameclock`) is the GameClock, the game loop: it owns a `World` and runs five checks of 50 ms to a 250 ms
-cycle.  `conductor-wgui` (lib) is the web admin at `http://127.0.0.1:9996/Opus`, and the only way to start
-and stop the server and to shut Conductor down.  `conductor-launcher` (bin) boots the program and waits on
-the web admin's Server tab.  Ensemble is Unity 6000.6, on Jacob's machine, not in the repo.
+Conductor is ten crates, each in a folder without the `conductor-` in front (`Conductor/dev/tools/`) while
+the crate keeps it (`conductor-tools`, `conductor_tools::` in code).  `conductor-tools` (lib) holds DiskMan,
+Scribe, Constellations, Fingerprinter, Security, Archivist, the notices, the clock, the thread list, the
+services list and the server's switch (`server.rs`).  `conductor-accounts` (lib) is the one way in to the
+accounts table, and the account desk.  `conductor-monitor` (lib) looks at the process and the machine once
+a second.  `conductor-networking` (lib) is the front door: a login over TLS on TCP that hands a player a
+ticket for UDP, the UDP side, a ledger of every connection, and the access lists.  `conductor-lua-parser`
+(lib) runs the Lua scripts, locked down.  `conductor-primlib` (lib) is the game library, an ECS in memory.
+**`conductor-gameworld`** (lib, folder `gameworld`) is GameWorld, the ground, new this session.
+`conductor-gameclock` (lib) is the GameClock, the game loop: five checks of 50 ms to a 250 ms cycle, and it
+owns primlib's `World` and GameWorld's `Terrain`.  `conductor-wgui` (lib) is the web admin at
+`http://127.0.0.1:9996/Opus`.  `conductor-launcher` (bin) boots the program and waits on the web admin's
+Server tab.  Ensemble is Unity 6000.6; its first project settings are on `main` (Jacob's commit), the rest
+on his machine.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
-is up from the moment the launcher runs.  The web admin has a login: `admin` / `admin` does everything,
-`user` / `user` looks, both passwords in `wgui.cfg`.  The server (Fingerprinter, Security, Archivist, the
-account desk, Lua, the GameClock, networking, the monitor) only starts when START SERVER is pressed on the
-web admin's Server tab (CONTROL PANEL > Server), and STOP SERVER takes it back down with Conductor still
-running.
+is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
+Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
+SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**: nobody
+gets in before there's a voxel to step on.
 
-**The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  At this close all three are on this hand-off: Jacob said to
-merge everything to main, so `main` has the GameClock and the Windows build's write-up.
+**The branches**: `unstable` and `testing` are on this hand-off.  `main` is still at Jacob's Ensemble
+project settings commit, behind both; it moves when Jacob says.
 
-**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, the GameClock included.  **On
-Windows**: it builds with no warnings and runs, START SERVER included, but hasn't had a database there (the
-last session, below).  TEST_CHECKLIST.html is down to one Parked check, the server on Windows with
-Postgres.
+**Built and tested on Linux**: everything but the last change of this session (only housekeeping running
+until the ground is in), which Jacob has pulled; its check is the one left on TEST_CHECKLIST.html beside
+the Parked Windows one.  **On Windows**: built and runs, START SERVER included, without a database; the
+world hasn't been made there yet.
 
 ## Jacob's map (2026-09-30)
 
 His words, at the close of the primlib session: "next session we build tick, then after that we build our
-world (voxel information and zone management after that)".  Written down at his ask, so it isn't
-forgotten.  His to change.  At the close of the Windows session he picked it back up: "We go back to the
-map I came up with earlier after implementing tick."  So the world's voxels are next, by his map.
+world (voxel information and zone management after that)".  His to change.
 
-1. ~~**The world tick.**~~  **Done, 2026-09-30: the GameClock** (`design/gameclock.md`).  Its five checks
-   are empty slots; filling them comes as the world gets things that move.
-2. **The world: voxel information.**  What the world is made of.  Nothing is designed yet.
-   LONGTERM_TODO.md's "The world: voxels and zones" entry has what's open: what a voxel holds, the chunk
-   size, the world's size, flat or generated, where it's kept and when it's saved (the database, files
-   through DiskMan, or both), what each client is sent (only the chunks near them, since the server
-   decides what each client sees), and whether the world belongs to primlib beside its `World` of
-   entities or is a piece of its own.  Anything bigger than a small fix gets a plan first, per CLAUDE.md,
-   and a new crate gets its name from Jacob.
-3. **Zone management.**  The world split into zones: what a zone is (a fixed square of chunks, or drawn
-   by hand), what it's for (who hears what, what gets ticked, spawn areas, loading and unloading what
-   nobody is near), and how the GameClock handles one.  Same entry.
+1. ~~**The world tick.**~~  **Done: the GameClock** (`design/gameclock.md`).
+2. ~~**The world: voxel information.**~~  **Part one done this session: `conductor-gameworld`**
+   (`design/world.md`).  Part two, saving changed chunks, waits on something that changes a block.
+3. ~~**Zone management.**~~  **Settled this session as regions**: a zone is a region is a biome, a label
+   on each chunk in `region.map`, not an area on a clock of its own.  What a region does in the game
+   (what grows, what spawns) is open in `design/world.md`.
 
-Waiting beside the map: saving the copies on STOP SERVER and loading them back on START SERVER, each with
-its UUID and internal name (`design/primlib.md`), and the spawn system (TODO.md), which goes in the
-GameClock's housekeeping check when it comes.
+At this session's close, his next: "Next session we are going to further improve the tie between game and
+network I think."  Nothing about it is designed yet.  The pieces it would touch are in "What's waiting":
+the GameClock's input and broadcast checks, sending chunks to a client, and players who move.
 
-## Last session -- 2026-09-30, the first Windows build
+## Last session -- 2026-09-30, the world
 
-No code changed.  Jacob built Conductor on a Windows laptop for the first time, a Git GUI clone in
-`C:\TEMP\download2`, and it's written up in `Documentation/HowTo/WINDOWS_INSTALL.md` (a new folder,
-`Documentation/HowTo/`, his pick, for how-tos meant for a person).
+Designed with Jacob from nothing, then part one built, tested and passed the same day.  `design/world.md`
+has every answer in his words; `REGION_MAP.md` is new.
 
-- **What fought back**, all toolchain, none of it our code: Rust was on the GNU toolchain, which stopped at
-  "error calling dlltool" in `windows-sys` and `which`.  Switched to MSVC; then `link.exe` wasn't there
-  until the Visual Studio Build Tools went on with "Desktop development with C++".  A "timeout reading
-  rustc version" from `rustup` along the way was harmless.
-- **Then it built with no errors and no warnings**, Lua's C build included, and Conductor ran.  START
-  SERVER works; the laptop has no Postgres, so Archivist times out and the data tabs stay locked, as they
-  should.  So the monitor's kernel32 numbers, Fingerprinter's `BCryptGenRandom()` and DiskMan's rename on
-  Windows haven't been looked at yet.  That's the one Parked check.
-
-## The session before -- 2026-09-30, the GameClock
-
-Planned, written, built and tested the same day.  `design/gameclock.md` has the whole of it.
-
-- **Jacob's design**, from an earlier go at this (a MUD, where it was "the heartbeat"): a full cycle is
-  **250 ms**, cut into **five checks of 50 ms**, each touching its own group of objects.  With Argon2 on
-  its one thread on the side, it never ran far over 250 ms.  He remembered it stashed in
-  `conductor-tools`; it wasn't in Opus's history (Stratum or Mantle, most likely), so it was written fresh.
-- **His answers**: the checks run input, AI, movement, broadcast, housekeeping ("I have no idea what order
-  they should go in", so it can move); a late check makes the next one late and nothing is skipped; **the
-  rate is fixed in code**, never a setting ("anything faster is gonna be a problem.  Slower is fine but
-  faster becomes bad").
-- **What's built**: `conductor-gameclock` (lib), a server piece on its own thread, `gameclock`.  It makes
-  a fresh `World` on every START SERVER and owns it outright, no lock.  Each check is due 50 ms × n after
-  its cycle started, so nothing drifts; the wait is `recv_timeout` on the stop channel.  A cycle whose
-  last check finishes past 250 ms is late, and the next starts at once on a fresh schedule.  A late cycle
-  is a Debug line; one a second or more over is a Warn, at most one a minute.  The Services tab's GameClock
-  line counts cycles, late ones and the busiest.  The launcher starts it after Lua and before networking,
-  and stops it after networking.  The five checks are empty.
-- **The name went round once.**  Jacob said "`conductor_heartbeat` is the lib name in code, and the crate
-  name is going to be gameclock", and it was built that way (a `[lib] name`).  Then: "it should be in code
-  `conductor_gameclock::start()`", and the service is "the GameClock".  "Heartbeat" was his MUD's lingo
-  and "doesn't seem professional" for Opus.  So no crate breaks the naming rule.
-- **A Tick evaluator tab** under GAME MANAGEMENT is in TODO.md, Jacob's ask, for later.
-- **What fought back**: nothing.  It compiled clean the first time; the rename compiled clean too.
-- **Tested by Jacob, all passed**: a clean build with no warnings, every test (the GameClock's 8
-  included), GameClock green on the Services tab at about 240 cycles a minute, its thread near nothing on
-  the CPU, a test client login leaving the late count at 0, and STOP SERVER and START SERVER counting
-  over from 0.
+- **The design**: the world is the total sum of everything, **seamless** (one `World`, one GameClock; zones
+  on their own clocks were weighed and passed over), for 25 to 50 players.  **Blocky**, blocks **50 cm** a
+  side ("A player is to be 4 blocks tall at 2 meters"), **chunks 32 a side** (16 m, cubes stacked in two
+  rows), **8 km a side**, -8192 to 8191 blocks each way, 0,0,0 in the middle.  Dig to -15, build to +30,
+  BEDROCK at -16.  A block holds its kind only, two bytes: AIR, DIRT, STONE, WOOD, GOLD (the block at
+  0,0,0), BEDROCK.  **A region is a zone is a biome**, flagged per chunk.  The first world is **Alpha** to
+  the west, flat (dirt at 0, stone to -15), and **Omega** to the east, smooth rolling hills of +/- 5, with a
+  sharp divide between them ("in a real build ... we'll have a blending technique").
+- **The files**, all in `Content/world/`, gitignored: `region.map`, binary, for the server and the client
+  (`REGION_MAP.md`, Jacob's ask: "a thorough document that explains how to read our new binary map
+  file"); `Regions/Omega/omega.heights`, Omega's hills saved once (134 MB, instead of 8 GB of chunks); and
+  `Regions/<Region>/<region>_<x>_<z>_<row>.chunk` for a changed chunk, which always wins.  An untouched
+  chunk isn't saved at all.
+- **What's built**: GameWorld, a server piece on its own thread, makes the world on the first START SERVER
+  (19 seconds on Jacob's machine), reads it on every one after, makes a lost heights file again from the
+  seed, and hands the GameClock the chunks it asks for.  The GameClock holds them in a `Terrain` and asks
+  for the ones within `view_chunks` (a new soft file, `game.cfg`) of 0,0,0, where every player starts.
+- **Two fixes from Jacob's testing**: the door was open while the world was being made ("big bug xD"), so
+  networking now starts from the launcher's command loop once `conductor_gameclock::ready()`; and "I don't
+  want NPCs acting while the server world isn't ready", so until then only housekeeping runs.
+- **What fought back**: nothing in the build.  Git did: Jacob's `Cargo.lock` commit was turned away
+  because the session had pushed meanwhile; a `git pull --no-rebase` and a push to both branches fixed it,
+  and CLAUDE.md now gives that line.
+- **Tested by Jacob, 11 of 12 passed**: the build, making the world, the files and their sizes, a restart
+  reading it back, `view_chunks` at 8 (578 chunks), a lost heights file coming back with the same checksum,
+  a stop part way through making, the door waiting and a stop while it waits, the thread.  The twelfth,
+  only housekeeping before the ground is in, wasn't run yet.
 
 ## What's waiting
 
-- **Jacob's map above**: the world's voxels, then zones.  He's said the voxels are next.
+- **Jacob's next**: the tie between the game and networking.  Not designed.
+- **The one check left** on TEST_CHECKLIST.html: only housekeeping runs until the ground is in.
+- **The world's part two**: saving changed chunks on STOP SERVER and every `save_minutes`, with the first
+  thing that changes a block.  `design/world.md`.
+- **Sending chunks to a client**, and how Ensemble gets `region.map`.  A protocol change.
+- **Loading around players who move**, not just 0,0,0.
 - **What goes in each of the GameClock's checks**: an input mailbox and an input packet (a protocol bump),
-  a brain for the AI, movement into `Transform`, the broadcast (only what each player may see).
-  `design/gameclock.md`.
+  a brain for the AI, movement into `Transform`, the broadcast.  `design/gameclock.md`.
+- **What a region does**: what grows and spawns there.  And blending biomes where they meet (TODO.md's
+  Ideas).
 - **A Tick evaluator tab** under GAME MANAGEMENT.  In TODO.md.
-- **Saving the copies and their UUIDs and internal names**, and loading them back.  `design/primlib.md`.
-- **The spawn system**: keeps the goblin_as topped up, in the housekeeping check.  In TODO.md.
-- **primlib in Lua** (part 2): templates and blueprints as scripts, `setup()` and `awake()`.
-  `design/primlib.md`.
+- **Saving primlib's copies and their UUIDs and internal names**, and loading them back.  `design/primlib.md`.
+- **The spawn system**, in the housekeeping check, waiting on `ready()` itself.  In TODO.md.
+- **primlib in Lua** (part 2).  `design/primlib.md`.
 - **The protogame database side**: `player_characters` and the three slots.  In TODO.md.
-- **The blocked names list**, in TODO.md with his answers.
-- **Playtime metrics**: a table of play sessions.  In TODO.md.
-- **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  In TODO.md.
-- **The stale words in the code**, in TODO.md.
-- **Where the test client lives** and what it's called.  It's `Conductor/dev/networking/test_client.py`
-  for now.
-- Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.
-- The Debug switch in `conductor_globals.cfg`.
-- Catching Ctrl-C.
-- The server on Windows with a database, once the laptop has PostgreSQL 18.  Parked in TEST_CHECKLIST.html.
-- **Soundcheck** (`Opus.Soundcheck`), the patcher, and a certificate for every client (mutual TLS, one per
-  client).  LONGTERM_TODO.md.
-- **Ensemble**, its own session.  The Unity project is `Ensemble/dev/Opus.Ensemble/`, on Jacob's machine
-  and untracked.  Before any of it is committed, a look together: what a Unity project commits, where the
-  purchased art goes, and LFS for anything big.
+- **The blocked names list**, **playtime metrics**, **moving `wgui_port` into `wgui.cfg`**, **the stale
+  words in the code**: in TODO.md.
+- **Where the test client lives** and what it's called.
+- Archivist retrying on its own while disconnected; the Debug switch in `conductor_globals.cfg`; catching
+  Ctrl-C.
+- The server on Windows with a database.  Parked in TEST_CHECKLIST.html.
+- **Soundcheck**, the patcher, and a certificate for every client.  LONGTERM_TODO.md.
+- **Ensemble**, its own session.  Its first project settings went onto `main` from Jacob's machine this
+  morning, including `Assembly-CSharp*.csproj` and `Opus.Ensemble.slnx`, which Unity rewrites on every open
+  and usually stay out of git; and the nested `Ensemble/dev/Opus.Ensemble/.gitignore` has no header.  A look
+  together before more of it goes in: what a Unity project commits, where the purchased art goes, and LFS.
