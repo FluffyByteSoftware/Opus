@@ -10,7 +10,7 @@ Conductor is written and tested on Linux.  The Windows code is wired in behind t
 this is what it took to build Conductor on a Windows laptop.  Everything here was done on 2026-09-30, the
 first time Conductor was built on Windows.  It built with no errors and no warnings, Conductor runs, and
 START SERVER works.  The laptop has no Postgres, so Archivist times out and the data tabs stay locked, which
-is what it should do.  So far this only covers the build.
+is what it should do.  So far this covers the build and a first run.
 
 The commands are for `cmd`, the plain Windows terminal, sitting in `Conductor\dev` in the clone.  None of
 them need an admin terminal; the Build Tools installer asks for permission on its own.
@@ -56,6 +56,15 @@ cargo clean
 cargo build
 ```
 
+**5. Run it**, the same as on Linux:
+
+```
+cargo run -p conductor-launcher
+```
+
+Then open <http://127.0.0.1:9996/Opus>, log in as `admin` (the password is in `Content\cfg\wgui.cfg`), and
+press START SERVER.  Conductor finds `Content\` by walking up from `Conductor\dev`, so nothing needs setting.
+
 ## What went wrong on the way
 
 These are the errors we hit, in the order we hit them.
@@ -73,7 +82,10 @@ These are the errors we hit, in the order we hit them.
 
 ## Not tried yet
 
-The server on Windows with a database, which needs PostgreSQL 18 on the machine and the TLS certificate (README.md
-has the `openssl` command; Git for Windows carries an `openssl.exe` under `C:\Program Files\Git\usr\bin`).
-The monitor's kernel32 code, Fingerprinter's `BCryptGenRandom()` and the rest of the server's Windows paths
-only show once the database is there and the tabs unlock.  This file grows as they do.
+The server on Windows with a database, which needs PostgreSQL 18 on the machine and the TLS certificate
+(README.md has the `openssl` command; Git for Windows carries an `openssl.exe` under
+`C:\Program Files\Git\usr\bin`).  The monitor's kernel32 code, Fingerprinter's `BCryptGenRandom()` and the
+rest of the server's Windows paths only show once the database is there and the tabs unlock.
+
+GameWorld came after that first build, so a build with it in, and a world made on Windows, haven't been tried
+either.  This file grows as they are.

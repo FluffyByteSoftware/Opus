@@ -7,15 +7,14 @@ Author:     Jacob Chacko
 # Opus -- Protocol
 
 What Conductor and its clients say to each other, down to the byte.  Written for somebody building a
-client who has never seen Conductor's code.  Conductor's half is `networking/src/protocol.rs`,
-and the Python test client beside it is the other half for now; when either disagrees with this document,
-it is the code that gets fixed.
+client who has never seen Conductor's code.  Conductor's half is `Conductor/dev/networking/src/protocol.rs`,
+and the Python test client beside the crate (`networking/test_client.py`) is the other half until Ensemble
+speaks it; when either disagrees with this document, it is the code that gets fixed.
 
 Protocol version **4**.  The number goes up when a packet changes, and the server says it in the first
 thing it sends, so a client built against another version can stop right there.  Version 4 (2026-09-29)
 added reason `5`, account terminated, to Kicked.  Version 3 (the same day) added reason `4`, kicked by
-the admin.  Version 2 (the same day) added reason `3`, banned;
-version 1 was everything before it.
+the admin.  Version 2 (the same day) added reason `3`, banned.  Version 1 was everything before it.
 
 ## The shape of it
 
@@ -139,8 +138,8 @@ can't are short labels with no period.
    "Invalid Credentials" and it isn't (a token it doesn't know, one already used from another address, or
    a player's own address asking with a different token).  A Connect it can't read (a token that isn't
    exactly 64 characters, bytes left over, a packet over 1200 bytes) gets no answer at all, and neither
-   does one from an address the access lists turn away.  A ConnectResult is always smaller than a Connect, so the server
-   can't be used to flood a faked address.
+   does one from an address the access lists turn away.  A ConnectResult is always smaller than a Connect,
+   so the server can't be used to flood a faked address.
 3. The client sends **KeepAlive** once a second, and the server sends one straight back.  A client that
    hears none for a while should assume the server is gone and go back to the login screen.  The server
    drops a player it hasn't heard from in its UDP timeout (40 seconds by default), silently.

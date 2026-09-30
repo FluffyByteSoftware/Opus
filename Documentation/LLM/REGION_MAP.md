@@ -193,8 +193,7 @@ Conductor does exactly these checks, in this order.
 Conductor never half-reads a map.  Any one of the checks above failing, or the file being there but
 unreadable, is an Error in the log and on the bell, GameWorld goes to trouble on the Services tab with
 what was wrong (".../Content/world/region.map isn't right: the file ends before the chunks"), and that
-run has no ground.  Since
-no chunk can be had around 0,0,0, the door never opens either: nobody gets in.
+run has no ground.  Since no chunk can be had around 0,0,0, the door never opens either: nobody gets in.
 
 Conductor never writes over a map it can't read.  Somebody's world is in there.  A missing map is
 different: that's a new world, and it gets made.
