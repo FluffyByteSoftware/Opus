@@ -201,13 +201,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      It builds with no warnings, and the web admin's and the accounts crate's tests pass, the new
-      <code>the_characters_are_for_both_and_only_while_the_server_runs</code> included.
-    </span></label>
-    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-wgui -p conductor-accounts</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       GAME MANAGEMENT has Characters under Connections, locked until the server is running and the
       database connected.  Opened, as admin and as user both, it reads "0 character(s)" and "No characters
       yet.  Players make them at character select.", with nothing red, and REFRESH asks again.
