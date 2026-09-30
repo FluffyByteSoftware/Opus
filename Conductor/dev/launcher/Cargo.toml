@@ -13,6 +13,7 @@ edition = "2024"
 
 [dependencies]
 conductor-accounts = { path = "../accounts" }
+conductor-gameclock = { path = "../gameclock" }
 conductor-lua-parser = { path = "../lua-parser" }
 conductor-monitor = { path = "../monitor" }
 conductor-networking = { path = "../networking" }
