@@ -196,27 +196,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>2026-09-30 -- Lua's first step (lua-parser)</h2>
-<p class="soft">
-  Built and mostly checked on 2026-09-30.  These two are what's left.
-</p>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A build that recompiles <code>lua-parser</code> (the <code>touch</code> makes sure it does) shows no
-      <code>warning:</code> line naming <code>lua-parser</code>.
-    </span></label>
-    <pre class="cmd">touch lua-parser/src/lib.rs &amp;&amp; cargo build</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Take the four test scripts back out, and RESTART SERVER is back to hello alone, with Lua green again
-      on the Services tab.
-    </span></label>
-    <pre class="cmd">rm /opt/storage/Coding/Opus/Content/scripts/broken.lua /opt/storage/Coding/Opus/Content/scripts/flood.lua /opt/storage/Coding/Opus/Content/scripts/runaway.lua /opt/storage/Coding/Opus/Content/scripts/sandbox.lua</pre>
-  </li>
-</ul>
-
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">

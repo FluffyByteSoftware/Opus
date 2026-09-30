@@ -100,7 +100,7 @@ went into `EXPECTED` in `services.rs` but not into the test that lists every exp
   its second; `io`, `os`, `require`, `dofile` and `load` all read `nil`.  Lua went red on the Services
   tab (two scripts failed), and Conductor carried on.  The flood's first run printed `line1` fifty times;
   that was a typo in the script (`.. 1` for `.. i`), not the log.
-- Still on TEST_CHECKLIST.html: taking the four scripts out and restarting (hello alone, Lua green
-  again), and a build that recompiles `lua-parser` to look for warnings.
+- Taking the four scripts back out and restarting: hello alone.  And a build with no warnings from
+  `lua-parser`.  Every Lua check passed; none are left on TEST_CHECKLIST.html.
 - **Never built on Windows.**  `mlua` builds Lua with the C compiler, which on Windows is Visual
   Studio's.

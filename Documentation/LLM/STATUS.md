@@ -32,8 +32,8 @@ stable release, moved only when Jacob says.  At this close `unstable` and `testi
 Jacob's `Cargo.lock` commit (mlua) included.  `main` is still on the 2026-09-30 hand-off before this one:
 this session's Lua work hasn't been released.
 
-**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, Lua included, with two small Lua
-checks left on TEST_CHECKLIST.html.  The Windows code has never been built, and now that includes Lua's C
+**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, Lua included.  TEST_CHECKLIST.html
+is down to its two Parked checks.  The Windows code has never been built, and now that includes Lua's C
 build, which needs Visual Studio's compiler there.
 
 ## Last session -- 2026-09-30, Lua's first step, and the checklist as a page
@@ -57,8 +57,9 @@ Written, built and tested the same day.  `design/lua-parser.md` has the whole of
 - **What fought back**: one slip of mine.  Lua went into `EXPECTED` in `services.rs` but not into the
   test that lists every expected service, so `cargo test` failed until it did.  CLAUDE.md now says a new
   service goes in both.
-- **Tested by Jacob**: the crate's 8 tests, the hello line, the Services row, and four throwaway scripts
-  (a syntax error, a log flood, a runaway loop, a sandbox check), all as they should be.
+- **Tested by Jacob, all passed**: the crate's 8 tests, a build with no warnings, the hello line, the
+  Services row, four throwaway scripts (a syntax error, a log flood, a runaway loop, a sandbox check) all
+  doing what they should, and hello alone again once they were taken out.
 - **TEST_CHECKLIST.md became TEST_CHECKLIST.html** (his ask): a page opened from the disk, a box per
   check, ticks kept in his browser only, a COPY button on every command, and a message panel that
   writes "these passed" as he ticks, for him to paste back.  No failed box: a failure gets told in the
@@ -80,14 +81,13 @@ which components), the blueprint (`goblin_a`, their starting values), and the co
 
 ## Jacob's pick for next
 
-In his words at the close: a short session clearing out the tests, then building up the game library now
-that Lua is in.  What's left on TEST_CHECKLIST.html: taking the four Lua test scripts back out (hello
-alone, Lua green again), a build that recompiles `lua-parser` to look for warnings, and the two Parked
-checks.
+At the close, once the last checks passed and the testing session he'd planned wasn't needed:
+"constructing the first primitive components and the ECS for game objects."  Everything settled and
+open for it is in TODO.md's protogame entry and LONGTERM_TODO.md's scripting entry (Jacob's NPC sample,
+the three layers, the Unity question).  The plan with files comes first, per CLAUDE.md.
 
 ## What's waiting
 
-- **The last Lua checks**, on TEST_CHECKLIST.html.
 - **The game library** and its ECS, unpaused now that Lua is in.  TODO.md's protogame entry and
   LONGTERM_TODO.md's scripting entry have everything settled and open, the Unity question included.
 - **The blocked names list**, in TODO.md with his answers.
