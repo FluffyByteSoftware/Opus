@@ -92,8 +92,9 @@ pub struct Changed {
 /// are loaded, TCP listens, then UDP.  If the TLS files are missing or
 /// TCP can't listen, nothing listens and the Services tab says why; if
 /// UDP can't listen, TCP comes back down, so it's both or neither.  None
-/// of it stops the rest of the server.  The launcher calls this after
-/// Archivist, since a login reads the accounts table.
+/// of it stops the rest of the server.  The launcher calls this last of
+/// all, once the GameClock has the ground around 0,0,0 in, so Archivist
+/// (a login reads the accounts table) is up long before.
 pub fn start() {
     services::set(services::NETWORK_TCP, State::Starting, "Reading networking.cfg and the TLS files.");
     services::set(services::NETWORK_UDP, State::Starting, "Waiting on the TCP side.");
@@ -137,13 +138,30 @@ pub fn start() {
                                             settings.tcp_address(), settings.udp_address()));
 }
 
+/// The server has started with the door shut, waiting on the world.  This
+/// only says so on the Services tab.  The launcher calls `start()` once
+/// the GameClock has the ground around 0,0,0 in: nobody gets in before
+/// there's a voxel to step on (Jacob, 2026-09-30).
+pub fn wait_for_world() {
+    let note = "Waiting on the world: the door opens once the chunks around 0,0,0 are in.";
+    services::set(services::NETWORK_TCP, State::Starting, note);
+    services::set(services::NETWORK_UDP, State::Starting, note);
+}
+
 /// Takes both sides down and waits for their threads.  TCP first, so no
 /// new ticket is handed out while UDP is telling every player the server
-/// is stopping.  Safe to call when nothing was started.
+/// is stopping.  Safe to call when nothing was started.  A door that never
+/// opened (the world wasn't ready yet) says so on the Services tab, or it
+/// would go on saying it's waiting.
 pub fn stop() {
+    let never_opened = tcp::listening_on().is_none() && udp::listening_on().is_none();
     tcp::stop();
     udp::stop();
     access::stop();
+    if never_opened {
+        services::set(services::NETWORK_TCP, State::Stopped, "Stopped.  The door never opened this run.");
+        services::set(services::NETWORK_UDP, State::Stopped, "Stopped.  The door never opened this run.");
+    }
 }
 
 /// A copy of how networking is doing.

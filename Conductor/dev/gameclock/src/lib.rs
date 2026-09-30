@@ -33,6 +33,7 @@
 
 mod checks;
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
 use std::sync::Mutex;
 use std::thread::JoinHandle;
@@ -67,6 +68,10 @@ const WARN_EVERY_AT_MOST: Duration = Duration::from_secs(60);
 static STOP: Mutex<Option<Sender<()>>> = Mutex::new(None);
 static GAMECLOCK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
+/// True once every chunk around 0,0,0 is in the terrain, so a player would
+/// have ground to stand on.  The launcher waits on it to open the door.
+static READY: AtomicBool = AtomicBool::new(false);
+
 /// Starts the GameClock's thread, with a fresh world.  It comes straight
 /// back.  The launcher calls this every time the server starts, and
 /// `stop()` every time it stops.
@@ -77,6 +82,7 @@ pub fn start() {
         return;
     }
 
+    READY.store(false, Ordering::SeqCst);
     services::set(services::GAMECLOCK, State::Starting, "Making a fresh world.");
     let (stop, stopped) = mpsc::channel();
     match threads::spawn("gameclock", move || run(stopped)) {
@@ -97,6 +103,7 @@ pub fn start() {
 /// next wait between two checks, so it's never cut off halfway through
 /// one.  The world goes with it.
 pub fn stop() {
+    READY.store(false, Ordering::SeqCst);
     lock(&STOP).take();
 
     let handle = lock(&GAMECLOCK).take();
@@ -105,6 +112,14 @@ pub fn stop() {
             scribe::error(Channel::Game, "The GameClock's thread had already died.");
         }
     }
+}
+
+/// Whether the ground around 0,0,0, where every player starts, is all in
+/// memory.  Until it is, nobody should be let in.  False while the
+/// GameClock is stopped, and it stays false for a run where a chunk there
+/// couldn't be had.
+pub fn ready() -> bool {
+    READY.load(Ordering::SeqCst)
 }
 
 /// The lock idiom, for the statics above.
@@ -166,6 +181,12 @@ fn run(stopped: Receiver<()>) {
             }
         }
 
+        if !READY.load(Ordering::SeqCst) && terrain.asked() > 0 && terrain.held() == terrain.asked() {
+            READY.store(true, Ordering::SeqCst);
+            scribe::info(Channel::Game, &format!("The ground around 0,0,0 is in, {} chunks, after {cycles} \
+                cycles.  The door can open.", terrain.held()));
+        }
+
         services::set(services::GAMECLOCK, State::Running, &format!("Beating.  {cycles} cycles, {late} late.  \
             The busiest spent {} ms of its 250 in the checks.  {}", ms(busiest), chunks(&terrain)));
         services::seen(services::GAMECLOCK);
@@ -173,6 +194,7 @@ fn run(stopped: Receiver<()>) {
         cycle_start = next_start(cycle_start, finished);
     }
 
+    READY.store(false, Ordering::SeqCst);
     scribe::info(Channel::Game, &format!("The GameClock has stopped after {cycles} cycles, {late} of them late."));
     services::set(services::GAMECLOCK, State::Stopped, "Shut down.");
 }

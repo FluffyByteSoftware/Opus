@@ -263,6 +263,23 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
+      The door waits on the world.  With the server stopped, delete the world, then START SERVER.  While it's
+      being made, Network (TCP) and Network (UDP) on the Services tab say "Waiting on the world: the door opens
+      once the chunks around 0,0,0 are in.", and the test client can't connect at all.  Once the Log has "The
+      ground around 0,0,0 is in, 162 chunks", the next line is "Networking is running", and the test client
+      logs in.
+    </span></label>
+    <pre class="cmd">rm -r /opt/storage/Coding/Opus/Content/world</pre>
+    <pre class="cmd">python3 networking/test_client.py throwaway_01 'Throwaway 1!' --leave-after 5</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      STOP SERVER still works while the door is shut and the world is being made: the Network lines read
+      "Stopped.  The door never opened this run."
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
       The Conductor tab's Threads has <code>gameworld</code> under Asked for, started from
       <code>gameworld/src/lib.rs</code>, and it's near nothing on the CPU once the world is read.
     </span></label>

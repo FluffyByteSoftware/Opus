@@ -12,8 +12,10 @@ same day: `conductor-gameworld`.
 
 ## Where it stands
 
-**Part one is written and not built yet** (2026-09-30).  `conductor-gameworld` (lib, folder
-`Conductor/dev/gameworld/`) is a server piece with its own thread, `gameworld`, and a GameWorld line on the
+**Part one is built and ran** (2026-09-30: Jacob's first world took 19 seconds to make).  The door waiting
+on the world, the sharp divide and BEDROCK came after, and aren't built yet.
+
+`conductor-gameworld` (lib, folder `Conductor/dev/gameworld/`) is a server piece with its own thread, `gameworld`, and a GameWorld line on the
 Services tab.  On START SERVER it reads `region.map`, or makes the world if there isn't one (a seed from
 Fingerprinter, Omega's heights file, then `region.map` last, so a stop part way leaves no half world).  A
 heights file that has gone missing is made again from the map's seed, with a Warn.  Then it answers the
@@ -22,6 +24,15 @@ GameClock's asks: each chunk from its own file if it has one, otherwise built fr
 The GameClock holds a `Terrain` (gameworld's `terrain.rs`): on START SERVER it asks for the chunks within
 `view_chunks` of 0,0,0 (162 at 4), and its housekeeping check takes in whatever has arrived, never waiting.
 Its Services line says how many are in.
+
+**The door waits on the world** (Jacob, 2026-09-30, after his first run: the world took 19 seconds to
+make, and networking was listening the whole time).  Nobody gets in before there's a voxel to step on:
+the launcher no longer starts networking with the rest of the server.  The GameClock sets a flag once every
+chunk around 0,0,0 is in its terrain (`conductor_gameclock::ready()`), and the launcher's command loop,
+which already wakes every 250 ms, starts networking (TCP and UDP both, Jacob's "may as well") the first
+time it sees it.  Until then the server reads running, so STOP SERVER works, and the two Network lines on
+the Services tab say they're waiting on the world.  A run where a chunk there can't be had never opens the
+door.
 
 `game.cfg` is in Constellations' table (soft) with one setting, `view_chunks` (1 to 16, default 4).
 `save_minutes` goes in with part two, when something reads it.

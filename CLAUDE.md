@@ -426,6 +426,11 @@ When I say we're wrapping up:
 
 ### Networking (conductor-networking)
 
+- **The door waits on the world** (Jacob, 2026-09-30).  Networking isn't
+  started in `start_server()`: the launcher's `take_commands()` starts it,
+  TCP and UDP both, once `conductor_gameclock::ready()` says the chunks
+  around 0,0,0 are in, since nobody gets in before there's a voxel to
+  step on.
 - **TCP is only the login; UDP is everything after.**  A client logs in over
   TLS on the TCP port, gets a ticket (a one-time token and the UDP port),
   and the TCP connection closes.  When the UDP session ends, for any

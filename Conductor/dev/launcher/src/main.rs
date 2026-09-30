@@ -38,7 +38,8 @@ const DISKMAN_GRACE: Duration = Duration::from_secs(60);
 const COUNTDOWN_EVERY: Duration = Duration::from_secs(5);
 
 /// How long main waits for a command from the Control Panel before
-/// checking that the web admin is still there.
+/// checking that the web admin is still there, and whether the world is
+/// ready for the door to open.
 const COMMAND_WAIT: Duration = Duration::from_millis(250);
 
 fn main() {
@@ -98,19 +99,38 @@ fn main() {
 /// Sits on the Control Panel's mailbox for as long as Conductor runs,
 /// doing what it asks: start, stop or restart the server.  Comes back
 /// once the web admin has ended, which is SHUT DOWN, or its thread dying.
+///
+/// It also opens the door.  Networking isn't started with the rest of the
+/// server: it waits until the GameClock has the ground around 0,0,0 in
+/// memory, since nobody should get in before there's a voxel to step on
+/// (Jacob, 2026-09-30, after the first world took 19 seconds to make with
+/// the door already open).  Each time round, while the server is running
+/// with the door shut, this asks the GameClock whether it's ready yet.
 fn take_commands() {
+    let mut door_open = false;
     loop {
         if conductor_wgui::has_ended() {
             return;
         }
         match server::next_command(COMMAND_WAIT) {
-            Some(Command::Start) => start_server(),
-            Some(Command::Stop) => stop_server(),
+            Some(Command::Start) => {
+                start_server();
+                door_open = false;
+            }
+            Some(Command::Stop) => {
+                stop_server();
+                door_open = false;
+            }
             Some(Command::Restart) => {
                 stop_server();
                 start_server();
+                door_open = false;
             }
             None => {}
+        }
+        if !door_open && server::status().state == State::Running && conductor_gameclock::ready() {
+            conductor_networking::start();
+            door_open = true;
         }
     }
 }
@@ -125,13 +145,16 @@ fn take_commands() {
 /// reads the ground (or makes it, the first time) on its own thread, so
 /// the GameClock has somebody to ask for chunks; the GameClock makes a
 /// fresh world and starts beating, so there's a world before there are
-/// players; networking opens the door once the three a
-/// login leans on are up; the monitor starts looking once a second.  None
-/// of them can fail to the point of stopping this: each says how it went
-/// in the log and on the Services tab.
+/// players; the monitor starts looking once a second.  Networking isn't
+/// started here: `take_commands()` opens the door once the GameClock has
+/// the ground around 0,0,0 in, which on the first START SERVER, with a
+/// world to make, can be a good while.  Until then the server reads
+/// running (so STOP SERVER still works) with the door shut.  None of them
+/// can fail to the point of stopping this: each says how it went in the
+/// log and on the Services tab.
 fn start_server() {
     server::set(State::Starting, "Starting Fingerprinter, Security, Archivist, the account desk, Lua, \
-        GameWorld, the GameClock, networking and the monitor.");
+        GameWorld, the GameClock and the monitor.");
     scribe::info(Channel::System, "The server is starting.");
 
     fingerprinter::start();
@@ -141,17 +164,19 @@ fn start_server() {
     conductor_lua_parser::start();
     conductor_gameworld::start();
     conductor_gameclock::start();
-    conductor_networking::start();
+    conductor_networking::wait_for_world();
     conductor_monitor::start();
 
     server::set(State::Running, "Fingerprinter, Security, Archivist, the account desk, Lua, GameWorld, the \
-        GameClock, networking and the monitor were started.  The Services tab says how each one is doing.");
+        GameClock and the monitor were started.  Networking opens the door once the ground around 0,0,0 is in.  \
+        The Services tab says how each one is doing.");
     scribe::info(Channel::System, "The server is running.");
 }
 
 /// Takes the server back down, in the opposite order.  Networking goes
-/// first, so the door is shut and every player told before the pieces a
-/// login leans on go; the GameClock stops once nobody is left in the
+/// first (if the door ever opened; stopping it is safe either way), so
+/// the door is shut and every player told before the pieces a login
+/// leans on go; the GameClock stops once nobody is left in the
 /// world, and the world goes with it; GameWorld goes after it, once
 /// nobody is left to ask for a chunk; Lua goes once nobody is left in the
 /// world its scripts will run; the account desk finishes the jobs the web
