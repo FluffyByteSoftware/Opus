@@ -232,8 +232,8 @@ it.  Connections, Whitelist and Blacklist also wait for both of the network's li
 - **Python 3**, for the test client.
 
 Conductor is written and tested on Linux (Nobara and Fedora).  The Windows code is written behind the
-same functions.  It builds and runs on Windows (`Documentation/HowTo/WINDOWS_INSTALL.md`), but the server
-hasn't been started there yet.  macOS builds and runs, but the monitor can't measure anything there and
+same functions.  It builds and runs on Windows (`Documentation/HowTo/WINDOWS_INSTALL.md`), but hasn't been
+tried there with a database yet.  macOS builds and runs, but the monitor can't measure anything there and
 the door can't look up names.
 
 ## Running it

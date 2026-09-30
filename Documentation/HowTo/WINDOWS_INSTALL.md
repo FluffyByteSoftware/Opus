@@ -8,8 +8,9 @@ Author:     Jacob Chacko
 
 Conductor is written and tested on Linux.  The Windows code is wired in behind the same functions, and
 this is what it took to build Conductor on a Windows laptop.  Everything here was done on 2026-09-30, the
-first time Conductor was built on Windows.  It built with no errors and no warnings, and Conductor runs.
-The server hasn't been started there yet, since the laptop has no Postgres, so this only covers the build.
+first time Conductor was built on Windows.  It built with no errors and no warnings, Conductor runs, and
+START SERVER works.  The laptop has no Postgres, so Archivist times out and the data tabs stay locked, which
+is what it should do.  So far this only covers the build.
 
 The commands are for `cmd`, the plain Windows terminal, sitting in `Conductor\dev` in the clone.  None of
 them need an admin terminal; the Build Tools installer asks for permission on its own.
@@ -72,7 +73,7 @@ These are the errors we hit, in the order we hit them.
 
 ## Not tried yet
 
-Starting the server on Windows, which needs PostgreSQL 18 on the machine and the TLS certificate (README.md
+The server on Windows with a database, which needs PostgreSQL 18 on the machine and the TLS certificate (README.md
 has the `openssl` command; Git for Windows carries an `openssl.exe` under `C:\Program Files\Git\usr\bin`).
 The monitor's kernel32 code, Fingerprinter's `BCryptGenRandom()` and the rest of the server's Windows paths
-only run once it's started.  This file grows as they do.
+only show once the database is there and the tabs unlock.  This file grows as they do.

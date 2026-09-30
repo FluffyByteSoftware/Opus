@@ -466,8 +466,8 @@ When I say we're wrapping up:
 - Development is Linux-first: Linux is where Conductor is built, run and
   tested. Windows code stays wired in behind the same functions.  It was
   first built on 2026-09-30, on a laptop (Rust's MSVC toolchain; see
-  `Documentation/HowTo/WINDOWS_INSTALL.md`), and runs, but the server
-  hasn't started there: the laptop has no Postgres. macOS isn't a target; any OS but those two gets the
+  `Documentation/HowTo/WINDOWS_INSTALL.md`), and runs, START SERVER
+  included, but hasn't had a database there: the laptop has no Postgres. macOS isn't a target; any OS but those two gets the
   fallback file.
 - There is no "which OS" setting in the config. The compiler knows what it is
   building for, and `#[cfg(target_os = "linux")]` / `#[cfg(windows)]` pick the

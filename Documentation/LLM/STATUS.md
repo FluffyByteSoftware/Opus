@@ -38,8 +38,8 @@ merge to main, so `main` has the GameClock.
 **Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, the GameClock included.
 **Built on Windows** (2026-09-30, after the hand-off): Rust's MSVC toolchain and the Visual Studio Build
 Tools, written up in `Documentation/HowTo/WINDOWS_INSTALL.md`.  It builds with no errors and no warnings,
-Lua's C build included, and Conductor runs.  The server hasn't been started there: the laptop has no
-Postgres.  TEST_CHECKLIST.html is down to one Parked check, the server on Windows with Postgres.
+Lua's C build included.  Conductor runs and START SERVER works; the laptop has no Postgres, so
+Archivist times out and the data tabs stay locked, as they should.  TEST_CHECKLIST.html is down to one Parked check, the server on Windows with Postgres.
 
 ## Jacob's map (2026-09-30)
 
@@ -115,7 +115,7 @@ Planned, written, built and tested the same day.  `design/gameclock.md` has the 
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.
 - The Debug switch in `conductor_globals.cfg`.
 - Catching Ctrl-C.
-- Starting the server on Windows, once the laptop has PostgreSQL 18.  Parked in TEST_CHECKLIST.html.
+- The server on Windows with a database, once the laptop has PostgreSQL 18.  Parked in TEST_CHECKLIST.html.
 - **Soundcheck** (`Opus.Soundcheck`), the patcher, and a certificate for every client (mutual TLS, one per
   client).  LONGTERM_TODO.md.
 - **Ensemble**, its own session.  The Unity project is `Ensemble/dev/Opus.Ensemble/`, on Jacob's machine
