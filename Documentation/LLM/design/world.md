@@ -13,9 +13,8 @@ every decision and quote below is his from that day unless it says otherwise.
 ## Where it stands
 
 **Part one is built and tested on Linux** (Jacob's first world took 19 seconds to make).  Every run check
-passed, the door waiting on the world, the sharp divide and BEDROCK included.  The last change, only
-housekeeping running until the ground is in, is pulled on Jacob's machine and its check is still on
-TEST_CHECKLIST.html.
+passed, the door waiting on the world, the sharp divide, BEDROCK and only housekeeping running until the
+ground is in included.
 
 `conductor-gameworld` (lib, folder `gameworld`, `conductor_gameworld` in code; Jacob named it) is the world,
 not primlib.  It's a server piece with its own thread, `gameworld`, and a GameWorld line on the Services tab,

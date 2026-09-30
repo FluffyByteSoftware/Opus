@@ -36,11 +36,16 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - Actor, Agent and Character (anything that acts; one the computer controls; one with a human on top)
     were named before primlib, and are likely sets of components now rather than types.
 
+  - **The flow** (Jacob, 2026-09-30): "account logs in (done) -> character selection -> selected character
+    spawns in world at its last save loc (0,0,0 for now)".  Character selection is the start of the UDP
+    connection, so a character is picked after the UDP connect, not at the TLS login (protocol version 5).
+  - **The character is a template** (primlib's), hydrated from the account: Jacob's first step of the
+    three on his map in STATUS.md.
+
   Open: which components a character is, and which properties it has "baked" beside them; how its
   components are saved (a column each on `player_characters`, a table per component, or one column
   holding them all); which messages protogame carries; who makes a character (the player or the admin);
-  whether one is picked at the TLS login or after the UDP connect (protocol version 5 either way); how
-  the test client shows it working.
+  how the test client shows it working.
 - **The GameClock's checks**: an input mailbox and an input packet, a brain for the AI, movement into
   `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their

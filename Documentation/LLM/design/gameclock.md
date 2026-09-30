@@ -20,8 +20,7 @@ Built and tested on Linux: no warnings, its tests pass, and every run check pass
 Services tab at about 240 cycles a minute, its thread near nothing on the CPU, a login leaving the late
 count at 0, and a clean STOP SERVER and START SERVER).  Only housekeeping does anything yet (it takes in the
 chunks GameWorld sends); the other four checks are empty, since nothing in the world moves and the protocol
-has no input packet.  The last change, only housekeeping running until the ground is in, is waiting on its
-check in TEST_CHECKLIST.html.
+has no input packet.
 
 ## Skeleton
 

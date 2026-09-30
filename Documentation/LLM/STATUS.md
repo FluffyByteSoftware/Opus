@@ -32,28 +32,26 @@ gets in before there's a voxel to step on.
 **The branches**: `unstable` and `testing` are on this hand-off.  `main` is still at Jacob's Ensemble
 project settings commit, behind both; it moves when Jacob says.
 
-**Built and tested on Linux**: everything but the last change of this session (only housekeeping running
-until the ground is in), which Jacob has pulled; its check is the one left on TEST_CHECKLIST.html beside
-the Parked Windows one.  **On Windows**: built and runs, START SERVER included, without a database; the
+**Built and tested on Linux**: everything.  The only check left on TEST_CHECKLIST.html is the Parked
+Windows one.  **On Windows**: built and runs, START SERVER included, without a database; the
 world hasn't been made there yet.
 
 ## Jacob's map (2026-09-30)
 
-His words, at the close of the primlib session: "next session we build tick, then after that we build our
-world (voxel information and zone management after that)".  His to change.
+**The 0.0.1 goal**: "get a player spawned in the world and able to chat."
 
-1. ~~**The world tick.**~~  **Done: the GameClock** (`design/gameclock.md`).
-2. ~~**The world: voxel information.**~~  **Part one done this session: `conductor-gameworld`**
-   (`design/world.md`).  Part two, saving changed chunks, waits on something that changes a block.
-3. ~~**Zone management.**~~  **Settled this session as regions**: a zone is a region is a biome, a label
-   on each chunk in `region.map`, not an area on a clock of its own.  What a region does in the game
-   (what grows, what spawns) is open in `design/world.md`.
+His words, after the docs were tidied: "We are going to work on marrying the network code to the game by
+finishing out character as a template for hydrating from an account.  Then we will build the character
+selection (start of UDP connection), then the log in to the world, and spawn character in world."  And the
+flow: "account logs in (done) -> character selection -> selected character spawns in world at its last save
+loc (0,0,0 for now)".  His to change.
 
-**The 0.0.1 goal** (Jacob, 2026-09-30): "get a player spawned in the world and able to chat."
+1. **The character as a template**, hydrated from an account.
+2. **Character selection**, at the start of the UDP connection.
+3. **Logging in to the world**, and the character spawned there, at its last saved spot (0,0,0 for now).
 
-At the world session's close, his next: "Next session we are going to further improve the tie between game and
-network I think."  Nothing about it is designed yet.  The pieces it would touch are in "What's waiting":
-the GameClock's input and broadcast checks, sending chunks to a client, and players who move.
+The map before this one (the tick, the world's voxels, zones) is done: the GameClock, `conductor-gameworld`,
+and zones settled as regions.
 
 ## Last session -- 2026-09-30, the docs tidied
 
@@ -93,16 +91,15 @@ has every answer in his words; `REGION_MAP.md` is new.
 - **What fought back**: nothing in the build.  Git did: Jacob's `Cargo.lock` commit was turned away
   because the session had pushed meanwhile; a `git pull --no-rebase` and a push to both branches fixed it,
   and CLAUDE.md now gives that line.
-- **Tested by Jacob, 11 of 12 passed**: the build, making the world, the files and their sizes, a restart
+- **Tested by Jacob, all 12 passed**: the build, making the world, the files and their sizes, a restart
   reading it back, `view_chunks` at 8 (578 chunks), a lost heights file coming back with the same checksum,
-  a stop part way through making, the door waiting and a stop while it waits, the thread.  The twelfth,
-  only housekeeping before the ground is in, wasn't run yet.
+  a stop part way through making, the door waiting and a stop while it waits, the thread, and only
+  housekeeping before the ground is in.
 
 ## What's waiting
 
 - **The 0.0.1 goal**: a player spawned in the world and able to chat.  Chat isn't designed (TODO.md).
-- **Jacob's next**: the tie between the game and networking.  Not designed.
-- **The one check left** on TEST_CHECKLIST.html: only housekeeping runs until the ground is in.
+- **Jacob's next**: the character as a template, hydrated from an account (his map above).  Being designed.
 - **The world's part two**: saving changed chunks on STOP SERVER and every `save_minutes`, with the first
   thing that changes a block.  `design/world.md`.
 - **Sending chunks to a client**, and how Ensemble gets `region.map`.  A protocol change.
