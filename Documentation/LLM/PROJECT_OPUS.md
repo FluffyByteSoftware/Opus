@@ -164,7 +164,7 @@ Where each one lives is in the tree above.
 | conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |
 | conductor-networking | Lib crate: the login over TLS, the game over UDP. | Runs on Linux              |
 | conductor-lua-parser | Lib crate (folder `lua-parser`): runs the Lua scripts, locked down. | Built and tested on Linux |
-| conductor-primlib  | Lib crate (folder `primlib`): the game library, an ECS. | Written, not built yet |
+| conductor-primlib  | Lib crate (folder `primlib`): the game library, an ECS. | Built and tested on Linux    |
 | conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
 | conductor-launcher | Bin crate: the program.  Boots, then waits on the Control Panel. | Runs on Linux |
 | Scribe             | The log.                                      | Built and tested             |
