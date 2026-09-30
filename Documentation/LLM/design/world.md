@@ -30,12 +30,13 @@ Its Services line says how many are in.
 STOP SERVER and every `save_minutes` (15).  Nothing changes a chunk yet, so part two comes with the first
 thing that does (digging, or a way to set a block for testing).
 
-**One call made in the code, for Jacob to check**: Omega's hills fade in over its first chunk east of 0
-(32 blocks), so Alpha and Omega meet at the same height instead of at a step up to 5 blocks high, and the
-GOLD block at 0,0,0 sits in the dirt rather than floating or buried.  One line in `noise.rs`.
+**Where Alpha meets Omega is a sharp divide** (Jacob, 2026-09-30): "it just suddenly becomes the other
+biome - in a real build and not this test, we'll have a blending technique".  So there can be a step of up
+to 5 blocks at x = 0.  (Part one first went out with Omega's hills fading in over its first chunk; Jacob
+turned that down the same day.)  The GOLD block is at 0,0,0 whatever is around it, and 0,0,0 is on Omega's
+side, so it can sit inside a hill or with air under it.
 
-The floor at -16 is STONE, the same kind as the rest; it's "undiggable" by its height, when digging comes,
-not by being a kind of its own.
+**The floor at -16 is BEDROCK**, a kind of its own (Jacob, 2026-09-30: "like bedrock type now").
 
 ## The files
 
@@ -91,7 +92,8 @@ u16 x 32768  the blocks, bottom layer first; in a layer, the south row
              first; in a row, west to east.  (y * 32 + z) * 32 + x.
 ```
 
-The block numbers: AIR 0, DIRT 1, STONE 2, WOOD 3, GOLD 4.  A number never changes once it's out there.
+The block numbers: AIR 0, DIRT 1, STONE 2, WOOD 3, GOLD 4, BEDROCK 5.  A number never changes once it's
+out there.
 
 ## What's settled
 

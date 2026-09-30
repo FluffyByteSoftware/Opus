@@ -22,6 +22,8 @@ impl Block {
     pub const WOOD: Block = Block(3);
     /// The block at 0,0,0, so the middle of the world can be seen.
     pub const GOLD: Block = Block(4);
+    /// The floor at -16, the one layer nobody can dig through.
+    pub const BEDROCK: Block = Block(5);
 
     /// The kind's name, for the log and the web admin.  A number from a
     /// file that isn't one of ours (a newer Conductor wrote it) is UNKNOWN,
@@ -33,6 +35,7 @@ impl Block {
             Block::STONE => "STONE",
             Block::WOOD => "WOOD",
             Block::GOLD => "GOLD",
+            Block::BEDROCK => "BEDROCK",
             _ => "UNKNOWN",
         }
     }
@@ -49,6 +52,7 @@ mod tests {
         assert_eq!(Block::STONE.0, 2);
         assert_eq!(Block::WOOD.0, 3);
         assert_eq!(Block::GOLD.0, 4);
+        assert_eq!(Block::BEDROCK.0, 5);
         assert_eq!(Block(999).name(), "UNKNOWN");
     }
 }

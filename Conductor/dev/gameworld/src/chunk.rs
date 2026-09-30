@@ -36,7 +36,8 @@ pub const SIDE: i32 = 32;
 pub const BLOCKS: usize = (SIDE * SIDE * SIDE) as usize;
 
 /// The lowest block in the world, the bottom of the lower row.  It's the
-/// floor nobody can dig through (Jacob, 2026-09-30: "-16 is undiggable").
+/// floor nobody can dig through (Jacob, 2026-09-30: "-16 is undiggable"),
+/// all BEDROCK.
 pub const BOTTOM_Y: i32 = -16;
 
 /// How many rows of chunks the world has, stacked up and down.  -15 to +30

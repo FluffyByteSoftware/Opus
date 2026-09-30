@@ -7,9 +7,14 @@
 //! every time.
 //!
 //! Every column is the same three layers (Jacob, 2026-09-30): one block of
-//! dirt at the ground's height, stone under it down to the floor at -16,
-//! and air over it.  In Alpha the ground is at 0 everywhere; in Omega it's
-//! wherever the heights file says, -5 to 5.  The block at 0,0,0 is GOLD.
+//! dirt at the ground's height, stone under it down to -15, and air over
+//! it, on a floor of BEDROCK at -16.  In Alpha the ground is at 0
+//! everywhere; in Omega it's wherever the heights file says, -5 to 5.
+//!
+//! The block at 0,0,0 is GOLD, whatever is around it.  It's on Omega's
+//! side of the line, and Omega's ground there can be up to 5 blocks
+//! higher or lower than 0, so the GOLD can end up inside a hill or with
+//! air under it.
 
 use crate::block::Block;
 use crate::chunk::{BOTTOM_Y, Chunk, ChunkPos, SIDE};
@@ -50,7 +55,9 @@ pub fn untouched(pos: ChunkPos, region: &Region, heights: Option<&Heights>) -> R
 
 /// What's at height `y` in a column whose dirt is at `ground`.
 fn layer(y: i32, ground: i32) -> Block {
-    if y == BOTTOM_Y || y < ground {
+    if y == BOTTOM_Y {
+        Block::BEDROCK
+    } else if y < ground {
         Block::STONE
     } else if y == ground {
         Block::DIRT
@@ -80,7 +87,8 @@ mod tests {
         // In a chunk of the lower row, y 0 is the world's -16, so the
         // world's 0 is y 16.
         for (x, z) in [(0, 0), (17, 30), (31, 31)] {
-            assert_eq!(chunk.block(x, 0, z), Block::STONE, "the floor");
+            assert_eq!(chunk.block(x, 0, z), Block::BEDROCK, "the floor");
+            assert_eq!(chunk.block(x, 1, z), Block::STONE, "-15");
             assert_eq!(chunk.block(x, 15, z), Block::STONE, "-1");
             assert_eq!(chunk.block(x, 16, z), Block::DIRT, "0");
             assert_eq!(chunk.block(x, 17, z), Block::AIR, "1");
@@ -102,8 +110,10 @@ mod tests {
         let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
         let chunk = untouched(ChunkPos { x: 0, z: 0, row: 0 }, &omega(), Some(&heights)).unwrap();
         assert_eq!(chunk.block(0, 16, 0), Block::GOLD);
-        assert_eq!(chunk.block(1, 16, 0), Block::DIRT);
-        assert_eq!(chunk.block(0, 15, 0), Block::STONE);
+        let golds = (0..SIDE).flat_map(|y| (0..SIDE).flat_map(move |z| (0..SIDE).map(move |x| (x, y, z))))
+            .filter(|&(x, y, z)| chunk.block(x, y, z) == Block::GOLD)
+            .count();
+        assert_eq!(golds, 1);
 
         let beside = untouched(ChunkPos { x: -1, z: 0, row: 0 }, &alpha(), None).unwrap();
         assert_eq!(beside.block(31, 16, 0), Block::DIRT);
@@ -120,7 +130,7 @@ mod tests {
             assert_eq!(chunk.block(x, y, z), Block::DIRT);
             assert_eq!(chunk.block(x, y - 1, z), Block::STONE);
             assert_eq!(chunk.block(x, y + 1, z), Block::AIR);
-            assert_eq!(chunk.block(x, 0, z), Block::STONE);
+            assert_eq!(chunk.block(x, 0, z), Block::BEDROCK);
         }
     }
 

@@ -237,6 +237,10 @@ Things that wait on a piece that doesn't exist yet.
 
 Things we thought of along the way.  None of them are promised.
 
+- The world: blending one biome into the next where two regions meet.  Today Alpha and Omega meet in a
+  sharp divide, Omega's hills starting at x = 0 with a step of up to 5 blocks.  Jacob, 2026-09-30: "in a
+  real build and not this test, we'll have a blending technique".  `design/world.md`.
+
 - Scribe: a size limit that starts a second file for the day (`2026_09_28.1.scribe.log`) on top of the
   midnight rollover.  Stratum had one.  Not picked for now.
 - Scribe: the handful of lines logged before `move_to()` stay in the default folder if the config points

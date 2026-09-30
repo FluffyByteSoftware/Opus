@@ -30,19 +30,18 @@ pub const MOST: i32 = 5;
 const HILLS: (i32, f64) = (64, 3.5);
 const BUMPS: (i32, f64) = (16, 1.5);
 
-/// Omega's hills fade in over its first chunk east of Alpha, so the two
-/// meet at the same height instead of at a step up to 5 blocks high, and
-/// the GOLD block at 0,0,0 sits in the dirt.
-const FADE_BLOCKS: i32 = 32;
-
 /// How high the dirt is at column x,z of Omega, -5 to +5.
+///
+/// Where Omega meets Alpha, the ground just changes: "a sharp divide it
+/// just suddenly becomes the other biome" (Jacob, 2026-09-30), so there
+/// can be a step of up to 5 blocks at 0.  A real build will blend one
+/// biome into the next; this one doesn't.
 pub fn omega_height(seed: u64, x: i32, z: i32) -> i8 {
     let hills = smooth(seed, x, z, HILLS.0) * HILLS.1;
     // A different seed for the second grid, or its points would sit on
     // top of the first grid's and make the same shape smaller.
     let bumps = smooth(seed ^ 0x9e37_79b9_7f4a_7c15, x, z, BUMPS.0) * BUMPS.1;
-    let fade = (x as f64 / FADE_BLOCKS as f64).clamp(0.0, 1.0);
-    let height = ((hills + bumps) * fade).round() as i32;
+    let height = (hills + bumps).round() as i32;
     height.clamp(-MOST, MOST) as i8
 }
 
@@ -115,12 +114,5 @@ mod tests {
             }
         }
         assert!(highest >= 2 && lowest <= -2, "it's hardly bumpy: {lowest} to {highest}");
-    }
-
-    #[test]
-    fn omega_meets_alpha_at_0() {
-        for z in -500..500 {
-            assert_eq!(omega_height(7, 0, z), 0);
-        }
     }
 }
