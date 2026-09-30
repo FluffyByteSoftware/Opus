@@ -15,11 +15,12 @@ same day: `conductor-gameworld`.
 **Part one is built and ran** (2026-09-30: Jacob's first world took 19 seconds to make).  The door waiting
 on the world, the sharp divide and BEDROCK came after, and aren't built yet.
 
-`conductor-gameworld` (lib, folder `Conductor/dev/gameworld/`) is a server piece with its own thread, `gameworld`, and a GameWorld line on the
-Services tab.  On START SERVER it reads `region.map`, or makes the world if there isn't one (a seed from
-Fingerprinter, Omega's heights file, then `region.map` last, so a stop part way leaves no half world).  A
-heights file that has gone missing is made again from the map's seed, with a Warn.  Then it answers the
-GameClock's asks: each chunk from its own file if it has one, otherwise built from its region's ground.
+`conductor-gameworld` (lib, folder `Conductor/dev/gameworld/`) is a server piece with its own thread,
+`gameworld`, and a GameWorld line on the Services tab.  On START SERVER it reads `region.map`, or makes the
+world if there isn't one (a seed from Fingerprinter, Omega's heights file, then `region.map` last, so a stop
+part way leaves no half world).  A heights file that has gone missing is made again from the map's seed, with
+a Warn.  Then it answers the GameClock's asks: each chunk from its own file if it has one, otherwise built
+from its region's ground.
 
 The GameClock holds a `Terrain` (gameworld's `terrain.rs`): on START SERVER it asks for the chunks within
 `view_chunks` of 0,0,0 (162 at 4), and its housekeeping check takes in whatever has arrived, never waiting.
