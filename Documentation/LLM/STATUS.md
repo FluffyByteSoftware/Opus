@@ -104,7 +104,8 @@ only, for `admin` and `user` both (name, UUID, x, y, z, account), through `GET /
 (Jacob's yes) and `list_all()` in `characters.rs`.  Editing characters and NPCs there is next conversation
 (Jacob's words), in TODO.md.
 
-Then **character select**, step 2 of Jacob's map, **written, not built yet**: Protogame, a thread in
+Then **character select**, step 2 of Jacob's map, **built, and every test passes** (67 in networking, 43 in
+primlib; the test client against Conductor is the check left): Protogame, a thread in
 networking that answers a player's asks at character select over UDP (list, create, delete with DELETE
 typed, reset home), protocol version 5 with Jacob's packet names, an ask number on every ask so a lost answer
 is sent again rather than the ask done twice, and the test client's `--create`, `--delete`, `--delete-word`
