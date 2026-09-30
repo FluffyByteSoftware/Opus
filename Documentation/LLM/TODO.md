@@ -100,6 +100,16 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     - `CharacterRequestResetHome`, client to server only: "sends character back to 0, 0, 0".
     - `CharacterIsPlayable`, server to client, "so client can gray their name out".
     - "That's all I can think of right now."
+    - Jacob's answers after (2026-09-30):
+      - **A general answer packet that says "command accepted"**, "reused elsewhere" too: the answer to
+        `CharacterRequestResetHome`, and to any later command that needs no more than that.
+      - **The playable flag is a bool per character in `CharacterListDelivery`**, not a packet of its own
+        ("make it the server to client response already just add a bool in it").
+      - **Protogame is the name**: "the character selection and character construction are proto game then
+        become game objects after load".
+      - **A new character's name goes in `ShortName` only** ("short name here only").
+      - **Deleting is typed out**: "player should have to type out and send back delete and get a
+        deleteapproved or denied then the server deletes".
 - **The GameClock's checks**: an input mailbox and an input packet, a brain for the AI, movement into
   `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their
