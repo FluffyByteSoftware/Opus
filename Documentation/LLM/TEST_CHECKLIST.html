@@ -210,14 +210,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      Run Conductor and START SERVER: the Log tab has <code>scripts/hello.lua, line 3: Hello from Lua.</code> on
-      the Script channel, then <code>Lua is up.  Ran 1 script(s) ... 0 with an error.</code>  The Services tab
-      has Lua, running.
-    </span></label>
-    <pre class="cmd">cargo run -p conductor-launcher</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       With the server running, make four test scripts (the four commands below), then RESTART SERVER.  The Log
       tab, in this order: a Warn that <code>scripts/broken.lua</code> didn't load, at line 2;
       <code>line 1</code> to <code>line 50</code> from flood.lua and a Warn that it hit its limit of 50;
