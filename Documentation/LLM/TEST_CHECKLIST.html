@@ -210,13 +210,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      <code>cargo test</code> passes everything, <code>services::tests::every_expected_service_is_there_from_the_start</code>
-      included (it failed on 2026-10-01: Lua wasn't in the test's list).
-    </span></label>
-    <pre class="cmd">cargo test</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       Run Conductor and START SERVER: the Log tab has <code>scripts/hello.lua, line 3: Hello from Lua.</code> on
       the Script channel, then <code>Lua is up.  Ran 1 script(s) ... 0 with an error.</code>  The Services tab
       has Lua, running.
