@@ -98,16 +98,15 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 - **0,0,0 is the middle of the world** (Jacob, 2026-09-30, turning round his "lower left corner" the same
   day): "I want it to span -8096 to 8096 and at 0, 0 its gold".  Alpha is everything west of 0, Omega
   everything east, and the gold block sits on the line between.  File names take negative numbers.
-  Whether that span is blocks or metres is asked; see "Still open".
+  **The span is in blocks** ("voxels lol", Jacob, 2026-09-30): the 8 km already settled, taken as **-8192
+  to 8191** each way, since 8096 isn't a whole number of 32-block chunks and 8192 is.  Chunks run -256 to
+  255.
 - **A file's numbers are padded to three digits** (Jacob, 2026-09-30): `alpha_-015_003_0.chunk`, east,
   north, then row.
 
 ## Still open
 
 - What's in a chunk's file beyond its blocks (a version number, at least).
-- **-8096 to 8096: blocks or metres.**  In blocks (as -8192 to 8191, since 8096 isn't a whole number of
-  chunks) it's the 8 km already settled, chunks -256 to 255.  In metres it's 16 km a side, four times the
-  ground, chunks -512 to 511, and file numbers still fit three digits.
 - What's in `region.map` and how it's laid out.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
