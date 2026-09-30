@@ -117,7 +117,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         number and why), Jacob's pick of the two readings.
       - **The long name is left empty** until the player is in game ("the longname is not dealt with until
         they're in game yup").
-    - **Written, not built yet** (2026-09-30): Protogame (`networking/src/protogame.rs`), the nine packets
+    - **Built and tested** (2026-09-30): Protogame (`networking/src/protogame.rs`), the nine packets
       (protocol version 5), the ask number in the book, primlib's `new_character()` and
       `Save::of_blueprint()`, and the test client's `--create`, `--delete`, `--delete-word` and
       `--reset-home`.  `design/conductor-networking.md`, "Character select and Protogame", has it.

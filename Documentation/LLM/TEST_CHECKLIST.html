@@ -196,68 +196,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>Character select (protocol version 5)</h2>
-<p class="soft">The test client does what a client does at character select.  A lost answer is asked again
-  with the same ask number; the server's log would show a character made once, not twice.</p>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      START SERVER: once the door opens, the Services tab has Protogame, green, under Network (UDP).  STOP
-      SERVER takes it to stopped, with nothing on the bell.
-    </span></label>
-    <pre class="cmd">cargo run -p conductor-launcher</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Character select with no characters: the Hello says protocol version 5, the Connect is welcomed, and
-      a CharacterListDelivery comes back with 0 characters and "3 slot(s) free".
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --leave-after 2 throwaway_01 'Throwaway 1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Making one: a CharacterCreateResult "made", and the list after it shows Testone in slot 1, playable.
-      The Log tab says throwaway_01 made the character Testone in slot 1, and GAME MANAGEMENT, Characters,
-      REFRESH shows Testone at 0.00, 0.00, 0.00 on throwaway_01.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --leave-after 2 --create Testone throwaway_01 'Throwaway 1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The name rules: testone (the same name, other capitals) comes back "name taken", and McKay "name not
-      allowed".  Nothing new on the list either time.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --leave-after 2 --create testone throwaway_01 'Throwaway 1!' &amp;&amp; python3 networking/test_client.py --leave-after 2 --create McKay throwaway_01 'Throwaway 1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Three slots and no more: Testtwo and Testthree go in slots 2 and 3, then Testfour comes back "slots
-      full" and the list says a client wouldn't offer CREATE.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --leave-after 2 --create Testtwo throwaway_01 'Throwaway 1!' &amp;&amp; python3 networking/test_client.py --leave-after 2 --create Testthree throwaway_01 'Throwaway 1!' &amp;&amp; python3 networking/test_client.py --leave-after 2 --create Testfour throwaway_01 'Throwaway 1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Reset home: Testtwo gets a CommandAccepted, and nothing goes on the bell.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --leave-after 2 --reset-home Testtwo throwaway_01 'Throwaway 1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Deleting takes the typed word: with "yes" it's denied ("Type DELETE to delete a character.") and
-      Testone stays; with DELETE (the default) it's approved, the list after it has two, and Characters,
-      REFRESH, shows Testone gone.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --leave-after 2 --delete Testone --delete-word yes throwaway_01 'Throwaway 1!' &amp;&amp; python3 networking/test_client.py --leave-after 2 --delete Testone throwaway_01 'Throwaway 1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Tidy up: Testtwo and Testthree deleted the same way, and the list shows 0 characters again.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --leave-after 2 --delete Testtwo throwaway_01 'Throwaway 1!' &amp;&amp; python3 networking/test_client.py --leave-after 2 --delete Testthree throwaway_01 'Throwaway 1!'</pre>
-  </li>
-</ul>
-
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">
