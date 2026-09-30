@@ -124,7 +124,7 @@ impl Blueprint {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::components::{LongName, Pool, Position, ShortName, Titles};
+    use crate::components::{LongName, Pool, ShortName, Titles, Transform, Vector3};
 
     #[test]
     fn setting_a_kind_twice_keeps_one() {
@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn a_blueprint_starts_as_its_template() {
         let mut npc = Template::new("NPC");
-        npc.add_default(Kind::Position);
+        npc.add_default(Kind::Transform);
         npc.add(Component::Health(Pool::full(100)));
 
         let goblin = Blueprint::from_template("goblin_a", &npc);
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn a_blueprint_can_change_add_and_drop() {
         let mut npc = Template::new("NPC");
-        npc.add_default(Kind::Position);
+        npc.add_default(Kind::Transform);
         npc.add_default(Kind::ShortName);
         npc.add_default(Kind::Mana);
 
@@ -168,12 +168,12 @@ mod tests {
     #[test]
     fn a_small_template_for_something_that_isnt_an_npc() {
         let mut item = Template::new("Item");
-        item.add(Component::Position(Position::new(5.0, 0.0, 5.0)));
+        item.add(Component::Transform(Transform::at(Vector3::new(5.0, 0.0, 5.0))));
         item.add(Component::ShortName(ShortName::new("sword")));
 
         let mut sword = Blueprint::from_template("sword_a", &item);
         sword.set(Component::LongName(LongName::new("a Rusty Sword")));
         let kinds: Vec<Kind> = sword.components().iter().map(|component| component.kind()).collect();
-        assert_eq!(kinds, vec![Kind::Position, Kind::ShortName, Kind::LongName]);
+        assert_eq!(kinds, vec![Kind::Transform, Kind::ShortName, Kind::LongName]);
     }
 }

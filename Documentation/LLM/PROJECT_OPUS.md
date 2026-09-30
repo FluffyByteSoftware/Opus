@@ -97,7 +97,7 @@ Opus/
 │       │       ├── lib.rs             # lists the pieces
 │       │       ├── entity.rs          # Entity (a slot and a generation); Entities hands them out and takes them back
 │       │       ├── store.rs           # Store<T>: one kind of component, a slot per entity
-│       │       ├── components.rs      # the nine components; Kind (which one, by name); Component (one, with its value)
+│       │       ├── components.rs      # the components (Transform, PrimitiveShape, ...); Kind (which one, by name); Component (one, with its value)
 │       │       ├── world.rs           # World: the entities and a store per kind; spawn, despawn, add, remove, get
 │       │       └── template.rs        # Template (NPC) and Blueprint (goblin_a)
 │       ├── wgui/                      # lib

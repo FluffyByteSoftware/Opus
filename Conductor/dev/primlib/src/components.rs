@@ -2,68 +2,77 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! The components: plain data, one struct per kind.  The first nine are
-//! the ones in my sample NPC.  `Kind` names a kind of component (for a
-//! template's list, a script, or the log), and `Component` is one of them
-//! with its value, which is how a template or blueprint holds them.
+//! The components: plain data, one struct per kind.  The first ones are
+//! from my sample NPC, with its position, rotation and scale made into one
+//! Transform the way Unity has it, and a PrimitiveShape for the client to
+//! fall back on.  `Kind` names a kind of component (for a template's list,
+//! a script, or the log), and `Component` is one of them with its value,
+//! which is how a template or blueprint holds them.
 //!
 //! Adding a kind: its struct here, a line in `Kind` (and `Kind::ALL` and
 //! `name()`), a line in `Component` (and `kind()`), then its store and
 //! getters in `world.rs`.
 
-/// Where an object is.  Y is up, as in Unity.
+/// Three numbers, x, y and z, as in Unity.  Y is up.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Position {
+pub struct Vector3 {
     pub x: f32,
     pub y: f32,
     pub z: f32,
 }
 
-impl Position {
-    pub fn new(x: f32, y: f32, z: f32) -> Position {
-        Position { x, y, z }
+impl Vector3 {
+    pub fn new(x: f32, y: f32, z: f32) -> Vector3 {
+        Vector3 { x, y, z }
     }
 }
 
-/// Which way an object faces: three angles in degrees, the way Unity's
-/// inspector shows a rotation.  Ensemble turns them into Unity's own
-/// rotation with `Quaternion.Euler(x, y, z)`.  The server doesn't do any
-/// rotation math yet; if it ever has to, this is the one place that
-/// changes.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Rotation {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
-}
-
-impl Rotation {
-    pub fn new(x: f32, y: f32, z: f32) -> Rotation {
-        Rotation { x, y, z }
-    }
-}
-
-/// How big an object is next to its model.  1, 1, 1 is as it was made.
+/// Where an object is, which way it faces, and how big it is, the way
+/// Unity's Transform has them.
+///
+/// The rotation is three angles in degrees, the way Unity's inspector
+/// shows one.  Ensemble turns them into Unity's own rotation with
+/// `Quaternion.Euler(x, y, z)`.  The server doesn't do any rotation math
+/// yet; if it ever has to, this is the one place that changes.
+///
+/// No parent yet: every transform is in the world's own terms.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Scale {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+pub struct Transform {
+    pub position: Vector3,
+    pub rotation: Vector3,
+    /// 1, 1, 1 is as the model was made.
+    pub scale: Vector3,
 }
 
-impl Scale {
-    pub fn new(x: f32, y: f32, z: f32) -> Scale {
-        Scale { x, y, z }
+impl Transform {
+    /// At `position`, facing the way the model was made, at its own size.
+    pub fn at(position: Vector3) -> Transform {
+        Transform { position, rotation: Vector3::default(), scale: Vector3::new(1.0, 1.0, 1.0) }
     }
 }
 
 // Rust note: `Default` is written out by hand here, because the one Rust
 // would make for us starts every number at 0, and a scale of 0 is an
 // object nobody can see.
-impl Default for Scale {
-    fn default() -> Scale {
-        Scale { x: 1.0, y: 1.0, z: 1.0 }
+impl Default for Transform {
+    fn default() -> Transform {
+        Transform::at(Vector3::default())
     }
+}
+
+/// The shape the client draws when it can't draw the object's model:
+/// Unity's six built-in ones.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PrimitiveShape {
+    // Rust note: `#[default]` marks the one `PrimitiveShape::default()`
+    // hands back.
+    #[default]
+    Cube,
+    Sphere,
+    Capsule,
+    Cylinder,
+    Plane,
+    Quad,
 }
 
 /// What an object is called for short, usually lower case: "goblin"
@@ -179,9 +188,8 @@ impl Pool {
 /// A kind of component, by name, without its value.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
-    Position,
-    Rotation,
-    Scale,
+    Transform,
+    PrimitiveShape,
     ShortName,
     LongName,
     Titles,
@@ -192,10 +200,9 @@ pub enum Kind {
 
 impl Kind {
     /// Every kind, in the order they're listed here.
-    pub const ALL: [Kind; 9] = [
-        Kind::Position,
-        Kind::Rotation,
-        Kind::Scale,
+    pub const ALL: [Kind; 8] = [
+        Kind::Transform,
+        Kind::PrimitiveShape,
         Kind::ShortName,
         Kind::LongName,
         Kind::Titles,
@@ -207,9 +214,8 @@ impl Kind {
     /// The kind's name, as a script or the log would write it.
     pub fn name(&self) -> &'static str {
         match self {
-            Kind::Position => "Position",
-            Kind::Rotation => "Rotation",
-            Kind::Scale => "Scale",
+            Kind::Transform => "Transform",
+            Kind::PrimitiveShape => "PrimitiveShape",
             Kind::ShortName => "ShortName",
             Kind::LongName => "LongName",
             Kind::Titles => "Titles",
@@ -231,9 +237,8 @@ impl Kind {
 // `Component` is exactly one of these, holding that kind's value.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Component {
-    Position(Position),
-    Rotation(Rotation),
-    Scale(Scale),
+    Transform(Transform),
+    PrimitiveShape(PrimitiveShape),
     ShortName(ShortName),
     LongName(LongName),
     Titles(Titles),
@@ -246,9 +251,8 @@ impl Component {
     /// Which kind this is.
     pub fn kind(&self) -> Kind {
         match self {
-            Component::Position(_) => Kind::Position,
-            Component::Rotation(_) => Kind::Rotation,
-            Component::Scale(_) => Kind::Scale,
+            Component::Transform(_) => Kind::Transform,
+            Component::PrimitiveShape(_) => Kind::PrimitiveShape,
             Component::ShortName(_) => Kind::ShortName,
             Component::LongName(_) => Kind::LongName,
             Component::Titles(_) => Kind::Titles,
@@ -258,14 +262,14 @@ impl Component {
         }
     }
 
-    /// The kind with its default value: 0, 0, 0 for a position or a
-    /// rotation, 1, 1, 1 for a scale, empty names and titles, and pools of
-    /// 0.  A template sets its own where these won't do.
+    /// The kind with its default value: a transform at 0, 0, 0 facing the
+    /// way its model was made at its own size, a cube, empty names and
+    /// titles, and pools of 0.  A template sets its own where these won't
+    /// do.
     pub fn default_of(kind: Kind) -> Component {
         match kind {
-            Kind::Position => Component::Position(Position::default()),
-            Kind::Rotation => Component::Rotation(Rotation::default()),
-            Kind::Scale => Component::Scale(Scale::default()),
+            Kind::Transform => Component::Transform(Transform::default()),
+            Kind::PrimitiveShape => Component::PrimitiveShape(PrimitiveShape::default()),
             Kind::ShortName => Component::ShortName(ShortName::default()),
             Kind::LongName => Component::LongName(LongName::default()),
             Kind::Titles => Component::Titles(Titles::default()),
@@ -321,8 +325,16 @@ mod tests {
     }
 
     #[test]
-    fn scale_starts_at_one() {
-        assert_eq!(Scale::default(), Scale::new(1.0, 1.0, 1.0));
+    fn a_transform_starts_at_its_own_size() {
+        let transform = Transform::default();
+        assert_eq!(transform.position, Vector3::new(0.0, 0.0, 0.0));
+        assert_eq!(transform.rotation, Vector3::new(0.0, 0.0, 0.0));
+        assert_eq!(transform.scale, Vector3::new(1.0, 1.0, 1.0));
+    }
+
+    #[test]
+    fn the_fallback_shape_is_a_cube() {
+        assert_eq!(PrimitiveShape::default(), PrimitiveShape::Cube);
     }
 
     #[test]

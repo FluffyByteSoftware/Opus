@@ -11,7 +11,7 @@
 
 /// One kind of component, a slot per entity.
 // Rust note: `T` is the component this store holds, so the world has a
-// `Store<Position>`, a `Store<Pool>` and so on, all from this one piece
+// `Store<Transform>`, a `Store<Pool>` and so on, all from this one piece
 // of code.  `Option<T>` is either `Some(value)` or `None`: here, `None`
 // is an entity that doesn't have the component.
 pub struct Store<T> {

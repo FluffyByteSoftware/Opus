@@ -10,16 +10,15 @@
 //! There are no locks.  When the game loop comes, one thread owns the
 //! world and everything else asks it.
 
-use crate::components::{Component, Kind, LongName, Pool, Position, Rotation, Scale, ShortName, Titles};
+use crate::components::{Component, Kind, LongName, Pool, PrimitiveShape, ShortName, Titles, Transform};
 use crate::entity::{Entities, Entity};
 use crate::store::Store;
 use crate::template::Blueprint;
 
 pub struct World {
     entities: Entities,
-    position: Store<Position>,
-    rotation: Store<Rotation>,
-    scale: Store<Scale>,
+    transform: Store<Transform>,
+    primitive_shape: Store<PrimitiveShape>,
     short_name: Store<ShortName>,
     long_name: Store<LongName>,
     titles: Store<Titles>,
@@ -33,9 +32,8 @@ impl World {
     pub fn new() -> World {
         World {
             entities: Entities::new(),
-            position: Store::new(),
-            rotation: Store::new(),
-            scale: Store::new(),
+            transform: Store::new(),
+            primitive_shape: Store::new(),
             short_name: Store::new(),
             long_name: Store::new(),
             titles: Store::new(),
@@ -103,9 +101,8 @@ impl World {
             return false;
         };
         match component {
-            Component::Position(value) => self.position.insert(slot, value),
-            Component::Rotation(value) => self.rotation.insert(slot, value),
-            Component::Scale(value) => self.scale.insert(slot, value),
+            Component::Transform(value) => self.transform.insert(slot, value),
+            Component::PrimitiveShape(value) => self.primitive_shape.insert(slot, value),
             Component::ShortName(value) => self.short_name.insert(slot, value),
             Component::LongName(value) => self.long_name.insert(slot, value),
             Component::Titles(value) => self.titles.insert(slot, value),
@@ -123,9 +120,8 @@ impl World {
             return false;
         };
         match kind {
-            Kind::Position => self.position.remove(slot).is_some(),
-            Kind::Rotation => self.rotation.remove(slot).is_some(),
-            Kind::Scale => self.scale.remove(slot).is_some(),
+            Kind::Transform => self.transform.remove(slot).is_some(),
+            Kind::PrimitiveShape => self.primitive_shape.remove(slot).is_some(),
             Kind::ShortName => self.short_name.remove(slot).is_some(),
             Kind::LongName => self.long_name.remove(slot).is_some(),
             Kind::Titles => self.titles.remove(slot).is_some(),
@@ -141,9 +137,8 @@ impl World {
             return false;
         };
         match kind {
-            Kind::Position => self.position.has(slot),
-            Kind::Rotation => self.rotation.has(slot),
-            Kind::Scale => self.scale.has(slot),
+            Kind::Transform => self.transform.has(slot),
+            Kind::PrimitiveShape => self.primitive_shape.has(slot),
             Kind::ShortName => self.short_name.has(slot),
             Kind::LongName => self.long_name.has(slot),
             Kind::Titles => self.titles.has(slot),
@@ -167,9 +162,8 @@ impl World {
         // a borrowed value into a copy of its own.
         let slot = self.slot(entity)?;
         match kind {
-            Kind::Position => self.position.get(slot).copied().map(Component::Position),
-            Kind::Rotation => self.rotation.get(slot).copied().map(Component::Rotation),
-            Kind::Scale => self.scale.get(slot).copied().map(Component::Scale),
+            Kind::Transform => self.transform.get(slot).copied().map(Component::Transform),
+            Kind::PrimitiveShape => self.primitive_shape.get(slot).copied().map(Component::PrimitiveShape),
             Kind::ShortName => self.short_name.get(slot).cloned().map(Component::ShortName),
             Kind::LongName => self.long_name.get(slot).cloned().map(Component::LongName),
             Kind::Titles => self.titles.get(slot).cloned().map(Component::Titles),
@@ -182,31 +176,22 @@ impl World {
     // The getters: one to read and one to change, for each kind.  Written
     // out rather than made by a macro, so each one reads plainly.
 
-    pub fn position(&self, entity: Entity) -> Option<&Position> {
-        self.position.get(self.slot(entity)?)
+    pub fn transform(&self, entity: Entity) -> Option<&Transform> {
+        self.transform.get(self.slot(entity)?)
     }
 
-    pub fn position_mut(&mut self, entity: Entity) -> Option<&mut Position> {
+    pub fn transform_mut(&mut self, entity: Entity) -> Option<&mut Transform> {
         let slot = self.slot(entity)?;
-        self.position.get_mut(slot)
+        self.transform.get_mut(slot)
     }
 
-    pub fn rotation(&self, entity: Entity) -> Option<&Rotation> {
-        self.rotation.get(self.slot(entity)?)
+    pub fn primitive_shape(&self, entity: Entity) -> Option<&PrimitiveShape> {
+        self.primitive_shape.get(self.slot(entity)?)
     }
 
-    pub fn rotation_mut(&mut self, entity: Entity) -> Option<&mut Rotation> {
+    pub fn primitive_shape_mut(&mut self, entity: Entity) -> Option<&mut PrimitiveShape> {
         let slot = self.slot(entity)?;
-        self.rotation.get_mut(slot)
-    }
-
-    pub fn scale(&self, entity: Entity) -> Option<&Scale> {
-        self.scale.get(self.slot(entity)?)
-    }
-
-    pub fn scale_mut(&mut self, entity: Entity) -> Option<&mut Scale> {
-        let slot = self.slot(entity)?;
-        self.scale.get_mut(slot)
+        self.primitive_shape.get_mut(slot)
     }
 
     pub fn short_name(&self, entity: Entity) -> Option<&ShortName> {
@@ -273,9 +258,10 @@ impl Default for World {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::components::Vector3;
     use crate::template::Template;
 
-    /// My sample NPC template: the nine components, at their defaults.
+    /// My sample NPC template: every kind there is, at its default.
     fn npc() -> Template {
         let mut npc = Template::new("NPC");
         for kind in Kind::ALL {
@@ -287,7 +273,10 @@ mod tests {
     /// My sample goblin, from the NPC template.
     fn goblin_a() -> Blueprint {
         let mut goblin = Blueprint::from_template("goblin_a", &npc());
-        goblin.set(Component::Rotation(Rotation::new(0.0, 0.0, -90.0)));
+        let mut transform = Transform::default();
+        transform.rotation = Vector3::new(0.0, 0.0, -90.0);
+        goblin.set(Component::Transform(transform));
+        goblin.set(Component::PrimitiveShape(PrimitiveShape::Capsule));
         goblin.set(Component::ShortName(ShortName::new("goblin")));
         goblin.set(Component::LongName(LongName::new("goblin archer")));
         goblin.set(Component::Titles(Titles::one("the plucky")));
@@ -303,9 +292,11 @@ mod tests {
         let goblin = world.spawn(&goblin_a());
 
         assert_eq!(world.kinds(goblin), Kind::ALL.to_vec());
-        assert_eq!(world.position(goblin), Some(&Position::new(0.0, 0.0, 0.0)));
-        assert_eq!(world.rotation(goblin), Some(&Rotation::new(0.0, 0.0, -90.0)));
-        assert_eq!(world.scale(goblin), Some(&Scale::new(1.0, 1.0, 1.0)));
+        let transform = world.transform(goblin).copied().unwrap_or_default();
+        assert_eq!(transform.position, Vector3::new(0.0, 0.0, 0.0));
+        assert_eq!(transform.rotation, Vector3::new(0.0, 0.0, -90.0));
+        assert_eq!(transform.scale, Vector3::new(1.0, 1.0, 1.0));
+        assert_eq!(world.primitive_shape(goblin), Some(&PrimitiveShape::Capsule));
         assert_eq!(world.short_name(goblin).map(|name| name.text.as_str()), Some("goblin"));
         assert_eq!(world.titles(goblin).and_then(|titles| titles.current()), Some("the plucky"));
         assert_eq!(world.health(goblin), Some(&Pool { current: 2000, max: 2000 }));
@@ -339,16 +330,17 @@ mod tests {
         let thing = world.spawn_empty();
         assert!(world.kinds(thing).is_empty());
 
-        assert!(world.add(thing, Component::Position(Position::new(1.0, 2.0, 3.0))));
-        assert!(world.has(thing, Kind::Position));
-        if let Some(position) = world.position_mut(thing) {
-            position.y += 10.0;
+        assert!(world.add(thing, Component::Transform(Transform::at(Vector3::new(1.0, 2.0, 3.0)))));
+        assert!(world.has(thing, Kind::Transform));
+        if let Some(transform) = world.transform_mut(thing) {
+            transform.position.y += 10.0;
         }
-        assert_eq!(world.component(thing, Kind::Position), Some(Component::Position(Position::new(1.0, 12.0, 3.0))));
+        let moved = Transform::at(Vector3::new(1.0, 12.0, 3.0));
+        assert_eq!(world.component(thing, Kind::Transform), Some(Component::Transform(moved)));
 
-        assert!(world.remove(thing, Kind::Position));
-        assert!(!world.remove(thing, Kind::Position), "it's already gone");
-        assert_eq!(world.position(thing), None);
+        assert!(world.remove(thing, Kind::Transform));
+        assert!(!world.remove(thing, Kind::Transform), "it's already gone");
+        assert_eq!(world.transform(thing), None);
     }
 
     #[test]

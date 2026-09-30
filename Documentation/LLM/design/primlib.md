@@ -43,9 +43,11 @@ primlib/
 - **An entity is a number and a generation.**  The number is its slot.  When an entity is despawned its
   slot is reused, and the generation goes up by one, so an old handle to a dead goblin can't read the
   new goblin that took its slot.  Every call checks it.
-- **A component is plain data**, one struct per kind.  The first nine are Jacob's sample NPC:
-  - `Position` and `Scale`: x, y, z as `f32` (what Unity uses).  Scale starts at 1, 1, 1.
-  - `Rotation`: see below.
+- **A component is plain data**, one struct per kind.  The first eight are Jacob's sample NPC, with
+  Position, Rotation and Scale made one `Transform` (Jacob, 2026-09-30), and a `PrimitiveShape`:
+  - `Transform`: a position, a rotation and a scale, each a `Vector3` (x, y, z as `f32`, what Unity
+    uses).  The scale starts at 1, 1, 1.  No parent yet.
+  - `PrimitiveShape`: cube (the default), sphere, capsule, cylinder, plane or quad.
   - `ShortName` ("goblin") and `LongName` ("goblin archer").
   - `Titles`: a list, with one of them picked as the current title ("the plucky").
   - `Health`, `Endurance` and `Mana`: the same shape, a `Pool` (current and max).  A pool made with just
@@ -63,7 +65,7 @@ primlib/
   - The **copies** are the goblins in the world.  `world.spawn(&goblin_a)` makes one; a hundred calls
     make a hundred, each with its own values.
 - **A template is a starting set, not a contract.**  Anything can be added or removed after.
-- **Rotation is three angles in degrees** (x, y, z), the way Unity's inspector shows a rotation and
+- **A rotation is three angles in degrees** (x, y, z), the way Unity's inspector shows a rotation and
   what a script would type (`0, 0, -90`).  Jacob: "whatever the standard is."  Unity itself keeps a
   rotation as a quaternion (four numbers that avoid the snags three angles have when two of the axes
   line up), but it turns three angles into one with `Quaternion.Euler(x, y, z)`, so Ensemble can take
@@ -104,9 +106,10 @@ today builds the blueprint once and copies it); whether `awake()` runs on every 
   - **`Transform`** takes over Position, Rotation and Scale, the way Unity has it.  Jacob said it
     "holds the rotation and position of its parent"; open whether that means objects hang off other
     objects (a sword in a goblin's hand, moving with it) and a transform is relative to its parent,
-    the way Unity's local position is.  Built without a parent for now.
+    the way Unity's local position is.  Built without a parent for now (2026-09-30).
   - **`PrimitiveShape`**: the shape the client draws if it can't draw the model ("cube, capsule,
-    etc.").  Unity's six built-in shapes: cube, sphere, capsule, cylinder, plane, quad.
+    etc.").  Unity's six built-in shapes: cube, sphere, capsule, cylinder, plane, quad.  Built
+    (2026-09-30), a cube unless something says otherwise.
   - **`Animator`**: "controls animation state on the server".  Open: what it holds (the name of the
     state it's in, "idle" or "walk"; a speed; whether it loops).
   - Open: where the model itself goes (a `Model` component?) and what names it (a name Ensemble looks

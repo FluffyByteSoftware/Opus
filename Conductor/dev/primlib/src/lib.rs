@@ -20,7 +20,7 @@ pub mod world;
 
 // Rust note: these `pub use` lines let the rest of Conductor write
 // `conductor_primlib::World` instead of `conductor_primlib::world::World`.
-pub use components::{Component, Kind, LongName, Pool, Position, Rotation, Scale, ShortName, Titles};
+pub use components::{Component, Kind, LongName, Pool, PrimitiveShape, ShortName, Titles, Transform, Vector3};
 pub use entity::Entity;
 pub use template::{Blueprint, Template};
 pub use world::World;
