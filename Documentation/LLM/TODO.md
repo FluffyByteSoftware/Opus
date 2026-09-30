@@ -38,12 +38,19 @@ Things that wait on a piece that doesn't exist yet.
   - **Two libraries.**  Protogame is the game-adjacent piece.  The game library is the world, and it
     holds **Actor**, **Character** and **Agent**: an Actor is anything that acts in the world, an Agent
     is an Actor the computer controls, and a Character is an Actor with a human controller on top.
-    Character isn't in protogame.
-  - **`CharacterSnapshot`** is protogame's: the surface of a character (its name, where it is in the
-    world), for whatever needs one outside the world (character select, the web admin).  Read from the
-    character's row when it's needed, so it's the last save to the database, and never written back;
-    only the Character writes its row.
-    Messages to and from a character are protogame's too.
+    Character isn't in protogame.  **The game library is going to be an ECS** (entity, component,
+    system; Jacob, 2026-09-30): a character is a few components on an entity, not one type, so how
+    Actor, Agent and Character look is being rethought with it.  The design steps back to the ECS
+    before the character's row gets its columns.
+  - **`CharacterSnapshot`** lives in `conductor-accounts`, beside `Account` (it reads the row, and
+    protogame uses it; in protogame it would make a circle of crates): the surface of a character (its
+    name, where it is in the world), for whatever needs one outside the world (character select, the
+    web admin).  Read from the character's row when it's needed, so it's the last save to the
+    database, and never written back.  The player character itself lives in the game library, and
+    only it writes its row.  Messages to and from a character are protogame's.
+  - **The first step is the database side** (Jacob, 2026-09-30): the table, the slots and the
+    functions in `conductor-accounts`, no protocol and no world.  Waits on the ECS, for what's in
+    the row.
   - **`player_characters`**, a new table (its own schema file, `id` and `uuid` like every table).
     Each row has its account's `id` (`account_id`), a quick way back to the account.  Deleting an
     account wipes its characters.
@@ -57,12 +64,16 @@ Things that wait on a piece that doesn't exist yet.
     game library call them and never write SQL.
   - **Postgres does the wiping**: `account_id` is `ON DELETE CASCADE`, so an account's characters go
     with its row, and each slot is `ON DELETE SET NULL`, so a deleted character empties its slot.
-  Still open: the game library's name; whether the world and the voxels are the game library's; which messages protogame
-  carries (the client's UDP traffic to its character, chat between characters, or the game telling a
+  Still open: the ECS (below); the game library's name; whether the world and the voxels are the game
+  library's; which messages protogame carries (the client's UDP traffic to its character, chat between characters, or the game telling a
   character what happened); who makes a character (the player from the client, or the admin); whether
   one is chosen at the TLS login or after the UDP connect (protocol version 5 either way); the chunk
   and world sizes and where the world is kept; the tick rate; how the test client shows it working.
   More than one session's step, so the first one picks where to stop.
+  - **The ECS, open**: written by hand or a crate (bevy_ecs, hecs: a dependency, and heavy on
+    generics and macros); which components a character is; how a character's components are saved
+    (a column each on `player_characters`, a table per component, or one column holding them all);
+    how many entities and what tick the world is sized for.
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
   - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full
