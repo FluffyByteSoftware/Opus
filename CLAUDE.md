@@ -40,7 +40,12 @@ Project root: `/opt/storage/Coding/Opus`
   encoding) is documented in `Documentation/LLM/PROTOCOL.md` and is the single
   source of truth.
 
-If a future third piece appears (tools, admin console, test client), ask me what
+- **Soundcheck** (`Opus.Soundcheck`) -- the patcher, named 2026-09-30, not
+  started.  It runs before the game and hands each client a certificate of
+  its own, so the server can turn away any connection without one (mutual
+  TLS).  LONGTERM_TODO.md has it.
+
+If a future piece appears (tools, admin console, test client), ask me what
 to call it before creating it.
 
 ---

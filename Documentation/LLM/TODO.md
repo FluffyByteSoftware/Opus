@@ -137,7 +137,8 @@ Things that wait on a piece that doesn't exist yet.
   of their own), and his answer is the second, **mutual TLS**: "the server should be rejecting a client
   connecting with no valid certificate ... The clients should be given a cert by the patcher before the
   game is launched... then both the client should be able to trust the server and vice-versa."  It
-  needs the patcher (LONGTERM_TODO.md), so it waits on that; the questions are there.
+  needs the patcher, **Opus.Soundcheck** (Jacob's name), with one certificate per client; it waits on
+  that, and LONGTERM_TODO.md has the rest.
 - **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
   the access lists, 2026-09-29.  Kicking is built, from the TCP row the player's login came through.

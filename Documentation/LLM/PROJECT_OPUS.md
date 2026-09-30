@@ -159,6 +159,7 @@ Where each one lives is in the tree above.
 |--------------------|-----------------------------------------------|------------------------------|
 | Conductor          | The server.  It owns the game state.          | Tools, monitor, door, web admin |
 | Ensemble           | The client players run.  Unity 6000.6, C#.    | On Jacob's machine, uncommitted |
+| Soundcheck         | Opus.Soundcheck, the patcher: hands each client its certificate. | Named, not started |
 | conductor-tools    | Lib crate: the tools the server leans on.     | Built and tested             |
 | conductor-accounts | Lib crate: the accounts table, and the account desk. | Written; the manager untested |
 | conductor-monitor  | Lib crate: looks at the process once a second.| Runs on Linux                |

@@ -33,8 +33,9 @@ Conductor still running.
 stable release, moved only when Jacob says.  At this close all three are on this hand-off: Jacob said to
 release, so `main` has the Lua work and this session's.
 
-**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, primlib included.  TEST_CHECKLIST.html
-is down to its two Parked checks.  The Windows code has never been built, Lua's C build included.
+**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, primlib included.  The first login from
+outside went through (Jacob's work laptop over the internet, after the close).  TEST_CHECKLIST.html is
+down to one Parked check, the Windows build.  The Windows code has never been built, Lua's C build included.
 
 ## Jacob's map (2026-09-30, at the close)
 
@@ -102,6 +103,9 @@ Written, built and tested the same day.  `design/primlib.md` has the whole of th
 - The Debug switch in `conductor_globals.cfg`.
 - Catching Ctrl-C.
 - The Windows build, whenever getting to that machine is less of a hassle.  Lua's C build is part of it.
+- **Soundcheck** (`Opus.Soundcheck`), the patcher, and a certificate for every client (mutual TLS,
+  one per client), after the first login from outside showed the test client going on unchecked
+  without `--cert`.  LONGTERM_TODO.md.  Not a server bug: the server was never asking for one.
 - **Ensemble**, its own session.  The Unity project is `Ensemble/dev/Opus.Ensemble/`, on Jacob's machine
   and untracked.  Before any of it is committed, a look together: what a Unity project commits, where the
   purchased art goes, and LFS for anything big.
