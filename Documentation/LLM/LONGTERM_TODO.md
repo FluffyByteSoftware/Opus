@@ -11,24 +11,26 @@ so much as on the game existing around them.  TODO.md holds what's deferred and 
 what Opus is going to be.  Rolling, in the sense that entries get added as they come up and stay until
 they're built.  Nothing here is ordered; Jacob picks what opens.
 
-## A scripting language of our own
+## The scripting language
 
 Jacob's, 2026-09-29: a scripting language for writing the game's content in -- items, quests, NPCs, and
-whatever else the world is made of -- written by us, for Opus, rather than a crate's language bolted on.
+whatever else the world is made of.  It started as one of our own (it's the part of the game Jacob wants
+to build, and a language shaped for items and quests says them in fewer words; the cost is a parser, an
+interpreter, error messages and docs, each its own piece of work).
 
-Why our own and not Lua or the like: it's the part of the game Jacob wants to build, and a language shaped
-for items and quests can say those things in fewer words than a general one.  That's the pitch; the cost
-is that a language is a parser, an interpreter, error messages, and docs, each its own piece of work.
+**Lua, 2026-09-30** (Jacob: "Lua is a fine language for this actually"), embedded in Conductor, and it
+comes next, before the game library's ECS.  The crate that embeds it (`mlua` is the usual one) is a new
+dependency, so it's asked for before it goes in; and which Lua (5.4, LuaJIT, or Luau, Roblox's, which
+has a locked-down mode built in) is open.  Jacob's sample below is the shape to aim for, written as Lua.
 
-**Open again** (Jacob, 2026-09-30): write our own interpreter, or find a way to use an existing
-scripting language.  Either way, it comes next, before the game library's ECS.
+**Behaviour** (Jacob, 2026-09-30): an object gets a behaviour script added to it, and that script
+controls or changes what it does.  He'd like GOAP (goal-oriented action planning) for the thinking; not
+settled.
 
-Nothing is decided yet.  What has to be, when it opens:
+Still to settle:
 
-- **What it's for, exactly.**  Data (an item's stats, an NPC's lines) or behaviour (what happens when the
-  quest's third step is done), or both.  Data alone is a file format; behaviour is a language.
-- **What it looks like.**  A sample of an item, a quest and an NPC written in it, before any code.  The
-  sample decides the grammar.
+- **What it looks like.**  Jacob's NPC sample is below; an item and a quest in the same shape, in Lua,
+  before any code.
 - **Where it runs.**  Conductor reads and runs it, since Conductor is authoritative.  Whether Ensemble
   ever sees any of it (an item's description, say) is the protocol's question.
 - **Where the files live.**  `Content/` is where both programs' data goes, so somewhere under it, with a
@@ -40,10 +42,9 @@ Nothing is decided yet.  What has to be, when it opens:
 - **What it can't do.**  A script can't touch the disk, the network or the database on its own; it asks
   the game, and the game decides.  That keeps a bad quest from being a bad server.
 
-Its name is Jacob's to give when it opens.
 
 **Jacob's first sample** (2026-09-30, while the game library's ECS was talked through), MudOS / LPC in
-spirit.  A template is a named set of components; `create` makes an object from a template and sets its
+spirit, written before Lua was picked.  A template is a named set of components; `create` makes an object from a template and sets its
 components' values.  Conductor knows from it which components to put on the object, and sends the
 object to the clients as it changes.
 
