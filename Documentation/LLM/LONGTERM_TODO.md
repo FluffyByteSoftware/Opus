@@ -20,6 +20,9 @@ Why our own and not Lua or the like: it's the part of the game Jacob wants to bu
 for items and quests can say those things in fewer words than a general one.  That's the pitch; the cost
 is that a language is a parser, an interpreter, error messages, and docs, each its own piece of work.
 
+**Open again** (Jacob, 2026-09-30): write our own interpreter, or find a way to use an existing
+scripting language.  Either way, it comes next, before the game library's ECS.
+
 Nothing is decided yet.  What has to be, when it opens:
 
 - **What it's for, exactly.**  Data (an item's stats, an NPC's lines) or behaviour (what happens when the
@@ -86,6 +89,10 @@ create NPC goblin_a{
 What it settles so far: the language describes objects as components with values, and a component can
 have a default that follows from another value (current health starts at its max).  Behaviour (what the
 goblin does) isn't in the sample yet.
+
+**`goblin_a` is a blueprint** (Jacob, 2026-09-30): `spawn goblin_a x 100` makes a hundred goblins, each
+with its own health and the rest.  So there are three layers: the template (`NPC`, which components),
+the blueprint (`goblin_a`, their starting values), and the copies in the world.
 
 ## A program of its own for account management
 

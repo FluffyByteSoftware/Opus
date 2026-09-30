@@ -56,10 +56,14 @@ never been built.
   ECS to a separate chat with a brief written at this close
   (`Documentation/LLM/design/ecs-discussion.md`), and bringing what comes out of it back here.
 
-## Jacob's pick for next: what the ECS chat decided
+## Jacob's pick for next: the scripting language
 
-(Later the same day: the separate chat didn't work out, and the ECS talk came back here.  What it
-settles goes into TODO.md's protogame entry as it comes.)
+Later the same day the separate ECS chat didn't work out, and the talk came back here.  Jacob wrote a
+sample NPC in the scripting language he has in mind (LPC-like; in LONGTERM_TODO.md), and then paused
+the ECS: **the scripting language comes first**, our own interpreter or an existing language, still
+open.  The ECS notes so far are in TODO.md's protogame entry.  What follows below was written before
+that, and holds for when the ECS opens again.
+
 
 The next session here starts with what Jacob brings back from the ECS chat.  The brief asks that chat
 to end with a summary in a fixed shape (decisions, open questions, a sketch); fold the decisions into
@@ -72,7 +76,8 @@ and the world's size; where the world and the voxels live.
 
 ## What's waiting
 
-- **Protogame**, waiting on the ECS chat, above.  Jacob's pick.
+- **The scripting language**, above.  Jacob's pick.
+- **Protogame** and the ECS, paused behind the language.
 - **The blocked names list**, in TODO.md with his answers.
 - **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.

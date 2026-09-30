@@ -77,6 +77,10 @@ Things that wait on a piece that doesn't exist yet.
     language (in LONGTERM_TODO.md) shows the shape: a **template** is a named set of components
     (`NPC`: Position, Rotation, Scale, ShortName, LongName, Titles, Health, Endurance, Mana), `create`
     makes an object from it and sets the values, and Conductor sends it to the clients as it changes.
+    `goblin_a` is a blueprint: `spawn goblin_a x 100` makes a hundred, each with its own values.  Who
+    sees what gets masked, but not a variable at a time (Jacob; at what level is open).
+  - **Paused** (Jacob, 2026-09-30): the ECS waits on the scripting language, which comes first (our
+    own interpreter or an existing language; LONGTERM_TODO.md).
   - **The ECS, open**: where behaviour lives (in the components, the way a Unity script does, or in
     systems that run over every object with a given set of components); which properties a character
     has baked, and whether other objects have any; written by hand or a crate (bevy_ecs, hecs: a dependency, and heavy on
