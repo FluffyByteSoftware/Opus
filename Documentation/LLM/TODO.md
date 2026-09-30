@@ -40,7 +40,15 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     spawns in world at its last save loc (0,0,0 for now)".  Character selection is the start of the UDP
     connection, so a character is picked after the UDP connect, not at the TLS login (protocol version 5).
   - **The character is a template** (primlib's), hydrated from the account: Jacob's first step of the
-    three on his map in STATUS.md.
+    three on his map in STATUS.md.  Jacob's answers, 2026-09-30:
+    - **From the `player_characters` table**, not the account row: "the account has a pointer and referral
+      to the character's UUID and ID".
+    - **A character is `Transform`, `ShortName` / `LongName`, Living (health, endurance, mana) and
+      `PrimitiveShape` (capsule).  "Nothing else for now."**
+    - **Saving**: "I imagine we dump the LUA code to their database record?"  Being talked through.
+    - **The character holds a referral back to its account**: "their account is what we track".
+    - **The player makes a character at character select**, from the client.  So nothing makes one until
+      step 2.
 
   Open: which components a character is, and which properties it has "baked" beside them; how its
   components are saved (a column each on `player_characters`, a table per component, or one column
