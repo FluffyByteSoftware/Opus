@@ -66,7 +66,7 @@ Opus/
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/ and logs/
 │   ├── Assets/            # purchased art -- never committed
-│   ├── cfg/               # config files (conductor_globals.cfg, wgui.cfg, postgres.cfg, networking.cfg)
+│   ├── cfg/               # config files (conductor_globals, wgui, postgres, networking, whitelist, blacklist .cfg)
 │   ├── certs/             # the TLS certificate (committed) and its key (never committed), made with openssl
 │   ├── logs/              # log files -- never committed
 │   └── psql/
@@ -140,9 +140,9 @@ a `Content/` folder, or by creating `./Content` when neither works.
   me what changed.
 - **I build, run, and test everything myself** and paste back the output.
   Do not run `cargo check`, `cargo build`, `cargo test`, the server, or the
-  client. Stick to writing the code. When it's written, put your questions at
-  the top of the reply, then tell me exactly which commands to run. I paste back what happens and
-  we go from there.
+  client. Stick to writing the code. When it's written, tell me exactly
+  which commands to run, with your questions at the bottom of the reply (see
+  "How to talk to me"). I paste back what happens and we go from there.
 - Do not predict or number future sessions ("next session is X, then Y").
   I pick what to open next and I'm free to change my mind.
 
@@ -310,7 +310,7 @@ When I say we're wrapping up:
   STOP SERVER and START SERVER applies a change.  Hard (`conductor_globals.cfg`: anything
   about Constellations, Scribe or the web admin's port; `wgui.cfg`: the web
   admin's accounts) is read at boot, so Conductor is shut down and run
-  again.  Nothing hot swaps.  Jacob's
+  again.  Nothing but the two access lists hot swaps.  Jacob's
   rules, 2026-09-29.  Adding a setting is one entry in the table and a
   line wherever it's read (`constellations::value()` and friends); a piece
   never reads a config file itself.  A change from the web admin goes to
@@ -387,8 +387,9 @@ When I say we're wrapping up:
 - **`test_client.py`** beside the crate is how networking is tested until
   Ensemble exists.  Python 3, standard library only.  I run it and paste
   back what it prints, the same as the server.
-- **Client management** (a player limit, reconnect tokens, kicking from the
-  web admin) is not this iteration.  It's in TODO.md as one heading.
+- **Client management** (a player limit, reconnect tokens, messaging a
+  player from the web admin) is not this iteration.  It's in TODO.md as one
+  heading.  Kicking from the web admin is built: KICK on the Connections tab.
 - **The access lists** (`access.rs`, 2026-09-29) are the one thing that
   changes without a reboot.  A change from the page is enforced the same
   moment: `enforce()` asks the door's verdict again for everybody online

@@ -49,10 +49,11 @@ Things that wait on a piece that doesn't exist yet.
     pay for a hash.  The biggest CPU saving Security can't make on its own.  Against today's rule on
     purpose (a dropped UDP session is gone, start over), so it's a design change when it comes, not a fix.
   - A session id in every UDP packet, so a home router changing the port mid-session doesn't end it.
-  - Anything an admin does to a player from the web admin: see who's on, kick, message.
+  - Messaging a player from the web admin.  Seeing who's on (the Connections tab's UDP list) and
+    kicking (KICK in a TCP row's menu) were built on 2026-09-29.
 - **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
-  the access lists, 2026-09-29.  Kicking a player from it is client management, above.
+  the access lists, 2026-09-29.  Kicking is built, from the TCP row the player's login came through.
 - **TEST_CHECKLIST.md becomes an HTML page with checkboxes** (Jacob, 2026-09-30, going through the 09-29
   checks): "a local browser html page only, it's just to help me track what I cleared."  So:
   - Opened from the disk in the browser; a tick is kept in the browser's own storage and nowhere else.
