@@ -174,6 +174,20 @@ Things that wait on a piece that doesn't exist yet.
     that it never ran far over 250 ms.  Jacob remembered a heartbeat stashed in `conductor-tools`
     from an earlier go; there isn't one in Opus's history (it was likely Stratum or Mantle, whose code
     doesn't carry over), so it's written fresh.
+  - **Jacob's answers, the same day**: 50 milliseconds a check, five to a 250 ms cycle.  The checks,
+    in order: input, AI, movement, the position broadcast, housekeeping ("I have no idea what order
+    they should go in", so it's his best guess and can move).  A check that runs long makes the next
+    one late, and the cycle catches up where it can; nothing is skipped.  **The rate is fixed in
+    code, not a setting**: "from all the testing I did before anything faster is gonna be a problem.
+    Slower is fine but faster becomes bad."  The crate is `conductor-gameclock` (folder `gameclock`),
+    and code calls it `conductor_heartbeat`.
+- **A Tick evaluator tab under GAME MANAGEMENT** (Jacob, 2026-09-30, while the heartbeat was
+  planned): a tab beside Connections that shows how the heartbeat is keeping time.  For now the
+  Services tab's line for it is all there is (cycles, late ones, the longest).  Open for when it's
+  built: what it shows (each check's time, the longest and the latest, how many cycles ran late,
+  maybe a graph of the last minute); where the numbers come from (the heartbeat keeping them for the
+  page, like the monitor's `latest()`); its read path under `/Opus/`, asked for when it's built.
+  Nothing on it changes anything, so no `wwwhook` route.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
   which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
   `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
