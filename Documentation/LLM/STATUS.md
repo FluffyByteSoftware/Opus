@@ -104,6 +104,13 @@ only, for `admin` and `user` both (name, UUID, x, y, z, account), through `GET /
 (Jacob's yes) and `list_all()` in `characters.rs`.  Editing characters and NPCs there is next conversation
 (Jacob's words), in TODO.md.
 
+Then **character select**, step 2 of Jacob's map, **written, not built yet**: Protogame, a thread in
+networking that answers a player's asks at character select over UDP (list, create, delete with DELETE
+typed, reset home), protocol version 5 with Jacob's packet names, an ask number on every ask so a lost answer
+is sent again rather than the ask done twice, and the test client's `--create`, `--delete`, `--delete-word`
+and `--reset-home`.  `design/conductor-networking.md` and PROTOCOL.md have it.  The test client was only
+tried against a stand-in UDP server in the session's scratchpad, not Conductor.
+
 ## Where the next session starts
 
 The functions in `conductor-accounts` for `player_characters`, the last of step 1.  Read

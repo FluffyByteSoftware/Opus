@@ -117,6 +117,13 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         number and why), Jacob's pick of the two readings.
       - **The long name is left empty** until the player is in game ("the longname is not dealt with until
         they're in game yup").
+    - **Written, not built yet** (2026-09-30): Protogame (`networking/src/protogame.rs`), the nine packets
+      (protocol version 5), the ask number in the book, primlib's `new_character()` and
+      `Save::of_blueprint()`, and the test client's `--create`, `--delete`, `--delete-word` and
+      `--reset-home`.  `design/conductor-networking.md`, "Character select and Protogame", has it.
+    - **Picking a character to play** is the spawn, step 3 of Jacob's map, and not this.  When it comes:
+      the Connections tab and the log say "in the world" for a player who is only at character select, and
+      a reset home for a character already in the world would need the world's copy moved, not the row.
 - **The GameClock's checks**: an input mailbox and an input packet, a brain for the AI, movement into
   `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their

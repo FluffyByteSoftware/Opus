@@ -32,10 +32,17 @@
 //! bytes and bytes back into packets, which is what lets the tests run.
 //! The answers that never change (`hello()`, `keep_alive()`, the results)
 //! are built once by the callers and sent as they are.
+//!
+//! Character select (0x2_, over UDP, version 5) and the two general
+//! answers, CommandAccepted and CommandRefused, carry an ask number: a u32
+//! the client picks, one higher for every new ask.  The same number again
+//! means the client didn't hear the answer, and it gets the one it missed
+//! rather than the ask done twice (a second CreateCharacter would find
+//! its own name taken).
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 4;
+pub const PROTOCOL_VERSION: u8 = 5;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -52,9 +59,9 @@ pub const MAX_UDP_BYTES: usize = 1200;
 pub const TOKEN_LENGTH: usize = 64;
 
 /// Every packet type there is.  The high four bits say the group and the
-/// low four which one in it: 0x1_ is the login, over TCP, and 0x3_ is the
-/// game, over UDP.  0x2_ is kept free for whatever goes between them one
-/// day (a character select, say).
+/// low four which one in it: 0x1_ is the login, over TCP; 0x2_ is
+/// character select, between the login and the world, over UDP (version
+/// 5, 2026-09-30); and 0x3_ is the game, over UDP.
 // Rust note: `repr(u8)` stores the enum as one byte, and `as u8` turns a
 // value back into its number, the same as a C# `enum : byte`.
 #[repr(u8)]
@@ -81,6 +88,30 @@ pub enum PacketType {
     /// the UDP port to take it to (a u16).  The server closes the
     /// connection right after.
     Ticket = 0x15,
+    /// Client to server, over UDP, at character select.  The ask number.
+    /// The server answers with a CharacterListDelivery.  Version 5.
+    CharacterListRequest = 0x20,
+    /// Server to client.  The ask number, a u8 count, then for each of the
+    /// account's characters, in slot order: its uuid and name (strings),
+    /// its slot (u8, 1 to 3), and whether it can be played (u8, 1 yes, 0
+    /// no; the client greys it out).  Only the account's own characters.
+    CharacterListDelivery = 0x21,
+    /// Client to server.  The ask number, then the name (a string).
+    CreateCharacter = 0x22,
+    /// Server to client.  The ask number, a CreateAnswer byte, then a
+    /// string for the player.
+    CharacterCreateResult = 0x23,
+    /// Client to server.  The ask number, the character's uuid, then the
+    /// word the player typed to say they mean it (strings).  Only DELETE
+    /// deletes.
+    DeleteCharacter = 0x24,
+    /// Server to client.  The ask number, a DeleteAnswer byte, then a
+    /// string for the player.
+    CharacterDeleteResult = 0x25,
+    /// Client to server.  The ask number, then the character's uuid.  Puts
+    /// the character back at 0, 0, 0.  Answered with a CommandAccepted or
+    /// a CommandRefused.
+    CharacterRequestResetHome = 0x26,
     /// Client to server, over UDP.  One string: the token from the
     /// Ticket.  The first UDP packet a client sends, and it sends it again
     /// every half second until it hears back.
@@ -98,6 +129,13 @@ pub enum PacketType {
     /// Server to client, over UDP.  A KickReason as a u32.  The session is
     /// gone, and the client goes back to the login screen.
     Kicked = 0x34,
+    /// Server to client, over UDP.  The ask number: the command was done.
+    /// A general answer, for any command that needs no more said (Jacob,
+    /// 2026-09-30: "This can be reused elsewhere").  Version 5.
+    CommandAccepted = 0x35,
+    /// Server to client, over UDP.  The ask number, then a string saying
+    /// why the command wasn't done, for the player.  Version 5.
+    CommandRefused = 0x36,
 }
 
 impl PacketType {
@@ -111,11 +149,20 @@ impl PacketType {
             0x13 => Some(PacketType::LoginResult),
             0x14 => Some(PacketType::SessionChoice),
             0x15 => Some(PacketType::Ticket),
+            0x20 => Some(PacketType::CharacterListRequest),
+            0x21 => Some(PacketType::CharacterListDelivery),
+            0x22 => Some(PacketType::CreateCharacter),
+            0x23 => Some(PacketType::CharacterCreateResult),
+            0x24 => Some(PacketType::DeleteCharacter),
+            0x25 => Some(PacketType::CharacterDeleteResult),
+            0x26 => Some(PacketType::CharacterRequestResetHome),
             0x30 => Some(PacketType::Connect),
             0x31 => Some(PacketType::ConnectResult),
             0x32 => Some(PacketType::KeepAlive),
             0x33 => Some(PacketType::Goodbye),
             0x34 => Some(PacketType::Kicked),
+            0x35 => Some(PacketType::CommandAccepted),
+            0x36 => Some(PacketType::CommandRefused),
             _ => None,
         }
     }
@@ -199,6 +246,65 @@ pub enum KickReason {
     /// tab.  The client says ACCOUNT TERMINATED (Jacob's words).  Version
     /// 4 of the protocol, 2026-09-29.
     AccountTerminated = 5,
+}
+
+/// What became of a CreateCharacter: the first byte of a
+/// CharacterCreateResult.  Version 5.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CreateAnswer {
+    /// Made, in the account's first empty slot.
+    Made = 0,
+    /// The name breaks the rule: 4 to 20 letters, a to z, and only the
+    /// first can be a capital.
+    NameNotAllowed = 1,
+    /// Another character has that name, whatever the capitals.
+    NameTaken = 2,
+    /// All three of the account's slots are full.  The client shouldn't
+    /// offer it then (Jacob: "we refuse to even allow them to create"),
+    /// and the server turns it away anyway.
+    SlotsFull = 3,
+    /// The server can't make one right now: the database is down, say.
+    Unavailable = 4,
+}
+
+impl CreateAnswer {
+    /// What the player sees.
+    pub fn message(self) -> &'static str {
+        match self {
+            CreateAnswer::Made => "Your character has been made.",
+            CreateAnswer::NameNotAllowed => "A character's name is 4 to 20 letters, a to z, and only the first \
+                can be a capital.",
+            CreateAnswer::NameTaken => "That name is taken.",
+            CreateAnswer::SlotsFull => "All three character slots are full.",
+            CreateAnswer::Unavailable => "Character Creation Unavailable",
+        }
+    }
+}
+
+/// What became of a DeleteCharacter: the first byte of a
+/// CharacterDeleteResult.  The string after it says why a denial was one.
+/// Version 5.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DeleteAnswer {
+    /// The word was DELETE, and the character is gone.
+    Approved = 0,
+    /// The word wasn't DELETE, there's no such character on the account,
+    /// or the server couldn't do it right now.
+    Denied = 1,
+}
+
+/// One character in a CharacterListDelivery.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ListedCharacter {
+    pub uuid: String,
+    pub name: String,
+    /// 1 to 3.
+    pub slot: u8,
+    /// False when its save wouldn't load this run: the client greys it
+    /// out, and the server won't let it in.
+    pub playable: bool,
 }
 
 /// What the player picked when their account was already logged in.
@@ -307,6 +413,17 @@ fn take_string(payload: &[u8], at: &mut usize) -> Result<String, String> {
     Ok(text)
 }
 
+/// Reads the u32 that starts at `*at` in `payload`, and moves `*at` past
+/// it.
+fn take_u32(payload: &[u8], at: &mut usize) -> Result<u32, String> {
+    let rest = &payload[*at..];
+    if rest.len() < 4 {
+        return Err("a number cut off partway".to_string());
+    }
+    *at += 4;
+    Ok(u32::from_le_bytes([rest[0], rest[1], rest[2], rest[3]]))
+}
+
 /// Says no if anything is left over after the last field.  A packet with
 /// extra bytes on the end was built by something that doesn't agree with
 /// us about the protocol, and we'd rather hear about it than guess.
@@ -372,6 +489,52 @@ pub fn kicked(reason: KickReason) -> Vec<u8> {
     bytes
 }
 
+/// The general "done" for an ask.
+pub fn command_accepted(ask: u32) -> Vec<u8> {
+    let mut bytes = vec![PacketType::CommandAccepted as u8];
+    bytes.extend_from_slice(&ask.to_le_bytes());
+    bytes
+}
+
+/// The general "not done", and why, for the player.
+pub fn command_refused(ask: u32, why: &str) -> Vec<u8> {
+    let mut bytes = vec![PacketType::CommandRefused as u8];
+    bytes.extend_from_slice(&ask.to_le_bytes());
+    put_string(&mut bytes, why);
+    bytes
+}
+
+/// An account's characters, for character select.  Three at most, so it
+/// stays far under MAX_UDP_BYTES.
+pub fn character_list(ask: u32, characters: &[ListedCharacter]) -> Vec<u8> {
+    let mut bytes = vec![PacketType::CharacterListDelivery as u8];
+    bytes.extend_from_slice(&ask.to_le_bytes());
+    bytes.push(characters.len().min(u8::MAX as usize) as u8);
+    for character in characters.iter().take(u8::MAX as usize) {
+        put_string(&mut bytes, &character.uuid);
+        put_string(&mut bytes, &character.name);
+        bytes.push(character.slot);
+        bytes.push(u8::from(character.playable));
+    }
+    bytes
+}
+
+pub fn create_result(ask: u32, answer: CreateAnswer) -> Vec<u8> {
+    let mut bytes = vec![PacketType::CharacterCreateResult as u8];
+    bytes.extend_from_slice(&ask.to_le_bytes());
+    bytes.push(answer as u8);
+    put_string(&mut bytes, answer.message());
+    bytes
+}
+
+pub fn delete_result(ask: u32, answer: DeleteAnswer, message: &str) -> Vec<u8> {
+    let mut bytes = vec![PacketType::CharacterDeleteResult as u8];
+    bytes.extend_from_slice(&ask.to_le_bytes());
+    bytes.push(answer as u8);
+    put_string(&mut bytes, message);
+    bytes
+}
+
 // ---------------------------------------------------------------------------
 // The packets the server reads
 // ---------------------------------------------------------------------------
@@ -409,6 +572,44 @@ pub fn read_connect(payload: &[u8]) -> Result<String, String> {
         return Err(format!("a token of {} bytes, and it should be {}", token.len(), TOKEN_LENGTH));
     }
     Ok(token)
+}
+
+/// The payload of a CharacterListRequest: the ask number.
+pub fn read_list_request(payload: &[u8]) -> Result<u32, String> {
+    let mut at = 0;
+    let ask = take_u32(payload, &mut at)?;
+    finished(payload, at)?;
+    Ok(ask)
+}
+
+/// The payload of a CreateCharacter: the ask number and the name.
+pub fn read_create(payload: &[u8]) -> Result<(u32, String), String> {
+    let mut at = 0;
+    let ask = take_u32(payload, &mut at)?;
+    let name = take_string(payload, &mut at)?;
+    finished(payload, at)?;
+    Ok((ask, name))
+}
+
+/// The payload of a DeleteCharacter: the ask number, the uuid, and the
+/// word the player typed.
+pub fn read_delete(payload: &[u8]) -> Result<(u32, String, String), String> {
+    let mut at = 0;
+    let ask = take_u32(payload, &mut at)?;
+    let uuid = take_string(payload, &mut at)?;
+    let typed = take_string(payload, &mut at)?;
+    finished(payload, at)?;
+    Ok((ask, uuid, typed))
+}
+
+/// The payload of a CharacterRequestResetHome: the ask number and the
+/// uuid.
+pub fn read_reset_home(payload: &[u8]) -> Result<(u32, String), String> {
+    let mut at = 0;
+    let ask = take_u32(payload, &mut at)?;
+    let uuid = take_string(payload, &mut at)?;
+    finished(payload, at)?;
+    Ok((ask, uuid))
 }
 
 // ---------------------------------------------------------------------------
@@ -607,13 +808,84 @@ mod tests {
     fn every_type_survives_its_byte() {
         let every = [PacketType::Hello, PacketType::Login, PacketType::InLine, PacketType::LoginResult,
                      PacketType::SessionChoice, PacketType::Ticket, PacketType::Connect, PacketType::ConnectResult,
-                     PacketType::KeepAlive, PacketType::Goodbye, PacketType::Kicked];
+                     PacketType::KeepAlive, PacketType::Goodbye, PacketType::Kicked, PacketType::CommandAccepted,
+                     PacketType::CommandRefused, PacketType::CharacterListRequest, PacketType::CharacterListDelivery,
+                     PacketType::CreateCharacter, PacketType::CharacterCreateResult, PacketType::DeleteCharacter,
+                     PacketType::CharacterDeleteResult, PacketType::CharacterRequestResetHome];
         for kind in every {
             assert_eq!(PacketType::from_byte(kind as u8), Some(kind));
         }
         assert_eq!(PacketType::from_byte(0x00), None);
         assert_eq!(PacketType::from_byte(0x16), None);
-        assert_eq!(PacketType::from_byte(0x20), None);
-        assert_eq!(PacketType::from_byte(0x35), None);
+        assert_eq!(PacketType::from_byte(0x27), None);
+        assert_eq!(PacketType::from_byte(0x37), None);
+    }
+
+    #[test]
+    fn the_general_answers_in_bytes() {
+        assert_eq!(command_accepted(7), vec![0x35, 7, 0, 0, 0]);
+        let mut expected = vec![0x36, 7, 0, 0, 0, 3, 0, 0, 0];
+        expected.extend_from_slice(b"No.");
+        assert_eq!(command_refused(7, "No."), expected);
+    }
+
+    #[test]
+    fn a_character_list_in_bytes() {
+        let jacob = ListedCharacter { uuid: "u-1".to_string(), name: "Jacob".to_string(), slot: 1, playable: true };
+        let mckay = ListedCharacter { uuid: "u-2".to_string(), name: "Mckay".to_string(), slot: 3, playable: false };
+        let mut expected = vec![0x21, 9, 0, 0, 0, 2];
+        expected.extend_from_slice(&[3, 0, 0, 0]);
+        expected.extend_from_slice(b"u-1");
+        expected.extend_from_slice(&[5, 0, 0, 0]);
+        expected.extend_from_slice(b"Jacob");
+        expected.extend_from_slice(&[1, 1]);
+        expected.extend_from_slice(&[3, 0, 0, 0]);
+        expected.extend_from_slice(b"u-2");
+        expected.extend_from_slice(&[5, 0, 0, 0]);
+        expected.extend_from_slice(b"Mckay");
+        expected.extend_from_slice(&[3, 0]);
+        assert_eq!(character_list(9, &[jacob, mckay]), expected);
+        assert_eq!(character_list(1, &[]), vec![0x21, 1, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn create_and_delete_answers_in_bytes() {
+        let made = create_result(4, CreateAnswer::Made);
+        assert_eq!(&made[..6], &[0x23, 4, 0, 0, 0, 0]);
+        let mut at = 6;
+        assert_eq!(take_string(&made, &mut at), Ok(CreateAnswer::Made.message().to_string()));
+        assert_eq!(finished(&made, at), Ok(()));
+        for (answer, byte) in [(CreateAnswer::NameNotAllowed, 1), (CreateAnswer::NameTaken, 2),
+                               (CreateAnswer::SlotsFull, 3), (CreateAnswer::Unavailable, 4)] {
+            assert_eq!(create_result(1, answer)[5], byte);
+        }
+
+        let denied = delete_result(5, DeleteAnswer::Denied, "Type DELETE.");
+        assert_eq!(&denied[..6], &[0x25, 5, 0, 0, 0, 1]);
+        assert_eq!(delete_result(5, DeleteAnswer::Approved, "Gone.")[5], 0);
+    }
+
+    #[test]
+    fn character_select_asks_read_back() {
+        assert_eq!(read_list_request(&[3, 0, 0, 0]), Ok(3));
+        assert!(read_list_request(&[3, 0, 0]).is_err());
+        assert!(read_list_request(&[3, 0, 0, 0, 0]).is_err());
+
+        let mut create = 8u32.to_le_bytes().to_vec();
+        put_string(&mut create, "Jacob");
+        assert_eq!(read_create(&create), Ok((8, "Jacob".to_string())));
+        assert!(read_create(&create[..6]).is_err());
+
+        let mut delete = 9u32.to_le_bytes().to_vec();
+        put_string(&mut delete, "u-1");
+        put_string(&mut delete, "DELETE");
+        assert_eq!(read_delete(&delete), Ok((9, "u-1".to_string(), "DELETE".to_string())));
+        delete.push(0);
+        assert!(read_delete(&delete).is_err());
+
+        let mut home = 10u32.to_le_bytes().to_vec();
+        put_string(&mut home, "u-1");
+        assert_eq!(read_reset_home(&home), Ok((10, "u-1".to_string())));
+        assert!(read_reset_home(&[]).is_err());
     }
 }

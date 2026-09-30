@@ -5,7 +5,10 @@
 # Networking: the TLS front door players log in at over TCP, and the UDP
 # side the game runs on.  A lib crate, and a server piece: it comes up on
 # START SERVER and down on STOP SERVER.  conductor-accounts is how the
-# login reads a password hash and how a player's login time is written.
+# login reads a password hash and how a player's login time is written,
+# and how character select reads and writes a player's characters.
+# conductor-primlib makes a new character, and conductor-lua-parser reads
+# a character's save back (putting one home again rewrites it).
 #
 # rustls is the TLS.  Nobody writes their own, and this includes us.  Its
 # default features are off: "ring" picks the crypto (pure Rust plus a bit
@@ -21,5 +24,7 @@ edition = "2024"
 
 [dependencies]
 conductor-accounts = { path = "../accounts" }
+conductor-lua-parser = { path = "../lua-parser" }
+conductor-primlib = { path = "../primlib" }
 conductor-tools = { path = "../tools" }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }

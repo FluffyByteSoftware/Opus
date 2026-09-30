@@ -41,9 +41,9 @@ primlib/
     ├── world.rs       World: the entities, a Store per kind, and each entity's templates; spawn, despawn,
     │                    add, remove, get, templates(), is()
     ├── template.rs    Template (NPC) and Blueprint (goblin_a); take_in(), templates(), is()
-    ├── gameobject.rs  the built-in templates: living_template(), character_template(); character_from_save(),
-    │                    check_living(); LIVING, CHARACTER
-    └── save.rs        Save (templates and saved fields): of(), apply(), to_lua(); Fields; Value
+    ├── gameobject.rs  the built-in templates: living_template(), character_template(); new_character(),
+    │                    character_from_save(), check_living(); LIVING, CHARACTER
+    └── save.rs        Save (templates and saved fields): of(), of_blueprint(), apply(), to_lua(); Fields; Value
 ```
 
 ## Decided
@@ -161,6 +161,10 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
   `lua-parser`'s `read_save()` runs it in the locked-down Lua and hands back a `Save`.  Anything in it that
   isn't data (a function) or is the wrong shape turns the save away; a component name the game has dropped
   is a Warn and the rest loads.
+- **A new character** (2026-09-30, character select): `new_character(name)` is the Character template with
+  the name as its `ShortName` ("short name here only"); its `LongName` is left empty, since "the longname is
+  not dealt with until they're in game".  It's saved straight away with `Save::of_blueprint()`, the save a
+  copy spawned from the blueprint would have, so no `World` is touched off the GameClock's thread.
 - **Hydrating**: `character_from_save()` starts from the Character template, lays the save over it, then
   puts the `PlayerCharacter` on from the row.  A component added to Character later turns up on old saves at
   its default.

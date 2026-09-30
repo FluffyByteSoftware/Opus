@@ -72,8 +72,10 @@ Opus/
 │       │           ├── windows.rs     # kernel32
 │       │           └── other.rs       # macOS and the rest: not measured yet
 │       ├── networking/                # lib -- a server piece
-│       │   ├── Cargo.toml             # depends on conductor-tools, conductor-accounts and rustls (ring, TLS 1.3 only)
-│       │   ├── test_client.py         # the stand-in client, Python 3: logs in, connects over UDP, keeps alive
+│       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -primlib, -lua-parser and rustls
+│       │   │                          #   (ring, TLS 1.3 only)
+│       │   ├── test_client.py         # the stand-in client, Python 3: logs in, connects over UDP, character
+│       │   │                          #   select (--create, --delete, --reset-home), keeps alive
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(), status(); the two helpers both sides share
 │       │       ├── settings.rs        # networking.cfg as networking reads it; the file itself is Constellations'
@@ -87,7 +89,8 @@ Opus/
 │       │       ├── dns/linux.rs       # getnameinfo from the C library
 │       │       ├── dns/windows.rs     # getnameinfo from ws2_32
 │       │       ├── dns/other.rs       # macOS and the rest: no names yet
-│       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep
+│       │       ├── protogame.rs       # Protogame: character select's asks, on their own thread, answered over UDP
+│       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; hands asks on
 │       ├── lua-parser/                # lib, conductor-lua-parser -- a server piece
 │       │   ├── Cargo.toml             # depends on conductor-tools, conductor-primlib and mlua (Lua 5.4)
 │       │   └── src/
@@ -104,7 +107,8 @@ Opus/
 │       │       │                      #   saved() and load(); Kind (which one, by name); Component
 │       │       ├── world.rs           # World: the entities, a store per kind, each one's templates; spawn, is()
 │       │       ├── template.rs        # Template (NPC) and Blueprint (goblin_a); take_in() another template
-│       │       ├── gameobject.rs      # the built-in templates, Living and Character; a character from its save
+│       │       ├── gameobject.rs      # the built-in templates, Living and Character; a new character; one from
+│       │       │                      #   its save
 │       │       └── save.rs            # a GameObject saved as Lua text: its templates and saved fields
 │       ├── gameworld/                 # lib, conductor-gameworld -- the ground; a server piece, its thread is gameworld
 │       │   ├── Cargo.toml             # depends on conductor-tools
@@ -219,5 +223,5 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | The server's switch  | Stopped / starting / running / stopping.                | Tested                           |
 | The clock            | UTC date and time.                                      | Tested                           |
 | The access lists     | The whitelist and the blacklist at the door.            | Tested                           |
-| The protocol         | What Conductor and a client say to each other.          | Version 4                        |
+| The protocol         | What Conductor and a client say to each other.          | Version 5                        |
 | region.map           | Which region every chunk is in, for server and client.  | Version 1                        |

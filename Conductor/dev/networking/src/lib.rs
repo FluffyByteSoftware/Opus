@@ -34,6 +34,7 @@ mod access;
 mod dns;
 mod ledger;
 pub mod protocol;
+mod protogame;
 mod sessions;
 mod settings;
 mod tcp;
@@ -89,7 +90,7 @@ pub struct Changed {
 }
 
 /// Brings both sides up: `networking.cfg` is read again, the TLS files
-/// are loaded, TCP listens, then UDP.  If the TLS files are missing or
+/// are loaded, TCP listens, Protogame starts, then UDP listens.  If the TLS files are missing or
 /// TCP can't listen, nothing listens and the Services tab says why; if
 /// UDP can't listen, TCP comes back down, so it's both or neither.  None
 /// of it stops the rest of the server.  The launcher calls this last of
@@ -98,6 +99,7 @@ pub struct Changed {
 pub fn start() {
     services::set(services::NETWORK_TCP, State::Starting, "Reading networking.cfg and the TLS files.");
     services::set(services::NETWORK_UDP, State::Starting, "Waiting on the TCP side.");
+    services::set(services::PROTOGAME, State::Starting, "Waiting on the TCP side.");
 
     constellations::load(&constellations::NETWORKING);
     let settings = settings::load();
@@ -107,6 +109,7 @@ pub fn start() {
         Err(why) => {
             services::set(services::NETWORK_TCP, State::Trouble, &why);
             services::set(services::NETWORK_UDP, State::Stopped, "Not started: the TCP side couldn't.");
+            services::set(services::PROTOGAME, State::Stopped, "Not started: the TCP side couldn't.");
             scribe::error(Channel::Network, &format!("NOBODY CAN LOG IN.  {why}"));
             return;
         }
@@ -120,11 +123,25 @@ pub fn start() {
         access::stop();
         services::set(services::NETWORK_TCP, State::Trouble, &why);
         services::set(services::NETWORK_UDP, State::Stopped, "Not started: the TCP side couldn't.");
+        services::set(services::PROTOGAME, State::Stopped, "Not started: the TCP side couldn't.");
         scribe::error(Channel::Network, &format!("NOBODY CAN LOG IN.  {why}"));
         return;
     }
 
+    // Protogame before UDP, so a player's first ask has somewhere to go.
+    if let Err(why) = protogame::start() {
+        tcp::stop();
+        access::stop();
+        services::set(services::NETWORK_TCP, State::Stopped, "Stopped again: Protogame couldn't start.");
+        services::set(services::NETWORK_UDP, State::Stopped, "Not started: Protogame couldn't.");
+        services::set(services::PROTOGAME, State::Trouble, &why);
+        scribe::error(Channel::Network, &format!("NOBODY CAN LOG IN.  {why}  The TCP side was stopped again, \
+            since a player couldn't get past character select."));
+        return;
+    }
+
     if let Err(why) = udp::start(&settings) {
+        protogame::stop();
         tcp::stop();
         access::stop();
         services::set(services::NETWORK_TCP, State::Stopped, "Stopped again: the UDP side couldn't start.");
@@ -146,6 +163,7 @@ pub fn wait_for_world() {
     let note = "Waiting on the world: the door opens once the chunks around 0,0,0 are in.";
     services::set(services::NETWORK_TCP, State::Starting, note);
     services::set(services::NETWORK_UDP, State::Starting, note);
+    services::set(services::PROTOGAME, State::Starting, note);
 }
 
 /// Takes both sides down and waits for their threads.  TCP first, so no
@@ -157,10 +175,14 @@ pub fn stop() {
     let never_opened = tcp::listening_on().is_none() && udp::listening_on().is_none();
     tcp::stop();
     udp::stop();
+    // After UDP, so no new ask comes in; it answers the ones it has first,
+    // to nobody, since the players are gone.
+    protogame::stop();
     access::stop();
     if never_opened {
         services::set(services::NETWORK_TCP, State::Stopped, "Stopped.  The door never opened this run.");
         services::set(services::NETWORK_UDP, State::Stopped, "Stopped.  The door never opened this run.");
+        services::set(services::PROTOGAME, State::Stopped, "Stopped.  The door never opened this run.");
     }
 }
 

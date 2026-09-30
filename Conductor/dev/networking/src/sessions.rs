@@ -46,6 +46,14 @@
 //! (`connect()`), not at the TLS login before it: that's when playing
 //! starts, and it's what playtime will be counted from.
 //!
+//! A player at character select asks Protogame for things (their
+//! characters, a new one), each ask with a number.  The book keeps the ask
+//! being worked on and the last one answered, with its answer, so a
+//! client that didn't hear back and asks again gets the same answer, not
+//! the ask done twice; and a player has one ask at a time, so nobody can
+//! queue up a pile of database jobs.  The answer goes with the player
+//! when they leave.
+//!
 //! The work is done by functions on a `Book` handed to them, so the tests
 //! run on books of their own and never touch the real one.
 
@@ -84,6 +92,11 @@ struct Player {
     connected: Utc,
     /// The door's ledger row of the login they came in on.
     door: u64,
+    /// The ask Protogame is working on for them, if any.
+    asking: Option<u32>,
+    /// The last ask answered, and the answer, to send again if the same
+    /// ask comes in again.
+    answered: Option<(u32, Vec<u8>)>,
 }
 
 /// Where an account is right now.
@@ -141,6 +154,21 @@ pub struct PlayerView {
     pub playing_for: Duration,
     /// How long since their last packet.
     pub quiet_for: Duration,
+}
+
+/// What the book says to an ask from `from` (`begin_ask()`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Ask {
+    /// Nobody plays from there.  No answer.
+    Stranger,
+    /// Their last ask is still being worked on.  This one is dropped; the
+    /// client asks again if it still wants it.
+    Busy,
+    /// The ask answered last time, asked again: the answer it got, to
+    /// send again as it is.
+    Again(Vec<u8>),
+    /// A new ask, now theirs to be worked on.  The player's account.
+    New(String),
 }
 
 /// What the admin's kick of a login's row found in the book.
@@ -242,6 +270,18 @@ pub fn heard(from: SocketAddr) -> bool {
     }
 }
 
+/// An ask numbered `ask` from `from`.  It counts as hearing from them.
+pub fn begin_ask(from: SocketAddr, ask: u32) -> Ask {
+    begin_ask_in(&mut book(), from, ask, Instant::now())
+}
+
+/// The answer to the ask `begin_ask()` said was new, kept for a repeat.
+/// True if it should go out: the same account is still at `from`, with
+/// that ask.  False if they've left, or somebody else is there now.
+pub fn finish_ask(from: SocketAddr, account: &str, ask: u32, answer: &[u8]) -> bool {
+    finish_ask_in(&mut book(), from, account, ask, answer)
+}
+
 /// The player at `from` said Goodbye.  Their account, if there was one.
 pub fn leave(from: SocketAddr) -> Option<String> {
     with_book(|book| remove_player_in(book, from, Gone::SaidGoodbye))
@@ -341,9 +381,39 @@ fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> C
         remove_player_in(book, elsewhere, Gone::Replaced { by: from });
     }
     book.players.insert(from, Player { account: name.clone(), token: token.to_string(), last_heard: now,
-                                       connected_at: now, connected: Utc::now(), door });
+                                       connected_at: now, connected: Utc::now(), door, asking: None,
+                                       answered: None });
     book.accounts.insert(name.clone(), Whereabouts::Playing(from));
     Connected::Accepted(name)
+}
+
+fn begin_ask_in(book: &mut Book, from: SocketAddr, ask: u32, now: Instant) -> Ask {
+    let Some(player) = book.players.get_mut(&from) else {
+        return Ask::Stranger;
+    };
+    player.last_heard = now;
+    if let Some((answered, answer)) = &player.answered {
+        if *answered == ask {
+            return Ask::Again(answer.clone());
+        }
+    }
+    if player.asking.is_some() {
+        return Ask::Busy;
+    }
+    player.asking = Some(ask);
+    Ask::New(player.account.clone())
+}
+
+fn finish_ask_in(book: &mut Book, from: SocketAddr, account: &str, ask: u32, answer: &[u8]) -> bool {
+    let Some(player) = book.players.get_mut(&from) else {
+        return false;
+    };
+    if player.account != account || player.asking != Some(ask) {
+        return false;
+    }
+    player.asking = None;
+    player.answered = Some((ask, answer.to_vec()));
+    true
 }
 
 fn players_in(book: &Book, now: Instant) -> Vec<PlayerView> {
@@ -495,6 +565,35 @@ mod tests {
 
         assert_eq!(book.accounts.get("jacob"), Some(&Whereabouts::Playing(home)));
         assert!(book.tickets.is_empty());
+    }
+
+    #[test]
+    fn an_ask_is_worked_once_and_its_answer_kept() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        let stranger = address("10.0.0.9:50000");
+        issue_in(&mut book, "jacob", "abc", 1, now);
+        connect_in(&mut book, "abc", home, now);
+
+        assert_eq!(begin_ask_in(&mut book, stranger, 1, now), Ask::Stranger);
+        assert_eq!(begin_ask_in(&mut book, home, 1, now), Ask::New("jacob".to_string()));
+        // Still being worked on: the same ask again, or another, waits.
+        assert_eq!(begin_ask_in(&mut book, home, 1, now), Ask::Busy);
+        assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::Busy);
+
+        // Only the ask being worked on, for the account that asked, is
+        // answered.
+        assert!(!finish_ask_in(&mut book, home, "jacob", 2, b"two"));
+        assert!(!finish_ask_in(&mut book, home, "someone", 1, b"one"));
+        assert!(!finish_ask_in(&mut book, stranger, "jacob", 1, b"one"));
+        assert!(finish_ask_in(&mut book, home, "jacob", 1, b"one"));
+
+        // Asked again, it gets the kept answer; a new number is new.
+        assert_eq!(begin_ask_in(&mut book, home, 1, now), Ask::Again(b"one".to_vec()));
+        assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::New("jacob".to_string()));
+        assert!(finish_ask_in(&mut book, home, "jacob", 2, b"two"));
+        assert_eq!(begin_ask_in(&mut book, home, 1, now), Ask::New("jacob".to_string()));
     }
 
     #[test]

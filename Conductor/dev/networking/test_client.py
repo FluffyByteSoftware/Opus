@@ -6,7 +6,9 @@
 # A stand-in for Ensemble, for testing networking by hand until there is
 # a real client.  It does what a client does and nothing more: TLS to the
 # TCP port, a Login, then the Ticket to the UDP port, then keep-alives
-# until Ctrl-C (which sends a Goodbye) or --leave-after runs out.  Every
+# until Ctrl-C (which sends a Goodbye) or --leave-after runs out.  In
+# between, at character select, it asks for the account's characters, and
+# makes, deletes or resets home the ones the flags name.  Every
 # packet in and out is printed, meaning first and raw bytes under it.  The
 # bytes are the ones in Documentation/LLM/PROTOCOL.md; when this and the
 # document disagree, the document wins.  To try "already logged in", leave
@@ -16,6 +18,9 @@
 #   python3 test_client.py --host 127.0.0.1 --cert ../../../Content/certs/conductor.crt jacob_01 'Correct horse 1!'
 #   python3 test_client.py --go-quiet jacob_01 'Correct horse 1!'   (stops the keep-alives, to see the 40 s drop)
 #   python3 test_client.py --pause-before-login 8 jacob_01 'Correct horse 1!'   (sits open, to KICK or ban it)
+#   python3 test_client.py --create Jacob jacob_01 'Correct horse 1!'   (makes a character, then lists again)
+#   python3 test_client.py --delete Jacob jacob_01 'Correct horse 1!'   (types DELETE; --delete-word to type another)
+#   python3 test_client.py --reset-home Jacob jacob_01 'Correct horse 1!'   (puts it back at 0, 0, 0)
 #
 # Standard library only.
 
@@ -27,7 +32,7 @@ import struct
 import sys
 import time
 
-PROTOCOL_VERSION = 4
+PROTOCOL_VERSION = 5
 
 HELLO = 0x10
 LOGIN = 0x11
@@ -35,17 +40,33 @@ IN_LINE = 0x12
 LOGIN_RESULT = 0x13
 SESSION_CHOICE = 0x14
 TICKET = 0x15
+CHARACTER_LIST_REQUEST = 0x20
+CHARACTER_LIST_DELIVERY = 0x21
+CREATE_CHARACTER = 0x22
+CHARACTER_CREATE_RESULT = 0x23
+DELETE_CHARACTER = 0x24
+CHARACTER_DELETE_RESULT = 0x25
+CHARACTER_REQUEST_RESET_HOME = 0x26
 CONNECT = 0x30
 CONNECT_RESULT = 0x31
 KEEP_ALIVE = 0x32
 GOODBYE = 0x33
 KICKED = 0x34
+COMMAND_ACCEPTED = 0x35
+COMMAND_REFUSED = 0x36
 
 NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "LoginResult",
          SESSION_CHOICE: "SessionChoice", TICKET: "Ticket", CONNECT: "Connect", CONNECT_RESULT: "ConnectResult",
-         KEEP_ALIVE: "KeepAlive", GOODBYE: "Goodbye", KICKED: "Kicked"}
+         KEEP_ALIVE: "KeepAlive", GOODBYE: "Goodbye", KICKED: "Kicked",
+         CHARACTER_LIST_REQUEST: "CharacterListRequest", CHARACTER_LIST_DELIVERY: "CharacterListDelivery",
+         CREATE_CHARACTER: "CreateCharacter", CHARACTER_CREATE_RESULT: "CharacterCreateResult",
+         DELETE_CHARACTER: "DeleteCharacter", CHARACTER_DELETE_RESULT: "CharacterDeleteResult",
+         CHARACTER_REQUEST_RESET_HOME: "CharacterRequestResetHome", COMMAND_ACCEPTED: "CommandAccepted",
+         COMMAND_REFUSED: "CommandRefused"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
+CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
+DELETE_ANSWERS = {0: "approved", 1: "denied"}
 KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin",
                 5: "ACCOUNT TERMINATED"}
 
@@ -180,6 +201,134 @@ def log_in(args):
             return None
 
 
+class Kicked(Exception):
+    """The server sent a Kicked in the middle of character select."""
+
+
+class CharacterSelect:
+    """The asks at character select, each with an ask number one higher
+    than the last.  An ask not answered in half a second is sent again with
+    the same number, so the server hands back the answer it kept instead of
+    doing it twice."""
+
+    def __init__(self, udp, server):
+        self.udp = udp
+        self.server = server
+        self.last_ask = 0
+        self.characters = []
+
+    def ask(self, kind, rest, detail):
+        """Sends one ask and hands back (answer type, the answer after its
+        ask number), or (None, None) if nothing came."""
+        self.last_ask += 1
+        ask = self.last_ask
+        packet = bytes([kind]) + struct.pack("<I", ask) + rest
+        for attempt in range(20):
+            self.udp.sendto(packet, self.server)
+            say("->", kind, "ask %d, %s%s" % (ask, detail, "" if attempt == 0 else " (again)"), packet[1:])
+            deadline = time.monotonic() + 0.5
+            while time.monotonic() < deadline:
+                try:
+                    data, _ = self.udp.recvfrom(2048)
+                except socket.timeout:
+                    continue
+                if not data:
+                    continue
+                if data[0] == KICKED:
+                    (reason,) = struct.unpack("<I", data[1:5])
+                    say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
+                    raise Kicked()
+                if data[0] in (CHARACTER_LIST_DELIVERY, CHARACTER_CREATE_RESULT, CHARACTER_DELETE_RESULT,
+                               COMMAND_ACCEPTED, COMMAND_REFUSED) and len(data) >= 5:
+                    (answered,) = struct.unpack_from("<I", data, 1)
+                    if answered == ask:
+                        return data[0], data
+                    say("<-", data[0], "for ask %d, an old one; ignored" % answered, data[1:])
+                elif data[0] != KEEP_ALIVE:
+                    say("<-", data[0], "", data[1:])
+        print("No answer to ask %d in 10 seconds." % ask)
+        return None, None
+
+    def list(self):
+        kind, data = self.ask(CHARACTER_LIST_REQUEST, b"", "the account's characters")
+        if kind == COMMAND_REFUSED:
+            message, _ = take_string(data, 5)
+            say("<-", kind, repr(message), data[1:])
+            return
+        if kind != CHARACTER_LIST_DELIVERY:
+            return
+        count = data[5]
+        at = 6
+        self.characters = []
+        for _ in range(count):
+            uuid, at = take_string(data, at)
+            name, at = take_string(data, at)
+            slot, playable = data[at], data[at + 1]
+            at += 2
+            self.characters.append((uuid, name, slot, playable))
+        say("<-", kind, "%d character(s)" % count, data[1:])
+        for uuid, name, slot, playable in self.characters:
+            print("   slot %d: %-20s %s  %s" % (slot, name, uuid, "playable" if playable else "UNPLAYABLE (greyed)"))
+        if count < 3:
+            print("   %d slot(s) free." % (3 - count))
+        else:
+            print("   All three slots are full: a client wouldn't offer CREATE.")
+
+    def uuid_of(self, name):
+        for uuid, listed, _, _ in self.characters:
+            if listed.lower() == name.lower():
+                return uuid
+        print("No character called %s on this account." % name)
+        return None
+
+    def create(self, name):
+        kind, data = self.ask(CREATE_CHARACTER, put_string(name), repr(name))
+        if kind == CHARACTER_CREATE_RESULT:
+            message, _ = take_string(data, 6)
+            say("<-", kind, "%s: %r" % (CREATE_ANSWERS.get(data[5], data[5]), message), data[1:])
+
+    def delete(self, name, word):
+        uuid = self.uuid_of(name)
+        if uuid is None:
+            return
+        kind, data = self.ask(DELETE_CHARACTER, put_string(uuid) + put_string(word), "%s, typed %r" % (name, word))
+        if kind == CHARACTER_DELETE_RESULT:
+            message, _ = take_string(data, 6)
+            say("<-", kind, "%s: %r" % (DELETE_ANSWERS.get(data[5], data[5]), message), data[1:])
+
+    def reset_home(self, name):
+        uuid = self.uuid_of(name)
+        if uuid is None:
+            return
+        kind, data = self.ask(CHARACTER_REQUEST_RESET_HOME, put_string(uuid), name)
+        if kind == COMMAND_ACCEPTED:
+            say("<-", kind, "", data[1:])
+        elif kind == COMMAND_REFUSED:
+            message, _ = take_string(data, 5)
+            say("<-", kind, repr(message), data[1:])
+
+
+def character_select(args, udp, server):
+    """The list, then whatever the flags ask for, each followed by the list
+    again.  False if the server kicked us on the way."""
+    select = CharacterSelect(udp, server)
+    try:
+        select.list()
+        if args.create:
+            select.create(args.create)
+            select.list()
+        if args.delete:
+            select.delete(args.delete, args.delete_word)
+            select.list()
+        if args.reset_home:
+            select.reset_home(args.reset_home)
+            select.list()
+    except Kicked:
+        print("Back to the login screen.")
+        return False
+    return True
+
+
 def play(args, token, udp_port):
     """The UDP half: Connect, then keep-alives until it's time to go."""
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -203,6 +352,9 @@ def play(args, token, udp_port):
         print("No answer to the Connect in 10 seconds.")
         return
 
+    if not character_select(args, udp, server):
+        return
+
     if args.go_quiet:
         print("Going quiet.  The server should drop this session after its UDP timeout; watch its log.")
         try:
@@ -215,7 +367,8 @@ def play(args, token, udp_port):
         except KeyboardInterrupt:
             return
 
-    print("In the world.  Keep-alives once a second; Ctrl-C to say Goodbye.")
+    print("Still at character select: there's no world to step into yet.  Keep-alives once a second; Ctrl-C to "
+          "say Goodbye.")
     started = time.monotonic()
     try:
         while True:
@@ -268,6 +421,11 @@ def main():
                         help="connect over UDP and then send nothing, to see the timeout drop the session")
     parser.add_argument("--pause-before-login", type=int, default=0,
                         help="wait this many seconds after TLS before sending the Login, to catch it open")
+    parser.add_argument("--create", metavar="NAME", help="make a character with this name at character select")
+    parser.add_argument("--delete", metavar="NAME", help="delete the account's character with this name")
+    parser.add_argument("--delete-word", default="DELETE",
+                        help="the word typed to confirm a --delete (default: DELETE; anything else is denied)")
+    parser.add_argument("--reset-home", metavar="NAME", help="put the account's character with this name at 0, 0, 0")
     args = parser.parse_args()
 
     try:

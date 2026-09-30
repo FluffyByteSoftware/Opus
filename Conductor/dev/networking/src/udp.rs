@@ -31,9 +31,13 @@
 //! are, and a packet is looked at in the buffer it arrived in, so a
 //! keep-alive costs a map lookup and a send and nothing else.
 //!
-//! There's no game yet, so a player in the world just keeps alive until
-//! they leave one way or another.  When there is one, this thread hands
-//! it what players say through a queue and never waits on it.
+//! A player starts at character select (protocol version 5): their asks
+//! (the list of their characters, a new one, a delete, a reset home) are
+//! database jobs, so this thread hands each to Protogame through its
+//! mailbox and never waits on it; Protogame sends the answer.  An ask the
+//! book has already answered is answered again from here, straight from
+//! the book.  There's no world to step into yet, so after that a player
+//! just keeps alive until they leave one way or another.
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
@@ -48,7 +52,8 @@ use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
 use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
-use crate::sessions::{self, Connected};
+use crate::protogame::{self, Work};
+use crate::sessions::{self, Ask, Connected};
 use crate::settings::Settings;
 use crate::{timed_out, wake_address};
 
@@ -256,11 +261,57 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 }
             }
         }
+        // Character select.  One that can't be read counts as hearing
+        // from a player, and gets no answer.
+        Some(PacketType::CharacterListRequest) => match protocol::read_list_request(payload) {
+            Ok(ask) => ask_protogame(socket, from, ask, Work::List),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
+        Some(PacketType::CreateCharacter) => match protocol::read_create(payload) {
+            Ok((ask, name)) => ask_protogame(socket, from, ask, Work::Create { name }),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
+        Some(PacketType::DeleteCharacter) => match protocol::read_delete(payload) {
+            Ok((ask, uuid, typed)) => ask_protogame(socket, from, ask, Work::Delete { uuid, typed }),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
+        Some(PacketType::CharacterRequestResetHome) => match protocol::read_reset_home(payload) {
+            Ok((ask, uuid)) => ask_protogame(socket, from, ask, Work::ResetHome { uuid }),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
         // Anything else from a player counts as hearing from them, which
         // is what the game's packets will do once there are some.  From a
         // stranger, silence.
         _ => {
             sessions::heard(from);
+        }
+    }
+}
+
+/// An ask from character select.  A stranger, or a player whose last ask
+/// is still being worked on, hears nothing; one asked again gets the
+/// answer it missed; a new one goes to Protogame, which answers it.
+fn ask_protogame(socket: &UdpSocket, from: SocketAddr, ask: u32, work: Work) {
+    match sessions::begin_ask(from, ask) {
+        Ask::Stranger | Ask::Busy => {}
+        Ask::Again(answer) => send(socket, from, &answer),
+        Ask::New(account) => {
+            // Protogame isn't running (which shouldn't happen while this
+            // thread is): the answer is that it's unavailable, kept like
+            // any other.
+            if let Err(answer) = protogame::hand_in(from, account.clone(), ask, work) {
+                if sessions::finish_ask(from, &account, ask, &answer) {
+                    send(socket, from, &answer);
+                }
+            }
         }
     }
 }
@@ -327,6 +378,13 @@ mod tests {
 
         // A Connect too short to be real: silence again.
         heard(&ours, &connect[..20], from);
+        assert!(stranger.recv_from(&mut buffer).is_err());
+
+        // Character select's asks from a stranger: silence too.
+        heard(&ours, &[PacketType::CharacterListRequest as u8, 1, 0, 0, 0], from);
+        let mut create = vec![PacketType::CreateCharacter as u8, 2, 0, 0, 0, 5, 0, 0, 0];
+        create.extend_from_slice(b"Jacob");
+        heard(&ours, &create, from);
         assert!(stranger.recv_from(&mut buffer).is_err());
     }
 

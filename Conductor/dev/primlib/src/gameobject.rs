@@ -15,9 +15,10 @@
 //! `Character` is a player's character: Living, a place in the world, a
 //! capsule to draw until there are models, and the `PlayerCharacter` that
 //! says whose it is.  A new one starts with 10 health, 10 endurance and 10
-//! mana.
+//! mana, and the name the player picked as its short name.  Its long name
+//! is left empty: that's the player's to set in game (Jacob, 2026-09-30).
 
-use crate::components::{Component, Kind, PlayerCharacter, Pool, PrimitiveShape};
+use crate::components::{Component, Kind, PlayerCharacter, Pool, PrimitiveShape, ShortName};
 use crate::save::Save;
 use crate::template::{Blueprint, Template};
 
@@ -53,6 +54,17 @@ pub fn character_template() -> Template {
     character.add(Component::PrimitiveShape(PrimitiveShape::Capsule));
     character.add_default(Kind::PlayerCharacter);
     character
+}
+
+/// A new player's character, made at character select: the Character
+/// template with `name` as its short name, and nothing else.  Its long
+/// name stays empty ("the longname is not dealt with until they're in
+/// game").  It isn't anybody's until it has a row; `PlayerCharacter` is
+/// put back from the row when it's loaded, so it's never in the save.
+pub fn new_character(name: &str) -> Blueprint {
+    let mut blueprint = Blueprint::from_template("character", &character_template());
+    blueprint.set(Component::ShortName(ShortName::new(name)));
+    blueprint
 }
 
 /// A player's character, ready to spawn: the Character template, the save
@@ -150,6 +162,26 @@ mod tests {
         assert_eq!(world.health(jacob), Some(&Pool { current: 80, max: 100 }));
         assert_eq!(world.mana(jacob), Some(&Pool::full(10)), "not in the save, so the template's");
         assert_eq!(world.primitive_shape(jacob), Some(&PrimitiveShape::Capsule));
+    }
+
+    #[test]
+    fn a_new_character_has_its_short_name_and_nothing_more() {
+        let blueprint = new_character("Jacob");
+        assert_eq!(check_living(&blueprint), Ok(()));
+        assert_eq!(blueprint.get(Kind::ShortName), Some(&Component::ShortName(ShortName::new("Jacob"))));
+        assert_eq!(blueprint.get(Kind::LongName), Some(&Component::LongName(LongName::default())));
+
+        // Saved straight away and made again from the save, the way
+        // character select makes one and the spawn loads it.
+        let again = character_from_save(7, 42, &Save::of_blueprint(&blueprint));
+        assert!(again.is_ok(), "{again:?}");
+        let again = again.unwrap_or_else(|_| Blueprint::from_template("x", &Template::new("x")));
+        let mut world = World::new();
+        let jacob = world.spawn(&again);
+        assert_eq!(world.short_name(jacob), Some(&ShortName::new("Jacob")));
+        assert_eq!(world.health(jacob), Some(&Pool::full(STARTING_POOLS)));
+        assert_eq!(world.transform(jacob).map(|transform| transform.position), Some(Vector3::new(0.0, 0.0, 0.0)));
+        assert_eq!(world.player_character(jacob), Some(&PlayerCharacter::new(7, 42)));
     }
 
     #[test]

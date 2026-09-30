@@ -11,8 +11,10 @@ client who has never seen Conductor's code.  Conductor's half is `Conductor/dev/
 and the Python test client beside the crate (`networking/test_client.py`) is the other half until Ensemble
 speaks it; when either disagrees with this document, it is the code that gets fixed.
 
-Protocol version **4**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 4 (2026-09-29)
+Protocol version **5**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 5 (2026-09-30)
+added character select (`0x20` to `0x26`) and the two general answers, CommandAccepted and CommandRefused
+(`0x35`, `0x36`).  Version 4 (2026-09-29)
 added reason `5`, account terminated, to Kicked.  Version 3 (the same day) added reason `4`, kicked by
 the admin.  Version 2 (the same day) added reason `3`, banned.  Version 1 was everything before it.
 
@@ -25,7 +27,7 @@ A session is two halves, over two transports.
    server closes the connection.  Nothing else ever goes over TCP.
 2. **UDP is the game.**  The client sends the Ticket's token to the UDP port in a Connect, the server
    answers with a ConnectResult, and from then on everything goes over UDP: a KeepAlive each way once a
-   second, and the game's packets once there is a game.
+   second, character select, and the game's packets once there is a game.
 
 When the UDP session ends, for any reason, the player is gone.  There is no reconnect: the client goes back
 to the login screen and starts over from TCP.  The reasons it ends: the client sent a Goodbye, the client
@@ -71,8 +73,8 @@ The largest UDP packet the server takes is 1200 bytes.  A larger one is dropped 
 
 ### Packet types
 
-The high four bits are the group, the low four which one in it.  `0x1_` is the login, over TCP.  `0x3_` is
-the game, over UDP.  `0x2_` is kept free for whatever goes between them one day.
+The high four bits are the group, the low four which one in it.  `0x1_` is the login, over TCP.  `0x2_` is
+character select, between the login and the world, over UDP.  `0x3_` is the game, over UDP.
 
 | Type   | Name           | Way              | Payload                                                  |
 |--------|----------------|------------------|----------------------------------------------------------|
@@ -82,11 +84,20 @@ the game, over UDP.  `0x2_` is kept free for whatever goes between them one day.
 | `0x13` | LoginResult    | server to client | u8 answer, string message                                |
 | `0x14` | SessionChoice  | client to server | u8: 0 log the other session out, 1 hang this one up      |
 | `0x15` | Ticket         | server to client | string token (64 hex characters), u16 UDP port           |
+| `0x20` | CharacterListRequest | client to server | u32 ask                                            |
+| `0x21` | CharacterListDelivery | server to client | u32 ask, u8 count, then each: string uuid, string name, u8 slot, u8 playable |
+| `0x22` | CreateCharacter | client to server | u32 ask, string name                                    |
+| `0x23` | CharacterCreateResult | server to client | u32 ask, u8 answer, string message              |
+| `0x24` | DeleteCharacter | client to server | u32 ask, string uuid, string the typed word            |
+| `0x25` | CharacterDeleteResult | server to client | u32 ask, u8 answer, string message              |
+| `0x26` | CharacterRequestResetHome | client to server | u32 ask, string uuid                          |
 | `0x30` | Connect        | client to server | string token                                             |
 | `0x31` | ConnectResult  | server to client | u8 answer, string message                                |
 | `0x32` | KeepAlive      | both ways        | nothing                                                  |
 | `0x33` | Goodbye        | client to server | nothing                                                  |
 | `0x34` | Kicked         | server to client | u32 reason                                               |
+| `0x35` | CommandAccepted | server to client | u32 ask                                                 |
+| `0x36` | CommandRefused | server to client | u32 ask, string why                                      |
 
 ## The login, over TCP
 
@@ -153,6 +164,63 @@ can't are short labels with no period.
 
 Anything else from an address the server knows counts as hearing from that player (the game's packets go
 here later).  Anything at all from an address it doesn't know, other than a Connect, gets no answer.
+
+## Character select, over UDP
+
+Once the ConnectResult says Welcome, the player is at character select.  There's no world to step into from
+there yet; that comes with the spawn.  A player only ever sees, makes and deletes characters on the account
+they logged in as: the server goes by who logged in, never by anything in the packet.
+
+**The ask number.**  Every packet the client sends here starts with a u32 it picks, one higher for every new
+ask, and the answer carries it back.  UDP can lose a packet either way, so a client that hears nothing in
+half a second sends the same ask again, same number and all.  If the server has answered that number, it
+sends the same answer again rather than doing it twice (a second CreateCharacter would find its own name
+taken).  A player has one ask at a time: one sent while the last is still being worked on is dropped, and
+the client's resend picks it up once it's done.  An answer for an ask number the client has moved past is
+an old one, and the client ignores it.  One that can't be read gets no answer.
+
+- **CharacterListRequest** gets a **CharacterListDelivery**: every character on the account, in slot order,
+  3 at most.  For each: its uuid, its name, its slot (1 to 3), and playable, `1` or `0`.  `0` means its save
+  wouldn't load this run; the client greys it out, and the server won't let it in.  (It stays that way
+  until the admin stops and starts the server.)  A list the server can't read right now gets a
+  **CommandRefused** instead.  A client doesn't offer CREATE when all three slots are full.
+- **CreateCharacter** with a name gets a **CharacterCreateResult**.  A name is 4 to 20 letters, a to z, and
+  only the first can be a capital; every name is unique on the server whatever the capitals.  The
+  character goes in the account's first empty slot, at 0, 0, 0.  The answers:
+  - `0` "Your character has been made."
+  - `1` "A character's name is 4 to 20 letters, a to z, and only the first can be a capital."
+  - `2` "That name is taken."
+  - `3` "All three character slots are full."
+  - `4` "Character Creation Unavailable": the server can't make one right now.  Nothing the player did.
+- **DeleteCharacter** with the character's uuid and the word the player typed gets a
+  **CharacterDeleteResult**.  The client asks the player to type DELETE before it sends it, and only
+  DELETE deletes (any capitals).  Answer `0` approved: the character is gone.  `1` denied, and the message
+  says why: the word was wrong, there's no such character on the account, or the server can't do it right
+  now.
+- **CharacterRequestResetHome** with a character's uuid puts it back at 0, 0, 0 and gets a
+  **CommandAccepted**, or a **CommandRefused** saying why not (no such character on the account, the
+  character is unplayable, its save won't load, or the server can't right now).
+
+**CommandAccepted** (the ask number) and **CommandRefused** (the ask number and a message for the player)
+are general answers: any command that needs no more said than done or not done, here or in the game later,
+gets one of them.
+
+A character select exchange, a CreateCharacter as ask 2 for "Jacob":
+
+```text
+22                                            CreateCharacter
+02 00 00 00                                   ask 2
+05 00 00 00  4A 61 63 6F 62                   "Jacob"
+```
+
+and the answer, "Your character has been made." being 29 bytes:
+
+```text
+23                                            CharacterCreateResult
+02 00 00 00                                   ask 2
+00                                            made
+1D 00 00 00  59 6F 75 72 20 ...               "Your character has been made."
+```
 
 ## A worked example
 

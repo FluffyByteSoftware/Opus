@@ -269,6 +269,22 @@ impl Save {
         Some(save)
     }
 
+    /// The save of a blueprint, as a copy spawned from it would be saved
+    /// before anything happened to it.  For a GameObject made to be saved
+    /// straight away, without a `World` (a new player's character, made at
+    /// character select).
+    pub fn of_blueprint(blueprint: &Blueprint) -> Save {
+        let mut save = Save { templates: blueprint.templates().to_vec(), components: Vec::new() };
+        for component in blueprint.components() {
+            let mut fields = Fields::new();
+            component.saved(&mut fields);
+            if !fields.is_empty() {
+                save.components.push((component.kind(), fields));
+            }
+        }
+        save
+    }
+
     /// Lays the saved values over a blueprint made from the template: each
     /// saved component starts as the blueprint's (or its default, if the
     /// blueprint doesn't have that kind) and takes the save's fields.  The
@@ -409,6 +425,23 @@ mod tests {
             .unwrap_or_default();
         assert!(transform.get("position").is_some() && transform.get("scale").is_some());
         assert!(transform.get("parent").is_none(), "only the fields saved() names");
+    }
+
+    #[test]
+    fn a_blueprint_saves_the_way_its_copy_would() {
+        let mut world = World::new();
+        let mut blueprint = Blueprint::from_template("character", &gameobject::character_template());
+        blueprint.set(Component::ShortName(ShortName::new("Jacob")));
+        let jacob = world.spawn(&blueprint);
+
+        let from_world = Save::of(&world, jacob).unwrap_or_default();
+        let from_blueprint = Save::of_blueprint(&blueprint);
+        assert_eq!(from_blueprint.templates, from_world.templates);
+        // The same components and fields, whatever order each lists them in.
+        assert_eq!(from_blueprint.components.len(), from_world.components.len());
+        for (kind, fields) in &from_world.components {
+            assert!(from_blueprint.components.contains(&(*kind, fields.clone())), "{}", kind.name());
+        }
     }
 
     #[test]

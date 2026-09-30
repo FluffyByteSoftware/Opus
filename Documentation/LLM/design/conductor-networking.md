@@ -21,8 +21,10 @@ anything a login leans on goes.  `stop()` is safe when the door never opened, an
 
 ```
 networking/
-├── Cargo.toml         conductor-accounts, conductor-tools, rustls 0.23 ("ring", "std")
-├── test_client.py     the stand-in client: TLS, Login, Ticket, Connect, keep-alives, Goodbye.  Python 3.
+├── Cargo.toml         conductor-accounts, conductor-lua-parser, conductor-primlib, conductor-tools,
+│                        rustls 0.23 ("ring", "std")
+├── test_client.py     the stand-in client: TLS, Login, Ticket, Connect, character select (--create,
+│                        --delete, --delete-word, --reset-home), keep-alives, Goodbye.  Python 3.
 └── src/
     ├── lib.rs         start(), wait_for_world(), stop(), status() -> Status { tcp, udp, players, tickets,
     │                    connections, in_world, access, whitelisted, blacklisted }, kick(id), terminate(account),
@@ -30,13 +32,18 @@ networking/
     │                    timed_out(), wake_address()
     ├── settings.rs    networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs         server_config(settings) -> Arc<ServerConfig>; make_pair(), the openssl command
-    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 4: PacketType, LoginAnswer, ConnectAnswer,
-    │                    KickReason, Choice; frame(), take_packet(), take_datagram(); hello(), in_line(),
-    │                    login_result(), ticket(), connect_result(), keep_alive(), kicked(); read_login(),
-    │                    read_session_choice(), read_connect()
+    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 5: PacketType, LoginAnswer, ConnectAnswer,
+    │                    KickReason, Choice, CreateAnswer, DeleteAnswer, ListedCharacter; frame(), take_packet(),
+    │                    take_datagram(); hello(), in_line(), login_result(), ticket(), connect_result(),
+    │                    keep_alive(), kicked(), command_accepted(), command_refused(), character_list(),
+    │                    create_result(), delete_result(); read_login(), read_session_choice(), read_connect(),
+    │                    read_list_request(), read_create(), read_delete(), read_reset_home()
+    ├── protogame.rs   Protogame, thread protogame: start(), stop(), hand_in(from, account, ask, Work) -> the
+    │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome }
     ├── sessions.rs    the book: tickets by token, players by address, each account's whereabouts
-    │                    playing(), issue(), connect(), heard(), leave(), kick(), terminate(), kick_login(),
-    │                    sweep(), clear(), counts(), players(), drop_where(); with_book()
+    │                    playing(), issue(), connect(), heard(), begin_ask() -> Ask, finish_ask(), leave(),
+    │                    kick(), terminate(), kick_login(), sweep(), clear(), counts(), players(), drop_where();
+    │                    with_book()
     ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
     │                    start(), clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
     ├── access.rs      the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
@@ -47,7 +54,8 @@ networking/
     ├── dns/other.rs   macOS and the rest: no names
     ├── tcp.rs         the acceptor, the login threads, TLS, the login flow, the failure hold; kick(),
     │                    close_where() for a ban, listening_on()
-    └── udp.rs         the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; tell(), listening_on()
+    └── udp.rs         the one UDP thread: Connect, KeepAlive, Goodbye, character select's asks handed to
+                         Protogame, the sweep; tell(), listening_on()
 ```
 
 ## What Jacob asked for
@@ -174,6 +182,38 @@ because of the CPU cost.
   checks nothing and says so), prints every packet, and asks whether to log out another session
   (`--leave-other-alone` says no).  `--leave-after N` says Goodbye after N seconds, `--go-quiet` stops the
   keep-alives, and `--pause-before-login N` sits open after TLS so the row can be kicked or banned.
+
+## Character select and Protogame (2026-09-30)
+
+Jacob's packets and names, protocol version 5, `0x2_` over UDP (PROTOCOL.md has the bytes):
+CharacterListRequest / CharacterListDelivery ("makes it less confusing"), CreateCharacter /
+CharacterCreateResult, DeleteCharacter / CharacterDeleteResult, CharacterRequestResetHome, and the general
+CommandAccepted / CommandRefused in `0x3_` ("This can be reused elsewhere").  Whether a character can be
+played is a byte per character in the list ("just add a bool in it"), not a packet of its own.
+
+- **Protogame** is Jacob's word for it: "the character selection and character construction are proto game
+  then become game objects after load".  A module of this crate for now (as a crate of its own it would need
+  networking and networking would need it), with its own thread `protogame` and its own line on the
+  Services tab.  Started before the UDP side and stopped after it.
+- **The UDP thread never waits on the database.**  It reads the ask, asks the book, and hands a new one to
+  Protogame's mailbox; Protogame waits on conductor-accounts (10 seconds at most, then "Unavailable"), keeps
+  the answer in the book, and sends it with `udp::tell()`.
+- **The ask number** (proposed, taken): a u32 on every ask.  The book keeps each player's ask in the works
+  and their last answer.  The same number again gets the kept answer, so a lost CharacterCreateResult
+  doesn't turn into "That name is taken."; one ask at a time per player, so nobody queues up database jobs.
+- **The account is the book's**, never the packet's: a player only sees and changes their own characters.
+- **Creating**: the name rule first (no database job for a bad name), then primlib's `new_character(name)`
+  saved with `Save::of_blueprint()` as the row's Lua, then `characters::create()`: the first empty slot, all
+  three full refused.
+- **Deleting** (Jacob: "player presses delete, and the client pre-reqs to ask them to type in delete then
+  sends the packet to the server with the typed in word.  Server either approves or denies"): only DELETE,
+  any capitals, deletes.
+- **Reset home** ("sends character back to 0, 0, 0"): the save holds the position too, so the save is read
+  back with lua-parser, made into the character, moved (rotation and scale kept), and saved again whole with
+  the position columns.  A save that won't load marks the character unplayable, with the Error on the bell,
+  the same as the spawn will.
+- **Bigger answers than asks**, unlike the Connect: a list is a few hundred bytes for a five-byte ask.  Only a
+  known player's address ever gets one, so a faked sender address has to be a player's.
 
 ## What's open
 
