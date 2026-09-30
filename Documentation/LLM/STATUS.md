@@ -39,7 +39,8 @@ merge to main, so `main` has the GameClock.
 **Built on Windows** (2026-09-30, after the hand-off): Rust's MSVC toolchain and the Visual Studio Build
 Tools, written up in `Documentation/HowTo/WINDOWS_INSTALL.md`.  It builds with no errors and no warnings,
 Lua's C build included.  Conductor runs and START SERVER works; the laptop has no Postgres, so
-Archivist times out and the data tabs stay locked, as they should.  TEST_CHECKLIST.html is down to one Parked check, the server on Windows with Postgres.
+Archivist times out and the data tabs stay locked, as they should.  TEST_CHECKLIST.html is down to one Parked check,
+the server on Windows with Postgres.
 
 ## Jacob's map (2026-09-30)
 
