@@ -64,6 +64,7 @@ Opus/
 │   │   ├── networking/         # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
 │   │   ├── lua-parser/         # lib (conductor-lua-parser): runs the Lua scripts in Content/scripts/, locked down
 │   │   ├── primlib/            # lib (conductor-primlib): the game library -- entities, components, templates, blueprints
+│   │   ├── gameworld/          # lib (conductor-gameworld): the ground -- blocks, chunks, regions and their files
 │   │   ├── gameclock/          # lib (conductor-gameclock): the GameClock, the game loop
 │   │   ├── wgui/               # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── launcher/           # bin: the program -- boots, then starts and stops the server on the Control Panel's say
@@ -321,8 +322,8 @@ When I say we're wrapping up:
   the tick in code (2026-09-30).
 - **Conductor and the server are two things.** The program (DiskMan, Scribe,
   Constellations, the web admin) is up from boot. The server (Fingerprinter,
-  Security, Archivist, the account desk, Lua, the GameClock, networking, the
-  monitor, and the rest of the game as it comes) only runs between START SERVER and STOP SERVER on the web admin's
+  Security, Archivist, the account desk, Lua, GameWorld, the GameClock,
+  networking, the monitor, and the rest of the game as it comes) only runs between START SERVER and STOP SERVER on the web admin's
   Control Panel: Conductor comes up with its door closed, and the admin opens
   it (and closes it) from there. Jacob's rule, 2026-09-29. The launcher does
   the calling on the Control Panel's say, so a new server piece goes in both

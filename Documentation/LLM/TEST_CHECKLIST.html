@@ -196,6 +196,79 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>GameWorld, part one (2026-09-30)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The workspace builds with the new crate, <code>conductor-gameworld</code>, with no <code>warning:</code>
+      lines, and every test passes (GameWorld's own included).  <code>Cargo.lock</code> changes, since there's
+      a new crate: commit it.
+    </span></label>
+    <pre class="cmd">cargo build &amp;&amp; cargo test &amp;&amp; git status --short</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The first START SERVER makes the world.  The Log tab has "GameWorld is making a new world, from seed
+      ..." and then "GameWorld has made the world: Alpha to the west of 0,0,0, flat, and Omega to the east, in
+      hills."  While it works, the Services tab has GameWorld (between Lua and GameClock) counting lines of
+      columns up to 16384.  It could take a minute or so in a debug build.  Then GameWorld goes green with
+      "162 chunks handed over since START SERVER, 0 of them from their own files."
+    </span></label>
+    <pre class="cmd">cargo run -p conductor-launcher</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The GameClock's line on the Services tab ends "162 of the 162 chunks around 0,0,0 are in."  Its late
+      count stays at 0 while the world is made, since the making is on GameWorld's thread.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The files are there, and git doesn't see them: <code>region.map</code> is 524,330 bytes and
+      <code>Regions/Omega/omega.heights</code> is 134,217,754, and <code>git status --short</code> says
+      nothing about <code>Content/world</code>.
+    </span></label>
+    <pre class="cmd">ls -l /opt/storage/Coding/Opus/Content/world /opt/storage/Coding/Opus/Content/world/Regions/Omega &amp;&amp; git status --short</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      STOP SERVER and START SERVER: nothing is made again (no "making" lines in the Log), and GameWorld is
+      green in a second or two with the same 162 chunks.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Settings tab has <code>game.cfg</code>, with <code>view_chunks</code> at 4.  Set it to 8 and save,
+      then STOP SERVER and START SERVER: GameWorld hands over 578 chunks and the GameClock says 578 of 578.
+      Set it back to 4 after.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A lost heights file comes back the same.  With the server stopped, take its checksum and delete it,
+      then START SERVER: a Warn on the bell says it's missing and is being made again from the seed, and once
+      GameWorld is green the checksum is the same as before.  ACK the Warn.
+    </span></label>
+    <pre class="cmd">sha256sum /opt/storage/Coding/Opus/Content/world/Regions/Omega/omega.heights &amp;&amp; rm /opt/storage/Coding/Opus/Content/world/Regions/Omega/omega.heights</pre>
+    <pre class="cmd">sha256sum /opt/storage/Coding/Opus/Content/world/Regions/Omega/omega.heights</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A stop part way through making is no fault.  With the server stopped, delete the world, START SERVER,
+      and STOP SERVER while GameWorld is still counting lines.  The Log says "GameWorld stopped before it was
+      done", nothing goes on the bell, and there's no <code>region.map</code>.  START SERVER again makes the
+      world from the start.
+    </span></label>
+    <pre class="cmd">rm -r /opt/storage/Coding/Opus/Content/world</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Conductor tab's Threads has <code>gameworld</code> under Asked for, started from
+      <code>gameworld/src/lib.rs</code>, and it's near nothing on the CPU once the world is read.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">

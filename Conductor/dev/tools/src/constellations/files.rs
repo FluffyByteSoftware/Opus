@@ -339,9 +339,30 @@ pub static NETWORKING: ConfigFile = ConfigFile {
     ],
 };
 
+/// `Content/cfg/game.cfg`: the game world's settings.  GameWorld reads it
+/// on every START SERVER, so it's soft: "the world should need a reboot so
+/// the voxel engine or service restarts and rebuilds" (Jacob, 2026-09-30).
+pub static GAME: ConfigFile = ConfigFile {
+    name: "game.cfg",
+    reboot: Reboot::Soft,
+    channel: Channel::Game,
+    about: "The game world's settings.  One \"key = value\" a line, and \"#\" starts\n\
+            a comment.",
+    settings: &[
+        Setting {
+            key: "view_chunks",
+            kind: Kind::Number { low: 1, high: 16 },
+            default: "4",
+            about: "How many chunks each way around a player the server loads.  A chunk\n\
+                    is 16 m, so 4 is 64 m.  Every player starts at 0,0,0 for now, so\n\
+                    today it's the chunks around there.",
+        },
+    ],
+};
+
 /// Every config file, in the order the page lists them.  A new file goes
 /// here and nowhere else.
-pub static FILES: [&ConfigFile; 4] = [&GLOBALS, &WGUI, &POSTGRES, &NETWORKING];
+pub static FILES: [&ConfigFile; 5] = [&GLOBALS, &WGUI, &POSTGRES, &NETWORKING, &GAME];
 
 #[cfg(test)]
 mod tests {

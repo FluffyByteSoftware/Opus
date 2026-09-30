@@ -40,13 +40,14 @@ pub const NETWORK_UDP: &str = "Network (UDP)";
 pub const ACCOUNT_DESK: &str = "Account desk";
 pub const MONITOR: &str = "Monitor";
 pub const LUA: &str = "Lua";
+pub const GAMEWORLD: &str = "GameWorld";
 pub const GAMECLOCK: &str = "GameClock";
 pub const WEB_ADMIN: &str = "Web admin";
 
 /// Every service Conductor expects, in the order the page lists them, and
 /// the thread each runs on, if it has one.  The thread names are the ones
 /// given to `threads::spawn()`.
-const EXPECTED: [(&str, Option<&str>); 13] = [
+const EXPECTED: [(&str, Option<&str>); 14] = [
     (DISKMAN, Some("diskman")),
     (SCRIBE, None),
     (CONSTELLATIONS, None),
@@ -58,6 +59,7 @@ const EXPECTED: [(&str, Option<&str>); 13] = [
     (ACCOUNT_DESK, Some("account-desk")),
     (MONITOR, Some("monitor")),
     (LUA, Some("lua")),
+    (GAMEWORLD, Some("gameworld")),
     (GAMECLOCK, Some("gameclock")),
     (WEB_ADMIN, Some("wgui")),
 ];
@@ -209,7 +211,7 @@ mod tests {
     fn every_expected_service_is_there_from_the_start() {
         let names: Vec<&str> = list().iter().map(|service| service.name).collect();
         assert_eq!(names, vec![DISKMAN, SCRIBE, CONSTELLATIONS, FINGERPRINTER, SECURITY, ARCHIVIST, NETWORK_TCP,
-                               NETWORK_UDP, ACCOUNT_DESK, MONITOR, LUA, GAMECLOCK, WEB_ADMIN]);
+                               NETWORK_UDP, ACCOUNT_DESK, MONITOR, LUA, GAMEWORLD, GAMECLOCK, WEB_ADMIN]);
     }
 
     #[test]

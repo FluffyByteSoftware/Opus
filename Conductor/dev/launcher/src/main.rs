@@ -5,7 +5,8 @@
 //! Entry point.  Brings up the program -- DiskMan, Scribe, Constellations
 //! and the web admin -- and then waits on the web admin's Control Panel.
 //! The server itself (Fingerprinter, Security, Archivist, the account desk,
-//! Lua, the GameClock, networking, the monitor, and whatever comes later)
+//! Lua, GameWorld, the GameClock, networking, the monitor, and whatever
+//! comes later)
 //! doesn't start until the admin presses START SERVER there, and STOP
 //! SERVER takes it back down while the program keeps running.
 //! The console is only Scribe's output, and typing in it does nothing.
@@ -120,15 +121,17 @@ fn take_commands() {
 /// from Fingerprinter, so it comes after it; Archivist comes straight back
 /// and connects on its own thread; the account desk, which leans on
 /// Security and Archivist, comes after both; Lua runs the scripts before
-/// the door opens, since the world will be made of them one day; the
-/// GameClock makes a fresh world and starts beating, so there's a world
-/// before there are players; networking opens the door once the three a
+/// the door opens, since the world will be made of them one day; GameWorld
+/// reads the ground (or makes it, the first time) on its own thread, so
+/// the GameClock has somebody to ask for chunks; the GameClock makes a
+/// fresh world and starts beating, so there's a world before there are
+/// players; networking opens the door once the three a
 /// login leans on are up; the monitor starts looking once a second.  None
 /// of them can fail to the point of stopping this: each says how it went
 /// in the log and on the Services tab.
 fn start_server() {
-    server::set(State::Starting, "Starting Fingerprinter, Security, Archivist, the account desk, Lua, the \
-        GameClock, networking and the monitor.");
+    server::set(State::Starting, "Starting Fingerprinter, Security, Archivist, the account desk, Lua, \
+        GameWorld, the GameClock, networking and the monitor.");
     scribe::info(Channel::System, "The server is starting.");
 
     fingerprinter::start();
@@ -136,19 +139,21 @@ fn start_server() {
     archivist::start();
     conductor_accounts::desk::start();
     conductor_lua_parser::start();
+    conductor_gameworld::start();
     conductor_gameclock::start();
     conductor_networking::start();
     conductor_monitor::start();
 
-    server::set(State::Running, "Fingerprinter, Security, Archivist, the account desk, Lua, the GameClock, \
-        networking and the monitor were started.  The Services tab says how each one is doing.");
+    server::set(State::Running, "Fingerprinter, Security, Archivist, the account desk, Lua, GameWorld, the \
+        GameClock, networking and the monitor were started.  The Services tab says how each one is doing.");
     scribe::info(Channel::System, "The server is running.");
 }
 
 /// Takes the server back down, in the opposite order.  Networking goes
 /// first, so the door is shut and every player told before the pieces a
 /// login leans on go; the GameClock stops once nobody is left in the
-/// world, and the world goes with it; Lua goes once nobody is left in the
+/// world, and the world goes with it; GameWorld goes after it, once
+/// nobody is left to ask for a chunk; Lua goes once nobody is left in the
 /// world its scripts will run; the account desk finishes the jobs the web
 /// admin handed it while Security and Archivist are still there to do
 /// them; Security goes before Archivist, so a hash on its way to the
@@ -158,13 +163,14 @@ fn start_server() {
 /// any config file saved from the web admin while they ran is swapped in,
 /// so the next START SERVER reads the new one.
 fn stop_server() {
-    server::set(State::Stopping, "Stopping the monitor, networking, the GameClock, Lua, the account desk, \
-        Security, Archivist and Fingerprinter.");
+    server::set(State::Stopping, "Stopping the monitor, networking, the GameClock, GameWorld, Lua, the account \
+        desk, Security, Archivist and Fingerprinter.");
     scribe::info(Channel::System, "The server is stopping.");
 
     conductor_monitor::stop();
     conductor_networking::stop();
     conductor_gameclock::stop();
+    conductor_gameworld::stop();
     conductor_lua_parser::stop();
     conductor_accounts::desk::stop();
     security::stop();

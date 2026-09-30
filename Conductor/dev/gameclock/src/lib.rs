@@ -3,7 +3,8 @@
 //! Author:     Jacob Chacko
 //!
 //! The GameClock: the game loop.  It owns the world (primlib's `World`)
-//! and steps it forward on a fixed beat.  A full cycle is 250 ms, cut into
+//! and the terrain (GameWorld's chunks), and steps them forward on a fixed
+//! beat.  A full cycle is 250 ms, cut into
 //! five checks of 50 ms each, and each check does its own job on its own
 //! group of objects: the players' input, the AI's brains, movement, the
 //! positions going out, and housekeeping.  `checks.rs` has them, in order.
@@ -23,9 +24,12 @@
 //! cycle starts straight away, on a fresh schedule from that moment,
 //! instead of rushing through checks to make up the time.
 //!
-//! The world is only ever touched on this thread, so it needs no lock.
-//! It's made fresh on every START SERVER.  Saving it on STOP SERVER and
-//! loading it back comes later (design/primlib.md).
+//! The world and the terrain are only ever touched on this thread, so they
+//! need no lock.  The world is made fresh on every START SERVER; saving it
+//! on STOP SERVER and loading it back comes later (design/primlib.md).
+//! The terrain starts empty, and the GameClock asks GameWorld for the
+//! chunks around 0,0,0, where every player starts for now.  They come in
+//! over the first cycles, in housekeeping.
 
 mod checks;
 
@@ -34,6 +38,7 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
+use conductor_gameworld::{SPAWN, Terrain};
 use conductor_primlib::World;
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
@@ -112,6 +117,8 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 /// again, until `stop()` drops the Sender.
 fn run(stopped: Receiver<()>) {
     let mut world = World::new();
+    let mut terrain = Terrain::new();
+    terrain.ask_around(SPAWN.0, SPAWN.2, conductor_gameworld::view_chunks());
 
     // Tallies since START SERVER, for the Services tab.
     let mut cycles: u64 = 0;
@@ -134,7 +141,7 @@ fn run(stopped: Receiver<()>) {
                 break 'beating;
             }
             let began = Instant::now();
-            (check.run)(&mut world);
+            (check.run)(&mut world, &mut terrain);
             let took = began.elapsed();
             busy += took;
             if took > slowest.1 {
@@ -160,7 +167,7 @@ fn run(stopped: Receiver<()>) {
         }
 
         services::set(services::GAMECLOCK, State::Running, &format!("Beating.  {cycles} cycles, {late} late.  \
-            The busiest spent {} ms of its 250 in the checks.", ms(busiest)));
+            The busiest spent {} ms of its 250 in the checks.  {}", ms(busiest), chunks(&terrain)));
         services::seen(services::GAMECLOCK);
 
         cycle_start = next_start(cycle_start, finished);
@@ -214,6 +221,15 @@ fn next_start(cycle_start: Instant, finished: Instant) -> Instant {
 /// Whether a Warn may go out now, a minute or more after the last one.
 fn may_warn(last_warn: Option<Instant>, now: Instant) -> bool {
     last_warn.is_none_or(|last| now.duration_since(last) >= WARN_EVERY_AT_MOST)
+}
+
+/// How the terrain is doing, for the Services tab.
+fn chunks(terrain: &Terrain) -> String {
+    let mut words = format!("{} of the {} chunks around 0,0,0 are in.", terrain.held(), terrain.asked());
+    if terrain.failed() > 0 {
+        words.push_str(&format!("  {} couldn't be had (the log says why).", terrain.failed()));
+    }
+    words
 }
 
 /// A duration in milliseconds, one place after the point.

@@ -2,8 +2,9 @@
 # Component:  Conductor
 # Author:     Jacob Chacko
 #
-# The GameClock: the game loop that owns the world and steps it forward,
-# five checks of 50 ms to a 250 ms cycle.  A lib crate, and a server piece.
+# The GameClock: the game loop that owns the world and the terrain and
+# steps them forward, five checks of 50 ms to a 250 ms cycle.  A lib
+# crate, and a server piece.
 # Its folder is gameclock and its name is conductor-gameclock, like every
 # crate, so code says conductor_gameclock.
 
@@ -13,5 +14,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+conductor-gameworld = { path = "../gameworld" }
 conductor-primlib = { path = "../primlib" }
 conductor-tools = { path = "../tools" }

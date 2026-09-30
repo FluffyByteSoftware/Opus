@@ -7,7 +7,91 @@ Author:     Jacob Chacko
 # The world
 
 The world is what the game is played in: the ground, what it's made of, and how it's cut up.  Third on
-Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 2026-09-30.  Nothing is built.
+Jacob's map (the tick, then the world's voxels, then zones).  Designed 2026-09-30, and part one written the
+same day: `conductor-gameworld`.
+
+## Where it stands
+
+**Part one is written and not built yet** (2026-09-30).  `conductor-gameworld` (lib, folder
+`Conductor/dev/gameworld/`) is a server piece with its own thread, `gameworld`, and a GameWorld line on the
+Services tab.  On START SERVER it reads `region.map`, or makes the world if there isn't one (a seed from
+Fingerprinter, Omega's heights file, then `region.map` last, so a stop part way leaves no half world).  A
+heights file that has gone missing is made again from the map's seed, with a Warn.  Then it answers the
+GameClock's asks: each chunk from its own file if it has one, otherwise built from its region's ground.
+
+The GameClock holds a `Terrain` (gameworld's `terrain.rs`): on START SERVER it asks for the chunks within
+`view_chunks` of 0,0,0 (162 at 4), and its housekeeping check takes in whatever has arrived, never waiting.
+Its Services line says how many are in.
+
+`game.cfg` is in Constellations' table (soft) with one setting, `view_chunks` (1 to 16, default 4).
+`save_minutes` goes in with part two, when something reads it.
+
+**Part two**: saving.  A chunk that changes is marked, and the changed ones go to GameWorld to write on
+STOP SERVER and every `save_minutes` (15).  Nothing changes a chunk yet, so part two comes with the first
+thing that does (digging, or a way to set a block for testing).
+
+**One call made in the code, for Jacob to check**: Omega's hills fade in over its first chunk east of 0
+(32 blocks), so Alpha and Omega meet at the same height instead of at a step up to 5 blocks high, and the
+GOLD block at 0,0,0 sits in the dirt rather than floating or buried.  One line in `noise.rs`.
+
+The floor at -16 is STONE, the same kind as the rest; it's "undiggable" by its height, when digging comes,
+not by being a kind of its own.
+
+## The files
+
+All under `Content/world/`, gitignored.  Every number is little-endian.  `region.map` is a contract with
+Ensemble as well, so a change to it bumps its version.
+
+`region.map`:
+
+```text
+8 bytes   OPUSRMAP
+u16       version, 1
+u64       the seed the world was made from
+i16       the westmost chunk's x (-256)
+i16       the southmost chunk's z (-256)
+u16       how many chunks east-west (512)
+u16       how many chunks north-south (512)
+u8        how many rows up and down (2)
+u8        how many regions, then for each:
+            u8   its ground: 0 flat, 1 heights
+            u8   its name's length, then the name, UTF-8
+u8 x every chunk   the number of the region it's in, counted from 0 in
+                   the list above: the lower row first; in a row, the
+                   south line first; in a line, west to east.
+```
+
+524,330 bytes for the first world.
+
+`Regions/<Region>/<region>.heights` (Omega's, today):
+
+```text
+8 bytes   OPUSHGHT
+u16       version, 1
+u64       the seed it was made from, the same as region.map's
+i16       the westmost column's x
+i16       the southmost column's z
+u16       how many columns east-west
+u16       how many columns north-south
+i8 x every column   the dirt's height, -5 to 5: the south line first,
+                    in a line west to east.
+```
+
+134,217,754 bytes for Omega.
+
+`Regions/<Region>/<region>_<x>_<z>_<row>.chunk` (`alpha_-015_003_0.chunk`), one per changed chunk:
+
+```text
+8 bytes   OPUSCHNK
+u16       version, 1
+i16       x, the chunk's place east-west
+i16       z, north-south
+u8        row, 0 (lower) or 1 (upper)
+u16 x 32768  the blocks, bottom layer first; in a layer, the south row
+             first; in a row, west to east.  (y * 32 + z) * 32 + x.
+```
+
+The block numbers: AIR 0, DIRT 1, STONE 2, WOOD 3, GOLD 4.  A number never changes once it's out there.
 
 ## What's settled
 

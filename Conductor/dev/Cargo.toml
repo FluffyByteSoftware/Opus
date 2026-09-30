@@ -6,13 +6,15 @@
 # else leans on, conductor-accounts is an account as the server holds it,
 # conductor-monitor keeps an eye on the process, conductor-networking
 # talks to players, conductor-lua-parser runs the Lua scripts,
-# conductor-primlib is the game library, conductor-gameclock is the game
-# loop that runs it, conductor-wgui is the web admin, and
-# conductor-launcher is the program.
+# conductor-primlib is the game library, conductor-gameworld is the
+# ground (the blocks, chunks and regions, and their files),
+# conductor-gameclock is the game loop that runs them, conductor-wgui is
+# the web admin, and conductor-launcher is the program.
 #
 # The members are folders, named without the conductor- in front (tools,
 # accounts, ...).  The crates keep it, so code still says conductor_tools.
 
 [workspace]
-members = ["tools", "accounts", "monitor", "networking", "lua-parser", "primlib", "gameclock", "wgui", "launcher"]
+members = ["tools", "accounts", "monitor", "networking", "lua-parser", "primlib", "gameworld", "gameclock", "wgui",
+           "launcher"]
 resolver = "3"

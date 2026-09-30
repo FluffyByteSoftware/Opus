@@ -45,7 +45,7 @@ use crate::diskman::{self, DiskError, SwapAt};
 use crate::scribe::{self, Channel};
 use crate::services::{self, State};
 
-pub use files::{ConfigFile, FILES, GLOBALS, Kind, NETWORKING, POSTGRES, Reboot, Setting, WGUI};
+pub use files::{ConfigFile, FILES, GAME, GLOBALS, Kind, NETWORKING, POSTGRES, Reboot, Setting, WGUI};
 pub use text::Values;
 
 /// Where every config file lives, under the Content folder.

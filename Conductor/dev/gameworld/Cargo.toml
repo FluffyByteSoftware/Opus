@@ -1,0 +1,17 @@
+# File:       Opus/Conductor/dev/gameworld/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# GameWorld: the ground the game is played on.  The blocks, the chunks
+# they come in, the regions the chunks belong to, and the files all of it
+# is kept in.  A lib crate, and a server piece.  Its folder is gameworld
+# and its name is conductor-gameworld, like every crate, so code says
+# conductor_gameworld.
+
+[package]
+name = "conductor-gameworld"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-tools = { path = "../tools" }
