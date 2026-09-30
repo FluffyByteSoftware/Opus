@@ -21,10 +21,10 @@ CREATE TABLE IF NOT EXISTS player_characters (
     -- with it.
     account_id        BIGINT NOT NULL REFERENCES accounts (id) ON DELETE CASCADE,
 
-    -- The character's name, as the player typed it: not blank, and 32
-    -- characters at most.
+    -- The character's name: 4 to 20 letters, a to z only, and only the
+    -- first can be a capital.  Jacob's rule.
     character_name    TEXT NOT NULL
-                      CHECK (length(trim(character_name)) > 0 AND length(character_name) <= 32),
+                      CHECK (character_name ~ '^[A-Za-z][a-z]{3,19}$'),
 
     -- Where it last stood, in the world's own terms (REAL is the same size
     -- as the f32 in primlib's Transform).  0, 0, 0 until it's first saved.
@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS player_characters (
     saved_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- One character per name across the whole server, whatever the capitals.
+-- Every name is unique across the whole server, whatever the capital:
+-- Jacob and jacob are the same name.
 CREATE UNIQUE INDEX IF NOT EXISTS player_characters_name_key ON player_characters (lower(character_name));
 
 -- Character select asks for one account's characters.

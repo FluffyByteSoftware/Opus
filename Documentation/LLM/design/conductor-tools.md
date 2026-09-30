@@ -398,7 +398,8 @@ a bad one.  Migration 0002 adds `character_slot_1` to `character_slot_3`, each a
 empty (`ON DELETE SET NULL`).
 
 `player_characters`: `id`, `uuid`, `account_id` (`ON DELETE CASCADE`, so an account's characters go with it),
-`character_name` (1 to 32 characters, unique across the server ignoring case), `position_x`, `position_y`,
+`character_name` (4 to 20 letters, a to z, only the first a capital; unique across the server ignoring
+case), `position_x`, `position_y`,
 `position_z` (`REAL`, where it last stood), `save_lua` (the whole GameObject as primlib's Lua text),
 `created_at`, `saved_at`.  The name and position are columns so character select and the spawn never run
 Lua.  Only conductor-accounts writes it.

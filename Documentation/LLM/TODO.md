@@ -49,9 +49,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       so how often it's saved doesn't pick the shape; what SQL needs to see does.
     - **The account's slots point at the character by `id`**, per CLAUDE.md ("refer to CLAUDE on this").
     - **Written, not run yet** (2026-09-30): the schema file `player_characters.sql` and migration
-      `0002_character_slots_on_accounts.sql`.  My picks in them, Jacob's to turn round before the first
-      START SERVER freezes them: a name is 1 to 32 characters, unique across the server whatever the
-      capitals; the position is three `REAL` columns (an f32 each, like the Transform).
+      `0002_character_slots_on_accounts.sql`.  **A character's name is 4 to 20 letters, a to z, and only
+      the first can be a capital** (Jacob: "Character names are 4 to 20 alphabetical only, can start with a
+      capital.  All names must be unique"), unique across the server whatever the capital.  The position
+      is three `REAL` columns, an f32 each like the Transform (Jacob's yes).
     - **The functions in `conductor-accounts`**: make, list, load and save a character, and delete one.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
