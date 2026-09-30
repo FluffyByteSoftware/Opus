@@ -385,6 +385,9 @@ Tables today:
 | `accounts`             | `schemas/accounts.sql` | One row per account.  Columns below.                    |
 | `archivist_migrations` | Archivist itself       | Which migrations have run, and when.  `uuid` from 0001. |
 
+`archivist_migrations` is keyed by the migration's number and has no `id`: it's Archivist's bookkeeping, not
+game data, and CLAUDE.md makes it the one exception to "`id` and `uuid` on everything" (Jacob, 2026-09-30).
+
 `accounts`: `id`, `uuid` (migration 0001), `account_username` (8 to 32 of `a-z`, `0-9`, `_`, unique),
 `owner_first_name` and `owner_last_name` (as the owner capitalizes them), `owner_email` (loosely checked,
 one account per address ignoring case), `password_hash` (Security's PHC string), `created_at`,

@@ -623,7 +623,12 @@ When I say we're wrapping up:
   Archivist runs each one exactly once, in number order, in a transaction, and
   records it in the `archivist_migrations` table. Never edit a migration that
   has already run; write a new one.
-- **Every table has both an `id` and a `uuid`**, no exceptions.
+- **No game data is without an `id` and a `uuid`** (Jacob, 2026-09-30: "no
+  gamelib data is without an id or uuid").  Every table that holds the game's
+  data (accounts, characters, primlib's copies, anything the game names) has
+  both.  The one exception is Archivist's own bookkeeping,
+  `archivist_migrations`, keyed by the migration's number, with a `uuid` and
+  no `id`.
   - `id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY` is the table's own
     number, local to that table. Tables point at each other by `id`.
   - `uuid UUID NOT NULL UNIQUE DEFAULT uuidv7()` is the game's name for the
