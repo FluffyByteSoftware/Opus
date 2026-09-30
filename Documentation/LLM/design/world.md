@@ -48,7 +48,7 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 - **8 km by 8 km to start** (Jacob, 2026-09-30), "it may _grow_ later".  16,384 blocks a side, 512 by 512
   chunks across, 524,288 chunks in all with two rows.
 - **A chunk nobody has changed isn't stored at all**: it's made from its region's rule when it's needed
-  (flat for Alpha, the noise for Omega), and only a changed chunk is kept.  Put forward, 2026-09-30.
+  (flat for Alpha; Omega's saved bumps), and only a changed chunk is kept.  Put forward, 2026-09-30.
 - **A changed chunk is saved as a file under `Content/world/`** (Jacob, 2026-09-30), through DiskMan,
   not in the database.  **`Content/world/` is gitignored** (his yes, the same day): it's the game's save.
 - **It's saved on STOP SERVER, and by a global save every 15 minutes** (Jacob, 2026-09-30).  The GameClock
@@ -79,18 +79,25 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   a chunk nobody changed has no file to say so.  Gitignored with the rest of `Content/world/`.
 - **The world starts with two regions, Alpha and Omega** (Jacob, 2026-09-30).  **Alpha is purely flat**,
   the three layers above.  **Omega is bumpy**: "random noise with +/- 5 on the Y", so its ground rises and
-  falls up to 5 blocks (2.5 m) either side of 0.  An Omega chunk isn't the same as its neighbour, so the
-  noise has to come out the same on every START SERVER (a fixed seed), or an unchanged chunk would be
-  rebuilt different each time.  The noise is written by hand, no crate.
+  falls up to 5 blocks (2.5 m) either side of 0, in **smooth rolling hills**, with **one block of dirt on
+  top and stone under it down to -15**, as in Alpha (Jacob, 2026-09-30).  The noise is written by hand, no
+  crate.  **The world is split evenly between them**, half each (Jacob, 2026-09-30).
+- **Omega's bumps are saved, not made again** (Jacob, 2026-09-30): "Omega chunks will need to be saved
+  with their bumpiness before server shuts down".  Made once, when the world is made, and kept, so a
+  change to the noise code later never reshapes hills already there.  How they're kept is open below.
+- **Chunk 0 is the world's lower left corner** (Jacob, 2026-09-30, "I think"), so chunks run 0 to 511 each
+  way and a file's numbers are never negative.
 
 ## Still open
 
 - What's in a chunk's file beyond its blocks (a version number, at least).  The name's numbers are read as
-  east, north and row, from `alpha_03_-15_0`; whether they're padded ("03") and to how many digits, and
-  whether the world's middle is chunk 0 (so -256 to 255 across) or a corner is (0 to 511).
-- How the 8 km is split between Alpha and Omega (halves, and which way).
-- What Omega's noise looks like: smooth rolling bumps, or each 50 cm column its own random height (spiky).
-  And under Omega's bumps, whether it's still one block of dirt on top and stone below it to -15.
+  east, north and row (`alpha_03_-15_0`), put forward padded to three digits (`alpha_003_015_0`), so the
+  files sort in order.
+- Which half is which: Alpha west and Omega east, or another way.
+- **How Omega's bumps are kept.**  Every Omega chunk saved in full is 131,072 chunks of 64 KB, about 8 GB
+  (the upper row is all air and needn't be).  Put forward instead: Omega's heights saved once, one number
+  per 50 cm column, in one file (about 134 MB), and its chunks built from those heights; a chunk somebody
+  changed is saved as usual.  The smallest way, saving only the noise's seed, is what Jacob turned down.
 - What's in `region.map` and how it's laid out.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
