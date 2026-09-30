@@ -172,6 +172,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "conductor-primlib"
+version = "0.1.0"
+
+[[package]]
 name = "conductor-tools"
 version = "0.1.0"
 dependencies = [
