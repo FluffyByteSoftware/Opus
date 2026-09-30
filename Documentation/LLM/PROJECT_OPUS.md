@@ -40,7 +40,7 @@ Opus/
 │       │       ├── fingerprinter.rs   # Fingerprinter: version 7 UUIDs and login tokens; random_bytes()
 │       │       ├── fingerprinter/
 │       │       │   ├── linux.rs       # getrandom() from the C library
-│       │       │   ├── windows.rs     # BCryptGenRandom() -- never built yet
+│       │       │   ├── windows.rs     # BCryptGenRandom() -- built, never run yet
 │       │       │   └── other.rs       # says it can't
 │       │       ├── notices.rs     # what the admin has to ACK: every Warn and Error, and more
 │       │       ├── pending.rs     # Pending, the answer on its way, shared by Archivist and DiskMan
@@ -48,7 +48,7 @@ Opus/
 │       │       ├── security.rs        # Security: Argon2id hashing on one worker with a kept arena
 │       │       ├── security/
 │       │       │   ├── linux.rs       # the huge page hint, madvise() from the C library
-│       │       │   ├── windows.rs     # no hint there; says so -- never built yet
+│       │       │   ├── windows.rs     # no hint there; says so -- built, never run yet
 │       │       │   └── other.rs       # no hint yet
 │       │       ├── server.rs          # the server's switch: stopped / starting / running / stopping, the mailbox
 │       │       ├── services.rs        # the services we expect, each reporting how it's doing
