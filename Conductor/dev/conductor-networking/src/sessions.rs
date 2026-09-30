@@ -29,11 +29,29 @@
 //! instructions at a time.  In memory only: a restart forgets every one
 //! of them, on purpose.
 //!
+//! Every ticket and player carries the number of the door's ledger row it
+//! came from.  Whenever one leaves (or a ticket dies unused), the row is
+//! marked LINKDEAD with how, so the Connections tab stops showing it green
+//! as if it were live.  The work notes the rows in `Book::gone`, and the
+//! public functions hand them to the ledger once the book's lock is let
+//! go, so the two locks are never held at once.
+//!
+//! Each ticket and each player has its account's name, and only the
+//! name.  An account is never held in memory: whatever needs one reads
+//! it from the database when it needs it (conductor-accounts), so the web
+//! admin can change an account while its player is in the world and
+//! nothing writes an old copy over it.  Jacob's rule, 2026-09-29.  The one
+//! write networking makes is the login time, stamped straight in the row
+//! the moment a ticket is used and the player is in the world over UDP
+//! (`connect()`), not at the TLS login before it: that's when playing
+//! starts, and it's what playtime will be counted from.
+//!
 //! The work is done by functions on a `Book` handed to them, so the tests
 //! run on books of their own and never touch the real one.
 
 use std::collections::HashMap;
 use std::io;
+use std::mem;
 use std::net::SocketAddr;
 use std::sync::{LazyLock, Mutex};
 use std::time::{Duration, Instant};
@@ -41,14 +59,20 @@ use std::time::{Duration, Instant};
 use conductor_tools::clock::Utc;
 use conductor_tools::fingerprinter;
 
+use crate::ledger::{self, Gone};
+
 /// A ticket handed out and not yet used.
 struct Ticket {
+    /// The account's name, lowercase.
     account: String,
     issued: Instant,
+    /// The door's ledger row of the login that got it.
+    door: u64,
 }
 
 /// A player in the world.
 struct Player {
+    /// The account's name, lowercase.
     account: String,
     /// The token they came in with, so a repeat Connect can be told from
     /// somebody else at the same address.
@@ -58,6 +82,8 @@ struct Player {
     /// for the page.
     connected_at: Instant,
     connected: Utc,
+    /// The door's ledger row of the login they came in on.
+    door: u64,
 }
 
 /// Where an account is right now.
@@ -74,11 +100,14 @@ struct Book {
     tickets: HashMap<String, Ticket>,
     players: HashMap<SocketAddr, Player>,
     accounts: HashMap<String, Whereabouts>,
+    /// Ledger rows to mark LINKDEAD, and why, from the last change to the
+    /// book.  Emptied by `with_book()` each time.
+    gone: Vec<(u64, Gone)>,
 }
 
 impl Book {
     fn new() -> Book {
-        Book { tickets: HashMap::new(), players: HashMap::new(), accounts: HashMap::new() }
+        Book { tickets: HashMap::new(), players: HashMap::new(), accounts: HashMap::new(), gone: Vec::new() }
     }
 }
 
@@ -114,6 +143,30 @@ pub struct PlayerView {
     pub quiet_for: Duration,
 }
 
+/// What the admin's kick of a login's row found in the book.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AdminKick {
+    /// The login's player, taken out of the world: their address, so the
+    /// UDP side can tell them, and their account, for the log.
+    Player(SocketAddr, String),
+    /// The login's ticket, never used, now dead.  The account, for the log.
+    Ticket(String),
+    /// Nothing from that login is left in the book.
+    Nobody,
+}
+
+/// What deleting an account found in the book.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Terminated {
+    /// Its player, taken out of the world: their address, so the UDP side
+    /// can tell them.
+    Player(SocketAddr),
+    /// Its ticket, never used, now dead.
+    Ticket,
+    /// The account wasn't in the book.
+    Nobody,
+}
+
 /// What a sweep crossed out.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Swept {
@@ -128,6 +181,25 @@ fn book() -> std::sync::MutexGuard<'static, Book> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
+/// Does `work` on the book, then marks the ledger rows it left LINKDEAD,
+/// with the book's lock let go first.
+// Rust note: `impl FnOnce(&mut Book) -> T` takes any bit of code that
+// works on the book once and hands back a T, so every public function
+// below can share the same lock-then-mark steps.
+fn with_book<T>(work: impl FnOnce(&mut Book) -> T) -> T {
+    let (answer, gone) = {
+        let mut book = book();
+        // Rust note: `&mut *book` is the book itself, out of the lock's
+        // guard, which is the type `work` wants.
+        let answer = work(&mut *book);
+        (answer, mem::take(&mut book.gone))
+    };
+    for (door, how) in gone {
+        ledger::linkdead(door, how);
+    }
+    answer
+}
+
 /// The address an account is playing from, if it's in the world.
 pub fn playing(account: &str) -> Option<SocketAddr> {
     match book().accounts.get(account) {
@@ -136,18 +208,26 @@ pub fn playing(account: &str) -> Option<SocketAddr> {
     }
 }
 
-/// A new ticket for an account that just logged in.  Any older unused
-/// ticket for the account dies.  Fails only if Fingerprinter can't make a
-/// token, which means the OS won't give random bytes.
-pub fn issue(account: &str) -> io::Result<String> {
+/// A new ticket for `account`, which just logged in on ledger row `door`.
+/// Any older unused ticket for the account dies, and its row goes
+/// LINKDEAD.  Fails only if Fingerprinter can't make a token, which means
+/// the OS won't give random bytes.
+pub fn issue(account: &str, door: u64) -> io::Result<String> {
     let token = fingerprinter::new_token()?;
-    issue_in(&mut book(), account, &token, Instant::now());
+    with_book(|book| issue_in(book, account, &token, door, Instant::now()));
     Ok(token)
 }
 
-/// A Connect from `from` with `token`.
+/// A Connect from `from` with `token`.  A ticket used for the first time
+/// stamps its account's login time in the database, once the book's lock
+/// is let go; nobody waits on the write, and Archivist logs one that
+/// fails.
 pub fn connect(token: &str, from: SocketAddr) -> Connected {
-    connect_in(&mut book(), token, from, Instant::now())
+    let connected = with_book(|book| connect_in(book, token, from, Instant::now()));
+    if let Connected::Accepted(account) = &connected {
+        let _ = conductor_accounts::stamp_login(account);
+    }
+    connected
 }
 
 /// A player at `from` sent something.  True if there is one; false for a
@@ -164,31 +244,42 @@ pub fn heard(from: SocketAddr) -> bool {
 
 /// The player at `from` said Goodbye.  Their account, if there was one.
 pub fn leave(from: SocketAddr) -> Option<String> {
-    remove_player_in(&mut book(), from)
+    with_book(|book| remove_player_in(book, from, Gone::SaidGoodbye))
 }
 
-/// An account's player is being logged out from somewhere else.  Their
-/// address, so the UDP side can tell them, and any unused ticket the
+/// An account's player is being logged out by a second login from `by`.
+/// Their address, so the UDP side can tell them, and any unused ticket the
 /// account had dies too.
-pub fn kick(account: &str) -> Option<SocketAddr> {
-    kick_in(&mut book(), account)
+pub fn kick(account: &str, by: SocketAddr) -> Option<SocketAddr> {
+    with_book(|book| kick_in(book, account, by))
+}
+
+/// The admin deleted `account` from the web admin's Accounts tab: its
+/// player out of the world, or its unused ticket.  Which, with the
+/// player's address so the UDP side can tell them.
+pub fn terminate(account: &str) -> Terminated {
+    with_book(|book| terminate_in(book, account))
+}
+
+/// The admin kicked the login on ledger row `door` from the Connections
+/// tab: its player out of the world, or its ticket if it hasn't come over
+/// UDP yet.  Either way the row goes LINKDEAD.
+pub fn kick_login(door: u64) -> AdminKick {
+    with_book(|book| kick_login_in(book, door))
 }
 
 /// Crosses out every player quiet for `udp_timeout` and every ticket
 /// older than `token_deadline`.
 pub fn sweep(udp_timeout: Duration, token_deadline: Duration) -> Swept {
-    sweep_in(&mut book(), Instant::now(), udp_timeout, token_deadline)
+    with_book(|book| sweep_in(book, Instant::now(), udp_timeout, token_deadline))
 }
 
 /// Everyone out: the server is stopping.  The players' addresses and
-/// accounts, so each can be told.
+/// accounts, so each can be told.  No row is marked: STOP SERVER wipes the
+/// ledger anyway.  Nothing to save: an account is never held.
 pub fn clear() -> Vec<(SocketAddr, String)> {
-    let mut book = book();
-    let gone: Vec<(SocketAddr, String)> = book.players.iter()
-        .map(|(address, player)| (*address, player.account.clone()))
-        .collect();
-    *book = Book::new();
-    gone
+    let old = mem::replace(&mut *book(), Book::new());
+    old.players.into_iter().map(|(address, player)| (address, player.account)).collect()
 }
 
 /// How many players and how many unused tickets, for the status.
@@ -207,22 +298,23 @@ pub fn players() -> Vec<PlayerView> {
 /// from the web admin.  Nothing is sent from here; the caller tells each
 /// one with a Kicked.  Their addresses and accounts, for that and the log.
 pub fn drop_where(matches: impl Fn(SocketAddr) -> bool) -> Vec<(SocketAddr, String)> {
-    drop_where_in(&mut book(), matches)
+    with_book(|book| drop_where_in(book, matches))
 }
 
 // ---------------------------------------------------------------------------
 // The work, on whatever book is handed in
 // ---------------------------------------------------------------------------
 
-fn issue_in(book: &mut Book, account: &str, token: &str, now: Instant) {
+fn issue_in(book: &mut Book, account: &str, token: &str, door: u64, now: Instant) {
+    let name = account.to_string();
     // An older ticket for the same account is no good any more.  A player
     // in the world stays: the caller asked `playing()` and dealt with that
     // (a kick, or the new login hung up) before issuing.
-    if let Some(Whereabouts::Ticket(old)) = book.accounts.get(account) {
-        book.tickets.remove(old);
+    if let Some(Whereabouts::Ticket(old)) = book.accounts.get(&name).cloned() {
+        remove_ticket_in(book, &old, Gone::TicketTaken);
     }
-    book.tickets.insert(token.to_string(), Ticket { account: account.to_string(), issued: now });
-    book.accounts.insert(account.to_string(), Whereabouts::Ticket(token.to_string()));
+    book.tickets.insert(token.to_string(), Ticket { account: name.clone(), issued: now, door });
+    book.accounts.insert(name, Whereabouts::Ticket(token.to_string()));
 }
 
 fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> Connected {
@@ -239,18 +331,19 @@ fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> C
     let Some(ticket) = book.tickets.remove(token) else {
         return Connected::Refused;
     };
-    let account = ticket.account;
+    let door = ticket.door;
+    let name = ticket.account;
 
     // The book says the account holds this ticket.  If it somehow says
     // the account is playing from elsewhere too, that entry is stale,
     // and the fresh ticket wins.
-    if let Some(Whereabouts::Playing(elsewhere)) = book.accounts.get(&account) {
-        book.players.remove(elsewhere);
+    if let Some(Whereabouts::Playing(elsewhere)) = book.accounts.get(&name).cloned() {
+        remove_player_in(book, elsewhere, Gone::Replaced { by: from });
     }
-    book.players.insert(from, Player { account: account.clone(), token: token.to_string(), last_heard: now,
-                                       connected_at: now, connected: Utc::now() });
-    book.accounts.insert(account.clone(), Whereabouts::Playing(from));
-    Connected::Accepted(account)
+    book.players.insert(from, Player { account: name.clone(), token: token.to_string(), last_heard: now,
+                                       connected_at: now, connected: Utc::now(), door });
+    book.accounts.insert(name.clone(), Whereabouts::Playing(from));
+    Connected::Accepted(name)
 }
 
 fn players_in(book: &Book, now: Instant) -> Vec<PlayerView> {
@@ -267,69 +360,106 @@ fn players_in(book: &Book, now: Instant) -> Vec<PlayerView> {
 }
 
 fn drop_where_in(book: &mut Book, matches: impl Fn(SocketAddr) -> bool) -> Vec<(SocketAddr, String)> {
-    let gone: Vec<SocketAddr> = book.players.keys().copied().filter(|address| matches(*address)).collect();
-    gone.into_iter()
-        .filter_map(|address| remove_player_in(book, address).map(|account| (address, account)))
+    let banned: Vec<SocketAddr> = book.players.keys().copied().filter(|address| matches(*address)).collect();
+    banned.into_iter()
+        .filter_map(|address| remove_player_in(book, address, Gone::Banned).map(|account| (address, account)))
         .collect()
 }
 
-fn remove_player_in(book: &mut Book, from: SocketAddr) -> Option<String> {
+/// Takes the player at `from` out of the world and notes their row as
+/// LINKDEAD for `how`.  Their account's name.
+fn remove_player_in(book: &mut Book, from: SocketAddr, how: Gone) -> Option<String> {
     let player = book.players.remove(&from)?;
-    if book.accounts.get(&player.account) == Some(&Whereabouts::Playing(from)) {
-        book.accounts.remove(&player.account);
+    let name = player.account;
+    if book.accounts.get(&name) == Some(&Whereabouts::Playing(from)) {
+        book.accounts.remove(&name);
     }
-    Some(player.account)
+    book.gone.push((player.door, how));
+    Some(name)
 }
 
-fn kick_in(book: &mut Book, account: &str) -> Option<SocketAddr> {
-    match book.accounts.remove(account) {
+/// Takes the ticket `token` out, the same way: its row LINKDEAD for `how`.
+/// Its account's name.
+fn remove_ticket_in(book: &mut Book, token: &str, how: Gone) -> Option<String> {
+    let ticket = book.tickets.remove(token)?;
+    let name = ticket.account;
+    if book.accounts.get(&name) == Some(&Whereabouts::Ticket(token.to_string())) {
+        book.accounts.remove(&name);
+    }
+    book.gone.push((ticket.door, how));
+    Some(name)
+}
+
+fn kick_in(book: &mut Book, account: &str, by: SocketAddr) -> Option<SocketAddr> {
+    match book.accounts.get(account).cloned() {
         Some(Whereabouts::Playing(address)) => {
-            book.players.remove(&address);
+            remove_player_in(book, address, Gone::Replaced { by });
             Some(address)
         }
         Some(Whereabouts::Ticket(token)) => {
-            book.tickets.remove(&token);
+            remove_ticket_in(book, &token, Gone::TicketTaken);
             None
         }
         None => None,
     }
 }
 
+fn terminate_in(book: &mut Book, account: &str) -> Terminated {
+    match book.accounts.get(account).cloned() {
+        Some(Whereabouts::Playing(address)) => {
+            remove_player_in(book, address, Gone::Terminated);
+            Terminated::Player(address)
+        }
+        Some(Whereabouts::Ticket(token)) => {
+            remove_ticket_in(book, &token, Gone::Terminated);
+            Terminated::Ticket
+        }
+        None => Terminated::Nobody,
+    }
+}
+
+fn kick_login_in(book: &mut Book, door: u64) -> AdminKick {
+    // Found by a walk rather than a map: it's an admin's click, not a
+    // packet, so it doesn't have to be quick.
+    let player = book.players.iter().find(|(_, player)| player.door == door).map(|(address, _)| *address);
+    if let Some(address) = player {
+        if let Some(account) = remove_player_in(book, address, Gone::KickedByAdmin) {
+            return AdminKick::Player(address, account);
+        }
+    }
+    let ticket = book.tickets.iter().find(|(_, ticket)| ticket.door == door).map(|(token, _)| token.clone());
+    if let Some(token) = ticket {
+        if let Some(account) = remove_ticket_in(book, &token, Gone::KickedByAdmin) {
+            return AdminKick::Ticket(account);
+        }
+    }
+    AdminKick::Nobody
+}
+
 fn sweep_in(book: &mut Book, now: Instant, udp_timeout: Duration, token_deadline: Duration) -> Swept {
     let mut swept = Swept::default();
 
-    // Rust note: retain() keeps the entries the closure says true for and
-    // drops the rest.  The accounts map is fixed up after, since the
-    // closure can't borrow the book while retain() holds one of its maps.
-    book.players.retain(|address, player| {
-        if now.duration_since(player.last_heard) >= udp_timeout {
-            swept.quiet.push((*address, player.account.clone()));
-            false
-        } else {
-            true
-        }
-    });
-    for (address, account) in &swept.quiet {
-        if book.accounts.get(account) == Some(&Whereabouts::Playing(*address)) {
-            book.accounts.remove(account);
+    // Found first and taken out after, since nothing can come out of a
+    // map while it's being walked.
+    let quiet: Vec<SocketAddr> = book.players.iter()
+        .filter(|(_, player)| now.duration_since(player.last_heard) >= udp_timeout)
+        .map(|(address, _)| *address)
+        .collect();
+    for address in quiet {
+        if let Some(account) = remove_player_in(book, address, Gone::WentQuiet) {
+            swept.quiet.push((address, account));
         }
     }
 
-    let mut expired = Vec::new();
-    book.tickets.retain(|token, ticket| {
-        if now.duration_since(ticket.issued) >= token_deadline {
-            expired.push((token.clone(), ticket.account.clone()));
-            false
-        } else {
-            true
-        }
-    });
-    for (token, account) in &expired {
-        if book.accounts.get(account) == Some(&Whereabouts::Ticket(token.clone())) {
-            book.accounts.remove(account);
+    let expired: Vec<String> = book.tickets.iter()
+        .filter(|(_, ticket)| now.duration_since(ticket.issued) >= token_deadline)
+        .map(|(token, _)| token.clone())
+        .collect();
+    for token in expired {
+        if remove_ticket_in(book, &token, Gone::TicketRanOut).is_some() {
+            swept.tickets_expired += 1;
         }
     }
-    swept.tickets_expired = expired.len();
 
     swept
 }
@@ -346,13 +476,14 @@ mod tests {
         text.parse().unwrap()
     }
 
+
     #[test]
     fn a_ticket_connects_once_from_one_address() {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
         let elsewhere = address("10.0.0.6:50000");
-        issue_in(&mut book, "jacob", "abc", now);
+        issue_in(&mut book, "jacob", "abc", 1, now);
 
         assert_eq!(connect_in(&mut book, "abc", home, now), Connected::Accepted("jacob".to_string()));
         // The answer got lost and the client asked again.
@@ -379,10 +510,12 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "first", now);
-        issue_in(&mut book, "jacob", "second", now);
+        issue_in(&mut book, "jacob", "first", 2, now);
+        issue_in(&mut book, "jacob", "second", 3, now);
 
         assert_eq!(book.tickets.len(), 1);
+        // The first login's row: its ticket was never used.
+        assert_eq!(book.gone, vec![(2, Gone::TicketTaken)]);
         assert_eq!(connect_in(&mut book, "first", home, now), Connected::Refused);
         assert_eq!(connect_in(&mut book, "second", home, now), Connected::Accepted("jacob".to_string()));
     }
@@ -394,7 +527,7 @@ mod tests {
         let home = address("10.0.0.5:50000");
         assert_eq!(book.accounts.get("jacob"), None);
 
-        issue_in(&mut book, "jacob", "abc", now);
+        issue_in(&mut book, "jacob", "abc", 4, now);
         assert_eq!(book.accounts.get("jacob"), Some(&Whereabouts::Ticket("abc".to_string())));
 
         connect_in(&mut book, "abc", home, now);
@@ -406,14 +539,16 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "abc", now);
+        issue_in(&mut book, "jacob", "abc", 5, now);
         connect_in(&mut book, "abc", home, now);
 
-        assert_eq!(remove_player_in(&mut book, home), Some("jacob".to_string()));
+        assert_eq!(remove_player_in(&mut book, home, Gone::SaidGoodbye), Some("jacob".to_string()));
         assert!(book.players.is_empty());
         assert!(book.accounts.is_empty());
+        // Their login's row is to be marked.
+        assert_eq!(book.gone, vec![(5, Gone::SaidGoodbye)]);
         // A stranger saying goodbye is nobody.
-        assert_eq!(remove_player_in(&mut book, home), None);
+        assert_eq!(remove_player_in(&mut book, home, Gone::SaidGoodbye), None);
     }
 
     #[test]
@@ -422,16 +557,38 @@ mod tests {
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
 
-        issue_in(&mut book, "jacob", "abc", now);
-        assert_eq!(kick_in(&mut book, "jacob"), None);
+        let second_login = address("10.0.0.5:50001");
+
+        issue_in(&mut book, "jacob", "abc", 6, now);
+        assert_eq!(kick_in(&mut book, "jacob", second_login), None);
         assert!(book.tickets.is_empty() && book.accounts.is_empty());
 
-        issue_in(&mut book, "jacob", "abd", now);
+        issue_in(&mut book, "jacob", "abd", 7, now);
         connect_in(&mut book, "abd", home, now);
-        assert_eq!(kick_in(&mut book, "jacob"), Some(home));
+        assert_eq!(kick_in(&mut book, "jacob", second_login), Some(home));
         assert!(book.players.is_empty() && book.accounts.is_empty());
 
-        assert_eq!(kick_in(&mut book, "nobody"), None);
+        assert_eq!(kick_in(&mut book, "nobody", second_login), None);
+        // The unused ticket's row, then the player's, named for the login
+        // that logged them out.
+        assert_eq!(book.gone, vec![(6, Gone::TicketTaken), (7, Gone::Replaced { by: second_login })]);
+    }
+
+    #[test]
+    fn the_admins_kick_takes_out_a_logins_player_or_its_ticket() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "abc", 20, now);
+        issue_in(&mut book, "brother", "def", 21, now);
+        connect_in(&mut book, "abc", home, now);
+
+        // Row 20's player is in the world; row 21 only has its ticket.
+        assert_eq!(kick_login_in(&mut book, 20), AdminKick::Player(home, "jacob".to_string()));
+        assert_eq!(kick_login_in(&mut book, 21), AdminKick::Ticket("brother".to_string()));
+        assert_eq!(kick_login_in(&mut book, 20), AdminKick::Nobody);
+        assert!(book.players.is_empty() && book.tickets.is_empty() && book.accounts.is_empty());
+        assert_eq!(book.gone, vec![(20, Gone::KickedByAdmin), (21, Gone::KickedByAdmin)]);
     }
 
     #[test]
@@ -443,9 +600,9 @@ mod tests {
         let timeout = Duration::from_secs(40);
         let deadline = Duration::from_secs(30);
 
-        issue_in(&mut book, "jacob", "abc", start);
-        issue_in(&mut book, "brother", "def", start);
-        issue_in(&mut book, "friend", "ghi", start);
+        issue_in(&mut book, "jacob", "abc", 8, start);
+        issue_in(&mut book, "brother", "def", 9, start);
+        issue_in(&mut book, "friend", "ghi", 10, start);
         connect_in(&mut book, "abc", home, start);
         connect_in(&mut book, "def", away, start);
 
@@ -460,6 +617,7 @@ mod tests {
         let swept = sweep_in(&mut book, start + timeout, timeout, deadline);
         assert_eq!(swept.quiet, vec![(home, "jacob".to_string())]);
         assert_eq!(swept.tickets_expired, 1);
+        assert_eq!(book.gone, vec![(8, Gone::WentQuiet), (10, Gone::TicketRanOut)]);
         assert_eq!(book.players.len(), 1);
         assert!(book.tickets.is_empty());
         assert_eq!(book.accounts.len(), 1);
@@ -472,8 +630,8 @@ mod tests {
         let start = Instant::now();
         let home = address("10.0.0.5:50000");
         let away = address("10.0.0.6:50000");
-        issue_in(&mut book, "jacob", "abc", start);
-        issue_in(&mut book, "brother", "def", start);
+        issue_in(&mut book, "jacob", "abc", 11, start);
+        issue_in(&mut book, "brother", "def", 12, start);
         connect_in(&mut book, "abc", home, start);
         connect_in(&mut book, "def", away, start + Duration::from_secs(5));
         book.players.get_mut(&home).unwrap().last_heard = start + Duration::from_secs(8);
@@ -492,18 +650,35 @@ mod tests {
     }
 
     #[test]
+    fn deleting_an_account_takes_out_its_player_or_its_ticket() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "abc", 30, now);
+        issue_in(&mut book, "brother", "def", 31, now);
+        connect_in(&mut book, "abc", home, now);
+
+        assert_eq!(terminate_in(&mut book, "jacob"), Terminated::Player(home));
+        assert_eq!(terminate_in(&mut book, "brother"), Terminated::Ticket);
+        assert_eq!(terminate_in(&mut book, "jacob"), Terminated::Nobody);
+        assert!(book.players.is_empty() && book.tickets.is_empty() && book.accounts.is_empty());
+        assert_eq!(book.gone, vec![(30, Gone::Terminated), (31, Gone::Terminated)]);
+    }
+
+    #[test]
     fn a_ban_drops_the_players_it_names_and_nobody_else() {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
         let away = address("192.168.1.9:50000");
-        issue_in(&mut book, "jacob", "abc", now);
-        issue_in(&mut book, "brother", "def", now);
+        issue_in(&mut book, "jacob", "abc", 13, now);
+        issue_in(&mut book, "brother", "def", 14, now);
         connect_in(&mut book, "abc", home, now);
         connect_in(&mut book, "def", away, now);
 
         let dropped = drop_where_in(&mut book, |address| address.ip().to_string().starts_with("10."));
         assert_eq!(dropped, vec![(home, "jacob".to_string())]);
+        assert_eq!(book.gone, vec![(13, Gone::Banned)]);
         assert_eq!(book.players.len(), 1);
         assert!(book.accounts.get("jacob").is_none());
         assert_eq!(book.accounts.get("brother"), Some(&Whereabouts::Playing(away)));

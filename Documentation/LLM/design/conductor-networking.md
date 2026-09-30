@@ -21,17 +21,19 @@ conductor-networking/
 └── src/
     ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections, in_world, access,
     │                      whitelisted, blacklisted },
-    │                      kick(id), access_lists(), list_address(), unlist_address(), enforce(); timed_out(), wake_address()
+    │                      kick(id), terminate(account), access_lists(), list_address(), unlist_address(), enforce();
+    │                      timed_out(), wake_address()
     ├── settings.rs      networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs           server_config(settings) -> Arc<ServerConfig>; MAKE_PAIR, the openssl command
     ├── protocol.rs      the packets, byte for byte: PacketType, LoginAnswer, ConnectAnswer, KickReason, Choice
     │                      frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                      connect_result(), keep_alive(), kicked(); read_login(), read_session_choice(), read_connect()
     ├── sessions.rs      the book: tickets by token, players by address, each account's whereabouts
-    │                      playing(), issue(), connect(), heard(), leave(), kick(), sweep(), clear(), counts(), players(),
-    │                      drop_where()
-    ├── ledger.rs        the door's ledger: every connection since START SERVER and its Stage; End; Connection
-    │                      clear(), arrived(), set(), ended(), is_done(), snapshot()
+    │                      playing(), issue(), connect(), heard(), leave(), kick(), terminate(), sweep(), clear(),
+    │                      counts(), players(), drop_where(); every ticket and player carries its account's name and
+    │                      its ledger row, marked LINKDEAD on the way out through with_book()
+    ├── ledger.rs        the door's ledger: every connection since START SERVER and its Stage; End; Gone; Connection
+    │                      clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
     ├── access.rs        the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
     │                      start(mode, paths), stop(), verdict(ip), add(), remove(), snapshot(), counts()
     ├── dns.rs           reverse DNS on thread net-dns, with a cache: start(), stop(), ask(), name_of()
@@ -89,6 +91,18 @@ because of the CPU cost.
 - **A ticket is a token from Fingerprinter, good once, for `token_deadline_seconds` (30).**  The first
   address to Connect with it is the player; the same address again gets the same answer (a lost reply);
   any other address is refused.  A second login for an account with an unused ticket replaces the ticket.
+- **The ticket and the player have the account's name, and only the name** (2026-09-29, the day after
+  they held the whole `Account`).  An account is never held in memory: whatever needs one reads it from
+  the row (conductor-accounts), so the web admin can change an account while its player is online and
+  nothing writes an old copy back over it.  The login reads only the password hash.  The ticket's first
+  Connect stamps the account's login time straight in the row (`stamp_login()`, once the book's lock is
+  let go, not waited on): the UDP time is the login time, Jacob's call, for playtime later.  Nothing is
+  saved when a player leaves.
+- **Deleting an account takes its player out** (2026-09-29).  The web admin's Accounts tab deletes the
+  row, then calls `terminate(account)`: the player, if in the world, hears Kicked with reason `5`,
+  account terminated (the client says ACCOUNT TERMINATED, Jacob's words), and an unused ticket dies.
+  Their Connections row reads "LINKDEAD: account terminated".  The new reason took **the protocol to
+  version 4**.
 - **A player is known by their address.**  `sessions.rs` keeps three maps (tickets by token, players by
   address, accounts by name) so nothing is ever found by a search: a keep-alive is one map lookup and one
   send.  That's more memory per player for a cost that's the same with 5 or 5000.  Jacob's trade.
@@ -102,7 +116,8 @@ because of the CPU cost.
   player can hear it.  Nothing is kept for a reconnect: that's TODO, with the rest of client management.
 - **The certificate is made by hand, once, with openssl.**  Stratum made its own pair with the `rcgen`
   crate on first start; Opus stays a crate lighter and the log says the exact command when the files are
-  missing (`tls::MAKE_PAIR`).  An elliptic curve key (P-256), since the server signs on every handshake
+  missing (`tls::make_pair()`, with the full paths `networking.cfg` gives, so it can be pasted from any
+  folder; since 2026-09-29's test run, when the relative one had already made a stray `Content` once).  An elliptic curve key (P-256), since the server signs on every handshake
   and an EC signature costs a tenth of an RSA one.  The files live in `Content/certs/`; the `.key` is
   ignored by git and the `.crt` is committed, since clients need a copy.  Jacob's call on the folder.
 - **Everything is in `networking.cfg`, a soft file**: the address, both ports, the two file paths, the
@@ -172,11 +187,34 @@ because of the CPU cost.
   (address, account, when their Connect was accepted, how long they've been in, how long since their
   last packet), newest first, for the Connections tab's UDP list.  The account is on it, unlike the
   door's ledger: the world is about who's in it.
+- **LINKDEAD** (2026-09-29, the documentation pass), Jacob's catch: a second login logged the first
+  player out, and the first login's row on the door still read green, "Logged in and handed a ticket for
+  UDP", as if it were live.  It isn't a live connection (TCP closes at the ticket), so nothing ever went
+  back to it.  Now the ticket carries its row's number, the player takes it over from the ticket, and
+  every way out of the book marks the row LINKDEAD with why (`Gone`): logged out by a second login from
+  its address, said Goodbye, went quiet past the UDP timeout, banned, or never came over UDP (the ticket
+  ran out, or a newer login took it).  The row stays in both views, greyed instead of green.  Jacob's
+  word; he first said NETDEAD, then LINKDEAD.  The book notes the rows in `Book::gone` under its own
+  lock, and `with_book()` hands them to the ledger once that lock is let go, so the two locks are never
+  held together.  STOP SERVER marks nothing: it wipes the ledger anyway.  Still by address: the account
+  never goes on the row.
+- **KICK on any row** (the same evening), Jacob's ask: the three dots on a TCP row kick, whatever the
+  row is.  A login's TCP connection closes at the ticket, so KICK used to be there for a moment and
+  never for anybody playing.  Now `kick(id)` in `lib.rs` tries the door first (`tcp::kick()`, an open
+  connection closed where it stands, as before), and if that row's connection is gone, the book
+  (`sessions::kick_login()`) finds the login's player by its row number, a walk down the players since
+  an admin's click needn't be quick, and takes them out: told a Kicked with reason `4`, kicked by the
+  admin, and their row LINKDEAD "kicked by the admin".  A login whose ticket isn't used yet has the
+  ticket killed instead.  The same route, `/Opus/wwwhook/tcp/kick?id=N` (Jacob: "we can use the
+  existing ROUTE"), now answers 200 with `from_world` for a player, and 404 only when nothing from the
+  row is left.  The new reason took **the protocol to version 3**.  A kicked player can log straight
+  back in; a ban is what keeps somebody out.
 - **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file
   (`--cert`, `Content/certs/conductor.crt` by default; with neither it checks nothing and says so),
   prints every packet, and asks whether to log out the other session (`--leave-other-alone` answers no
-  without asking), `--leave-after N` says Goodbye after N seconds, and `--go-quiet` sends nothing to watch
-  the timeout.  Its UDP socket is IPv4 only.  Jacob used one for Stratum too.
+  without asking), `--leave-after N` says Goodbye after N seconds, `--go-quiet` sends nothing to watch
+  the timeout, and `--pause-before-login N` sits N seconds after TLS so the row can be kicked or banned
+  while it's open (past `login_deadline_seconds` the server hangs up first).  Its UDP socket is IPv4 only.  Jacob used one for Stratum too.
 
 ## What's open
 

@@ -30,14 +30,17 @@
 //! secret word, the username and the password in one Login, and we answer
 //! with a Ticket or a LoginResult.  An old version is told so before the
 //! password is looked at, and a wrong secret word or a name that couldn't
-//! be an account fails without a hash.  A name that could be one is
-//! looked up through Archivist, and its password checked through
-//! Security, in Security's line: a name with no account still costs a
-//! hash there, so a stopwatch can't tell the two apart.  Every failure
-//! gets the same answer, closes the connection, and makes the address
-//! wait FAILURE_HOLD before its next connection is taken at all.  The
-//! right password for an account already in the world gets asked what to
-//! do instead (sessions.rs); a right password otherwise gets a ticket.
+//! be an account fails without a hash.  A name that could be one has its
+//! password hash read (conductor-accounts), and its password checked
+//! through Security, in Security's line: a name with no account still
+//! costs a hash there, so a stopwatch can't tell the two apart.  Every
+//! failure gets the same answer, closes the connection, and makes the
+//! address wait FAILURE_HOLD before its next connection is taken at all.
+//! The right password for an account already in the world gets asked what
+//! to do instead (sessions.rs); a right password otherwise gets a ticket.
+//! The ticket has the account's name and nothing else: an account is
+//! never held in memory (Jacob, 2026-09-29), so the row is read when
+//! something needs it.
 //!
 //! Every connection goes on the ledger (ledger.rs) as it's accepted, and
 //! moves along it a stage at a time, so the web admin's Connections tab
@@ -63,7 +66,7 @@ use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::security::{self, SecurityError, Ticket};
 use conductor_tools::services::{self, State};
-use conductor_tools::{archivist, threads};
+use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
 use crate::ledger::{self, End, Stage};
@@ -94,19 +97,6 @@ const PLACE_EVERY: Duration = Duration::from_secs(1);
 /// How much we ask TLS for in one read.  Bigger than any packet we take,
 /// so one read can hold a whole one.
 const READ_CHUNK: usize = 8192;
-
-/// The one row a login needs.
-const ACCOUNT_SQL: &str = "SELECT password_hash FROM accounts WHERE account_username = $1";
-
-/// Noted on the way in.  Not waited on: a login time we couldn't save
-/// isn't worth turning the player away over, and Archivist logs a failed
-/// job itself.
-const LOGIN_TIME_SQL: &str = "UPDATE accounts SET last_login_datetime = now() WHERE account_username = $1";
-
-/// The account name rule, the same one the accounts table checks: 8 to 32
-/// of `a-z`, `0-9` and `_`.
-const NAME_MIN: usize = 8;
-const NAME_MAX: usize = 32;
 
 /// What every login thread needs, worked out once in `start()` and
 /// shared.
@@ -139,8 +129,12 @@ pub enum Kicked {
     /// The socket is shut.  The login thread finds out on its next read,
     /// or skips the connection if it was still queued.
     Yes,
-    /// No connection with that number is open: finished already, or
-    /// never was.
+    /// The connection had closed, but its login's player was in the world
+    /// (or its ticket not yet used), and they're out now.  `lib.rs`'s
+    /// `kick()` does that part.
+    FromWorld,
+    /// No connection with that number is open, and nothing from its login
+    /// is left in the world: finished already, or never was.
     NotOpen,
     /// The TCP side isn't running.
     NotListening,
@@ -685,7 +679,7 @@ fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadli
         }
         match protocol::read_session_choice(&packet.payload) {
             Ok(Choice::LogTheOtherOut) => {
-                if let Some(address) = sessions::kick(&account) {
+                if let Some(address) = sessions::kick(&account, peer) {
                     udp::tell(address, &protocol::kicked(KickReason::LoggedInElsewhere));
                 }
                 scribe::info(Channel::Security, &format!("{peer} logged the other session on {account} out."));
@@ -703,7 +697,7 @@ fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadli
         }
     }
 
-    match sessions::issue(&account) {
+    match sessions::issue(&account, id) {
         Ok(token) => {
             scribe::info(Channel::Security, &format!("{peer} logged in as {account} and has a ticket for UDP."));
             let _ = send(stream, &protocol::ticket(&token, setup.udp_port));
@@ -754,7 +748,7 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
     // nothing away.  The name itself isn't logged: it could be a password
     // typed into the wrong box.
     let account = login.username.to_ascii_lowercase();
-    if !name_allowed(&account) {
+    if !conductor_accounts::username_allowed(&account) {
         scribe::info(Channel::Security, &format!("Login from {peer} as a name that isn't allowed failed."));
         return Outcome::Refused;
     }
@@ -762,9 +756,8 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
     // The account's row, waited for on this thread.  Archivist's worker
     // does the reading; we only sleep until it's done.
     ledger::set(id, Stage::Checking);
-    let params: Vec<archivist::Param> = vec![Box::new(account.clone())];
-    let stored: Option<String> = match archivist::query(ACCOUNT_SQL, params).wait() {
-        Ok(rows) => rows.first().map(|row| row.get("password_hash")),
+    let stored: Option<String> = match conductor_accounts::password_hash(&account).wait() {
+        Ok(stored) => stored,
         Err(e) => {
             // Archivist has already said what's wrong with it, and once.
             scribe::info(Channel::Security, &format!("Login from {peer} as {account} couldn't be checked: {e}."));
@@ -781,12 +774,7 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
 
     match verified {
         None => Outcome::Gone,
-        Some(Ok(true)) => {
-            // Not waited on: see LOGIN_TIME_SQL.
-            let params: Vec<archivist::Param> = vec![Box::new(account.clone())];
-            let _ = archivist::execute(LOGIN_TIME_SQL, params);
-            Outcome::In(account)
-        }
+        Some(Ok(true)) => Outcome::In(account),
         Some(Ok(false)) => {
             scribe::info(Channel::Security, &format!("Login from {peer} as {account} failed."));
             Outcome::Refused
@@ -820,14 +808,6 @@ fn wait_in_line<T>(stream: &mut TlsStream, id: u64, ticket: Ticket<T>, stopping:
             return None;
         }
     }
-}
-
-/// The account name rule: 8 to 32 of `a-z`, `0-9` and `_`.  The same rule
-/// the accounts table checks, so a name that passes here can be looked
-/// up and one that doesn't can't be a row.
-fn name_allowed(name: &str) -> bool {
-    (NAME_MIN..=NAME_MAX).contains(&name.len())
-        && name.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'_')
 }
 
 /// Sends the one failure answer and puts the address on hold.  Every way
@@ -927,20 +907,6 @@ fn hold_remaining(address: IpAddr) -> Option<Duration> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn the_name_rule_matches_the_table() {
-        assert!(name_allowed("jacob_01"));
-        assert!(name_allowed("a2345678"));
-        assert!(name_allowed(&"a".repeat(32)));
-
-        assert!(!name_allowed("jacob"));
-        assert!(!name_allowed(&"a".repeat(33)));
-        assert!(!name_allowed("Jacob_01"));
-        assert!(!name_allowed("jacob-01"));
-        assert!(!name_allowed("jacob 01"));
-        assert!(!name_allowed(""));
-    }
 
     #[test]
     fn a_failed_address_is_held_and_then_let_go() {

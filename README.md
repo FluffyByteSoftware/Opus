@@ -12,8 +12,8 @@ and Conductor decides.
 
 It is early.  What exists today is the server's skeleton: the tools every other piece leans on, a monitor,
 a web page to run it all from, and a front door that logs a player in over TLS and hands them a ticket to
-UDP, where the game will go.  There is no game yet, no way to make an account from outside yet, and
-Ensemble isn't in the repo.  Things will change and things will break.
+UDP, where the game will go.  There is no game yet, accounts are made by the admin on the web admin
+only, and Ensemble isn't in the repo.  Things will change and things will break.
 
 ## What's built
 
@@ -75,6 +75,19 @@ they come up a lot.
 - **The clock** -- UTC dates and times, worked out by hand, since the standard library stops at seconds
   since 1970.  All time in Opus is UTC, and any time shown to a person ends with `Z`.
 
+### Accounts (`conductor-accounts`)
+
+The one way in to the `accounts` table.  An account is never held in memory: whatever needs one reads it
+from its row when it needs it, and every change goes straight back to the row, so there's only ever one
+copy and nothing can write an old one over a new one.  A player in the world is just their account's name
+to the server.  Their last login is written the moment they come in over UDP, not at the TLS login before
+it, since that's when playing starts.  The password hash is read on its own, only by the login, so it can
+never end up in a log line.
+
+Accounts are made by the admin on the web admin's Accounts tab, never by players.  Making one and
+changing a password both need a hash, which waits in Security's line with the logins, so those go to the
+account desk, a thread of its own, and the page asks after the job until it's done.
+
 ### The monitor (`conductor-monitor`)
 
 Once a second, on its own thread, it looks at Conductor and at every process on the machine: CPU (for the
@@ -118,7 +131,7 @@ The rest of the door:
   wouldn't be much of a ban.  Blacklisting an address while the blacklist is on, or taking it off the
   whitelist while the whitelist is on, drops everybody at that address on the spot.
 
-The whole contract, byte for byte, is in `Documentation/LLM/PROTOCOL.md`.  It's version 2.
+The whole contract, byte for byte, is in `Documentation/LLM/PROTOCOL.md`.  It's version 4.
 
 ### The web admin (`conductor-wgui`)
 
@@ -128,31 +141,43 @@ else, and it pulls nothing from the internet.
 
 It asks for a login first.  There are two accounts: `admin` can do everything, and `user` can look at
 everything and change nothing.  Their passwords are in `Content/cfg/wgui.cfg` (`admin` and `user` out of
-the box).  Every time Conductor starts, everybody starts logged out.
+the box).  Every time Conductor starts, everybody starts logged out.  Until you're in, the page is only
+the login.  With the server stopped, only the Server tab, the Log and the Settings open; the rest wait
+for START SERVER.  So does the bell: a Warn at boot (a leftover line in a config file, say) is in the Log
+tab meanwhile, and on the bell once the server is up.
 
-The page is a sidebar of tabs:
+The page is five sections across the top, and the side menu lists the tabs of the one that's open:
 
-- **Control Panel** -- the server's state, START SERVER, RESTART SERVER, STOP SERVER and SHUT DOWN, and a
-  short list of the services.
-- **System** -- the whole machine: every core, memory, and every process, busiest first.  Click one to see
-  its threads.
-- **Conductor** -- its own CPU with a 60-second chart per core, memory against the machine's, disk, and
-  its threads (every one the OS knows about, and the ones we asked for, with who started them).
-- **Services** -- every service and how it says it's doing.
-- **Storage** -- Archivist's jobs and slow ones, and what DiskMan has waiting, held and written.
-- **Notifications History** -- every open notice, each with an ACK.
-- **Network Admin** -- three tabs under one heading.  **Connections** is the door (every TCP connection
-  since START SERVER, in a Recent view of the newest five and a Historical one of the whole run) and the
-  world (every player on UDP, by account, with how long they've been in and how quiet they are).  Each
-  connection has a menu to kick it or put its address on either list.  **Whitelist** and **Blacklist**
-  are the two lists, with ADD and REMOVE.
-- **Log** -- the log as it's written, coloured by how bad each line is.
-- **Settings** -- every config file, a card each, drawn straight from Constellations' table.  A save
-  waits for the file's reboot and says so.
+- **CONTROL PANEL**
+  - **Server** -- the server's state, START SERVER, RESTART SERVER, STOP SERVER and SHUT DOWN, and a
+    short list of the services.
+  - **System** -- the whole machine: every core, memory, and every process, busiest first.  Click one to
+    see its threads.
+  - **Conductor** -- its own CPU with a 60-second chart per core, memory against the machine's, disk, and
+    its threads (every one the OS knows about, and the ones we asked for, with who started them).
+  - **Services** -- every service and how it says it's doing.
+  - **Storage** -- Archivist's jobs and slow ones, and what DiskMan has waiting, held and written.
+- **CONFIGURATION**
+  - **Settings** -- every config file, a card each, drawn straight from Constellations' table.  A save
+    waits for the file's reboot and says so.
+  - **Whitelist** and **Blacklist** -- the two lists of addresses, with ADD and REMOVE.
+- **LOGS**
+  - **Log** -- the log as it's written, coloured by how bad each line is.
+  - **Notifications History** -- every open notice, each with an ACK.  The bell's tray opens it too.
+- **ACCOUNT MANAGEMENT**
+  - **Accounts**, `admin` only -- every game account, and a card for each (click its name) to change the
+    owner's names and email, give it a new password (typed twice), or delete it.  Deleting an account
+    whose player is in the world takes them out, and the client says ACCOUNT TERMINATED.  NEW ACCOUNT
+    makes one.  It only works while the server is running.
+- **GAME MANAGEMENT**
+  - **Connections** -- the door (every TCP connection since START SERVER, in a Recent view of the newest
+    five and a Historical one of the whole run) and the world (every player on UDP, by account, with how
+    long they've been in and how quiet they are).  Each connection has a menu to kick it or put its
+    address on either list.
 
-Until the server is running, only the Control Panel, the Log and the Settings can be opened.  While the
+Until the server is running, only the Server tab, the Log and the Settings can be opened.  While the
 server runs without a database, everything else is blurred and locked, since the game can't run without
-it.  The Network Admin tabs also wait for both of the network's listeners to be up.
+it.  Connections, Whitelist and Blacklist also wait for both of the network's listeners to be up.
 
 ## What it needs
 
@@ -172,13 +197,14 @@ there and the door can't look up names.
 Everything below is from the repo root.
 
 **The TLS certificate.**  Conductor doesn't make one.  Make it once; the key stays out of git, and the
-certificate goes in, since a client needs a copy to trust:
+certificate goes in, since a client needs a copy to trust.  From the `Opus` folder itself:
 
 ```
 mkdir -p Content/certs && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout Content/certs/conductor.key -out Content/certs/conductor.crt -days 3650 -subj "/CN=Opus Conductor" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
 ```
 
-Without it Conductor still runs.  The network's two services show trouble and the log gives the command.
+Without it Conductor still runs.  The TCP side shows trouble, the UDP side stays stopped, and the log gives
+the same command with the full paths filled in, so it works pasted from any folder.
 
 **The database.**  Postgres wants a database `opusdb` and a role `opus_game` with a password that matches
 `password` in `Content/cfg/postgres.cfg`, allowed to create tables in the `public` schema.  Conductor makes
@@ -245,10 +271,11 @@ python3 Conductor/dev/conductor-networking/test_client.py some_account 'Its pass
 Its switches: `--host` and `--tcp-port` for another server, `--cert` for another certificate,
 `--version` and `--secret` to claim a different client version or secret word, `--leave-other-alone` to
 hang up rather than log out a session already in the world, `--leave-after N` to say Goodbye after N
-seconds, and `--go-quiet` to send nothing after connecting and watch the timeout drop it.
+seconds, `--go-quiet` to send nothing after connecting and watch the timeout drop it, and
+`--pause-before-login N` to sit N seconds after TLS before the Login, so the connection can be caught open.
 
-There's no way to make an account over the protocol yet.  A test account is a row in `accounts` put in
-by hand, with an Argon2id line made at Security's settings as its password.
+There's no way to make an account over the protocol, on purpose: a test account is made on the web
+admin's Accounts tab.
 
 ## Ensemble
 
@@ -261,6 +288,7 @@ Opus/
 ├── Conductor/
 │   ├── dev/                       a Cargo workspace
 │   │   ├── conductor-tools/       DiskMan, Scribe, Constellations, Security, Archivist and the rest
+│   │   ├── conductor-accounts/    the accounts table, read on demand, never held; the account desk
 │   │   ├── conductor-monitor/     looks at the process and the machine once a second
 │   │   ├── conductor-networking/  the login over TLS, the game over UDP, the access lists; test_client.py
 │   │   ├── conductor-wgui/        the web admin

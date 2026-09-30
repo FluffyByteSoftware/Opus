@@ -54,6 +54,7 @@ Opus/
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
 │   │   ├── conductor-tools/    # lib: the tools (DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, ...)
+│   │   ├── conductor-accounts/ # lib: the one way in to the accounts table, and the account desk
 │   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
 │   │   ├── conductor-networking/ # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
 │   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
@@ -79,6 +80,7 @@ Opus/
         ├── PROJECT_OPUS.md# skeletal layout of the whole project
         ├── PROTOCOL.md    # server/client contract
         ├── WRITINGSTYLE.md# my voice for public docs and comments
+        ├── TEST_CHECKLIST.md # what's still to check on testing
         └── design/        # one markdown file per system or feature
 ```
 
@@ -114,7 +116,7 @@ a `Content/` folder, or by creating `./Content` when neither works.
   reading would mean in practice. Don't fill gaps with guesses.
 - **The test checklist.** `Documentation/LLM/TEST_CHECKLIST.md` is the rolling list of what to check on
   `testing`: every session that changes what Conductor does adds its checks there, and the reply that
-  pushes to `testing` points at them.  Jacob's ask, 2026-09-29, so that once game features come, there's a
+  pushes to `testing` points at them.  Once he says a check passed, it comes out of the file.  Jacob's ask, 2026-09-29, so that once game features come, there's a
   reminder of what changed and what to look at in game.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
@@ -123,7 +125,11 @@ a `Content/` folder, or by creating `./Content` when neither works.
 - **One feature per session.** If a new feature comes up mid-session, add it to
   `Documentation/LLM/TODO.md` and keep going on the current one. It gets its own session later.
 - **Plan before building** anything bigger than a small fix: tell me the files
-  you'll touch and the approach, and wait for my OK.
+  you'll touch and the approach, and wait for my OK.  Check the plan against
+  the rules already here first, and say when an ask runs into one (on
+  2026-09-29, "passwords can't change while the server runs" ran into
+  Security and Archivist being server pieces; Jacob turned it round once he
+  saw why).
 - **Things that can't be done yet** (because a dependency isn't built) go in
   `Documentation/LLM/TODO.md`, not half-implemented in code.
 - **Future ideas** that come up in conversation also go in `Documentation/LLM/TODO.md`.
@@ -146,12 +152,15 @@ When I say we're wrapping up:
 
 1. Update `Documentation/LLM/STATUS.md`. It holds only the last session plus any earlier session
    that directly matters for the next one. It is a bridge, not a rolling log.
-   List what's waiting, unordered.
+   List what's waiting, unordered.  If the session's code hasn't been built
+   by Jacob yet, STATUS.md says so plainly, so the next session starts by
+   expecting compile fixes (2026-09-29: the account manager closed unbuilt).
 2. Update `Documentation/LLM/TODO.md`, `Documentation/LLM/PROJECT_OPUS.md`, and any `Documentation/LLM/design/`
    files the session changed, so they match reality.
    Add the session's checks to `Documentation/LLM/TEST_CHECKLIST.md` (Jacob's ask, 2026-09-29): what to
    run on `testing` to see this session's change working, and what to look at in the game once there is
-   one.  A check is struck through with the date once he's done it, never deleted.
+   one.  A check that passes is taken out, not struck through; the file is his reminder of what's
+   left, not a history (Jacob, 2026-09-29; git keeps the old ones).
 3. Update `README.md` if anything about the project's overview changed.
 4. Update this CLAUDE.md with anything the session taught us, and tell me what
    changed.
@@ -254,8 +263,8 @@ When I say we're wrapping up:
   hard). Jacob's words, 2026-09-29.
 - **Conductor and the server are two things.** The program (DiskMan, Scribe,
   Constellations, the web admin) is up from boot. The server (Fingerprinter,
-  Security, Archivist, networking, the monitor, and the game when it
-  exists) only runs between START SERVER and STOP SERVER on the web admin's
+  Security, Archivist, the account desk, networking, the monitor, and the
+  game when it exists) only runs between START SERVER and STOP SERVER on the web admin's
   Control Panel: Conductor comes up with its door closed, and the admin opens
   it (and closes it) from there. Jacob's rule, 2026-09-29. The launcher does
   the calling on the Control Panel's say, so a new server piece goes in both
@@ -315,6 +324,20 @@ When I say we're wrapping up:
   one arena of memory kept for the server's life, one login hashed at a
   time, hard limit, with everybody else in line.  Nothing else calls the
   argon2 crate, and nothing ever logs a password.
+- **Every account goes through `conductor-accounts`** (2026-09-29).
+  Nothing else writes SQL for the `accounts` table.  **An account is
+  never held in memory** (Jacob's rule, the day after it was): whatever
+  needs one loads it from its row when it needs it (`load()`, `list()`),
+  and every change goes straight back to the row, so there's one copy and
+  nothing writes an old one over a new one.  Networking's book has the
+  account's name and nothing else.  `Account` never has the password hash
+  (`password_hash()` reads that on its own).  The last login is written
+  the moment the player connects over UDP (`stamp_login()`), not at the
+  TLS login (Jacob, for playtime).  Accounts are made by the admin on the
+  web admin's Accounts tab, never by players, and only while the server
+  is running.  Anything that hashes a password for the web admin goes
+  through the account desk (`desk.rs`), so the web admin's one thread
+  never waits in Security's line.
 - **Every Warn and Error becomes a notice** on the web admin's bell, and stays
   there until I ACK it. So a Warn is for something actually wrong, never
   chatter. Code can raise one on purpose with `notices::publish()`.
@@ -324,12 +347,18 @@ When I say we're wrapping up:
   `127.0.0.1` only. Never suggest binding it to anything else, and ask before
   adding a route that changes anything. Starting, restarting and stopping the
   server (`/Opus/wwwhook/start`, `/stop`, `/restart`), kicking a TCP
-  connection (`/Opus/wwwhook/tcp/kick`) and changing the access lists
+  connection or the player its login became (`/Opus/wwwhook/tcp/kick`), changing the access lists
   (`/Opus/wwwhook/networking/addip` and `/removeip`; Jacob's names, "add"
-  and "remove" alone were too generic) are already agreed to.
+  and "remove" alone were too generic) and the Accounts tab's changes
+  (`/Opus/wwwhook/accounts/create`, `/edit`, `/password`, `/delete`;
+  its reads are under `/Opus/Content/accounts`, Jacob's paths,
+  2026-09-29) are already agreed to.
   `wwwhook` is Jacob's name for a path the page posts to that makes something
-  happen; the shutdown and ACK routes predate it and kept their paths. Ask
-  where a new one goes.
+  happen; the shutdown and ACK routes predate it and kept their paths.
+  **Every new route goes through `/Opus/wwwhook/`**, and when a reply says
+  "route" it names the whole path (`/Opus/wwwhook/tcp/kick`), so it's clear
+  that's what is meant: a web admin path, not a file or a function.  Jacob,
+  2026-09-29.  Ask before adding one.
 
 ### Networking (conductor-networking)
 
@@ -347,7 +376,8 @@ When I say we're wrapping up:
   test client are written from it; when either disagrees with the document,
   the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`,
   and so does a new value in a packet's enum (a Kicked reason took it to 2
-  on 2026-09-29): `protocol.rs`, PROTOCOL.md and `test_client.py` all
+  on 2026-09-29, another, kicked by the admin, to 3 the same day, and
+  account terminated to 4, also the same day): `protocol.rs`, PROTOCOL.md and `test_client.py` all
   change together, and the document gets a line saying what the version
   added.
 - **The TLS pair is made by hand** with the openssl command in README.md, in
@@ -398,16 +428,34 @@ When I say we're wrapping up:
   is added, make sure the CSS for it exists.
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
-- The page is eleven tabs down the left sidebar, under the OP logo: Control
-  Panel, System, Conductor, Services, Storage, Notifications History, then
-  a rule and a **Network Admin** subsection (Connections, Whitelist,
-  Blacklist; Jacob's layout, 2026-09-29), then Log, Settings. Anything new
-  goes on one of them, or is a new tab I agree to.
+- **The page is five sections across the top** (Jacob's layout,
+  2026-09-30, picked from four mockups), and a side menu listing the open
+  section's tabs:
+  - CONTROL PANEL: Server, System, Conductor, Services, Storage
+  - CONFIGURATION: Settings, Whitelist, Blacklist
+  - LOGS: Log, Notifications History
+  - ACCOUNT MANAGEMENT: Accounts
+  - GAME MANAGEMENT: Connections
+
+  The **Server** tab was the Control Panel tab; its section took the
+  name.  A tab says its section with `data-section` in `page.html`.
+  Anything new goes on one of the tabs, or is a new tab (or section) I
+  agree to.  The notices are the bell and the LOGS section: the tray has
+  HISTORY, which opens Notifications History.
+- **The Accounts tab** (2026-09-29) is the game's accounts, `admin` only
+  (`user` can't see the list).  The list, and a card per account opened by
+  clicking its name: the owner's names and email (SAVE), a new password
+  typed twice (CHANGE PASSWORD; every password is typed twice), and
+  DELETE ACCOUNT, which takes a player in the world out with Kicked,
+  reason 5, and the client says ACCOUNT TERMINATED (protocol version 4).
+  NEW ACCOUNT opens a card for a new one.  The username never changes.
+  Locked unless the server is running and the database connected.
 - **The Connections tab** (2026-09-29; it was the TCP tab) is the door and
   the world, TCP first then UDP: every connection that reached the TCP
   listener since START SERVER, by address and DNS name, never by account,
   with where each one is (the queue, TLS, Security's line with its place,
-  finished and how) and a three-dot menu for `admin` (KICK, add the
+  finished and how; a login whose player has left the world, or never
+  came, reads LINKDEAD and why, Jacob's word, 2026-09-29) and a three-dot menu for `admin` (KICK, add the
   address to the whitelist, add it to the blacklist), in two views, Recent
   (the newest five) and Historical (the whole run; Jacob's ask,
   2026-09-29); then every player in
@@ -421,18 +469,21 @@ When I say we're wrapping up:
   is a ban, and so is taking an entry off the whitelist while the whitelist
   is on: every connection and player the door would now turn away is
   dropped at once, the player with a Kicked (reason 3, banned; protocol
-  version 2).  All three Network Admin tabs are locked until both of networking's
-  listeners are up; the lists can't be changed from the page while the
+  version 2).  KICK in a TCP row's three-dot menu kicks an open connection,
+  or the player its login became (reason 4, kicked by the admin; protocol
+  version 3; Jacob's ask, 2026-09-29), greyed when nothing is left to kick.  Connections, Whitelist and
+  Blacklist are locked until both of networking's listeners are up; the lists can't be changed from the page while the
   server is stopped (edit the files by hand then).
-- The Control Panel, the Log and the Settings are always clickable. Until
+- The Server tab, the Log and the Settings are always clickable. Until
   the server is running they're the only tabs that are, and the bell is
-  hidden. The Control Panel is the only place the server is started,
-  restarted and stopped, and the only place SHUT DOWN is; the header has no
-  buttons but the bell. LOG OUT is at the bottom of the sidebar.
+  hidden. The Server tab is the only place the server is started,
+  restarted and stopped, and the only place SHUT DOWN is; the header has
+  the bell at the top right and the sections under it. LOG OUT is at the
+  bottom of the side menu.
 - While the server is running and the database isn't connected, the data
   tabs are blurred and locked. Anything new on the page sits under that lock;
-  only the header (the bell and its tray included), the Control Panel, the
-  Log and the Settings stay above it.
+  only the header (the bell, its tray and the sections included), the
+  Server tab, the Log and the Settings stay above it.
 - **The page has a login** (2026-09-29). Two accounts, fixed: `user` looks
   and touches nothing, `admin` does everything. Their passwords are the two
   settings in `wgui.cfg`, as they are, not hashed (Security only runs with
@@ -452,6 +503,11 @@ When I say we're wrapping up:
   `/discard` behind it. A new config file or setting shows up there with
   no page work. A save goes to `.wait4server` and takes at the file's
   reboot; the tab never hot swaps anything.
+- **Mockups go on a canvas, not in the repo.**  A new layout for the page
+  can start as a few clickable mockups on a claude.ai design canvas, in
+  the page's own colours with the real tab names, for Jacob to pick from
+  and comment on.  They stay there ("just on the canvas", 2026-09-30);
+  only the one he picks is built into `page.html`.
 - When talking about the page, name the panel or tab ("the Log tab"), not the
   tool behind it. "Where does Scribe go?" read as moving the crate.
 - [FILL IN the tick rate once there is a game loop]

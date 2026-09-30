@@ -15,18 +15,22 @@ accents, a terminal box), redone in plain CSS.
 
 ```
 conductor-wgui/
-├── Cargo.toml         depends on conductor-tools, conductor-monitor and conductor-networking (the Network Admin tabs)
+├── Cargo.toml         depends on conductor-tools, conductor-monitor, conductor-networking (Connections and the lists)
+│                        and conductor-accounts (the Accounts tab)
 └── src/
     ├── lib.rs         start(port) -> bool, has_ended(); the thread, route(), log_in(), only_admin(),
     │                    server_command(), settings_states(), settings_save(), settings_discard(), tcp_kick(),
     │                    networking_list(), unescape(), host_is_ours()
+    ├── accounts.rs    the Accounts tab's routes: list(), job(), create(), edit(), password(), delete(); the
+    │                    checks they share (admin, the page's header, the server running) and the body's fields
     ├── http.rs        read_request() (head, then the body Content-Length says), parse_head(), respond();
     │                    struct Request
     ├── login.rs       the two accounts and the live logins: log_in(), role_of(), log_out(), the cookie lines,
     │                    fields(); enum Role, enum Login
     ├── json.rs        status(switch, role, snapshot, services, disk, networking, open_notices, newest_notices, lines, log_file),
     │                    login(role), notices(open), threads_of(pid, threads), settings(files), problems(list),
-    │                    access(lists), changed() -> String; a small Object builder, text() escaping
+    │                    access(lists), changed(), accounts(list), account_job(number, outcome) -> String; a small
+    │                    Object builder, text() escaping
     └── page.html      the one page, baked in with include_str!
 ```
 
@@ -50,10 +54,16 @@ conductor-wgui/
 | GET    | `/Opus/settings`       | Every config file and setting: kind, comment, default, running value, waiting value.  Reads only |
 | POST   | `/Opus/wwwhook/settings/save?file=<name>` | SAVE on the Settings tab.  `key = value` lines in the body.  Needs `X-Opus: settings`.  400 with the complaints as JSON if a line is wrong, and nothing written; 500 the same way if the disk says no |
 | POST   | `/Opus/wwwhook/settings/discard?file=<name>` | DISCARD: throws the file's `.wait4server` away.  Needs `X-Opus: settings` |
-| POST   | `/Opus/wwwhook/tcp/kick?id=N` | KICK on the Connections tab: closes connection N at the door.  Needs `X-Opus: tcp`.  404 if it isn't open, 409 if TCP isn't listening |
+| POST   | `/Opus/wwwhook/tcp/kick?id=N` | KICK on the Connections tab: closes connection N at the door if it's open, or kicks the player its login became out of the world (`from_world` in the answer).  Needs `X-Opus: tcp`.  404 when nothing from the row is left, 409 if TCP isn't listening |
 | GET    | `/Opus/networking`     | Both access lists, for the Whitelist and Blacklist tabs.  Reads only; `running` is false with empty lists while the server is stopped |
 | POST   | `/Opus/wwwhook/networking/addip?list=<whitelist or blacklist>&entry=<address or range>` | ADD on a list tab, or the Connections tab's menu.  Takes at once; a blacklisting while the blacklist is on is a ban.  Needs `X-Opus: networking`.  400 with the reason in words for an entry that isn't one, 409 while networking isn't running |
 | POST   | `/Opus/wwwhook/networking/removeip?list=...&entry=...` | REMOVE on a list tab, the same way; off the whitelist while the whitelist is on, a ban too |
+| GET    | `/Opus/Content/accounts` | Every game account, by name, for the Accounts tab.  `admin` only (403 to `user`), 409 while the server isn't running, 503 if the database doesn't answer in 5 seconds |
+| GET    | `/Opus/Content/accounts/job?id=N` | Where job N on the account desk is: working, done or failed, and what happened.  404 for a job it doesn't know |
+| POST   | `/Opus/wwwhook/accounts/create` | NEW ACCOUNT.  `username`, `first_name`, `last_name`, `email`, `password`, `password_again` lines in the body.  Needs `X-Opus: accounts`.  400 with the complaints as JSON, each with its field's name in front; 202 with the account desk's job number |
+| POST   | `/Opus/wwwhook/accounts/edit?name=<account>` | SAVE on an account's card: `first_name`, `last_name`, `email`.  Straight to the row; 400 for a field (an email another account has included), 404 for no such account |
+| POST   | `/Opus/wwwhook/accounts/password?name=<account>` | CHANGE PASSWORD: `password`, `password_again`.  202 with the job number; the account desk hashes it and writes it |
+| POST   | `/Opus/wwwhook/accounts/delete?name=<account>` | DELETE ACCOUNT.  Deletes the row, then takes its player out of the world with Kicked, account terminated.  `{ deleted, kicked }` |
 | POST   | `/Opus/shutdown`       | Shuts Conductor down.  Needs the `X-Opus: shut-down` header         |
 
 A known path asked with the wrong method is a `405`, and anything else a `404`; `/Opus/` with the slash is
@@ -150,8 +160,11 @@ them.
 - **The Settings tab** (2026-09-29), the config editor's web admin half.  Last in the sidebar, after
   the Log (Jacob's pick), and always clickable like the Control Panel and the Log: it sits outside the
   blurred content, so a setting can be changed while the server is stopped or the database is offline.
-  One card per file from Constellations' table, drawn from `/Opus/settings` when the tab opens and after
-  every SAVE or DISCARD, never once a second, so nothing redraws under somebody's typing.  A card says
+  One card per file from Constellations' table, drawn from `/Opus/settings` when the tab opens, after
+  every SAVE or DISCARD, and whenever the server's state (or when it got there) changes while the tab is
+  open, never once a second, so nothing redraws under somebody's typing.  The last one came from
+  2026-09-29's test run: opened in the middle of a RESTART, before the stop swapped a saved change in,
+  the tab kept its WAITING warning for a change that had already taken.  A card says
   what the file is for and which reboot it needs, in plain words, then a field per setting with the
   key, its kind in words (a port 1 to 65535, a number with its range, a folder, text, a secret), and the
   comment under it.  A file that hasn't been loaded this run (`postgres.cfg` before the first START
@@ -172,7 +185,8 @@ them.
   open, waiting, in Security's line and finished since START SERVER), then the table, newest first, with the
   address, its reverse DNS name when one has come back, when it arrived and how long ago, where it is in
   words (a queued one says how many are ahead of it; one in Security's line says how many jobs are ahead
-  and about how long; a finished one says how it ended, greyed, green if it logged in), and KICK on
+  and about how long; a finished one says how it ended, greyed, green if it logged in and its player is still in the world,
+  LINKDEAD and why once they're not; see `conductor-networking.md`), and KICK on
   every open one (in the row's three-dot menu since the session after).  The ledger behind it, the DNS thread and the kick are networking's; see
   `conductor-networking.md`.
 - **The Network Admin subsection** (2026-09-29, the session after): Jacob's layout, "a subsection on the
@@ -197,43 +211,88 @@ them.
   routes are `addip` and `removeip`, his names ("add" and "remove" were too generic), under
   `/Opus/wwwhook/networking/`.  The lists can't be changed while the server is stopped, by his rule:
   the tabs are locked then, and the files can be edited by hand.
+- **The Accounts tab** (2026-09-29), the game account management the old launcher menu planned.  Jacob's
+  list: create an account, list them, delete one, change its fields, the password included.  A GAME
+  ADMIN heading with its own rule, under Network Admin, with the one tab under it (he wants the sidebar
+  rethought next, since menus under headings are getting cluttered; TODO.md).  `admin` only: `user`
+  can't see the list, so the tab is greyed for `user` and the routes answer 403.  It's under the
+  database lock like the data tabs, and only works while the server is running (Jacob's call, after
+  first asking for passwords to be locked while it runs: Security and Archivist are server pieces).
+  An account's profile is a card, opened by clicking its name on the list, not a "finger" command.  A
+  password is typed twice, every time.  The username can't be changed.  The reads go under
+  `/Opus/Content/accounts` and the changes under `/Opus/wwwhook/accounts/`, his paths.  Every change
+  goes straight to the row: an account is never held in memory (his rule, decided the same session;
+  see `conductor-accounts.md`), so editing one whose player is online is safe.  Deleting one whose
+  player is online takes them out with Kicked, reason 5, and the client says ACCOUNT TERMINATED (his
+  words); protocol version 4.  The list, an edit and a delete are waited on (5 seconds at most); a new
+  account and a new password need a hash, so they go to the account desk and the page asks after the
+  job every half second, so the web admin's one thread never waits in Security's line.
+- **The sections** (2026-09-30), the sidebar rethink.  Twelve tabs under two subsection headings was
+  getting cluttered, and more is coming.  Four menus were drawn as clickable mockups (folding groups, an
+  icon rail with a panel, sections across the top, and today's list with find and pins); Jacob picked
+  sections across the top, with his own five: CONTROL PANEL, CONFIGURATION, LOGS, ACCOUNT MANAGEMENT,
+  GAME MANAGEMENT.  The side menu lists only the open section's tabs.  The Control Panel tab became
+  **Server**, since its section took the name.  The notices are reached by the bell and by the LOGS
+  section (his words), so the tray got HISTORY and opens even when nothing's in it.  Nothing about the
+  tabs themselves changed: the same pages, the same locks, the same remembered tab.  No pins, nothing
+  remembered about the sections (asked, "no need").
 
 ## The page
 
 **The login card**: covers the whole page until Conductor says who's logged in.  Name, password, LOG IN,
 and what went wrong under them.  It's up on every 401: the first load and after Conductor has been run
 again.  LOG OUT puts it up itself, with "Logged out." under it.  The status loop stops while it's up and a login starts it again.
+Until you're in, the card is all there is.  Once in, both accounts see the same sections: with the server
+stopped only the Server tab, the Log and the Settings open, and the rest wait for START SERVER.  `user`
+reads the Log and the Settings tab (read only); only `admin` has START, RESTART and STOP SERVER and SHUT
+DOWN.  (Jacob's notes from the 2026-09-29 test run.)
 
-**Sidebar**: the OP logo, and eleven tabs under it: Control Panel, System, Conductor, Services, Storage,
-Notifications History, then a rule and a NETWORK ADMIN heading with Connections, Whitelist and Blacklist
-indented under it, then Log, Settings.  The Control Panel shows whenever the server isn't running; once it
-is, the page moves to the tab the browser remembers, Conductor by default.  A locked tab is greyed and
-can't be clicked: with the server stopped that's everything but the Control Panel, the Log and the
-Settings, and with it running the database lock decides, and the three Network Admin tabs need both network
-listeners up on top of that.  The Services tab gets a flashing red dot when a
-service is down, only while the server is running (its pieces being down is the normal state before
-that).  At the bottom: who's logged in, whether they can change things, and LOG OUT.
+**Sections and the side menu**: five sections across the top, under the header's first row, and the side
+menu lists the tabs of the one that's open:
 
-**Header, on every tab**: the name; a status line (NOMINAL, or what's wrong: `DATABASE NOT CONNECTED`,
-`2 SERVICES DOWN`, or `SERVER STOPPED` while it is); a pill (DB ONLINE green, DB CONNECTING grey, DB OFFLINE
-flashing red, or SERVER STOPPED / STARTING / STOPPING grey); uptime as DD:HH:MM:SS, dashes while the server
-is stopped; and the bell in the corner, hidden while the server isn't running.
+| Section | Tabs |
+|---|---|
+| CONTROL PANEL | Server, System, Conductor, Services, Storage |
+| CONFIGURATION | Settings, Whitelist, Blacklist |
+| LOGS | Log, Notifications History |
+| ACCOUNT MANAGEMENT | Accounts |
+| GAME MANAGEMENT | Connections |
 
-**Control Panel**: the server's state big (STOPPED plain, STARTING and STOPPING yellow, RUNNING green), the
-launcher's note under it and since when; then START SERVER (green), RESTART SERVER (green, asks first),
-STOP SERVER (red, asks first) and SHUT DOWN (red, asks first), each greyed when it doesn't fit the state.
-Beside it a short services list (dot, name, state, what it says) from the same list as the Services tab; a
-piece that's expected or stopped is grey while the server is down and red once it's up.  The buttons post
-to the server routes and the next status answer sets them right again; a 409 comes back as an alert with
-Conductor's words.
+Opening a tab opens its section.  A click on a section keeps the open tab if it's in that section, or
+opens the section's first tab that isn't locked; if they're all locked the side menu shows them greyed with
+a line saying why ("These open once the server is running.", the database, networking's listeners, or
+"Only admin can open the accounts."), and the open tab stays.  The top of the tab says which it is,
+section over name.  The Server tab shows whenever the server isn't running; once it is, the page moves
+to the tab the browser remembers, Conductor by default.  A locked tab is greyed and can't be clicked:
+with the server stopped that's everything but the Server tab, the Log and the Settings, and with it
+running the database lock decides, Connections, Whitelist and Blacklist need both network listeners up
+on top of that, and Accounts needs `admin`.  The sections themselves are never locked.  The Services
+tab gets a flashing red dot when a service is down, only while the server is running (its pieces being
+down is the normal state before that), and so does the CONTROL PANEL section, so it shows from any
+section.  At the bottom of the side menu: who's logged in, whether they can change things, and LOG OUT.
+
+**Header, on every tab**, the first row: the OP logo; the name; a status line (NOMINAL, or what's wrong:
+`DATABASE NOT CONNECTED`, `2 SERVICES DOWN`, or `SERVER STOPPED` while it is); a pill (DB ONLINE green, DB
+CONNECTING grey, DB OFFLINE flashing red, or SERVER STOPPED / STARTING / STOPPING grey); uptime as
+DD:HH:MM:SS, dashes while the server is stopped; and the bell in the corner, hidden while the server isn't
+running.  The sections are its second row.
+
+**Server** (the Control Panel tab until 2026-09-30): the server's state big (STOPPED plain, STARTING and
+STOPPING yellow, RUNNING green), the launcher's note under it and since when; then START SERVER (green),
+RESTART SERVER (green, asks first), STOP SERVER (red, asks first) and SHUT DOWN (red, asks first), each greyed
+when it doesn't fit the state. Beside it a short services list (dot, name, state, what it says) from the same
+list as the Services tab; a piece that's expected or stopped is grey while the server is down and red once
+it's up.  The buttons post to the server routes and the next status answer sets them right again; a 409 comes
+back as an alert with Conductor's words.
 
 **The bell**: a red badge counts the open notices, 1 to 5, then `5+`.  Clicking it pulls out a tray over
 whatever tab is open with the newest five, each a card with its level, where it came from, when, the text
-and an ACK button, and ACK ALL at the top (asks first).  Each card fades after 30 seconds; the notice itself
-stays open until it's ACKed.  Click the bell again to close the tray.
+and an ACK button, and HISTORY and ACK ALL (asks first) at the top.  HISTORY opens LOGS > Notifications
+History.  With nothing open the tray still opens, saying so, with HISTORY only.  Each card fades after 30
+seconds; the notice itself stays open until it's ACKed.  Click the bell again to close the tray.
 
 **The database lock**: anything but DB ONLINE blurs and greys the data tabs under the header and locks
-their sidebar buttons (the keyboard too, with `inert`); the Control Panel, the Log and the Settings stay
+their buttons in the side menu (the keyboard too, with `inert`); the Server tab, the Log and the Settings stay
 clickable.  A card over it says "CONNECTING TO THE
 DATABASE", or, flashing red, "DATABASE OFFLINE -- the game can't run right now", what Archivist says, and
 when the page first saw it offline.  The browser tab's title turns to "DB OFFLINE".  For the first 10
@@ -276,10 +335,12 @@ Recent, the newest five, and Historical, the whole run.  The ledger keeps up to 
 first.  The Listening tile also counts the players in the world and the tickets not yet used.  Each row:
 address, host (reverse DNS, or `--`),
 arrived (UTC) and seconds ago, where it is in words, and a three-dot button (greyed for `user`) that
-opens a small menu by the row: KICK on an open
-one (asks first), ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST (asks first, since it's a ban
+opens a small menu by the row: KICK (asks first; closes an open connection, or kicks the player a login
+became out of the world, and is greyed on a row with nothing left to kick), ADD <address> TO WHITELIST, ADD <address> TO BLACKLIST (asks first, since it's a ban
 while the blacklist is on).  What the menu did shows in the panel's head.  A finished row is greyed and
-says how it ended; a logged-in one is green.  No account name on the TCP table.  Under it, UDP: every
+says how it ended; a logged-in one is green while its player is in the world, and reads "LINKDEAD:" and
+why, greyed, once they've left (a second login, Goodbye, the timeout, a ban, or a ticket never used).  No
+account name on the TCP table.  Under it, UDP: every
 player in the world, newest first: address, account (green), connected (UTC), playing for (as
 DD:HH:MM:SS), quiet for (yellow from 5 seconds).  Locked while either listener is down, and the page
 steps off it to the default tab if that happens while it's open.
@@ -290,6 +351,18 @@ list) and the count.  Then the card: the list's name, an ADD field and button in
 too), a line saying what the last change did, a red line for a bad entry in Conductor's words, and the
 entries with REMOVE on each (asks first).  "Nothing on it." when empty.  Greyed for `user`.  Locked with
 the Connections tab.
+
+**Accounts**: the list on the left, a card on the right.  The list: the account's name (a blue link to its
+card), the owner, the email, the last login (`never` for none) and ONLINE (green IN THE WORLD while its
+player is, from the status, redrawn every second; the list itself is only asked for when the tab opens
+and after a change).  NEW ACCOUNT in its head.  An account's card: the name with a green IN THE WORLD tag
+while its player is in, the UUID, when it was made and the last login, then three parts: THE OWNER (first
+name, last name, email, SAVE), A NEW PASSWORD (the password twice, CHANGE PASSWORD) and DELETE (DELETE
+ACCOUNT, which asks first and says when the player is in the world).  The new account card: name, first
+name, last name, email, the password twice, CREATE.  Conductor's complaint about a field shows in red
+under it; what happened shows beside the button, green or red, "Working: waiting its turn in Security's
+line." while the account desk has it.  The card is never drawn again under somebody's typing: only the
+tag changes each second.
 
 **Notifications History**: every open notice, newest first: when, level (coloured), where from, what
 happened, and an ACK button.  ACK ALL (asks first) and TEST NOTIFICATION at the top.  The page asks
@@ -326,11 +399,12 @@ Built on 2026-09-28, Zabbix style, the way the TLP at Jacob's work does it.  The
 | Archivist      | It's connected to Postgres                    | It can't connect, or lost the connection      |
 | Network (TCP)  | The acceptor is listening for logins          | The TLS files are missing, or it can't listen  |
 | Network (UDP)  | Its thread is listening; checks in every second | It can't listen (TCP comes back down too)     |
+| Account desk   | Its thread is up, waiting for account jobs    | Never; its thread couldn't start shows stopped |
 | Monitor        | Its thread is looking once a second           | Never; stuck shows as gone quiet after 5 s    |
 | Web admin      | It's listening                                | Never; if it can't listen, Conductor stops    |
 
 Any of them shows stopped once its thread has ended, whatever it last said.  Fingerprinter, Security,
-Archivist, the two network services and the monitor are the server: expected until the first START SERVER,
+Archivist, the account desk, the two network services and the monitor are the server: expected until the first START SERVER,
 stopped after a STOP SERVER.
 
 ## What's open
@@ -340,7 +414,5 @@ stopped after a STOP SERVER.
 - Two accounts and no more.  A list of named accounts is an idea in TODO.md.
 - `wgui_port` is moving from `conductor_globals.cfg` into `wgui.cfg` (Jacob, 2026-09-29).  In TODO.md.
 - The Connections tab's UDP list has no character column yet: there are no characters.
-- Game account management (make, delete, list, finger, change password), from the old launcher menu's
-  plans, goes here once there are game accounts.
 - The lock can't lift until Archivist reconnects, and Archivist only tries when a job comes in.  TODO.md.
   A STOP SERVER and a START SERVER is the way round it today.

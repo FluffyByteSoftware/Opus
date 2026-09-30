@@ -8,6 +8,11 @@ Author:     Jacob Chacko
 
 The big features, the ones that are a run of sessions each, are in LONGTERM_TODO.md instead.
 
+## Bugs
+
+Found in the 2026-09-29 test run.  None open: bug 1 (the Settings tab keeping a "waiting" warning
+after a RESTART SERVER) was the page's snapshot, and was fixed the same day.
+
 ## Deferred
 
 Things that wait on a piece that doesn't exist yet.
@@ -26,9 +31,16 @@ Things that wait on a piece that doesn't exist yet.
 - Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
-- Accounts: making one.  Logging in is built (networking, 2026-09-29) and reads the `accounts` table;
-  nothing writes a row yet.  Security's `hash_password()` and Fingerprinter's `new_uuid()` are ready.  The
-  first throwaway account was inserted by hand (STATUS.md has the how).
+- **The protocore** (Jacob's pick at the 2026-09-30 close; it was "the protogame library" the close
+  before): "the character and the world, and the voxels so that you can select a character from login
+  and be put into the world itself."  What takes over after the login.  Today `sessions.rs` in
+  networking has the account's name and the UDP side only keeps the player alive.  An account is never
+  held in memory (Jacob's rule, 2026-09-29), so the game's reference to it is the name, and the row is
+  read when it's needed.  Open when it comes, in STATUS.md in full: the crate's name; the `characters`
+  table and who makes a character; whether a character is chosen at the TLS login or after the UDP
+  connect (protocol version 5 either way); the chunk and world sizes and where the world is kept; the
+  tick rate; how the test client shows it working.  More than one session's step, so the first one
+  picks where to stop.
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
   - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full
@@ -41,19 +53,51 @@ Things that wait on a piece that doesn't exist yet.
 - **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
   the access lists, 2026-09-29.  Kicking a player from it is client management, above.
+- **TEST_CHECKLIST.md becomes an HTML page with checkboxes** (Jacob, 2026-09-30, going through the 09-29
+  checks): "a local browser html page only, it's just to help me track what I cleared."  So:
+  - Opened from the disk in the browser; a tick is kept in the browser's own storage and nowhere else.
+    Nothing in the repo or in Conductor changes when a box is ticked, and no session sees it.
+  - The rule stays as it is: Jacob tells the session which checks passed, and the session takes them out
+    of the file.  The ticks are only his place-keeping while he goes through them.
+  - A tick is keyed by the check's own words, so a session rewriting the file (new checks, passed ones
+    gone) doesn't move the ticks onto the wrong lines.
+  - Pulls nothing from the internet, like the web admin's page.  It lives where the .md does
+    (`Documentation/LLM/TEST_CHECKLIST.html`), and the sessions write the new checks into it at every
+    hand-off.  CLAUDE.md names TEST_CHECKLIST.md in three places, which change with it.
+- **The whitelist and blacklist changeable from the page while the server is stopped** (Jacob,
+  2026-09-30, going through the 09-29 checks).  Today it runs into a rule in CLAUDE.md: the Whitelist
+  and Blacklist tabs are locked until both of networking's listeners are up, and `addip` / `removeip`
+  answer 409 while networking isn't running, so a stopped server means editing the files by hand.  What
+  it would take: the two tabs open while stopped, the way Settings is; `/Opus/networking` reading the
+  files when networking isn't running (today it answers `running: false` with empty lists); and a change
+  while stopped written straight to `whitelist.cfg` / `blacklist.cfg` through DiskMan, with nothing to
+  enforce (nobody's connected) and the next START SERVER reading it as it does now.  Open when it comes:
+  whether the lists stay locked while the server runs without the database, like today, and whether
+  Connections keeps its own lock.  CLAUDE.md's rule gets rewritten with it.
 - **Networking: `access_list` switchable from the page at once.**  Today the switch is in `networking.cfg`
   and takes on the next START SERVER, while the lists themselves take at once.  Jacob's call if the
   reboot is a bother.
 - Networking: reverse DNS on macOS.  `dns/other.rs` hands back no name; macOS has `getnameinfo` with its
   own `sockaddr` layout (a length byte first).  Waits on a Mac, like the monitor.
-- Networking: the protocol version in the Hello is `2` and the client versions are a list in
+- Networking: the protocol version in the Hello is `4` and the client versions are a list in
   `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
   which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
   `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
   rest.
-- Web admin: game account management (make, delete, list, finger, change password).  Waits on accounts.
-  Not to be confused with the web admin's own two accounts, which are in `wgui.cfg` and built.
+- **A list of blocked names** (Jacob, 2026-09-30, while the sections were drawn): names nobody gets to use,
+  one a line, with a Blocked Names page under the web admin's CONFIGURATION heading (REMOVE on each, an
+  ADD field, like the Whitelist and Blacklist tabs).  Its own session.  Jacob's answers:
+  - The file is `Content/cfg/blocked_names.txt`, beside `whitelist.cfg` and `blacklist.cfg`.  Like
+    them, one entry a line and not in Constellations' table, so CLAUDE.md's "one exception" becomes
+    three files.
+  - For now it's curse words, and it checks account usernames.
+  - A blocked word of 4 letters or more blocks any name with the whole word in it: "shit" blocks
+    "Shitfox", "bastard" blocks "Bastardfox".  Only the whole word counts, never a piece of it, so
+    "bastard" doesn't block "Starlight".  A word under 4 letters blocks nothing ("ass" lets "Ass"
+    and "Cassandra" through).  Jacob's examples, 2026-09-30.
+  - Read on START SERVER, like the soft files; a change from the page waits for the next one.  Not a
+    hot swap (Jacob: "we don't need this to be hot swappable").
 - **Web admin: move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`.**  Jacob's call at the
   2026-09-29 wrap-up, once the web admin had a file of its own.  The steps are in STATUS.md.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
@@ -63,15 +107,26 @@ Things that wait on a piece that doesn't exist yet.
   Ensemble's first session's call.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
+- **Drop the `conductor-` from the crate folders** (Jacob, 2026-09-29: redundant now).  Its own session.
+  Jacob's pick: the folders only (`Conductor/dev/tools/`, `accounts/`, ...); every crate keeps its
+  `conductor` name, so code still says `conductor_tools::scribe`.  Touches the workspace `Cargo.toml`,
+  every `path = "../conductor-..."`, the `File:` lines, the `include_str!` paths that climb out of a
+  crate (same depth, so likely none), CLAUDE.md, PROJECT_OPUS.md and the design docs.
+- **Playtime metrics** (Jacob, 2026-09-29: "cool metrics later").  `last_login_datetime` is when a player
+  came in over UDP, but only the latest one is kept, and nothing records when they left.  Playtime needs
+  a table of play sessions (account, in, out, how it ended), a row written as each player leaves the
+  book.  A new table, so its own session.
 - **Stale words in the code**, found the same day, for whichever session next touches each file:
   `access.rs` has a Warn the admin sees that says "the web admin's Networking tab" (the tabs are Whitelist
-  and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs`, the web admin's `Cargo.toml` and a
-  comment in its `lib.rs` still say "the TCP tab"; `security.rs` says the arena is kept for as long as
+  and Blacklist), and a comment the same; `dns.rs`, `dns/other.rs` and a comment in the web admin's
+  `lib.rs` still say "the TCP tab"; `security.rs` says the arena is kept for as long as
   Conductor runs (it goes with the server); `snapshot.rs` says uptime is a moment less than Conductor's
   (it's since START SERVER); `tcp.rs`'s header says a stop has no deadline (it has 2 seconds);
   `json.rs`'s notes and the Control Panel's note on the page leave out the Settings tab and networking;
   the header of `constellations.rs` names only `postgres.cfg` as soft; the monitor's `Cargo.toml` header
-  leaves out the process list.
+  leaves out the process list; `json.rs` and the web admin's `Cargo.toml` say "the Network Admin tabs" (there's
+  no such heading since the sections, 2026-09-30), and `json.rs` says the page shows "the Control Panel"
+  while the server is stopped (the Server tab).
 
 ## Ideas
 

@@ -15,6 +15,7 @@
 #   python3 test_client.py jacob_01 'Correct horse 1!'
 #   python3 test_client.py --host 127.0.0.1 --cert ../../../Content/certs/conductor.crt jacob_01 'Correct horse 1!'
 #   python3 test_client.py --go-quiet jacob_01 'Correct horse 1!'   (stops the keep-alives, to see the 40 s drop)
+#   python3 test_client.py --pause-before-login 8 jacob_01 'Correct horse 1!'   (sits open, to KICK or ban it)
 #
 # Standard library only.
 
@@ -26,7 +27,7 @@ import struct
 import sys
 import time
 
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 4
 
 HELLO = 0x10
 LOGIN = 0x11
@@ -45,7 +46,8 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          KEEP_ALIVE: "KeepAlive", GOODBYE: "Goodbye", KICKED: "Kicked"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
-KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned"}
+KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin",
+                5: "ACCOUNT TERMINATED"}
 
 
 def put_string(text):
@@ -131,6 +133,14 @@ def log_in(args):
     if payload[0] != PROTOCOL_VERSION:
         print("This script speaks protocol version %d.  Stopping." % PROTOCOL_VERSION)
         return None
+
+    if args.pause_before_login:
+        # Holds the connection open after TLS with nothing sent, so the
+        # Connections tab shows it waiting for its Login and the admin can
+        # KICK or ban it.  Past the server's login deadline (10 s by
+        # default) the server hangs up first.
+        print("Pausing %d s before the Login." % args.pause_before_login, flush=True)
+        time.sleep(args.pause_before_login)
 
     tcp.send(LOGIN, put_string(args.version) + put_string(args.secret) + put_string(args.username)
              + put_string(args.password))
@@ -256,9 +266,17 @@ def main():
                         help="say Goodbye after this many seconds in the world (default: wait for Ctrl-C)")
     parser.add_argument("--go-quiet", action="store_true",
                         help="connect over UDP and then send nothing, to see the timeout drop the session")
+    parser.add_argument("--pause-before-login", type=int, default=0,
+                        help="wait this many seconds after TLS before sending the Login, to catch it open")
     args = parser.parse_args()
 
-    ticket = log_in(args)
+    try:
+        ticket = log_in(args)
+    except OSError as e:
+        # A hang-up mid-read or mid-write (a KICK, a ban, the login
+        # deadline) lands here rather than as a traceback.
+        print("The connection broke: %s" % e)
+        sys.exit(1)
     if ticket is None:
         sys.exit(1)
     play(args, *ticket)

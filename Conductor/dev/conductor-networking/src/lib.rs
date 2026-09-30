@@ -41,7 +41,7 @@ mod tls;
 mod udp;
 
 pub use access::{Entry, List, Mode as AccessMode, Snapshot as AccessLists};
-pub use ledger::{Connection, End, Stage};
+pub use ledger::{Connection, End, Gone, Stage};
 pub use sessions::PlayerView as Player;
 pub use tcp::Kicked;
 
@@ -154,11 +154,50 @@ pub fn status() -> Status {
              in_world: sessions::players(), access: access::mode(), whitelisted, blacklisted }
 }
 
-/// The admin kicked TCP connection `id` (its number in `status()`'s
-/// list) from the web admin's Connections tab.  The connection is closed
-/// where it stands; the client sees the connection drop and nothing else.
+/// The admin kicked row `id` (its number in `status()`'s list) from the
+/// web admin's Connections tab.  A connection still open at the door is
+/// closed where it stands, and the client sees it drop and nothing else.
+/// One that logged in closed long ago, so the kick goes to what it
+/// became: its player is told Kicked, kicked by the admin, and taken out
+/// of the world, or its unused ticket dies.  Jacob's ask, 2026-09-29: the
+/// three dots on a row kick, whatever the row is.
 pub fn kick(id: u64) -> Kicked {
-    tcp::kick(id)
+    match tcp::kick(id) {
+        Kicked::NotOpen => {}
+        other => return other,
+    }
+    match sessions::kick_login(id) {
+        sessions::AdminKick::Player(address, account) => {
+            udp::tell(address, &protocol::kicked(protocol::KickReason::KickedByAdmin));
+            scribe::info(Channel::Security, &format!("The admin kicked {account} at {address} out of the world."));
+            Kicked::FromWorld
+        }
+        sessions::AdminKick::Ticket(account) => {
+            scribe::info(Channel::Security, &format!("The admin kicked {account} before their ticket was used."));
+            Kicked::FromWorld
+        }
+        sessions::AdminKick::Nobody => Kicked::NotOpen,
+    }
+}
+
+/// The admin deleted `account` on the web admin's Accounts tab.  Its
+/// player, if it has one in the world, is told Kicked, account
+/// terminated, and taken out; an unused ticket for it dies.  True if
+/// there was either.  Jacob's ask, 2026-09-29.
+pub fn terminate(account: &str) -> bool {
+    match sessions::terminate(account) {
+        sessions::Terminated::Player(address) => {
+            udp::tell(address, &protocol::kicked(protocol::KickReason::AccountTerminated));
+            scribe::info(Channel::Security, &format!("{account} at {address} was taken out of the world: the \
+                account was deleted."));
+            true
+        }
+        sessions::Terminated::Ticket => {
+            scribe::info(Channel::Security, &format!("{account}'s unused ticket died: the account was deleted."));
+            true
+        }
+        sessions::Terminated::Nobody => false,
+    }
 }
 
 /// Both access lists as they stand, for the web admin's Whitelist and

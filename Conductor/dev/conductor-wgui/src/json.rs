@@ -72,8 +72,11 @@
 //! newest first, and where each one is: `stage` is queued, handshake,
 //! login, checking, in_line, asked or done, and `text` says it in words
 //! (for in_line, how many are ahead and about how long; for done, how it
-//! ended).  `queued_ahead` is how many queued connections arrived before
-//! a queued one.  `host` is the address's name from reverse DNS, `null`
+//! ended, or "LINKDEAD: ..." and how for a login whose player has since
+//! left the world or never came).  `logged_in` is true only while that
+//! player is still in it, which is what the page colours green.
+//! `queued_ahead` is how many queued connections arrived before a queued
+//! one.  `host` is the address's name from reverse DNS, `null`
 //! until the lookup is back or when it has none.  `id` is what
 //! `/Opus/wwwhook/tcp/kick?id=N` takes.  No account name is in it, on
 //! purpose: the tab is about the door.
@@ -117,6 +120,36 @@
 //! { "entry": "1.2.3.0/24", "changed": true, "enforced": true, "tcp_closed": 1, "players_dropped": 0 }
 //! ```
 //!
+//! `/Opus/Content/accounts` has an answer of its own, every game account
+//! for the Accounts tab, by name.  Every column but the password hash;
+//! `created` and `last_login` are UTC, and `last_login` is `null` for an
+//! account nobody has played on yet:
+//!
+//! ```text
+//! { "accounts": [ { "username": "jacob_01", "uuid": "0199...", "first_name": "Jacob",
+//!                   "last_name": "Chacko", "email": "jacob@example.com", "created": "...Z",
+//!                   "last_login": null } ] }
+//! ```
+//!
+//! Whether an account's player is in the world isn't in it: the page
+//! reads that from the status's `networking.in_world`, which it has every
+//! second anyway.
+//!
+//! `/Opus/wwwhook/accounts/create` and `/password` answer `{ "job": 7 }`,
+//! the account desk's number for the job, and `/Opus/Content/accounts/job`
+//! says where it is.  `state` is working, done or failed, and `text` says
+//! what happened in words (why, for a failed one):
+//!
+//! ```text
+//! { "job": 7, "state": "done", "text": "Made the account jacob_01." }
+//! ```
+//!
+//! `/edit` answers `{ "saved": true }` and `/delete`
+//! `{ "deleted": true, "kicked": false }` (`kicked` is true when its player
+//! was in the world, or had a ticket, and was taken out).  A field that's
+//! wrong comes back as a 400 with `{ "problems": [ "email: ..." ] }`, each
+//! with the field's name in front for the page to put it beside.
+//!
 //! `/Opus/settings` has an answer of its own, every config file for the
 //! Settings tab, straight from Constellations' table:
 //!
@@ -140,11 +173,15 @@
 //! call; nothing leaves the machine).
 
 use std::path::Path;
+use std::time::{SystemTime, UNIX_EPOCH};
 
+use conductor_accounts::Account;
+use conductor_accounts::desk::Outcome;
 use conductor_monitor::probe::{MachineMemory, ThreadReading};
 use conductor_monitor::{Disk, ProcessInUse, Snapshot, ThreadInUse};
 use conductor_networking::{AccessLists, Changed, Connection, End, Player, Stage, Status as NetStatus};
 use conductor_tools::archivist::{SlowJob, Status};
+use conductor_tools::clock::Utc;
 use conductor_tools::constellations::{ConfigFile, Kind, Reboot, Setting, Values};
 use conductor_tools::diskman::Status as DiskStatus;
 use conductor_tools::notices::Notice;
@@ -437,10 +474,10 @@ fn connection(connection: &Connection) -> String {
         .text("arrived", &connection.arrived.line_stamp())
         .whole("seconds_ago", connection.ago.as_secs())
         .text("stage", connection.stage.word())
-        .text("text", &connection.stage.describe())
+        .text("text", &connection.describe())
         .whole("queued_ahead", connection.queued_ahead as u64)
         .flag("done", connection.stage.is_done())
-        .flag("logged_in", connection.stage == Stage::Done(End::LoggedIn))
+        .flag("logged_in", connection.stage == Stage::Done(End::LoggedIn) && connection.gone.is_none())
         .done()
 }
 
@@ -524,6 +561,46 @@ fn setting_state(setting: &Setting, state: &FileState) -> String {
 pub(crate) fn problems(problems: &[String]) -> String {
     Object::new()
         .raw("problems", array(problems.iter().map(|problem| text(problem))))
+        .done()
+}
+
+/// The whole answer to `/Opus/Content/accounts`.
+pub(crate) fn accounts(list: &[Account]) -> String {
+    Object::new()
+        .raw("accounts", array(list.iter().map(account)))
+        .done()
+}
+
+fn account(account: &Account) -> String {
+    Object::new()
+        .text("username", account.username())
+        .text("uuid", account.uuid())
+        .text("first_name", &account.first_name)
+        .text("last_name", &account.last_name)
+        .text("email", &account.email)
+        .raw("created", when(account.created_at()))
+        .raw("last_login", when(account.last_login()))
+        .done()
+}
+
+/// A time from the database, the way a person reads it (UTC, ending in
+/// `Z`), or `null`.
+fn when(time: Option<SystemTime>) -> String {
+    let Some(time) = time else {
+        return null();
+    };
+    // A time before 1970 can't come out of the accounts table, but if one
+    // did, it would show as 1970 rather than stop the answer.
+    let seconds = time.duration_since(UNIX_EPOCH).map_or(0, |since| since.as_secs() as i64);
+    text(&Utc::from_unix(seconds).line_stamp())
+}
+
+/// The whole answer to `/Opus/Content/accounts/job?id=N`.
+pub(crate) fn account_job(number: u64, outcome: &Outcome) -> String {
+    Object::new()
+        .whole("job", number)
+        .text("state", outcome.progress.word())
+        .text("text", &outcome.text)
         .done()
 }
 
@@ -657,6 +734,7 @@ mod tests {
 
     #[test]
     fn a_connection_goes_out_with_its_stage_in_a_word_and_in_words() {
+        use conductor_networking::Gone;
         use conductor_tools::clock::Utc;
         use std::time::Duration;
 
@@ -664,7 +742,7 @@ mod tests {
                                    host: Some("desk.lan".to_string()), arrived: Utc::from_unix(1_790_000_000),
                                    ago: Duration::from_millis(12_400),
                                    stage: Stage::InLine { ahead: 2, wait: Duration::from_millis(400) },
-                                   queued_ahead: 0 };
+                                   queued_ahead: 0, gone: None };
         assert_eq!(connection(&waiting), "{\"id\":7,\"address\":\"192.168.1.20:51234\",\"host\":\"desk.lan\",\
             \"arrived\":\"02:13:20 PM - 09-21-26 Z\",\"seconds_ago\":12,\"stage\":\"in_line\",\
             \"text\":\"In Security's line: 2 ahead, about 400 ms\",\"queued_ahead\":0,\"done\":false,\
@@ -672,11 +750,18 @@ mod tests {
 
         let done = Connection { id: 8, address: "[::1]:40000".parse().unwrap(), host: None,
                                 arrived: Utc::from_unix(1_790_000_000), ago: Duration::from_secs(1),
-                                stage: Stage::Done(End::LoggedIn), queued_ahead: 0 };
+                                stage: Stage::Done(End::LoggedIn), queued_ahead: 0, gone: None };
         let answer = connection(&done);
         assert!(answer.contains("\"host\":null,"));
         assert!(answer.ends_with("\"stage\":\"done\",\"text\":\"Logged in and handed a ticket for UDP\",\
             \"queued_ahead\":0,\"done\":true,\"logged_in\":true}"));
+
+        // The same login once a second one has logged its player out: no
+        // longer green, and it says why.
+        let replaced = Connection { gone: Some(Gone::Replaced { by: "10.0.0.84:44194".parse().unwrap() }), ..done };
+        assert!(connection(&replaced).ends_with("\"stage\":\"done\",\
+            \"text\":\"LINKDEAD: logged out by a second login from 10.0.0.84:44194\",\
+            \"queued_ahead\":0,\"done\":true,\"logged_in\":false}"));
     }
 
     #[test]
@@ -729,6 +814,26 @@ mod tests {
         let answer = settings(&[state]);
         assert!(answer.contains("\"loaded\":true,\"waiting\":false,"));
         assert!(answer.ends_with("\"running\":\"9996\",\"waiting\":null}]}]}"));
+    }
+
+    #[test]
+    fn an_account_goes_out_with_every_column_but_the_hash() {
+        let account = Account::new("jacob_01", "Jacob", "Chacko", "jacob@example.com").unwrap();
+        let answer = accounts(&[account.clone()]);
+        assert_eq!(answer, format!("{{\"accounts\":[{{\"username\":\"jacob_01\",\"uuid\":\"{}\",\
+            \"first_name\":\"Jacob\",\"last_name\":\"Chacko\",\"email\":\"jacob@example.com\",\
+            \"created\":null,\"last_login\":null}}]}}", account.uuid()));
+        assert_eq!(accounts(&[]), "{\"accounts\":[]}");
+        assert_eq!(when(Some(UNIX_EPOCH + std::time::Duration::from_secs(1_790_000_000))),
+                   "\"02:13:20 PM - 09-21-26 Z\"");
+    }
+
+    #[test]
+    fn a_job_goes_out_with_its_state_in_a_word() {
+        use conductor_accounts::desk::Progress;
+        let outcome = Outcome { progress: Progress::Failed, text: "There's already an account called x.".to_string() };
+        assert_eq!(account_job(7, &outcome),
+                   "{\"job\":7,\"state\":\"failed\",\"text\":\"There's already an account called x.\"}");
     }
 
     #[test]

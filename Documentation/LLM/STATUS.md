@@ -8,110 +8,96 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor is five crates.  `conductor-tools` (lib) holds DiskMan, Scribe, Constellations, Fingerprinter,
+Conductor is six crates.  `conductor-tools` (lib) holds DiskMan, Scribe, Constellations, Fingerprinter,
 Security, Archivist, the notices, the clock, the thread list, the services list and the server's switch
-(`server.rs`).  `conductor-monitor` (lib) looks at the process and every process on the machine once a
-second.  `conductor-networking` (lib) is the front door: a login over TLS on TCP that hands a player a
-ticket for UDP, the UDP side the game will run on, a ledger of every connection at the door, and a
-whitelist and a blacklist of addresses checked at the door.  `conductor-wgui` (lib) is the web admin at
+(`server.rs`).  `conductor-accounts` (lib) is the one way in to the accounts table, and the account desk.
+`conductor-monitor` (lib) looks at the process and every process on the machine once a second.
+`conductor-networking` (lib) is the front door: a login over TLS on TCP that hands a player a ticket for
+UDP, the UDP side the game will run on, a ledger of every connection at the door, and a whitelist and a
+blacklist of addresses checked at the door.  `conductor-wgui` (lib) is the web admin at
 `http://127.0.0.1:9996/Opus`, and the only way to start and stop the server and to shut Conductor down.
-`conductor-launcher` (bin) boots the program and waits on the Control Panel.  Ensemble is Unity 6000.6,
+`conductor-launcher` (bin) boots the program and waits on the web admin's Server tab.  Ensemble is Unity 6000.6,
 on Jacob's machine, not in the repo.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The web admin has a login: `admin` / `admin` does everything,
-`user` / `user` looks, both passwords in `wgui.cfg`.  The server (Fingerprinter, Security, Archivist,
-networking, the monitor, and whatever comes later) only starts when START SERVER is pressed on the web
-admin's Control Panel, and STOP SERVER takes it back down with Conductor still running.
+`user` / `user` looks, both passwords in `wgui.cfg`.  The server (Fingerprinter, Security, Archivist, the
+account desk, networking, the monitor, and whatever comes later) only starts when START SERVER is pressed
+on the web admin's Server tab (CONTROL PANEL > Server), and STOP SERVER takes it back down with Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  `main` sits on the access lists hand-off; `unstable` and
-`testing` are ahead of it by this session's documentation commits, one fix to `page.html`, and DiskMan
-noticing hand edits (not built yet).
+stable release, moved only when Jacob says.  At this close all three are on the same commit, this
+hand-off: Jacob said to release once every check had passed, so `main` moved up from the
+accounts-in-memory hand-off (`0a82d90`) to take in the account manager and the sections.
 
-**Built and tested on Linux (Nobara 44), 2026-09-29**: everything through the access lists.  `cargo
-build` clean with no warnings, `cargo test` 194 passed (15 monitor, 56 networking, 89 tools with the
-benchmark ignored, 34 web admin).  The Python client did the whole login loop against a debug build, and
-the TCP tab was seen working.  The access lists' tabs haven't been looked at in a real run yet.  The
-Windows code has never been built.
+**Built and tested on Linux (Nobara 44)**: everything up to and including this session.  Jacob built
+`testing` with the account manager and the sections on it (the build's `Cargo.lock` is committed) and went
+through every check for both; all passed, and TEST_CHECKLIST.md is down to its Parked list.  The Windows
+code has never been built.
 
-## Last session -- 2026-09-29, the documentation pass
+## Last session -- 2026-09-29 to 30, the web admin's sections
 
-Jacob's pick: prune and review `Documentation/LLM/`, update it to what's been built, and overhaul
-README.md.  Then, at Jacob's word, one fix to `page.html` and DiskMan noticing hand edits.
+Jacob's pick: the sidebar rethink, "a better menu for navigating as we are going to be adding more and
+more stuff to the menu".
 
-What we did:
+- **Four mockups first**, clickable, on a design canvas (claude.ai, kept off the repo on Jacob's say:
+  "just on the canvas"): folding groups, an icon rail with a panel, sections across the top, and today's
+  list with find and pins.  He picked sections across the top and named them himself: **CONTROL PANEL |
+  CONFIGURATION | LOGS | ACCOUNT MANAGEMENT | GAME MANAGEMENT**.  Nothing remembered about the menu, no
+  pins ("no need").
+- **Built into `page.html`**, nothing else in Conductor changed.  The header is two rows (the name, pill,
+  uptime and bell, then the sections); the side menu lists the open section's tabs, with a line saying
+  why when they're all locked; the top of the tab says its section and name.  The Control Panel tab is
+  **Server** now.  The notices are the bell and LOGS (his words): the tray has HISTORY, and opens even
+  with nothing in it.  The Services dot flashes on CONTROL PANEL too.  The tabs, their locks, the
+  routes and the remembered tab are as they were.  The table of what's under which section is in
+  CLAUDE.md and `design/conductor-wgui.md`.
+- **Blocked names**, asked for mid-session, went to TODO.md with Jacob's answers: a list of curse words
+  in `Content/cfg/blocked_names.txt` beside the two access lists, checked against account usernames, a
+  word of 4 letters or more blocking any name with the whole word in it ("Shitfox", "Bastardfox"), a
+  shorter one blocking nothing, read on START SERVER.  A Blocked Names tab under CONFIGURATION.  Not
+  built.
 
-- **Every design doc and PROTOCOL.md read against the code.**  The launcher's doc had networking missing
-  from the start and stop order; the monitor's didn't say it's a server piece or that uptime counts from
-  START SERVER; the web admin's had the Settings and TCP tabs in their old places, "SHUT DOWN is the only
-  thing that works" under the database lock, and two cross-site checks where there are three; the tools
-  doc had Security's arena kept for Conductor's whole run (it goes with the server) and configs "read
-  once".  Networking's had a stop with no time limit (it has 2 seconds) and both services in trouble when
-  TCP fails (UDP says stopped).  PROTOCOL.md was right byte for byte; it gained what it never said: the
-  name rule, the 150 ms floor, which answers start the hold, and which Connects get no answer.  Still
-  version 2.
-- **README.md rewritten**: the program and the server, every tool by name, the monitor, the door and the
-  access lists, the web admin's tabs, what it needs, how to run it, the config files, the test client's
-  switches, and the layout.  The old one said Conductor runs on Windows; it's written for Windows and
-  never built there, and says so now.
-- **TODO.md**: the doc-session item out, the protocol version and the Control Panel item brought up to
-  date, and a list of stale words in code comments and one Warn, found reading the code, for whichever
-  session next touches those files.
-- **The page's greying, fixed** (Jacob: "fix it now").  `lockChanges()` only ever greyed, so `user`,
-  LOG OUT, then `admin` in the same page left SHUT DOWN, TEST NOTIFICATION, both ACK ALLs and the two
-  list ADD fields dead until a reload.  Now it sets each from the role both ways, SHUT DOWN stays greyed
-  while one is on its way, and the Settings and list tabs are asked for again when the role changes
-  while one is open.  Checked headless with made-up states only.
-- **DiskMan notices a hand edit** (Jacob's pick, after the question of whether to fix the soft files'
-  comment or DiskMan).  Every held file keeps its modified time and size from when the copy last matched
-  the disk, and a read of a clean copy asks the disk for those two first (on DiskMan's thread, never the
-  bytes): changed, and the file is read again.  A copy with a write of ours on its way still wins.  So
-  STOP SERVER, edit `postgres.cfg` or `networking.cfg` or a list or the TLS files, START SERVER, and the
-  edit is read.  `cache.rs` (`Stamp`, `Held`, `checks`, `after_check()`, `current()`,
-  `note_on_disk()`), `worker.rs` (the checks, the stamps after its own writes, streams), `diskman.rs`
-  (`read()`); two new tests.  Not built yet: Jacob builds.
-- **TEST_CHECKLIST.md**: the two-clients check named `--kick` and `--spare`, which the client never had.
-- PROJECT_OPUS.md: the tab count, the `.gitignore` line, the access lists as a named piece.
+## Jacob's pick for next: the protocore
 
-## The session before -- 2026-09-29, the access lists
+His words at the close: "write and build the first parts of the game protocore - the character and the
+world, and the voxels so that you can select a character from login and be put into the world itself."
+It's the protogame library in TODO.md, renamed.  By CLAUDE.md's rule of one small step a session, that's
+more than one session's worth, so the first thing to settle is where the first step stops.  The
+questions it opens with, none answered yet (the TODO.md entry has them too):
 
-It matters here because its hand checks are all open.  The whitelist and the blacklist (`access.rs`),
-`access_list` in `networking.cfg`, the Network Admin subsection on the page (Connections, Whitelist,
-Blacklist), the three-dot menu on a connection, Recent and Historical views of the door, and a ban that
-drops a player with a Kicked reason 3 (**protocol version 2**).  A blacklisting with the blacklist on, or
-a whitelist removal with the whitelist on, drops everybody the door would now turn away.  The design is
-in `design/conductor-networking.md` and `design/conductor-wgui.md`.
+- **The crate**: its name (`conductor-protocore`?), a lib like every server piece, in `start_server()`
+  and `stop_server()`, named in `services.rs`, its threads through `threads::spawn()`.
+- **The character**: a `characters` table (its own schema file, `id` and `uuid`, pointing at its account
+  by `id`), what's in it at first (a name, where it stands), how many an account can have, and who makes
+  one: the player from the client, or the admin on the web admin the way accounts are made.  Held in
+  memory while it's in the world, or never held like an account.
+- **Selecting one**: at the TLS login (the character list comes back with the ticket) or after the UDP
+  connect.  Either way a packet change, so `PROTOCOL_VERSION` goes to 5, with PROTOCOL.md, `protocol.rs`
+  and `test_client.py` together.
+- **The world and its voxels**: the size of a chunk and of the world, flat or generated, where it's kept
+  (files in `Content/` through DiskMan, or the database), and what the client is sent to be "put into the
+  world" (its position, the chunks around it; a chunk has to fit UDP packets).
+- **The tick**: whether this is the game loop's start, and its tick rate (CLAUDE.md has a FILL IN for it).
+- **What shows it working**: the test client listing characters, picking one and printing where it stands
+  and what it was sent; the character beside the account on the Connections tab (TODO.md has that).
+  Ensemble is still on Jacob's machine, not in the repo.
 
 ## What's waiting
 
-- **The 2026-09-29 access lists section of `TEST_CHECKLIST.md`**, everything after the build line.
-- **The rest of the TCP tab's checks** and **the untried networking hand tests** in the same file.
-- **The page's greying fix**: its check at the bottom of `TEST_CHECKLIST.md`.
-- **The stale words in the code**, in TODO.md.
-- **DiskMan noticing hand edits**: its checks at the bottom of `TEST_CHECKLIST.md`, and `cargo test`.
-- **The throwaway account.**  No code for it: the Argon2 line was made outside Conductor at Security's
-  settings (64 MiB, one pass, one lane) and Jacob inserts the row by hand.  The account is `throwaway_01`
-  with the password `Throwaway 1!`, a test row on a database that only listens on his machine.  Any
-  Argon2id line at those settings does, since the stored line carries its own settings.  The real account
-  flow (making one over the protocol) is its own session.
+- **The protocore**, above.  Jacob's pick.
+- **The blocked names list**, in TODO.md with his answers.
+- **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
+- **Playtime metrics**: a table of play sessions.  In TODO.md.
+- **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  In TODO.md.
+- **The stale words in the code**, in TODO.md (two more from this session: "the Network Admin tabs" in
+  `json.rs` and the web admin's `Cargo.toml`).
 - **Where the test client lives** and what it's called.  It's `Conductor/dev/conductor-networking/
   test_client.py` for now.
-- **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  One entry
-  moves in `files.rs`; `Settings` / `settings()` in `constellations.rs` and the launcher's
-  `conductor_wgui::start(...)` call read it from `WGUI` instead; both committed `Content/cfg/` files
-  change; the boot line "Settings from ..." and the docs follow.  Both files are hard, so nothing about
-  reboots changes.  A file that lacks the setting gets it appended with the default on the next load; the
-  stale line in `conductor_globals.cfg` would be Warned about once, so the committed file drops it.
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.
-- The Debug switch in `conductor_globals.cfg`.  Networking's chatter is already Debug; the launcher's
-  start and stop lines and Archivist's aren't yet.
+- The Debug switch in `conductor_globals.cfg`.
 - Catching Ctrl-C.
-- The Windows build, whenever getting to that machine is less of a hassle.  `dns/windows.rs` joins the
-  monitor's Windows file as never built.
+- The Windows build, whenever getting to that machine is less of a hassle.
 - **Ensemble**, its own session.  The Unity project is `Ensemble/dev/Opus.Ensemble/`, on Jacob's machine
-  and untracked.  He added its `Assets/`, `Packages/` and `UserSettings/` to `.gitignore` himself (his
-  lines, kept as he wrote them), which keeps the purchased art out and, for now, the project's own
-  scripts too.  Before any of it is committed, a look together: what a Unity project commits, where the
-  purchased art goes (CLAUDE.md says `Content/Assets/`, but Unity wants assets under the project's
-  `Assets/`), and LFS for anything big.
+  and untracked.  Before any of it is committed, a look together: what a Unity project commits, where the
+  purchased art goes, and LFS for anything big.

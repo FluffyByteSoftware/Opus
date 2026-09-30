@@ -4,8 +4,9 @@
 //!
 //! Entry point.  Brings up the program -- DiskMan, Scribe, Constellations
 //! and the web admin -- and then waits on the web admin's Control Panel.
-//! The server itself (Fingerprinter, Security, Archivist, networking, the
-//! monitor, and whatever comes later) doesn't start until the admin presses START SERVER there,
+//! The server itself (Fingerprinter, Security, Archivist, the account desk,
+//! networking, the monitor, and whatever comes later) doesn't start until
+//! the admin presses START SERVER there,
 //! and STOP SERVER takes it back down while the program keeps running.
 //! The console is only Scribe's output, and typing in it does nothing.
 //! When the admin presses SHUT DOWN, the web admin stops, main wakes up,
@@ -116,39 +117,46 @@ fn take_commands() {
 /// checks the OS will give it random bytes before anything needs a UUID;
 /// Security allots its hash arena on its own thread, and takes its salts
 /// from Fingerprinter, so it comes after it; Archivist comes straight back
-/// and connects on its own thread; networking opens the door once the
-/// three a login leans on are up; the monitor starts looking once a
-/// second.  None of them can fail to the point of stopping this: each says
-/// how it went in the log and on the Services tab.
+/// and connects on its own thread; the account desk, which leans on
+/// Security and Archivist, comes after both; networking opens the door
+/// once the three a login leans on are up; the monitor starts looking
+/// once a second.  None of them can fail to the point of stopping this:
+/// each says how it went in the log and on the Services tab.
 fn start_server() {
-    server::set(State::Starting, "Starting Fingerprinter, Security, Archivist, networking and the monitor.");
+    server::set(State::Starting, "Starting Fingerprinter, Security, Archivist, the account desk, networking and \
+        the monitor.");
     scribe::info(Channel::System, "The server is starting.");
 
     fingerprinter::start();
     security::start();
     archivist::start();
+    conductor_accounts::desk::start();
     conductor_networking::start();
     conductor_monitor::start();
 
-    server::set(State::Running, "Fingerprinter, Security, Archivist, networking and the monitor were started.  \
-        The Services tab says how each one is doing.");
+    server::set(State::Running, "Fingerprinter, Security, Archivist, the account desk, networking and the monitor \
+        were started.  The Services tab says how each one is doing.");
     scribe::info(Channel::System, "The server is running.");
 }
 
 /// Takes the server back down, in the opposite order.  Networking goes
 /// first, so the door is shut and every player told before the pieces a
-/// login leans on go; Security goes before Archivist, so a hash on its
-/// way to the accounts table still gets there; Archivist finishes the
+/// login leans on go; the account desk finishes the jobs the web admin
+/// handed it while Security and Archivist are still there to do them;
+/// Security goes before Archivist, so a hash on its way to the accounts
+/// table still gets there; Archivist finishes the
 /// jobs already in its mailbox, and anything it hands DiskMan on the way
 /// out is written by the DiskMan that's still running.  Last, with every
 /// server piece down, any config file saved from the web admin while they
 /// ran is swapped in, so the next START SERVER reads the new one.
 fn stop_server() {
-    server::set(State::Stopping, "Stopping the monitor, networking, Security, Archivist and Fingerprinter.");
+    server::set(State::Stopping, "Stopping the monitor, networking, the account desk, Security, Archivist and \
+        Fingerprinter.");
     scribe::info(Channel::System, "The server is stopping.");
 
     conductor_monitor::stop();
     conductor_networking::stop();
+    conductor_accounts::desk::stop();
     security::stop();
     archivist::stop();
     fingerprinter::stop();
