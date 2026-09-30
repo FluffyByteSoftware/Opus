@@ -64,14 +64,16 @@ Things that wait on a piece that doesn't exist yet.
   subsection, each with its own rule, a flat list of tabs with headings is getting cluttered: menus and
   submenus, maybe.  Its own session, the one after the account manager.
 - **A list of blocked names** (Jacob, 2026-09-30, during the sidebar rethink): names nobody gets to use,
-  one a line, in `blocked_names.txt`, with a Blocked Names page under the web admin's CONFIGURATION
-  heading (REMOVE on each, an ADD field, like the Whitelist and Blacklist tabs).  Its own session.
-  Open when it comes: which names it checks (account usernames, which only the admin makes, or
-  character names once there are any); whole names only or any name containing one; and where the
-  file lives.  Jacob said `Content/blocked_names.txt`, but CLAUDE.md puts every config file in
-  `Content/cfg/` and makes the two access lists the one exception to Constellations' format, so this
-  would be a second exception and outside `cfg/`.  Whether a change from the page takes at once
-  (a hot swap, like the access lists) or at the next START SERVER.
+  one a line, with a Blocked Names page under the web admin's CONFIGURATION heading (REMOVE on each, an
+  ADD field, like the Whitelist and Blacklist tabs).  Its own session.  Jacob's answers:
+  - The file is `Content/cfg/blocked_names.txt`, beside `whitelist.cfg` and `blacklist.cfg`.  Like
+    them, one entry a line and not in Constellations' table, so CLAUDE.md's "one exception" becomes
+    three files.
+  - For now it's curse words, and it checks account usernames.
+  - A name is blocked if 4 letters or more of a blocked word are in it.  Exactly what that means is
+    still asked (below).
+  Still open: what "4 letters or more" means exactly; whether a change from the page takes at once (a
+  hot swap, like the access lists) or at the next START SERVER.
 - **Web admin: move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`.**  Jacob's call at the
   2026-09-29 wrap-up, once the web admin had a file of its own.  The steps are in STATUS.md.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
