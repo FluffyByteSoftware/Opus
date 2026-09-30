@@ -210,9 +210,10 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      <code>cargo test -p conductor-lua-parser</code> passes all 8 (the runaway ones take about a second each).
+      <code>cargo test</code> passes everything, <code>services::tests::every_expected_service_is_there_from_the_start</code>
+      included (it failed on 2026-10-01: Lua wasn't in the test's list).
     </span></label>
-    <pre class="cmd">cargo test -p conductor-lua-parser</pre>
+    <pre class="cmd">cargo test</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">

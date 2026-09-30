@@ -206,7 +206,7 @@ mod tests {
     fn every_expected_service_is_there_from_the_start() {
         let names: Vec<&str> = list().iter().map(|service| service.name).collect();
         assert_eq!(names, vec![DISKMAN, SCRIBE, CONSTELLATIONS, FINGERPRINTER, SECURITY, ARCHIVIST, NETWORK_TCP,
-                               NETWORK_UDP, ACCOUNT_DESK, MONITOR, WEB_ADMIN]);
+                               NETWORK_UDP, ACCOUNT_DESK, MONITOR, LUA, WEB_ADMIN]);
     }
 
     #[test]
