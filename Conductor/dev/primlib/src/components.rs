@@ -4,10 +4,11 @@
 //!
 //! The components: plain data, one struct per kind.  The first ones are
 //! from my sample NPC, with its position, rotation and scale made into one
-//! Transform the way Unity has it, and a PrimitiveShape for the client to
-//! fall back on.  `Kind` names a kind of component (for a template's list,
-//! a script, or the log), and `Component` is one of them with its value,
-//! which is how a template or blueprint holds them.
+//! Transform the way Unity has it, then what the client draws: a Model, a
+//! PrimitiveShape to fall back on, and an Animator.  `Kind` names a kind
+//! of component (for a template's list, a script, or the log), and
+//! `Component` is one of them with its value, which is how a template or
+//! blueprint holds them.
 //!
 //! Adding a kind: its struct here, a line in `Kind` (and `Kind::ALL` and
 //! `name()`), a line in `Component` (and `kind()`), then its store and
@@ -57,6 +58,21 @@ impl Transform {
 impl Default for Transform {
     fn default() -> Transform {
         Transform::at(Vector3::default())
+    }
+}
+
+/// The model the client draws for this object: the path it loads it from.
+/// The server never opens it; it's only passed along for the client to
+/// make sense of.  A string rather than a list of every model, because a
+/// list was tried once and got messy.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Model {
+    pub path: String,
+}
+
+impl Model {
+    pub fn new(path: &str) -> Model {
+        Model { path: path.to_string() }
     }
 }
 
@@ -207,6 +223,7 @@ impl Pool {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Kind {
     Transform,
+    Model,
     PrimitiveShape,
     Animator,
     ShortName,
@@ -219,8 +236,9 @@ pub enum Kind {
 
 impl Kind {
     /// Every kind, in the order they're listed here.
-    pub const ALL: [Kind; 9] = [
+    pub const ALL: [Kind; 10] = [
         Kind::Transform,
+        Kind::Model,
         Kind::PrimitiveShape,
         Kind::Animator,
         Kind::ShortName,
@@ -235,6 +253,7 @@ impl Kind {
     pub fn name(&self) -> &'static str {
         match self {
             Kind::Transform => "Transform",
+            Kind::Model => "Model",
             Kind::PrimitiveShape => "PrimitiveShape",
             Kind::Animator => "Animator",
             Kind::ShortName => "ShortName",
@@ -259,6 +278,7 @@ impl Kind {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Component {
     Transform(Transform),
+    Model(Model),
     PrimitiveShape(PrimitiveShape),
     Animator(Animator),
     ShortName(ShortName),
@@ -274,6 +294,7 @@ impl Component {
     pub fn kind(&self) -> Kind {
         match self {
             Component::Transform(_) => Kind::Transform,
+            Component::Model(_) => Kind::Model,
             Component::PrimitiveShape(_) => Kind::PrimitiveShape,
             Component::Animator(_) => Kind::Animator,
             Component::ShortName(_) => Kind::ShortName,
@@ -286,12 +307,13 @@ impl Component {
     }
 
     /// The kind with its default value: a transform at 0, 0, 0 facing the
-    /// way its model was made at its own size, a cube, an animator playing
-    /// nothing, empty names and titles, and pools of 0.  A template sets its own where these won't
-    /// do.
+    /// way its model was made at its own size, no model path, a cube, an
+    /// animator playing nothing, empty names and titles, and pools of 0.
+    /// A template sets its own where these won't do.
     pub fn default_of(kind: Kind) -> Component {
         match kind {
             Kind::Transform => Component::Transform(Transform::default()),
+            Kind::Model => Component::Model(Model::default()),
             Kind::PrimitiveShape => Component::PrimitiveShape(PrimitiveShape::default()),
             Kind::Animator => Component::Animator(Animator::default()),
             Kind::ShortName => Component::ShortName(ShortName::default()),

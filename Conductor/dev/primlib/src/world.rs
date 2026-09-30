@@ -10,7 +10,9 @@
 //! There are no locks.  When the game loop comes, one thread owns the
 //! world and everything else asks it.
 
-use crate::components::{Animator, Component, Kind, LongName, Pool, PrimitiveShape, ShortName, Titles, Transform};
+use crate::components::{
+    Animator, Component, Kind, LongName, Model, Pool, PrimitiveShape, ShortName, Titles, Transform,
+};
 use crate::entity::{Entities, Entity};
 use crate::store::Store;
 use crate::template::Blueprint;
@@ -18,6 +20,7 @@ use crate::template::Blueprint;
 pub struct World {
     entities: Entities,
     transform: Store<Transform>,
+    model: Store<Model>,
     primitive_shape: Store<PrimitiveShape>,
     animator: Store<Animator>,
     short_name: Store<ShortName>,
@@ -34,6 +37,7 @@ impl World {
         World {
             entities: Entities::new(),
             transform: Store::new(),
+            model: Store::new(),
             primitive_shape: Store::new(),
             animator: Store::new(),
             short_name: Store::new(),
@@ -104,6 +108,7 @@ impl World {
         };
         match component {
             Component::Transform(value) => self.transform.insert(slot, value),
+            Component::Model(value) => self.model.insert(slot, value),
             Component::PrimitiveShape(value) => self.primitive_shape.insert(slot, value),
             Component::Animator(value) => self.animator.insert(slot, value),
             Component::ShortName(value) => self.short_name.insert(slot, value),
@@ -124,6 +129,7 @@ impl World {
         };
         match kind {
             Kind::Transform => self.transform.remove(slot).is_some(),
+            Kind::Model => self.model.remove(slot).is_some(),
             Kind::PrimitiveShape => self.primitive_shape.remove(slot).is_some(),
             Kind::Animator => self.animator.remove(slot).is_some(),
             Kind::ShortName => self.short_name.remove(slot).is_some(),
@@ -142,6 +148,7 @@ impl World {
         };
         match kind {
             Kind::Transform => self.transform.has(slot),
+            Kind::Model => self.model.has(slot),
             Kind::PrimitiveShape => self.primitive_shape.has(slot),
             Kind::Animator => self.animator.has(slot),
             Kind::ShortName => self.short_name.has(slot),
@@ -168,6 +175,7 @@ impl World {
         let slot = self.slot(entity)?;
         match kind {
             Kind::Transform => self.transform.get(slot).copied().map(Component::Transform),
+            Kind::Model => self.model.get(slot).cloned().map(Component::Model),
             Kind::PrimitiveShape => self.primitive_shape.get(slot).copied().map(Component::PrimitiveShape),
             Kind::Animator => self.animator.get(slot).cloned().map(Component::Animator),
             Kind::ShortName => self.short_name.get(slot).cloned().map(Component::ShortName),
@@ -189,6 +197,15 @@ impl World {
     pub fn transform_mut(&mut self, entity: Entity) -> Option<&mut Transform> {
         let slot = self.slot(entity)?;
         self.transform.get_mut(slot)
+    }
+
+    pub fn model(&self, entity: Entity) -> Option<&Model> {
+        self.model.get(self.slot(entity)?)
+    }
+
+    pub fn model_mut(&mut self, entity: Entity) -> Option<&mut Model> {
+        let slot = self.slot(entity)?;
+        self.model.get_mut(slot)
     }
 
     pub fn primitive_shape(&self, entity: Entity) -> Option<&PrimitiveShape> {
@@ -291,6 +308,7 @@ mod tests {
         let mut transform = Transform::default();
         transform.rotation = Vector3::new(0.0, 0.0, -90.0);
         goblin.set(Component::Transform(transform));
+        goblin.set(Component::Model(Model::new("Goblins/GoblinArcher")));
         goblin.set(Component::PrimitiveShape(PrimitiveShape::Capsule));
         goblin.set(Component::Animator(Animator::playing("idle", true)));
         goblin.set(Component::ShortName(ShortName::new("goblin")));
@@ -312,6 +330,7 @@ mod tests {
         assert_eq!(transform.position, Vector3::new(0.0, 0.0, 0.0));
         assert_eq!(transform.rotation, Vector3::new(0.0, 0.0, -90.0));
         assert_eq!(transform.scale, Vector3::new(1.0, 1.0, 1.0));
+        assert_eq!(world.model(goblin).map(|model| model.path.as_str()), Some("Goblins/GoblinArcher"));
         assert_eq!(world.primitive_shape(goblin), Some(&PrimitiveShape::Capsule));
         assert_eq!(world.animator(goblin), Some(&Animator::playing("idle", true)));
         assert_eq!(world.short_name(goblin).map(|name| name.text.as_str()), Some("goblin"));
