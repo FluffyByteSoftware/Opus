@@ -15,9 +15,9 @@ components that make them what they are, and the templates and blueprints they'r
 
 The first part is Rust only (Jacob, 2026-09-30): the entities, the first components, the world that
 holds them, templates and blueprints, and tests.  Written, built and tested on Linux on 2026-09-30:
-no warnings, all 23 tests pass.  Nothing calls it yet.  It isn't a server piece yet
-either, since there's no game loop to run it; it goes in `start_server()` and `stop_server()` when there
-is one.
+no warnings, all 23 tests pass.  Nothing calls it yet.  It isn't a server piece yet either, since
+there's no game loop to run it; the world tick (TODO.md, Jacob's pick for next) is what will own a
+`World`, and it goes in `start_server()` and `stop_server()`.
 
 **Part 2 is the Lua** (Jacob, 2026-09-30): templates and blueprints written as scripts under
 `Content/scripts/`, calling into this crate.  See "Lua, part 2" below.

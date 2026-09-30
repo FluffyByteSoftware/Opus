@@ -8,16 +8,19 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor is seven crates.  `conductor-tools` (lib) holds DiskMan, Scribe, Constellations, Fingerprinter,
-Security, Archivist, the notices, the clock, the thread list, the services list and the server's switch
-(`server.rs`).  `conductor-accounts` (lib) is the one way in to the accounts table, and the account desk.
-`conductor-monitor` (lib) looks at the process and every process on the machine once a second.
-`conductor-networking` (lib) is the front door: a login over TLS on TCP that hands a player a ticket for
-UDP, the UDP side the game will run on, a ledger of every connection at the door, and a whitelist and a
-blacklist of addresses checked at the door.  **`lua-parser`** (lib, `conductor-lua-parser` in code) runs the Lua scripts in `Content/scripts/`, locked down.
-`conductor-wgui` (lib) is the web admin at `http://127.0.0.1:9996/Opus`, and the only way to start and stop
-the server and to shut Conductor down.  `conductor-launcher` (bin) boots the program and waits on the web
-admin's Server tab.  Ensemble is Unity 6000.6, on Jacob's machine, not in the repo.
+Conductor is eight crates, each in a folder without the `conductor-` in front (`Conductor/dev/tools/`)
+while the crate keeps it (`conductor-tools`, `conductor_tools::` in code).  `conductor-tools` (lib) holds
+DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, the notices, the clock, the thread
+list, the services list and the server's switch (`server.rs`).  `conductor-accounts` (lib) is the one way
+in to the accounts table, and the account desk.  `conductor-monitor` (lib) looks at the process and every
+process on the machine once a second.  `conductor-networking` (lib) is the front door: a login over TLS on
+TCP that hands a player a ticket for UDP, the UDP side the game will run on, a ledger of every connection
+at the door, and a whitelist and a blacklist.  `conductor-lua-parser` (lib, folder `lua-parser`) runs the
+Lua scripts in `Content/scripts/`, locked down.  **`conductor-primlib`** (lib, folder `primlib`) is the
+game library: entities, components, templates and blueprints, in memory, with nothing running it yet.
+`conductor-wgui` (lib) is the web admin at `http://127.0.0.1:9996/Opus`, and the only way to start and
+stop the server and to shut Conductor down.  `conductor-launcher` (bin) boots the program and waits on the
+web admin's Server tab.  Ensemble is Unity 6000.6, on Jacob's machine, not in the repo.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The web admin has a login: `admin` / `admin` does everything,
@@ -27,79 +30,78 @@ pressed on the web admin's Server tab (CONTROL PANEL > Server), and STOP SERVER 
 Conductor still running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
-stable release, moved only when Jacob says.  At this close `unstable` and `testing` are on this hand-off,
-Jacob's `Cargo.lock` commit (mlua) included.  `main` is still on the 2026-09-30 hand-off before this one:
-this session's Lua work hasn't been released.
+stable release, moved only when Jacob says.  At this close all three are on this hand-off: Jacob said to
+release, so `main` has the Lua work and this session's.
 
-**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, Lua included.  TEST_CHECKLIST.html
-is down to its two Parked checks.  The Windows code has never been built, and now that includes Lua's C
-build, which needs Visual Studio's compiler there.
+**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, primlib included.  TEST_CHECKLIST.html
+is down to its two Parked checks.  The Windows code has never been built, Lua's C build included.
 
-## Last session -- 2026-09-30, Lua's first step, and the checklist as a page
+## Jacob's map (2026-09-30, at the close)
 
-Written, built and tested the same day.  `design/lua-parser.md` has the whole of it.
+His words: "next session we build tick, then after that we build our world (voxel information and zone
+management after that)".  Written down at his ask, so it isn't forgotten.  His to change.
 
-- **`lua-parser`**, a lib crate: `mlua` 0.12 with Lua 5.4 built from source (Jacob said yes to the
-  dependency the session before).  The first build compiled Lua with `gcc` without trouble.
-- On START SERVER its `lua` thread runs every `.lua` under `Content/scripts/` (Jacob's pick for the root
-  of the scripts, folders inside it and all) once, each in a fresh locked-down Lua, then checks in once a
-  second.  `Content/scripts/hello.lua` says hello on the Log tab.  RESTART SERVER runs them again.
-- **What a script gets**: `string`, `table`, `math`, `utf8`, `coroutine`, and the log
-  (`log.debug/info/warn/error`, `print` as debug).  Never `io`, `os`, `package`, `debug`, `dofile`,
-  `loadfile`, `load`, `warn` or `string.dump`.
-- **Jacob's rules for it**: anything wrong from Lua is a Warn, never an Error (so `log.error` writes a
-  Warn), and a script can't crush what's underneath.  So a 1 s time limit, 64 MB, and 50 log lines a run
-  ("we'll go with your suggestion for now").  A broken script turns the Lua row red on the Services tab,
-  and he wants it that way: "the log points you to where it's broken."
-- New in the tools: the `Script` channel in Scribe, the "Lua" service, Lua in `start_server()` (before
-  networking) and `stop_server()` (after it).
-- **What fought back**: one slip of mine.  Lua went into `EXPECTED` in `services.rs` but not into the
-  test that lists every expected service, so `cargo test` failed until it did.  CLAUDE.md now says a new
-  service goes in both.
-- **Tested by Jacob, all passed**: the crate's 8 tests, a build with no warnings, the hello line, the
-  Services row, four throwaway scripts (a syntax error, a log flood, a runaway loop, a sandbox check) all
-  doing what they should, and hello alone again once they were taken out.
-- **TEST_CHECKLIST.md became TEST_CHECKLIST.html** (his ask): a page opened from the disk, a box per
-  check, ticks kept in his browser only, a COPY button on every command, and a message panel that
-  writes "these passed" as he ticks, for him to paste back.  No failed box: a failure gets told in the
-  chat ("if it fails I'm gonna bitch!").  CLAUDE.md says how a session adds a check.
-- **Like Unity, maybe**: asked where scripts live, Jacob wondered about attaching a script to an object
-  that fires off behaviour, or having it come prepackaged.  He's thinking it over; LONGTERM_TODO.md has
-  it, and it's the game library's question as much as Lua's.
+1. **The world tick.**  The game loop that owns primlib's `World` and steps it forward.  TODO.md's entry
+   ("The world tick") has what's open: the rate, what runs each tick and in what order, a tick that runs
+   long, a fresh world on every START SERVER or not.  The plan with files comes first, per CLAUDE.md.
+2. **The world: voxel information.**  What the world is made of.  Nothing is designed yet: chunk size,
+   world size, flat or generated, where it's kept.  LONGTERM_TODO.md's "The world" entry.
+3. **Zone management.**  The world split into zones.  Same entry.
 
-## The session before -- 2026-09-30, the protogame design talk
+Waiting beside the map, on the tick: saving the copies on STOP SERVER and loading them back on START
+SERVER, each with its UUID and internal name (`design/primlib.md`), and the spawn system (TODO.md).
 
-It matters for the game library.  TODO.md's protogame entry is the whole of it: **protogame** is the
-name; Actor, Character and Agent live in a separate **game library**, which is **component driven** (an
-ECS: an object packed with components that make it into something else, a character with some baked
-properties); a read-only **`CharacterSnapshot`** lives in `conductor-accounts`; a
-**`player_characters`** table and **three slots** on `accounts`, both written by `conductor-accounts`;
-Postgres does the wiping.  Jacob's sample NPC (LONGTERM_TODO.md) has three layers: the template (`NPC`,
-which components), the blueprint (`goblin_a`, their starting values), and the copies in the world
-(`spawn goblin_a x 100`).  **The server decides what each client sees.**
+## Last session -- 2026-09-30, primlib and the folder rename
 
-## Jacob's pick for next
+Written, built and tested the same day.  `design/primlib.md` has the whole of the game library.
 
-At the close, once the last checks passed and the testing session he'd planned wasn't needed:
-"constructing the first primitive components and the ECS for game objects."  Everything settled and
-open for it is in TODO.md's protogame entry and LONGTERM_TODO.md's scripting entry (Jacob's NPC sample,
-the three layers, the Unity question).  The plan with files comes first, per CLAUDE.md.
+- **The crate folders lost their `conductor-`** (Jacob: "rip the bandaid").  Folders, `path` lines,
+  `File:` headers and docs only; the crate names didn't change.  CLAUDE.md has the rule for new crates.
+- **`conductor-primlib`**, a lib crate, no dependencies (Jacob named it: "prim for primitive").  An ECS
+  written by hand:
+  - an **entity** is a slot and a generation, so an old handle to a despawned goblin can't reach the
+    goblin that took its slot;
+  - a **`Store<T>`** per kind of component, a slot per entity, in a **`World`** that spawns, despawns,
+    adds, removes and reads;
+  - ten **components**: `Transform` (position, rotation in degrees, scale; Y up; no parent), `Model` (the
+    path the client loads it from), `PrimitiveShape` (the client's fallback, cube by default),
+    `Animator` (a skeleton: `current_track`, `is_looping_currently`), `ShortName`, `LongName`, `Titles`,
+    and `Health`, `Endurance` and `Mana` (each a `Pool` that starts full);
+  - **templates** (`NPC`, a cheat sheet of components and defaults) and **blueprints** (`goblin_a`,
+    which starts from a template and can change, add and drop), and `world.spawn(&goblin_a)` for a copy.
+- **Jacob's answers along the way**, all in `design/primlib.md`: a template is a starting set, not a
+  contract; a spawned copy lives in memory, is written to the database as its own row on STOP SERVER,
+  and comes back on START SERVER "as if they never left"; every copy has a UUID and an internal name
+  made from its short name (`goblin_1`, `goblin_2`; "goblin_1" gives `goblin_1_1`), built together with
+  saving; the Lua part (`setup()` and `awake()`) comes after the Rust side.
+- **What ran into a rule**: Jacob's first thought was a spawned goblin managed through its database row.
+  That ran into the game loop never waiting on the database, and he turned it round into saving on STOP
+  SERVER.
+- **What fought back**: nothing in the code.  The whole thing was written unbuilt and compiled clean the
+  first time.  One muddle: Jacob's checklist tab was the page from mid-Lua-session, never reloaded, so
+  its message listed checks long gone.  A reload fixed it.
+- **Tested by Jacob, all passed**: the rename's `ls`, a clean build with no warnings, every test (primlib's
+  23 included), and a run with START and STOP SERVER showing the new folder names in the Caller.
 
 ## What's waiting
 
-- **The game library** and its ECS, unpaused now that Lua is in.  TODO.md's protogame entry and
-  LONGTERM_TODO.md's scripting entry have everything settled and open, the Unity question included.
+- **Jacob's map above**: the tick, then the world's voxels, then zones.
+- **Saving the copies and their UUIDs and internal names**, and loading them back.  `design/primlib.md`.
+- **The spawn system**: keeps the goblin_as topped up.  In TODO.md.
+- **primlib in Lua** (part 2): templates and blueprints as scripts, `setup()` and `awake()`.
+  `design/primlib.md`.
+- **The protogame database side**: `player_characters` and the three slots.  In TODO.md; it waited on
+  the ECS, which is in now.
 - **The blocked names list**, in TODO.md with his answers.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.
 - **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  In TODO.md.
 - **The stale words in the code**, in TODO.md.
-- **Where the test client lives** and what it's called.  It's `Conductor/dev/networking/
-  test_client.py` for now.
+- **Where the test client lives** and what it's called.  It's `Conductor/dev/networking/test_client.py`
+  for now.
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.
 - The Debug switch in `conductor_globals.cfg`.
 - Catching Ctrl-C.
-- The Windows build, whenever getting to that machine is less of a hassle.  Lua's C build is part of it
-  now.
+- The Windows build, whenever getting to that machine is less of a hassle.  Lua's C build is part of it.
 - **Ensemble**, its own session.  The Unity project is `Ensemble/dev/Opus.Ensemble/`, on Jacob's machine
   and untracked.  Before any of it is committed, a look together: what a Unity project commits, where the
   purchased art goes, and LFS for anything big.

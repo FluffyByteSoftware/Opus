@@ -125,6 +125,9 @@ a `Content/` folder, or by creating `./Content` when neither works.
   `<pre class="cmd">` that gets a COPY button.  His ticks live in his browser only and
   no session sees them; he says which passed (each tick writes it into the page's message, and COPY MESSAGE copies it), the
   same as before.  A tick is keyed by the check's words, so rewording a check drops its tick.
+  A tab left open from an earlier session shows that session's checks, ticks and all, until it's
+  reloaded (2026-09-30: a message listing Lua checks long gone).  If a message names checks the file
+  no longer has, say so and ask for a reload before touching anything.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another
@@ -159,7 +162,10 @@ a `Content/` folder, or by creating `./Content` when neither works.
   which commands to run, with your questions at the bottom of the reply (see
   "How to talk to me"). I paste back what happens and we go from there.
 - Do not predict or number future sessions ("next session is X, then Y").
-  I pick what to open next and I'm free to change my mind.
+  I pick what to open next and I'm free to change my mind.  When I lay
+  out an order myself, it's written down as mine, in my words, under
+  "Jacob's map" in STATUS.md, so I don't forget it (2026-09-30: the tick,
+  then the world's voxels, then zones), and it's still mine to change.
 
 ## End of every session (hand-off)
 
@@ -282,6 +288,16 @@ When I say we're wrapping up:
   Error**, and nothing a script does can take down what's underneath
   it: a time limit, a memory limit and a cap on its log lines, each
   a Warn when hit (Jacob, 2026-09-30).
+- **The game library is `conductor-primlib`** (folder `primlib`, 2026-09-30),
+  an ECS written by hand, no crate: an entity is a slot and a generation,
+  a component is a plain struct with a `Store` in the `World`, and objects
+  are made from a **template** (`NPC`: components and defaults) through a
+  **blueprint** (`goblin_a`: its own changes).  A new kind of component
+  goes in `components.rs` (the struct, `Kind`, `Kind::ALL`, `name()`,
+  `Component`, `kind()`, `default_of()`) and in `world.rs` (a store, the
+  four matches, two getters).  The world lives in memory and the game
+  loop never waits on the database: copies are written to it on STOP
+  SERVER and read back on START SERVER (Jacob, 2026-09-30).
 - `conductor-launcher` is the program. New server pieces (networking, the game)
   are lib crates, not programs of their own.
 - **Two kinds of restart.** A *soft reboot* is RESTART SERVER on the Control

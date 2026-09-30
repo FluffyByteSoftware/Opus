@@ -49,8 +49,9 @@ Things that wait on a piece that doesn't exist yet.
     database, and never written back.  The player character itself lives in the game library, and
     only it writes its row.  Messages to and from a character are protogame's.
   - **The first step is the database side** (Jacob, 2026-09-30): the table, the slots and the
-    functions in `conductor-accounts`, no protocol and no world.  Waits on the ECS, for what's in
-    the row.
+    functions in `conductor-accounts`, no protocol and no world.  It waited on the ECS, for what's
+    in the row; the ECS is in now (`conductor-primlib`, 2026-09-30), so what a character's row holds
+    can be settled from its components.
   - **`player_characters`**, a new table (its own schema file, `id` and `uuid` like every table).
     Each row has its account's `id` (`account_id`), a quick way back to the account.  Deleting an
     account wipes its characters.
@@ -64,12 +65,13 @@ Things that wait on a piece that doesn't exist yet.
     game library call them and never write SQL.
   - **Postgres does the wiping**: `account_id` is `ON DELETE CASCADE`, so an account's characters go
     with its row, and each slot is `ON DELETE SET NULL`, so a deleted character empties its slot.
-  Still open: the ECS (below); the game library's name; whether the world and the voxels are the game
-  library's; which messages protogame carries (the client's UDP traffic to its character, chat between
-  characters, or the game telling a character what happened); who makes a character (the player from the
-  client, or the admin); whether one is chosen at the TLS login or after the UDP connect (protocol
-  version 5 either way); the chunk and world sizes and where the world is kept; the tick rate; how the
-  test client shows it working.  More than one session's step, so the first one picks where to stop.
+  Still open: the rest of the ECS (below); whether the world and the voxels are primlib's (and
+  LONGTERM_TODO.md's "The world" entry); which messages protogame carries (the client's UDP traffic to
+  its character, chat between characters, or the game telling a character what happened); who makes a
+  character (the player from the client, or the admin); whether one is chosen at the TLS login or after
+  the UDP connect (protocol version 5 either way); the chunk and world sizes and where the world is
+  kept; the tick rate; how the test client shows it working.  More than one session's step, so the
+  first one picks where to stop.
   - **The ECS, so far** (Jacob, 2026-09-30, talked through here after the separate chat didn't
     work out): component driven.  An object is packed with components, and the components make it
     into something else.  The exception is a character, which will probably have some baked
@@ -80,11 +82,11 @@ Things that wait on a piece that doesn't exist yet.
     `goblin_a` is a blueprint: `spawn goblin_a x 100` makes a hundred, each with its own values.  Who
     sees what isn't a setting on the components: the server builds each player's packets and puts in
     only what that player may see (Jacob, 2026-09-30).
-  - **Unpaused** (Jacob, 2026-09-30): the ECS waited on the scripting language, which is now in: Lua
-    5.4 through `mlua`, in `lua-parser` (`design/lua-parser.md`).  Jacob, closing that session: next is
-    "constructing the first primitive components and the ECS for game objects".  An object's behaviour is a behaviour script added to it; GOAP for the
-    thinking, maybe.
-  - **Opened, 2026-09-30** (Jacob): this session builds the "GameObject", an entity storage system.
+  - **Built, 2026-09-30**: the ECS waited on the scripting language (Lua 5.4 through `mlua`, in
+    `lua-parser`), and then went in as `conductor-primlib`: entities, the world, ten components,
+    templates and blueprints, built and tested.  `design/primlib.md` has it.  An object's behaviour
+    is a behaviour script added to it; GOAP for the thinking, maybe.
+  - **Opened, 2026-09-30** (Jacob): the session that built the "GameObject", an entity storage system.
     Components are added to an entity to change how it behaves and how it can be dealt with on the
     server and in the client.  "We'll cheat a little" with templates or blueprints that set out the
     components a whole kind of object needs or is expected to have: an NPC's has health, position,
@@ -99,8 +101,8 @@ Things that wait on a piece that doesn't exist yet.
     right before a copy is put in the world, where the object's own code takes a component away or
     adds more.  **Part 2 is the Lua** (Jacob, 2026-09-30): templates and blueprints written as
     scripts, after the Rust side is in.  The first part is Rust only.
-  - **Rotation** is three angles in degrees, the way Unity's inspector shows it (Jacob: "whatever
-    the standard is").  See `design/primlib.md`.
+  - **Rotation** (now part of `Transform`) is three angles in degrees, the way Unity's inspector
+    shows it (Jacob: "whatever the standard is").  See `design/primlib.md`.
   - **A spawn system** (Jacob, 2026-09-30, its own feature): keeps track of the NPCs in the world
     and spawns more from their blueprint when a kind runs low ("when the number of goblin_as is
     growing low").  It needs to know which blueprint each copy came from.

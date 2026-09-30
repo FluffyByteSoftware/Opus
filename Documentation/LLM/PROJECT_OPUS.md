@@ -148,7 +148,7 @@ Opus/
             ├── conductor-launcher.md  # the launcher crate
             ├── lua-parser.md          # the Lua crate: what a script gets, what it can't do, the limits
             ├── primlib.md             # the game library: entities, components, templates, blueprints; what's open
-            └── ecs-discussion.md      # the game library's ECS: the questions, written as a brief for another chat
+            └── ecs-discussion.md      # the ECS brief for another chat; answered by primlib, kept as history
 ```
 
 ## The named pieces

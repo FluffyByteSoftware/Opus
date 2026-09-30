@@ -23,8 +23,9 @@ through the **`mlua`** crate (Jacob said yes to the dependency), with Lua built 
 there's nothing to install; it needs a C compiler, which Nobara has, and Visual Studio's on Windows.  Its
 first step is in and tested (`lua-parser`, 2026-09-30; `design/lua-parser.md`): every script under
 `Content/scripts/` runs once on START SERVER in a locked-down Lua, with the log the only thing it can
-call.  The game library's ECS is what it waits for next.  Locked down by never loading Lua's `io` and
-`os` libraries (or anything else that reaches the disk or the machine).  Jacob's sample below is the shape to aim for,
+call.  The game library it was waiting for is in (`conductor-primlib`, 2026-09-30; `design/primlib.md`),
+with templates and blueprints built in Rust for now; writing them as scripts is primlib's part 2.  Locked
+down by never loading Lua's `io` and `os` libraries (or anything else that reaches the disk or the machine).  Jacob's sample below is the shape to aim for,
 written as Lua.
 
 **Behaviour** (Jacob, 2026-09-30): an object gets a behaviour script added to it, and that script
@@ -110,6 +111,24 @@ goblin does) isn't in the sample yet.
 **`goblin_a` is a blueprint** (Jacob, 2026-09-30): `spawn goblin_a x 100` makes a hundred goblins, each
 with its own health and the rest.  So there are three layers: the template (`NPC`, which components),
 the blueprint (`goblin_a`, their starting values), and the copies in the world.
+
+## The world: voxels and zones
+
+Jacob's map at the 2026-09-30 close (STATUS.md has it): the world tick first, "then after that we build
+our world (voxel information and zone management after that)".  The world is going to be **voxels**.
+Nothing about it is designed yet.  Open when it opens:
+
+- **Voxel information**: what a voxel holds; the chunk size; the world's size; flat or generated; where
+  it's kept (the database, files through DiskMan, or both) and when it's saved; what the client is sent
+  and when (the server decides what each client sees, so a player gets the chunks near them, not the
+  world).
+- **Whether the world belongs to primlib**, beside its `World` of entities, or is a piece of its own, and
+  whether chunks are entities or something beside the ECS.  TODO.md's protogame entry has asked since
+  2026-09-30.
+- **Zone management**: what a zone is (a fixed square of chunks, or drawn by hand), what it's for (who
+  hears what, what gets ticked, spawn areas for the spawn system, loading and unloading what nobody is
+  near), and how the tick handles one.
+- How it's seen on the web admin, if at all.
 
 ## A program of its own for account management
 
