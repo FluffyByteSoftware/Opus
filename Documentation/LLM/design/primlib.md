@@ -92,29 +92,32 @@ today builds the blueprint once and copies it); whether `awake()` runs on every 
   the server is being stopped."  So memory is what the game reads and writes while the server runs,
   and on STOP SERVER every copy is written to the database as a row of its own, through Archivist.
   (His first thought, a row managed live, ran into the game loop never waiting on the database.)
-  Open: whether START SERVER loads them back (the same goblins, hurt where they were hurt); whether
-  anything is saved between stops, so a crash doesn't lose the lot; the table's shape.  Players'
+  START SERVER loads them back: "when the world is respawned the goblins will come back as if they
+  never left" (Jacob, 2026-09-30).  Open: whether anything is saved between stops, so a crash doesn't
+  lose the lot; the table's shape.  Players'
   characters are saved too (`player_characters`, in TODO.md).
 - **Every copy has a UUID** (Jacob, 2026-09-30): "you will be able to search NPCs by their UUIDs (which
   is unique to every instantiated one)".  From Fingerprinter (`new_uuid()`), like every row's.  The
   entity number is only good while the server runs; the UUID is the copy's name for good.
-- **And an internal name**, "like goblin_archer_1".  Open: whether it's the blueprint's name and a
-  number that goes up with each copy, and whether the number carries on past a restart (it would have
-  to, if the copies are loaded back, or there'd be two goblin_archer_1s).
+- **And an internal name**, "like goblin_archer_1", made from the copy's `ShortName` with its spaces
+  made `_` (Jacob, 2026-09-30), and a number.  Since the copies come back after a restart, their names
+  come back with them, and the number carries on from the highest one in use, so there are never two
+  goblin_archer_1s.  Open: whether two blueprints with the same short name share the count (they would,
+  going by the name alone); what a copy with no `ShortName` is called; whether it's a component or
+  something every entity has "baked", along with its UUID.
 - **Visuals, split up** (Jacob, 2026-09-30, mid-session: "may need to divide our current components up
   more").  Decided:
   - **`Transform`** takes over Position, Rotation and Scale, the way Unity has it.  Jacob said it
-    "holds the rotation and position of its parent"; open whether that means objects hang off other
-    objects (a sword in a goblin's hand, moving with it) and a transform is relative to its parent,
-    the way Unity's local position is.  Built without a parent for now (2026-09-30).
+    "holds the rotation and position of its parent", and the parent there is the object the component
+    is on, not another object (2026-09-30).  So no hierarchy: a transform is in the world's terms.
   - **`PrimitiveShape`**: the shape the client draws if it can't draw the model ("cube, capsule,
     etc.").  Unity's six built-in shapes: cube, sphere, capsule, cylinder, plane, quad.  Built
     (2026-09-30), a cube unless something says otherwise.
-  - **`Animator`**: "controls animation state on the server".  Open: what it holds (the name of the
-    state it's in, "idle" or "walk"; a speed; whether it loops).
-  - Open: where the model itself goes (a `Model` component?) and what names it (a name Ensemble looks
-    up, or a path under `Content/Assets/`).  An object without an `Animator` isn't animated, so there's
-    no flag for it.
+  - **`Animator`**: "controls animation state on the server".  A skeleton for now (Jacob, 2026-09-30:
+    "I'm not worried about animations in game yet"): `is_looping_currently`, and `current_track`, the
+    name of what the model is doing, sent to the client.
+  - **The model itself** is being talked through (Jacob, 2026-09-30: "Let's zoom out and discuss this
+    a bit").
 - **Which blueprint a copy came from.**  The spawn system (in TODO.md) needs to count the goblin_as,
   so a copy will need to know its blueprint.  Whether that's a component or something every entity has
   "baked" (the question TODO.md already has for characters) waits on the spawn system.
