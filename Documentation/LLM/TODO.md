@@ -126,6 +126,19 @@ Things that wait on a piece that doesn't exist yet.
   - A session id in every UDP packet, so a home router changing the port mid-session doesn't end it.
   - Messaging a player from the web admin.  Seeing who's on (the Connections tab's UDP list) and
     kicking (KICK in a TCP row's menu) were built on 2026-09-29.
+- **The test client connecting without `--cert`** (Jacob, 2026-09-30, after the first login from outside,
+  from his work laptop over the internet, went through): "it didn't reject the client with no cert."
+  What happened: the server never asks a client for a certificate (`with_no_client_auth()` in
+  `tls.rs`); a player proves who they are with the username and password inside the TLS.  `--cert` is
+  the other way round, the client checking the *server's* certificate, as PROTOCOL.md says a client
+  does.  The test client looks for `Content/certs/conductor.crt` three folders up from itself, and on
+  the laptop it wasn't there, so it fell back to checking nothing, said so, and carried on.  Two
+  readings, Jacob's pick:
+  - **A.** The test client refuses to connect without the server's certificate, instead of carrying
+    on unchecked, the way Ensemble will.  `test_client.py` only.
+  - **B.** Clients carry certificates of their own and the server turns away any that don't (mutual
+    TLS).  Every install needs one, and it doesn't keep out a changed client, since the certificate
+    ships inside it.
 - **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
   the access lists, 2026-09-29.  Kicking is built, from the TCP row the player's login came through.
