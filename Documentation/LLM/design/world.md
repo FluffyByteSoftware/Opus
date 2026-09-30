@@ -27,14 +27,18 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   block is smaller (1/4 the size of a minecraft block should work)".
 - **A block is 50 cm a side** (Jacob, 2026-09-30): "A player is to be 4 blocks tall at 2 meters."  That's
   half a Minecraft block's width, an eighth of its volume, eight blocks to a cubic metre.
+- **A chunk is a cube of 32 blocks a side, 16 m** (Jacob, 2026-09-30: "we'll start with the 32 a side"),
+  32,768 blocks.  Chunks stack up and down, not columns the world's full height.  64 a side (32 m) was
+  weighed and passed over: eight times what Ensemble redraws when one block changes, and biome steps 32 m
+  wide.
+- **A block holds what it's made of, and that's all, for now.**  The first kinds are **DIRT, STONE, AIR
+  and WOOD** (Jacob, 2026-09-30).  The kind is one number per block.
 
 ## Still open
 
-- **The chunk's size.**  Chunks are cubes, stacked up and down, not columns (Jacob, 2026-09-30).  He
-  asked after 64 a side (32 m, 262,144 blocks); 32 a side (16 m, 32,768 blocks) was put beside it.  The
-  size sets how much is loaded and sent at a time, how much Ensemble redraws when one block changes, and
-  how wide a biome's steps are.
-- What a voxel holds.
+- How big that number is.  Two bytes (65,536 kinds, 64 KB a chunk before anything is squeezed) was put
+  forward, so high-res textures never run out of kinds; a chunk that's all one kind (all air, all stone)
+  kept as that one value.
 - The world's size; flat, generated, or drawn by hand.
 - Where it's kept and when it's saved (the database, files through DiskMan, or both).
 - What each client is sent: the chunks near them, since the server decides what each client sees.
