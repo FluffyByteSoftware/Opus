@@ -33,20 +33,19 @@ running.
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
 stable release, moved only when Jacob says.  At this close all three are on this hand-off: Jacob said to
-merge to main, so `main` has the GameClock.
+merge everything to main, so `main` has the GameClock and the Windows build's write-up.
 
-**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, the GameClock included.
-**Built on Windows** (2026-09-30, after the hand-off): Rust's MSVC toolchain and the Visual Studio Build
-Tools, written up in `Documentation/HowTo/WINDOWS_INSTALL.md`.  It builds with no errors and no warnings,
-Lua's C build included.  Conductor runs and START SERVER works; the laptop has no Postgres, so
-Archivist times out and the data tabs stay locked, as they should.  TEST_CHECKLIST.html is down to one Parked check,
-the server on Windows with Postgres.
+**Built and tested on Linux (Nobara 44, Rust 1.98.1)**: everything, the GameClock included.  **On
+Windows**: it builds with no warnings and runs, START SERVER included, but hasn't had a database there (the
+last session, below).  TEST_CHECKLIST.html is down to one Parked check, the server on Windows with
+Postgres.
 
 ## Jacob's map (2026-09-30)
 
 His words, at the close of the primlib session: "next session we build tick, then after that we build our
 world (voxel information and zone management after that)".  Written down at his ask, so it isn't
-forgotten.  His to change.
+forgotten.  His to change.  At the close of the Windows session he picked it back up: "We go back to the
+map I came up with earlier after implementing tick."  So the world's voxels are next, by his map.
 
 1. ~~**The world tick.**~~  **Done, 2026-09-30: the GameClock** (`design/gameclock.md`).  Its five checks
    are empty slots; filling them comes as the world gets things that move.
@@ -65,7 +64,22 @@ Waiting beside the map: saving the copies on STOP SERVER and loading them back o
 its UUID and internal name (`design/primlib.md`), and the spawn system (TODO.md), which goes in the
 GameClock's housekeeping check when it comes.
 
-## Last session -- 2026-09-30, the GameClock
+## Last session -- 2026-09-30, the first Windows build
+
+No code changed.  Jacob built Conductor on a Windows laptop for the first time, a Git GUI clone in
+`C:\TEMP\download2`, and it's written up in `Documentation/HowTo/WINDOWS_INSTALL.md` (a new folder,
+`Documentation/HowTo/`, his pick, for how-tos meant for a person).
+
+- **What fought back**, all toolchain, none of it our code: Rust was on the GNU toolchain, which stopped at
+  "error calling dlltool" in `windows-sys` and `which`.  Switched to MSVC; then `link.exe` wasn't there
+  until the Visual Studio Build Tools went on with "Desktop development with C++".  A "timeout reading
+  rustc version" from `rustup` along the way was harmless.
+- **Then it built with no errors and no warnings**, Lua's C build included, and Conductor ran.  START
+  SERVER works; the laptop has no Postgres, so Archivist times out and the data tabs stay locked, as they
+  should.  So the monitor's kernel32 numbers, Fingerprinter's `BCryptGenRandom()` and DiskMan's rename on
+  Windows haven't been looked at yet.  That's the one Parked check.
+
+## The session before -- 2026-09-30, the GameClock
 
 Planned, written, built and tested the same day.  `design/gameclock.md` has the whole of it.
 
@@ -97,7 +111,7 @@ Planned, written, built and tested the same day.  `design/gameclock.md` has the 
 
 ## What's waiting
 
-- **Jacob's map above**: the world's voxels, then zones.
+- **Jacob's map above**: the world's voxels, then zones.  He's said the voxels are next.
 - **What goes in each of the GameClock's checks**: an input mailbox and an input packet (a protocol bump),
   a brain for the AI, movement into `Transform`, the broadcast (only what each player may see).
   `design/gameclock.md`.

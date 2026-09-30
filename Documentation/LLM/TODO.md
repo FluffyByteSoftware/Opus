@@ -263,7 +263,8 @@ Things we thought of along the way.  None of them are promised.
   ready whenever it's wanted.
 - DiskMan: the `.wait4server` swap leans on `fs::rename` replacing a file, the same as its writes; on
   Windows that's the same untested spot.
-- DiskMan: the Windows build.  It leans on `fs::rename` replacing a file there, and skips flushing the folder.
+- DiskMan on Windows.  It builds and runs there (2026-09-30), but leans on `fs::rename` replacing a file
+  there, and skips flushing the folder; nobody has looked at that yet.
 - Notices: no cap.  They're kept since boot until ACKed, so a flood of Warns left alone for days keeps
   growing in memory.  A cap (the oldest dropped) if it ever matters.
 - Web admin: keep the CPU and memory history on the server, so a page opened late still sees the last few
