@@ -286,7 +286,7 @@ When I say we're wrapping up:
   hard). Jacob's words, 2026-09-29.
 - **Conductor and the server are two things.** The program (DiskMan, Scribe,
   Constellations, the web admin) is up from boot. The server (Fingerprinter,
-  Security, Archivist, the account desk, networking, the monitor, and the
+  Security, Archivist, the account desk, Lua, networking, the monitor, and the
   game when it exists) only runs between START SERVER and STOP SERVER on the web admin's
   Control Panel: Conductor comes up with its door closed, and the admin opens
   it (and closes it) from there. Jacob's rule, 2026-09-29. The launcher does
@@ -303,7 +303,9 @@ When I say we're wrapping up:
 - **Every service reports to `services.rs`** in `conductor-tools`: it's named
   in `EXPECTED` up front, says starting / running / trouble / stopped with a
   note, and checks in with `seen()` if it has a loop. That is what puts it on
-  the web admin's Services tab.
+  the web admin's Services tab.  A new service goes in two places there:
+  `EXPECTED`, and the list in `every_expected_service_is_there_from_the_start`
+  (Lua went into the first only, 2026-09-30, and `cargo test` failed).
 - **Every file read and write goes through DiskMan** (`diskman.rs` in
   `conductor-tools`), never `std::fs` directly: `write()` for a whole file
   (temp file and rename), `append()`, `read()`, and `stream()` for big ones.

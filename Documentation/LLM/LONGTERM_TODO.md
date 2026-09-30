@@ -20,9 +20,11 @@ interpreter, error messages and docs, each its own piece of work).
 
 **Lua 5.4, 2026-09-30** (Jacob: "Lua is a fine language for this actually"), embedded in Conductor
 through the **`mlua`** crate (Jacob said yes to the dependency), with Lua built in ("vendored"), so
-there's nothing to install; it needs a C compiler, which Nobara has, and Visual Studio's on Windows.  It
-comes next, before the game library's ECS.  Locked down by never loading Lua's `io` and `os` libraries
-(or anything else that reaches the disk or the machine).  Jacob's sample below is the shape to aim for,
+there's nothing to install; it needs a C compiler, which Nobara has, and Visual Studio's on Windows.  Its
+first step is in and tested (`lua-parser`, 2026-09-30; `design/lua-parser.md`): every script under
+`Content/scripts/` runs once on START SERVER in a locked-down Lua, with the log the only thing it can
+call.  The game library's ECS is what it waits for next.  Locked down by never loading Lua's `io` and
+`os` libraries (or anything else that reaches the disk or the machine).  Jacob's sample below is the shape to aim for,
 written as Lua.
 
 **Behaviour** (Jacob, 2026-09-30): an object gets a behaviour script added to it, and that script

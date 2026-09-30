@@ -59,7 +59,7 @@ lua-parser/
   errors or warnings from LUA as _warnings_ to scribe").  So `log.error()` writes a Warn, and so does a
   script that won't load, one that fails partway, and one that hits a limit.  An Error is for Conductor
   itself.  The Services tab says "trouble" (red) when any script failed, and the log says which.  Jacob,
-  2026-10-01, when he saw it red: "yeah it should... and the log points you to where it's broken."  One
+  2026-09-30, when he saw it red: "yeah it should... and the log points you to where it's broken."  One
   bad script out of many turns the row red until it's fixed and the server restarted.
 - **A script can't crush what's underneath it** (Jacob, the same answer):
   - A **time limit** of a second.  `mlua`'s hook checks the clock every 10,000 Lua instructions and stops
@@ -85,6 +85,22 @@ lua-parser/
 - Everything in LONGTERM_TODO.md's scripting entry: templates, blueprints, behaviour scripts attached to
   objects the way Unity does it, how the folder is laid out for them.
 
-## Not built yet
+## Tested
 
-The whole crate, as of 2026-09-30: written, not compiled.
+Built and tested on Linux (Nobara 44, Rust 1.98.1) on 2026-09-30, the day it was written.  The first
+build compiled Lua with `gcc` without trouble.  The one slip was mine, in `conductor-tools`: the Lua row
+went into `EXPECTED` in `services.rs` but not into the test that lists every expected service, so
+`cargo test` failed there until it was added.
+
+- All 8 of the crate's tests pass; the two runaway ones take about a second each.
+- START SERVER: `hello.lua` says hello on the Script channel, and the Services tab has Lua running,
+  checking in once a second.
+- Four throwaway scripts and a RESTART SERVER, all as they should be: a syntax error named its file and
+  line 2; a loop logging a thousand lines stopped at 50 with a Warn; a `while true do end` was stopped at
+  its second; `io`, `os`, `require`, `dofile` and `load` all read `nil`.  Lua went red on the Services
+  tab (two scripts failed), and Conductor carried on.  The flood's first run printed `line1` fifty times;
+  that was a typo in the script (`.. 1` for `.. i`), not the log.
+- Still on TEST_CHECKLIST.html: taking the four scripts out and restarting (hello alone, Lua green
+  again), and a build that recompiles `lua-parser` to look for warnings.
+- **Never built on Windows.**  `mlua` builds Lua with the C compiler, which on Windows is Visual
+  Studio's.

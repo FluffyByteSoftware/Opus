@@ -11,7 +11,7 @@ through the checks.  The rule is the same as it was for the .md: Jacob
 says which checks passed, and the session takes them out of this file.
 The message panel writes that for him: every tick adds its check to the
 message, every untick takes it out, and COPY MESSAGE copies it to paste
-into the session (Jacob's ask, 2026-10-01).  There's no "failed" box on
+into the session (Jacob's ask, 2026-09-30).  There's no "failed" box on
 purpose: a check that fails gets told in the chat, loudly (his answer,
 the same day).
 
@@ -198,19 +198,20 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 
 <h2>2026-09-30 -- Lua's first step (lua-parser)</h2>
 <p class="soft">
-  The first build compiles Lua itself with <code>gcc</code>, so it takes longer than usual, and it changes
-  <code>Cargo.lock</code>.
+  Built and mostly checked on 2026-09-30.  These two are what's left.
 </p>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      <code>cargo build</code> builds, with no warnings from <code>lua-parser</code>.
+      A build that recompiles <code>lua-parser</code> (the <code>touch</code> makes sure it does) shows no
+      <code>warning:</code> line naming <code>lua-parser</code>.
     </span></label>
-    <pre class="cmd">cargo build</pre>
+    <pre class="cmd">touch lua-parser/src/lib.rs &amp;&amp; cargo build</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      Take the four test scripts back out, and RESTART SERVER is back to hello alone.
+      Take the four test scripts back out, and RESTART SERVER is back to hello alone, with Lua green again
+      on the Services tab.
     </span></label>
     <pre class="cmd">rm /opt/storage/Coding/Opus/Content/scripts/broken.lua /opt/storage/Coding/Opus/Content/scripts/flood.lua /opt/storage/Coding/Opus/Content/scripts/runaway.lua /opt/storage/Coding/Opus/Content/scripts/sandbox.lua</pre>
   </li>
