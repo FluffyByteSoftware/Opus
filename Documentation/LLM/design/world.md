@@ -34,6 +34,8 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 - **A block holds what it's made of, and that's all, for now.**  The first kinds are **DIRT, STONE, AIR
   and WOOD** (Jacob, 2026-09-30).  The kind is one number per block, **two bytes, up to 65,536 kinds**
   ("I think 65k will be enough", Jacob, the same day): 64 KB a chunk before anything is squeezed.
+- **The origin block, 0,0,0, is GOLD** (Jacob, 2026-09-30), a fifth kind, so the middle of everything can
+  be seen.  It sits in the dirt layer, at 0.
 - **The voxels are for tearing things down, not the whole point** (Jacob, 2026-09-30): "The voxels aren't
   the entire point of our world just more for destructive view."
 - **The world starts flat, in three layers, counted in blocks** (Jacob, 2026-09-30): "blocks at 0 are all
@@ -81,23 +83,27 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   the three layers above.  **Omega is bumpy**: "random noise with +/- 5 on the Y", so its ground rises and
   falls up to 5 blocks (2.5 m) either side of 0, in **smooth rolling hills**, with **one block of dirt on
   top and stone under it down to -15**, as in Alpha (Jacob, 2026-09-30).  The noise is written by hand, no
-  crate.  **The world is split evenly between them**, half each (Jacob, 2026-09-30).
+  crate.  **The world is split evenly between them**, half each (Jacob, 2026-09-30): **Alpha west, Omega
+  east "from origin 0,0,0"**.
 - **Omega's bumps are saved, not made again** (Jacob, 2026-09-30): "Omega chunks will need to be saved
   with their bumpiness before server shuts down".  Made once, when the world is made, and kept, so a
   change to the noise code later never reshapes hills already there.  How they're kept is open below.
 - **Chunk 0 is the world's lower left corner** (Jacob, 2026-09-30, "I think"), so chunks run 0 to 511 each
-  way and a file's numbers are never negative.
+  way and a file's numbers are never negative.  Asked again the same day, since "Alpha west, Omega east
+  from origin 0,0,0" reads as the origin in the middle.
+- **A file's numbers are padded to three digits** (Jacob, 2026-09-30): `alpha_003_015_0.chunk`, east,
+  north, then row.
 
 ## Still open
 
-- What's in a chunk's file beyond its blocks (a version number, at least).  The name's numbers are read as
-  east, north and row (`alpha_03_-15_0`), put forward padded to three digits (`alpha_003_015_0`), so the
-  files sort in order.
-- Which half is which: Alpha west and Omega east, or another way.
+- What's in a chunk's file beyond its blocks (a version number, at least).
+- Where 0,0,0 is: the lower left corner, or the middle, with Alpha's chunks west of it and Omega's east.
 - **How Omega's bumps are kept.**  Every Omega chunk saved in full is 131,072 chunks of 64 KB, about 8 GB
   (the upper row is all air and needn't be).  Put forward instead: Omega's heights saved once, one number
   per 50 cm column, in one file (about 134 MB), and its chunks built from those heights; a chunk somebody
   changed is saved as usual.  The smallest way, saving only the noise's seed, is what Jacob turned down.
+  Jacob asked what happens to a hole somebody digs: the dug chunk gets its own `.chunk` file, whole, and
+  a chunk's own file always wins over the heights, so the hole stays (being talked through, 2026-09-30).
 - What's in `region.map` and how it's laid out.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
