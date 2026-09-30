@@ -55,20 +55,25 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 - **The global save is the terrain only** (Jacob, 2026-09-30): "whatever is in memory about the voxel
   states", dumped to disk.  Not primlib's objects, which go to the database on STOP SERVER as before.
 - **The 15 minutes is a setting, in a new config file, `game.cfg`** (Jacob, 2026-09-30).  Not fixed in
-  code like the tick.
+  code like the tick.  **`game.cfg` is soft** (his pick the same day): read on every START SERVER, "the
+  world should need a reboot so the voxel engine or service restarts and rebuilds".
 - **A player is sent the chunks 4 each way around them, to start** (Jacob, 2026-09-30): 64 m, "but it
   might need to be 8" (128 m).  With the world two chunks tall, that's a 9 by 9 square of chunks, both
-  rows, 162 chunks a player.
+  rows, 162 chunks a player.  **The 4 is a setting in `game.cfg`** (Jacob, 2026-09-30), so trying 8 is
+  the Settings tab and a STOP SERVER and START SERVER.
+- **The world is its own crate, `conductor-gameworld`** (lib), folder `Conductor/dev/gameworld/`, and
+  `conductor_gameworld` in code (Jacob named it, 2026-09-30).  Not in primlib.  It's a server piece: it
+  starts on START SERVER and stops on STOP SERVER, and rebuilds the world from its files each time.
 
 ## Still open
 
 - How big that number is.  Two bytes (65,536 kinds, 64 KB a chunk before anything is squeezed) was put
   forward, so high-res textures never run out of kinds; a chunk that's all one kind (all air, all stone)
   kept as that one value.
-- Whether `game.cfg` is soft (read on every START SERVER, like `networking.cfg`) or hard (read at boot).
-  A file is one or the other as a whole.
-- Whether the 4 chunks is a setting in `game.cfg` too, or fixed in code.
 - What a chunk's file is called and holds.
-- Whether the world belongs to primlib beside its `World` of entities, or is a piece of its own.
+- **Which thread holds the terrain.**  Put forward: the GameClock's thread holds the chunks in memory, the
+  way it owns primlib's `World`, so digging in a check needs no lock; `conductor-gameworld` has a thread of
+  its own (a service on the Services tab) for the slow part, reading and writing chunk files through
+  DiskMan, and hands chunks over when they're ready.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
