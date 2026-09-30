@@ -32,7 +32,8 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   weighed and passed over: eight times what Ensemble redraws when one block changes, and biome steps 32 m
   wide.
 - **A block holds what it's made of, and that's all, for now.**  The first kinds are **DIRT, STONE, AIR
-  and WOOD** (Jacob, 2026-09-30).  The kind is one number per block.
+  and WOOD** (Jacob, 2026-09-30).  The kind is one number per block, **two bytes, up to 65,536 kinds**
+  ("I think 65k will be enough", Jacob, the same day): 64 KB a chunk before anything is squeezed.
 - **The voxels are for tearing things down, not the whole point** (Jacob, 2026-09-30): "The voxels aren't
   the entire point of our world just more for destructive view."
 - **The world starts flat, in three layers, counted in blocks** (Jacob, 2026-09-30): "blocks at 0 are all
@@ -64,16 +65,21 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 - **The world is its own crate, `conductor-gameworld`** (lib), folder `Conductor/dev/gameworld/`, and
   `conductor_gameworld` in code (Jacob named it, 2026-09-30).  Not in primlib.  It's a server piece: it
   starts on START SERVER and stops on STOP SERVER, and rebuilds the world from its files each time.
+- **The GameClock's thread holds the terrain** (Jacob, 2026-09-30: "GameClock Thread seems right").  The
+  chunks in memory are the GameClock's, the way primlib's `World` is, so digging a block in a check is a
+  change in memory with no lock and no waiting.  `conductor-gameworld` has a thread of its own, a service
+  on the Services tab, for the slow part: reading and writing chunk files through DiskMan, handing chunks
+  over when they're ready.
+- **Chunk files go in a folder named after their region** (Jacob, 2026-09-30): "when we generate the world
+  we are going to name regions and name the chunk folders after them then place that chunk in there".  So
+  `Content/world/chunks/<region>/`, one file per changed chunk.
 
 ## Still open
 
-- How big that number is.  Two bytes (65,536 kinds, 64 KB a chunk before anything is squeezed) was put
-  forward, so high-res textures never run out of kinds; a chunk that's all one kind (all air, all stone)
-  kept as that one value.
 - What a chunk's file is called and holds.
-- **Which thread holds the terrain.**  Put forward: the GameClock's thread holds the chunks in memory, the
-  way it owns primlib's `World`, so digging in a check needs no lock; `conductor-gameworld` has a thread of
-  its own (a service on the Services tab) for the slow part, reading and writing chunk files through
-  DiskMan, and hands chunks over when they're ready.
+- Whether a region is the same thing as a zone (a biome), or something else.
+- How many regions the flat world starts with, and who names them: the generator, or Jacob by hand.
+- Where it's written which chunk is in which region.  An unchanged chunk has no file, so its folder can't
+  say; something else has to.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
