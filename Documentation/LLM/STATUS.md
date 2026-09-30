@@ -99,11 +99,11 @@ has every answer in his words; `REGION_MAP.md` is new.
 ## What's waiting
 
 - **The 0.0.1 goal**: a player spawned in the world and able to chat.  Chat isn't designed (TODO.md).
-- **The character, Part A, is written and NOT BUILT YET**: `Template::take_in()`, the Living and Character
-  templates (`primlib/src/gameobject.rs`), `PlayerCharacter`, every GameObject remembering its templates,
-  `saved()` / `load()` per component, a save as Lua text (`primlib/src/save.rs`) and `read_save()` in
-  lua-parser (which now depends on primlib).  Expect compile fixes first.  Its checks are on
-  TEST_CHECKLIST.html; `design/primlib.md` has the design.
+- **The character, Part A, is built and tested** (no warnings, every test passing): `Template::take_in()`,
+  the Living and Character templates (`primlib/src/gameobject.rs`), `PlayerCharacter`, every GameObject
+  remembering its templates, `saved()` / `load()` per component, a save as Lua text (`primlib/src/save.rs`)
+  and `read_save()` in lua-parser (which now depends on primlib).  One check left on TEST_CHECKLIST.html
+  (START SERVER still green), and the `Cargo.lock` change to commit.  `design/primlib.md` has the design.
 - **The character, Part B**: the `player_characters` table, the slots and the functions in
   `conductor-accounts`.  TODO.md, under Protogame.
 - **The world's part two**: saving changed chunks on STOP SERVER and every `save_minutes`, with the first

@@ -32,7 +32,7 @@ lua-parser/
     │                  evaluate(name, source, read): the same, handing what the script returns to read
     │                  TIME_LIMIT 1 s, MEMORY_LIMIT 64 MB, LOG_LINES 50, LINE_CHARS 1000
     └── save.rs        read_save(name, text) -> Result<Save, String>: a saved GameObject back from its Lua
-                       text, in the same locked-down Lua (not built yet; `design/primlib.md`)
+                       text, in the same locked-down Lua (`design/primlib.md`)
 ```
 
 ## Decided

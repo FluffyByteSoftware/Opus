@@ -18,7 +18,7 @@ blueprints, and tests (`cargo test -p conductor-primlib`).  Built and tested on 
 isn't a server piece itself: the GameClock (`design/gameclock.md`) owns a `World`, made fresh on every
 START SERVER, and hands it to its five checks.  Nothing spawns anything into it yet.
 
-**The character, Part A** (2026-09-30, written, **not built yet**): the first step of Jacob's map, "finishing
+**The character, Part A** (2026-09-30, built and tested, no warnings): the first step of Jacob's map, "finishing
 out character as a template for hydrating from an account".  Templates that take in other templates, the
 `Living` and `Character` templates, `PlayerCharacter`, a GameObject remembering its templates, and saving
 a GameObject as Lua text and making a character back from it.  See "The character and saving" below.
@@ -117,7 +117,7 @@ primlib/
 
 ## The character and saving
 
-Jacob's answers, 2026-09-30, for the first step of his map.  Written, not built yet.
+Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
 
 - **A template can take in another whole**: `Template::take_in()`.  "Its similar to inheritance in old
   discworld mudlib okay?  inherit STD_LIVING;"  The components come in at the other template's values, and

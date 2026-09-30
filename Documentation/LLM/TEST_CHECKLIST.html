@@ -197,37 +197,14 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="checks-column">
 
 <h2>The character, Part A: Living, Character and saving (2026-09-30)</h2>
-<p class="soft">Nothing new to see in a running Conductor yet: nothing spawns a character until character
-select.  These are the build and the tests.</p>
+<p class="soft">The build and every test passed.  Nothing new to see in a running Conductor: nothing spawns a
+character until character select.</p>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      It builds with no warnings, and the build adds <code>conductor-primlib</code> to lua-parser in
-      <code>Cargo.lock</code> (commit it, with the lines in the reply).
+      START SERVER still comes up green on the Services tab, with lua-parser now leaning on primlib.
     </span></label>
-    <pre class="cmd">cargo build</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      primlib's tests pass, the new ones included: a template taking in another, Living and Character,
-      a copy remembering its templates, <code>PlayerCharacter</code>, saved fields per component, and a
-      character made from a save (and turned away without a name).
-    </span></label>
-    <pre class="cmd">cargo test -p conductor-primlib</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      lua-parser's tests pass, the new ones included: a character written as Lua and read back the same,
-      component for component, and saves that aren't Lua, are the wrong shape, hold a function, never
-      finish, or name a component the game dropped.
-    </span></label>
-    <pre class="cmd">cargo test -p conductor-lua-parser</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Everything else still passes, and START SERVER still comes up green on the Services tab.
-    </span></label>
-    <pre class="cmd">cargo test</pre>
+    <pre class="cmd">cargo run -p conductor-launcher</pre>
   </li>
 </ul>
 
