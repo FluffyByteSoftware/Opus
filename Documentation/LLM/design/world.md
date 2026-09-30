@@ -35,6 +35,13 @@ time it sees it.  Until then the server reads running, so STOP SERVER works, and
 the Services tab say they're waiting on the world.  A run where a chunk there can't be had never opens the
 door.
 
+**Nothing acts before the ground is in either** (Jacob, 2026-09-30: "I don't want NPCs acting while the
+server world isn't ready").  The GameClock beats from START SERVER as before, but until
+`conductor_gameclock::ready()` only housekeeping runs (it's what takes the chunks in); input, AI, movement
+and broadcast each get their 50 ms and do nothing with them.  Its Services line says so.  The spawn system,
+when it goes in housekeeping, has to wait for `ready()` itself.  (Pausing the GameClock outright was
+talked about first, and Jacob was fine with it ticking through.)
+
 `game.cfg` is in Constellations' table (soft) with one setting, `view_chunks` (1 to 16, default 4).
 `save_minutes` goes in with part two, when something reads it.
 
@@ -55,26 +62,10 @@ side, so it can sit inside a hill or with air under it.
 All under `Content/world/`, gitignored.  Every number is little-endian.  `region.map` is a contract with
 Ensemble as well, so a change to it bumps its version.
 
-`region.map`:
-
-```text
-8 bytes   OPUSRMAP
-u16       version, 1
-u64       the seed the world was made from
-i16       the westmost chunk's x (-256)
-i16       the southmost chunk's z (-256)
-u16       how many chunks east-west (512)
-u16       how many chunks north-south (512)
-u8        how many rows up and down (2)
-u8        how many regions, then for each:
-            u8   its ground: 0 flat, 1 heights
-            u8   its name's length, then the name, UTF-8
-u8 x every chunk   the number of the region it's in, counted from 0 in
-                   the list above: the lower row first; in a row, the
-                   south line first; in a line, west to east.
-```
-
-524,330 bytes for the first world.
+`region.map`: **`Documentation/LLM/REGION_MAP.md`** has it, byte for byte, with a worked example, the
+checks a reader makes, a C# reader for Ensemble and a one-line Python look at a real file (Jacob's ask,
+2026-09-30: "a thorough document that explains how to read our new binary map file").  That document is
+the contract, like PROTOCOL.md, so it isn't copied here.  524,330 bytes for the first world.
 
 `Regions/<Region>/<region>.heights` (Omega's, today):
 

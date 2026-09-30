@@ -144,6 +144,7 @@ Opus/
         ├── LONGTERM_TODO.md           # the big features: a run of sessions each, added as they come up
         ├── PROJECT_OPUS.md            # this file
         ├── PROTOCOL.md                # the server/client contract: the login over TLS, the game over UDP
+        ├── REGION_MAP.md              # region.map, byte for byte: which region every chunk is in
         ├── WRITINGSTYLE.md            # Jacob's voice for anything in the repo
         ├── TEST_CHECKLIST.html        # what's still to check on testing, a page with boxes; a passed check comes out
         └── design/
