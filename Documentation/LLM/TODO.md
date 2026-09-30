@@ -136,7 +136,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   NPCs since they're 'in game' entities").  So it edits, not only looks, and covers NPCs as well as
   players' characters.  The admin doesn't delete a player's character there (only the player does).
   **Seeing the characters is built first** (Jacob, 2026-09-30: "implement the improvement to the web gui
-  for character visibility under Game Management"), look only.  **Editing is its own conversation**
+  for character visibility under Game Management"), look only.  A Characters tab, `GET /Opus/Content/characters` (Jacob's
+  yes), seen by `admin` and `user` both (Jacob's pick, though it shows account names), showing only "their
+  name, their X,Y,Z, and which account they're connected to", and the UUID.  **Editing is its own conversation**
   (Jacob: "Next conversation we do this"): whether an edit goes to the row or to the copy in the world
   (only the GameClock's thread touches the `World`), what can be edited, NPCs, and its routes under
   `/Opus/wwwhook/`.
