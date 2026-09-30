@@ -174,7 +174,13 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
   the unplayable flag ("so the admin has to go and figure out if its salvageable or delete it") are built
   in conductor-accounts (`mark_unplayable()`); character select lists it greyed, and a reset home that
   finds the save broken marks it.  The spawn calls it too when it comes.
-- Open: when a character is saved (leaving the world, STOP SERVER, every so often), for spawning.
+- **When a character is saved** (Jacob, 2026-09-30, preparing the game library for the spawn):
+  - **When the player leaves the world**, for any reason, and STOP SERVER with it, since everybody leaves
+    then.
+  - **And every 50th complete cycle** while they play ("on every 50th complete tick cycle?  (so 250 ms =
+    one tick)").  A tick is a cycle, 250 ms, so that's every 12.5 seconds.
+- **Leaving takes the copy out**: "when the character's registered as quit out the game removes them".
+  Saved, then despawned at once; no linkdead body left standing in the world.
 
 ## Lua, part two
 

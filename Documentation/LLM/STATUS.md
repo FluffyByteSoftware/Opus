@@ -53,6 +53,11 @@ now)".  His to change.
 **Before step 3**, at the close of this session: "Next session we are going to clean things up and prepare
 the game lib."
 
+**Step 3 in his order** (2026-09-30, the session preparing the game library): the game library's half of
+the spawn first (the GameClock's mailbox, loading, saving; no packets), then "building the network
+infrastructure up then the chapter after that will be testing wtih a py script then we're on to building
+the client".
+
 ## Last session -- 2026-09-30, the characters, the Characters tab, and character select
 
 Jacob kept the session going through four pieces ("we're not even at 40% token use"), each planned, built
