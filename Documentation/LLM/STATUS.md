@@ -99,9 +99,8 @@ What they'd need to do, as far as it's settled: make a character (the row and it
 the slot being one of the account's own), list an account's characters for character select (name, position
 and `uuid`, never running Lua; the `CharacterSnapshot` in TODO.md), load one's `save_lua`, save one (the
 columns kept in step with the save), delete one.  Everything through Archivist, so the game loop never
-waits.  Not settled yet, to ask: which slot a new character takes, what happens when all three are full,
-who can delete a character (the player, the admin on the Accounts tab, or both), and whether the Accounts
-tab shows an account's characters.  And the corrupted character (Jacob, after the hand-off: "fail out the
+waits.  Settled at the start of the next session (TODO.md has Jacob's words): the first empty slot, all
+three full is refused, only the player deletes, and the characters get a tab of their own.  And the corrupted character (Jacob, after the hand-off: "fail out the
 character and send a notification to admin and mark this as a corrupted player character somehow"): an
 Error, the character flagged unplayable, still listed at character select with a flag the client greys out
 (and the server refuses).  The flag lives in memory for the run, so a restart tries again; no migration

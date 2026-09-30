@@ -58,6 +58,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       _LONG_ to be capitalized how you want in game but when creating its this way").  The name rule
       above is for making a character; `LongName` is where "McKay" goes.
     - **The functions in `conductor-accounts`**: make, list, load and save a character, and delete one.
+      Jacob's answers, 2026-09-30:
+      - **A new character takes the first empty slot.**
+      - **All three full, and making one is refused**: "we refuse to even allow them to create".  So the
+        client isn't offered it, and the server turns it away too.
+      - **Only the player deletes a character, and only one on their own account**: "Player can delete
+        their character from their account that's it."  Not the admin.
     - **A corrupted character** (Jacob, 2026-09-30): a save that won't load fails the whole character
       (built), "send a notification to admin and mark this as a corrupted player character somehow" (not
       built).  Jacob's answers:
@@ -120,6 +126,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   for it (like the monitor's `latest()`); its read path under `/Opus/`, asked for when it's built.
   Nothing on it changes anything, so no `wwwhook` route.
 - **The character on the Connections tab's UDP list**, beside the account, once there are characters.
+- **A tab for the characters** (Jacob, 2026-09-30: "Yes let's build a tab for characters").  The admin
+  doesn't delete one there (only the player does).  Open: which section it's under, what it shows, and
+  its read route.
 - **A list of blocked names** (Jacob, 2026-09-30), its own session:
   - `Content/cfg/blocked_names.txt`, beside the two access lists, one entry a line and not in
     Constellations' table, so CLAUDE.md's "one exception" becomes three files.
