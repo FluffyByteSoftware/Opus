@@ -58,7 +58,9 @@ lua-parser/
 - **Everything wrong in a script is a Warn, never an Error** (Jacob: "we would want to pass off any
   errors or warnings from LUA as _warnings_ to scribe").  So `log.error()` writes a Warn, and so does a
   script that won't load, one that fails partway, and one that hits a limit.  An Error is for Conductor
-  itself.  The Services tab says "trouble" when any script failed, and the log says which.
+  itself.  The Services tab says "trouble" (red) when any script failed, and the log says which.  Jacob,
+  2026-10-01, when he saw it red: "yeah it should... and the log points you to where it's broken."  One
+  bad script out of many turns the row red until it's fixed and the server restarted.
 - **A script can't crush what's underneath it** (Jacob, the same answer):
   - A **time limit** of a second.  `mlua`'s hook checks the clock every 10,000 Lua instructions and stops
     the script past it.  It's the *global* hook, on purpose: the plain one only covers the Lua thread
