@@ -60,8 +60,9 @@ never been built.
 
 Later the same day the separate ECS chat didn't work out, and the talk came back here.  Jacob wrote a
 sample NPC in the scripting language he has in mind (LPC-like; in LONGTERM_TODO.md), and then paused
-the ECS: **the scripting language comes first**, and it's **Lua**, embedded in Conductor (the crate,
-`mlua` most likely, still to be asked for, and which Lua still open).  The ECS notes so far are in TODO.md's protogame entry.  What follows below was written before
+the ECS: **the scripting language comes first**, and it's **Lua 5.4**, embedded in Conductor through the
+`mlua` crate with Lua built in (Jacob said yes to the crate).  Nothing written yet; its first step is
+planned when it opens.  The ECS notes so far are in TODO.md's protogame entry.  What follows below was written before
 that, and holds for when the ECS opens again.
 
 

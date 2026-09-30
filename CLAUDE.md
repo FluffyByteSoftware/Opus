@@ -259,6 +259,10 @@ When I say we're wrapping up:
 - Whenever you create a new crate, say explicitly whether it is a **bin** or a
   **lib**.
 - Prefer clear ownership and simple types over heavy generics or macros.
+- **The scripting language is Lua 5.4**, embedded through the `mlua`
+  crate with Lua built in (Jacob, 2026-09-30).  A script never gets Lua's
+  `io` or `os` libraries, or anything else that reaches the disk, the
+  network or the database; it asks the game, and the game decides.
 - `conductor-launcher` is the program. New server pieces (networking, the game)
   are lib crates, not programs of their own.
 - **Two kinds of restart.** A *soft reboot* is RESTART SERVER on the Control
@@ -399,6 +403,10 @@ When I say we're wrapping up:
 - **Client management** (a player limit, reconnect tokens, messaging a
   player from the web admin) is not this iteration.  It's in TODO.md as one
   heading.  Kicking from the web admin is built: KICK on the Connections tab.
+- **The server decides what each client sees.**  Each player's packets
+  carry only what that player may see; nothing is sent for the client to
+  hide, since a changed client can read anything it's sent (Jacob,
+  2026-09-30).
 - **The access lists** (`access.rs`, 2026-09-29) are the one thing that
   changes without a reboot.  A change from the page is enforced the same
   moment: `enforce()` asks the door's verdict again for everybody online

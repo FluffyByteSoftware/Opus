@@ -18,10 +18,12 @@ whatever else the world is made of.  It started as one of our own (it's the part
 to build, and a language shaped for items and quests says them in fewer words; the cost is a parser, an
 interpreter, error messages and docs, each its own piece of work).
 
-**Lua, 2026-09-30** (Jacob: "Lua is a fine language for this actually"), embedded in Conductor, and it
-comes next, before the game library's ECS.  The crate that embeds it (`mlua` is the usual one) is a new
-dependency, so it's asked for before it goes in; and which Lua (5.4, LuaJIT, or Luau, Roblox's, which
-has a locked-down mode built in) is open.  Jacob's sample below is the shape to aim for, written as Lua.
+**Lua 5.4, 2026-09-30** (Jacob: "Lua is a fine language for this actually"), embedded in Conductor
+through the **`mlua`** crate (Jacob said yes to the dependency), with Lua built in ("vendored"), so
+there's nothing to install; it needs a C compiler, which Nobara has, and Visual Studio's on Windows.  It
+comes next, before the game library's ECS.  Locked down by never loading Lua's `io` and `os` libraries
+(or anything else that reaches the disk or the machine).  Jacob's sample below is the shape to aim for,
+written as Lua.
 
 **Behaviour** (Jacob, 2026-09-30): an object gets a behaviour script added to it, and that script
 controls or changes what it does.  He'd like GOAP (goal-oriented action planning) for the thinking; not

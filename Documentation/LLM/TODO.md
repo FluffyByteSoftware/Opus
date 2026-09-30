@@ -78,10 +78,10 @@ Things that wait on a piece that doesn't exist yet.
     (`NPC`: Position, Rotation, Scale, ShortName, LongName, Titles, Health, Endurance, Mana), `create`
     makes an object from it and sets the values, and Conductor sends it to the clients as it changes.
     `goblin_a` is a blueprint: `spawn goblin_a x 100` makes a hundred, each with its own values.  Who
-    sees what isn't a setting on the components: the packet stream decides what each client is sent
-    (Jacob, 2026-09-30).
-  - **Paused** (Jacob, 2026-09-30): the ECS waits on the scripting language, which comes first: Lua,
-    embedded (LONGTERM_TODO.md).  An object's behaviour is a behaviour script added to it; GOAP for the
+    sees what isn't a setting on the components: the server builds each player's packets and puts in
+    only what that player may see (Jacob, 2026-09-30).
+  - **Paused** (Jacob, 2026-09-30): the ECS waits on the scripting language, which comes first: Lua
+    5.4 through `mlua`, embedded (LONGTERM_TODO.md).  An object's behaviour is a behaviour script added to it; GOAP for the
     thinking, maybe.
   - **The ECS, open**: where behaviour lives (in the components, the way a Unity script does, or in
     systems that run over every object with a given set of components); which properties a character
