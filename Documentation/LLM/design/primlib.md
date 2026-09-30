@@ -43,11 +43,13 @@ primlib/
 - **An entity is a number and a generation.**  The number is its slot.  When an entity is despawned its
   slot is reused, and the generation goes up by one, so an old handle to a dead goblin can't read the
   new goblin that took its slot.  Every call checks it.
-- **A component is plain data**, one struct per kind.  The first eight are Jacob's sample NPC, with
-  Position, Rotation and Scale made one `Transform` (Jacob, 2026-09-30), and a `PrimitiveShape`:
+- **A component is plain data**, one struct per kind.  The first nine are Jacob's sample NPC, with
+  Position, Rotation and Scale made one `Transform` (Jacob, 2026-09-30), and a `PrimitiveShape` and an
+  `Animator`:
   - `Transform`: a position, a rotation and a scale, each a `Vector3` (x, y, z as `f32`, what Unity
     uses).  The scale starts at 1, 1, 1.  No parent yet.
   - `PrimitiveShape`: cube (the default), sphere, capsule, cylinder, plane or quad.
+  - `Animator`: `current_track` ("idle") and `is_looping_currently`.  A skeleton.
   - `ShortName` ("goblin") and `LongName` ("goblin archer").
   - `Titles`: a list, with one of them picked as the current title ("the plucky").
   - `Health`, `Endurance` and `Mana`: the same shape, a `Pool` (current and max).  A pool made with just

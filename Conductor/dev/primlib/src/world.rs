@@ -10,7 +10,7 @@
 //! There are no locks.  When the game loop comes, one thread owns the
 //! world and everything else asks it.
 
-use crate::components::{Component, Kind, LongName, Pool, PrimitiveShape, ShortName, Titles, Transform};
+use crate::components::{Animator, Component, Kind, LongName, Pool, PrimitiveShape, ShortName, Titles, Transform};
 use crate::entity::{Entities, Entity};
 use crate::store::Store;
 use crate::template::Blueprint;
@@ -19,6 +19,7 @@ pub struct World {
     entities: Entities,
     transform: Store<Transform>,
     primitive_shape: Store<PrimitiveShape>,
+    animator: Store<Animator>,
     short_name: Store<ShortName>,
     long_name: Store<LongName>,
     titles: Store<Titles>,
@@ -34,6 +35,7 @@ impl World {
             entities: Entities::new(),
             transform: Store::new(),
             primitive_shape: Store::new(),
+            animator: Store::new(),
             short_name: Store::new(),
             long_name: Store::new(),
             titles: Store::new(),
@@ -103,6 +105,7 @@ impl World {
         match component {
             Component::Transform(value) => self.transform.insert(slot, value),
             Component::PrimitiveShape(value) => self.primitive_shape.insert(slot, value),
+            Component::Animator(value) => self.animator.insert(slot, value),
             Component::ShortName(value) => self.short_name.insert(slot, value),
             Component::LongName(value) => self.long_name.insert(slot, value),
             Component::Titles(value) => self.titles.insert(slot, value),
@@ -122,6 +125,7 @@ impl World {
         match kind {
             Kind::Transform => self.transform.remove(slot).is_some(),
             Kind::PrimitiveShape => self.primitive_shape.remove(slot).is_some(),
+            Kind::Animator => self.animator.remove(slot).is_some(),
             Kind::ShortName => self.short_name.remove(slot).is_some(),
             Kind::LongName => self.long_name.remove(slot).is_some(),
             Kind::Titles => self.titles.remove(slot).is_some(),
@@ -139,6 +143,7 @@ impl World {
         match kind {
             Kind::Transform => self.transform.has(slot),
             Kind::PrimitiveShape => self.primitive_shape.has(slot),
+            Kind::Animator => self.animator.has(slot),
             Kind::ShortName => self.short_name.has(slot),
             Kind::LongName => self.long_name.has(slot),
             Kind::Titles => self.titles.has(slot),
@@ -164,6 +169,7 @@ impl World {
         match kind {
             Kind::Transform => self.transform.get(slot).copied().map(Component::Transform),
             Kind::PrimitiveShape => self.primitive_shape.get(slot).copied().map(Component::PrimitiveShape),
+            Kind::Animator => self.animator.get(slot).cloned().map(Component::Animator),
             Kind::ShortName => self.short_name.get(slot).cloned().map(Component::ShortName),
             Kind::LongName => self.long_name.get(slot).cloned().map(Component::LongName),
             Kind::Titles => self.titles.get(slot).cloned().map(Component::Titles),
@@ -192,6 +198,15 @@ impl World {
     pub fn primitive_shape_mut(&mut self, entity: Entity) -> Option<&mut PrimitiveShape> {
         let slot = self.slot(entity)?;
         self.primitive_shape.get_mut(slot)
+    }
+
+    pub fn animator(&self, entity: Entity) -> Option<&Animator> {
+        self.animator.get(self.slot(entity)?)
+    }
+
+    pub fn animator_mut(&mut self, entity: Entity) -> Option<&mut Animator> {
+        let slot = self.slot(entity)?;
+        self.animator.get_mut(slot)
     }
 
     pub fn short_name(&self, entity: Entity) -> Option<&ShortName> {
@@ -277,6 +292,7 @@ mod tests {
         transform.rotation = Vector3::new(0.0, 0.0, -90.0);
         goblin.set(Component::Transform(transform));
         goblin.set(Component::PrimitiveShape(PrimitiveShape::Capsule));
+        goblin.set(Component::Animator(Animator::playing("idle", true)));
         goblin.set(Component::ShortName(ShortName::new("goblin")));
         goblin.set(Component::LongName(LongName::new("goblin archer")));
         goblin.set(Component::Titles(Titles::one("the plucky")));
@@ -297,6 +313,7 @@ mod tests {
         assert_eq!(transform.rotation, Vector3::new(0.0, 0.0, -90.0));
         assert_eq!(transform.scale, Vector3::new(1.0, 1.0, 1.0));
         assert_eq!(world.primitive_shape(goblin), Some(&PrimitiveShape::Capsule));
+        assert_eq!(world.animator(goblin), Some(&Animator::playing("idle", true)));
         assert_eq!(world.short_name(goblin).map(|name| name.text.as_str()), Some("goblin"));
         assert_eq!(world.titles(goblin).and_then(|titles| titles.current()), Some("the plucky"));
         assert_eq!(world.health(goblin), Some(&Pool { current: 2000, max: 2000 }));
@@ -360,6 +377,20 @@ mod tests {
         assert!(!world.add(old, Component::Health(Pool::full(1))));
         assert_eq!(world.health(old), None);
         assert_eq!(world.health(new), None);
+    }
+
+    #[test]
+    fn one_goblin_changes_track_and_the_rest_keep_idling() {
+        let mut world = World::new();
+        let blueprint = goblin_a();
+        let walker = world.spawn(&blueprint);
+        let idler = world.spawn(&blueprint);
+
+        if let Some(animator) = world.animator_mut(walker) {
+            animator.current_track = "walk".to_string();
+        }
+        assert_eq!(world.animator(walker).map(|animator| animator.current_track.as_str()), Some("walk"));
+        assert_eq!(world.animator(idler).map(|animator| animator.current_track.as_str()), Some("idle"));
     }
 
     #[test]

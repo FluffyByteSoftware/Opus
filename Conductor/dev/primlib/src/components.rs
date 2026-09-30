@@ -75,6 +75,24 @@ pub enum PrimitiveShape {
     Quad,
 }
 
+/// What the object's model is doing, for the client to play.  A skeleton
+/// for now: animations in the game come later.  An object without one
+/// isn't animated.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Animator {
+    /// The name of what the model is doing ("idle", "walk").  Empty is
+    /// nothing.
+    pub current_track: String,
+    pub is_looping_currently: bool,
+}
+
+impl Animator {
+    /// Playing `track`, looping or not.
+    pub fn playing(track: &str, looping: bool) -> Animator {
+        Animator { current_track: track.to_string(), is_looping_currently: looping }
+    }
+}
+
 /// What an object is called for short, usually lower case: "goblin"
 /// rather than "a Goblin Warrior".
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -190,6 +208,7 @@ impl Pool {
 pub enum Kind {
     Transform,
     PrimitiveShape,
+    Animator,
     ShortName,
     LongName,
     Titles,
@@ -200,9 +219,10 @@ pub enum Kind {
 
 impl Kind {
     /// Every kind, in the order they're listed here.
-    pub const ALL: [Kind; 8] = [
+    pub const ALL: [Kind; 9] = [
         Kind::Transform,
         Kind::PrimitiveShape,
+        Kind::Animator,
         Kind::ShortName,
         Kind::LongName,
         Kind::Titles,
@@ -216,6 +236,7 @@ impl Kind {
         match self {
             Kind::Transform => "Transform",
             Kind::PrimitiveShape => "PrimitiveShape",
+            Kind::Animator => "Animator",
             Kind::ShortName => "ShortName",
             Kind::LongName => "LongName",
             Kind::Titles => "Titles",
@@ -239,6 +260,7 @@ impl Kind {
 pub enum Component {
     Transform(Transform),
     PrimitiveShape(PrimitiveShape),
+    Animator(Animator),
     ShortName(ShortName),
     LongName(LongName),
     Titles(Titles),
@@ -253,6 +275,7 @@ impl Component {
         match self {
             Component::Transform(_) => Kind::Transform,
             Component::PrimitiveShape(_) => Kind::PrimitiveShape,
+            Component::Animator(_) => Kind::Animator,
             Component::ShortName(_) => Kind::ShortName,
             Component::LongName(_) => Kind::LongName,
             Component::Titles(_) => Kind::Titles,
@@ -263,13 +286,14 @@ impl Component {
     }
 
     /// The kind with its default value: a transform at 0, 0, 0 facing the
-    /// way its model was made at its own size, a cube, empty names and
-    /// titles, and pools of 0.  A template sets its own where these won't
+    /// way its model was made at its own size, a cube, an animator playing
+    /// nothing, empty names and titles, and pools of 0.  A template sets its own where these won't
     /// do.
     pub fn default_of(kind: Kind) -> Component {
         match kind {
             Kind::Transform => Component::Transform(Transform::default()),
             Kind::PrimitiveShape => Component::PrimitiveShape(PrimitiveShape::default()),
+            Kind::Animator => Component::Animator(Animator::default()),
             Kind::ShortName => Component::ShortName(ShortName::default()),
             Kind::LongName => Component::LongName(LongName::default()),
             Kind::Titles => Component::Titles(Titles::default()),
