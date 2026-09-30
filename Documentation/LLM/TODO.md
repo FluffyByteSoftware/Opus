@@ -70,7 +70,13 @@ Things that wait on a piece that doesn't exist yet.
   client, or the admin); whether one is chosen at the TLS login or after the UDP connect (protocol
   version 5 either way); the chunk and world sizes and where the world is kept; the tick rate; how the
   test client shows it working.  More than one session's step, so the first one picks where to stop.
-  - **The ECS, open**: written by hand or a crate (bevy_ecs, hecs: a dependency, and heavy on
+  - **The ECS, so far** (Jacob, 2026-09-30, talked through here after the separate chat didn't
+    work out): component driven.  An object is packed with components, and the components make it
+    into something else.  The exception is a character, which will probably have some baked
+    properties, always there, beside its components.
+  - **The ECS, open**: where behaviour lives (in the components, the way a Unity script does, or in
+    systems that run over every object with a given set of components); which properties a character
+    has baked, and whether other objects have any; written by hand or a crate (bevy_ecs, hecs: a dependency, and heavy on
     generics and macros); which components a character is; how a character's components are saved
     (a column each on `player_characters`, a table per component, or one column holding them all);
     how many entities and what tick the world is sized for.

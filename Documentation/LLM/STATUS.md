@@ -58,6 +58,9 @@ never been built.
 
 ## Jacob's pick for next: what the ECS chat decided
 
+(Later the same day: the separate chat didn't work out, and the ECS talk came back here.  What it
+settles goes into TODO.md's protogame entry as it comes.)
+
 The next session here starts with what Jacob brings back from the ECS chat.  The brief asks that chat
 to end with a summary in a fixed shape (decisions, open questions, a sketch); fold the decisions into
 TODO.md's protogame entry and the brief, ask about anything that runs into a rule in CLAUDE.md, and
