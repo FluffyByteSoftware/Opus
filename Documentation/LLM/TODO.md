@@ -88,13 +88,31 @@ Things that wait on a piece that doesn't exist yet.
     Components are added to an entity to change how it behaves and how it can be dealt with on the
     server and in the client.  "We'll cheat a little" with templates or blueprints that set out the
     components a whole kind of object needs or is expected to have: an NPC's has health, position,
-    rotation and the rest.
+    rotation and the rest.  `design/primlib.md` has what was settled and what's open.
+  - **The game library is `conductor-primlib`** (Jacob, 2026-09-30: "prim for primitive"), folder
+    `Conductor/dev/primlib/`, a lib crate.  Written by hand, no crate for the ECS.
+  - **Template, blueprint, copy** (Jacob, 2026-09-30).  `NPC` is a template: a cheat sheet of
+    components with their defaults, "so I don't write the same 50 lines in 50 npcs".  `goblin_a` is
+    a blueprint, "an actual NPC file" asked what a new goblin_a looks like.  A blueprint can drop a
+    component its template gave it and add ones the template doesn't have.  Jacob's picture of the
+    Lua: a `setup()` the template packs its components and defaults into, and an `awake()` called
+    right before a copy is put in the world, where the object's own code takes a component away or
+    adds more.  **Part 2 is the Lua** (Jacob, 2026-09-30): templates and blueprints written as
+    scripts, after the Rust side is in.  The first part is Rust only.
+  - **Rotation** is three angles in degrees, the way Unity's inspector shows it (Jacob: "whatever
+    the standard is").  See `design/primlib.md`.
+  - **A spawn system** (Jacob, 2026-09-30, its own feature): keeps track of the NPCs in the world
+    and spawns more from their blueprint when a kind runs low ("when the number of goblin_as is
+    growing low").  It needs to know which blueprint each copy came from.
   - **The ECS, open**: where behaviour lives (in the components, the way a Unity script does, or in
     systems that run over every object with a given set of components); which properties a character
-    has baked, and whether other objects have any; written by hand or a crate (bevy_ecs, hecs: a dependency, and heavy on
-    generics and macros); which components a character is; how a character's components are saved
-    (a column each on `player_characters`, a table per component, or one column holding them all);
-    how many entities and what tick the world is sized for.
+    has baked, and whether other objects have any; which components a character is; how a character's
+    components are saved (a column each on `player_characters`, a table per component, or one column
+    holding them all); how many entities and what tick the world is sized for.  And whether a spawned
+    NPC is saved at all: Jacob's first thought was that a copy becomes a database row once it's
+    spawned and its values are managed through the row until it's destroyed ("Flat files made this
+    easier").  That runs into the game loop never waiting on the database; `design/primlib.md` has
+    it.
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
   - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full
