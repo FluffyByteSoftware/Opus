@@ -12,22 +12,22 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 ## What's settled
 
 - **The world is the total sum of everything.**  Jacob, 2026-09-30.
-- **It's cut up in four levels**, each made of the one under it:
-
-  ```
-  World        everything
-   └─ Zone     a biome
-       └─ Chunk
-           └─ Voxel
-  ```
-
-  A zone is a **biome**, so zones are the world's big areas by what kind of place they are, not a grid laid
-  over it.  Zones are made of chunks, and chunks of voxels.  Jacob, 2026-09-30.
+- **It's cut up into chunks, and chunks into voxels.**  Jacob, 2026-09-30.
+- **Zones are back in question** (Jacob, the same day): "I'm not sure we need zones."  His first thought
+  was a zone as a biome, then as a separate area on its own clock, apart from the other zones, for more
+  playable area.  Against that, a seamless world "might be better".  The two ways are under "Still open".
 
 ## Still open
 
-- What shape a zone is: any set of whole chunks (a biome's ragged edge, drawn a chunk at a time), or a
-  rectangle of chunks.
+- **Zones, or a seamless world.**
+  - *Zones on their own clocks*: each zone is its own `World` with its own GameClock and thread, and going
+    from one to the next is a handoff (a loading screen, likely).  A zone nobody is in can sleep.  It uses
+    more than one CPU core, but nobody sees or reaches across a border.  It runs into the rule that one
+    GameClock owns the one `World`, so that rule would change.
+  - *Seamless*: one `World`, one GameClock, no borders.  The playable area comes from only loading and
+    ticking the chunks near a player, so the world can be far bigger than what's awake.  Everything runs
+    on the GameClock's one thread, which is the limit once there are a lot of players spread wide.
+  - A biome could still be a zone in name only: a label on an area (what grows, what spawns), not a clock.
 - The chunk's size, and whether chunks are cubes stacked up and down or columns the world's full height.
 - A voxel's size in the game's units, and what a voxel holds.
 - The world's size; flat, generated, or drawn by hand.
