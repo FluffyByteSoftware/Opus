@@ -101,7 +101,10 @@ and `uuid`, never running Lua; the `CharacterSnapshot` in TODO.md), load one's `
 columns kept in step with the save), delete one.  Everything through Archivist, so the game loop never
 waits.  Not settled yet, to ask: which slot a new character takes, what happens when all three are full,
 who can delete a character (the player, the admin on the Accounts tab, or both), and whether the Accounts
-tab shows an account's characters.
+tab shows an account's characters.  And the corrupted character (Jacob, after the hand-off: "fail out the
+character and send a notification to admin and mark this as a corrupted player character somehow"): the
+mark is a migration on `player_characters`; what it holds, what the player sees and who clears it are open
+(TODO.md, under Protogame).
 
 ## What's waiting
 

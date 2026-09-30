@@ -58,6 +58,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       _LONG_ to be capitalized how you want in game but when creating its this way").  The name rule
       above is for making a character; `LongName` is where "McKay" goes.
     - **The functions in `conductor-accounts`**: make, list, load and save a character, and delete one.
+    - **A corrupted character** (Jacob, 2026-09-30): a save that won't load fails the whole character
+      (built), "send a notification to admin and mark this as a corrupted player character somehow" (not
+      built).  The mark is a column on `player_characters`, so a migration (`0003`), since the table is in.
+      Open: what the mark holds (when, and why it failed), what the player sees at character select (the
+      character listed but locked, or not listed), who clears it once the row is fixed (the admin, maybe
+      on the Accounts tab), and whether the notice is a Warn or an Error.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
 
