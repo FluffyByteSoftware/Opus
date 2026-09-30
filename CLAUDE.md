@@ -55,7 +55,6 @@ to call it before creating it.
 ```
 Opus/
 ├── CLAUDE.md              # this file
-├── WINDOWS_INSTALL.md     # building Conductor on Windows (2026-09-30); grows as Windows is tried
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
@@ -83,6 +82,8 @@ Opus/
 │       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
 │       └── migrations/    # every change to a table after that, numbered
 └── Documentation/
+    ├── HowTo/             # how-tos for a person (Jacob, 2026-09-30), public docs in my voice
+    │   └── WINDOWS_INSTALL.md # building Conductor on Windows; grows as Windows is tried
     └── LLM/               # working docs
         ├── STATUS.md      # bridge between sessions
         ├── TODO.md        # pending work + future ideas

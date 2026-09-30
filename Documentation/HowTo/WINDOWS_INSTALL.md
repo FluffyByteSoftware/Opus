@@ -1,6 +1,6 @@
 <!--
-File:       Opus/WINDOWS_INSTALL.md
-Component:  Opus
+File:       Opus/Documentation/HowTo/WINDOWS_INSTALL.md
+Component:  Documentation
 Author:     Jacob Chacko
 -->
 

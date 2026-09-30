@@ -224,15 +224,16 @@ it.  Connections, Whitelist and Blacklist also wait for both of the network's li
 - **A C compiler**, because `mlua` builds Lua from its C source.  Nobara and Fedora have `gcc`; on Windows
   it's Visual Studio's (the Build Tools, with "Desktop development with C++"), and Rust has to be on its
   MSVC toolchain (`rustup default stable-x86_64-pc-windows-msvc`).  Rust's GNU toolchain stops at
-  "error calling dlltool" unless MinGW is installed too.  WINDOWS_INSTALL.md walks through it.
+  "error calling dlltool" unless MinGW is installed too.
+  `Documentation/HowTo/WINDOWS_INSTALL.md` walks through it.
 - **PostgreSQL 18**, on the same machine.  18 because every table's `uuid` column falls back on its
   `uuidv7()`.
 - **openssl**, once, to make the TLS certificate.
 - **Python 3**, for the test client.
 
 Conductor is written and tested on Linux (Nobara and Fedora).  The Windows code is written behind the
-same functions, and the first Windows build is under way (WINDOWS_INSTALL.md).  macOS builds and runs, but the monitor can't measure anything
-there and the door can't look up names.
+same functions, and the first Windows build is under way (`Documentation/HowTo/WINDOWS_INSTALL.md`).  macOS
+builds and runs, but the monitor can't measure anything there and the door can't look up names.
 
 ## Running it
 

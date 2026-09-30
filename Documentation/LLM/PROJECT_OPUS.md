@@ -12,7 +12,6 @@ The skeleton of the whole project: every folder, every file, one line each on wh
 Opus/
 ├── CLAUDE.md                          # working rules for the sessions
 ├── README.md                          # what Opus is and how to build it
-├── WINDOWS_INSTALL.md                 # building Conductor on Windows: MSVC and the Build Tools
 ├── .gitignore                         # build output, logs, the art, the TLS key, caches
 ├── .gitattributes                     # which file types go through Git LFS
 ├── Conductor/                         # the server
@@ -137,6 +136,8 @@ Opus/
 │       ├── defaults/schemas/accounts.sql  # the accounts table as first made
 │       └── migrations/                # the rules in README.md; 0001 put a uuid on every table
 └── Documentation/
+    ├── HowTo/                         # how-tos for a person, not the sessions' working docs
+    │   └── WINDOWS_INSTALL.md         # building Conductor on Windows: MSVC and the Build Tools
     └── LLM/
         ├── STATUS.md                  # the bridge between sessions
         ├── TODO.md                    # deferred work and ideas
