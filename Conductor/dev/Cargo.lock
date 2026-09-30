@@ -136,10 +136,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "conductor-gameclock"
+version = "0.1.0"
+dependencies = [
+ "conductor-primlib",
+ "conductor-tools",
+]
+
+[[package]]
 name = "conductor-launcher"
 version = "0.1.0"
 dependencies = [
  "conductor-accounts",
+ "conductor-gameclock",
  "conductor-lua-parser",
  "conductor-monitor",
  "conductor-networking",
