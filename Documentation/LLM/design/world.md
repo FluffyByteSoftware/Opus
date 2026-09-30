@@ -33,13 +33,20 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   wide.
 - **A block holds what it's made of, and that's all, for now.**  The first kinds are **DIRT, STONE, AIR
   and WOOD** (Jacob, 2026-09-30).  The kind is one number per block.
+- **The voxels are for tearing things down, not the whole point** (Jacob, 2026-09-30): "The voxels aren't
+  the entire point of our world just more for destructive view."
+- **The world starts flat: dirt, with air above** (Jacob, 2026-09-30).
 
 ## Still open
 
 - How big that number is.  Two bytes (65,536 kinds, 64 KB a chunk before anything is squeezed) was put
   forward, so high-res textures never run out of kinds; a chunk that's all one kind (all air, all stone)
   kept as that one value.
-- The world's size; flat, generated, or drawn by hand.
+- **The world's size.**  Jacob: "a 7 days to die world that feels right is 8096x8096" (2026-09-30).  7 Days
+  to Die's blocks are a metre, and its big maps are 8192 a side, so that's about 8 km by 8 km: 16,384
+  of our blocks a side, 512 by 512 chunks.  Put to him to confirm.
+- **How deep and how tall**: "-15 deep +15 tall" (Jacob, 2026-09-30).  Whether that's blocks (15 m in all,
+  under one chunk), metres (30 m, 60 blocks, about two chunks) or chunks is open.
 - Where it's kept and when it's saved (the database, files through DiskMan, or both).
 - What each client is sent: the chunks near them, since the server decides what each client sees.
 - Whether the world belongs to primlib beside its `World` of entities, or is a piece of its own.
