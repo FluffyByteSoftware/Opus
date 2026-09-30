@@ -325,7 +325,10 @@ When I say we're wrapping up:
   time, hard limit, with everybody else in line.  Nothing else calls the
   argon2 crate, and nothing ever logs a password.
 - **Every account goes through `conductor-accounts`** (2026-09-29).
-  Nothing else writes SQL for the `accounts` table.  **An account is
+  Nothing else writes SQL for the `accounts` table, and, once it exists,
+  the `player_characters` table (Jacob, 2026-09-30: making or deleting a
+  character writes both, so one crate writes them, in one transaction).
+  Protogame and the game library call its functions.  **An account is
   never held in memory** (Jacob's rule, the day after it was): whatever
   needs one loads it from its row when it needs it (`load()`, `list()`),
   and every change goes straight back to the row, so there's one copy and

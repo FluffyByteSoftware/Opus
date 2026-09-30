@@ -51,9 +51,13 @@ Things that wait on a piece that doesn't exist yet.
     `character_slot_3` on `accounts`, each the `id` of a `player_characters` row, or empty.
     `accounts.sql` is frozen, so it's a migration (`0002_...`).
   So the link is in two places, the slots and the row, and making or deleting a character is two
-  writes in one transaction.  Still open: which crate writes the SQL for `player_characters`
-  (`conductor-accounts` owns the `accounts` table, so the slot columns go through it); the game
-  library's name; whether the world and the voxels are the game library's; which messages protogame
+  writes in one transaction.
+  - **`conductor-accounts` writes the SQL for both tables**, so nothing double-writes.  Making,
+    deleting and saving a character and reading its snapshot are functions there; protogame and the
+    game library call them and never write SQL.
+  - **Postgres does the wiping**: `account_id` is `ON DELETE CASCADE`, so an account's characters go
+    with its row, and each slot is `ON DELETE SET NULL`, so a deleted character empties its slot.
+  Still open: the game library's name; whether the world and the voxels are the game library's; which messages protogame
   carries (the client's UDP traffic to its character, chat between characters, or the game telling a
   character what happened); who makes a character (the player from the client, or the admin); whether
   one is chosen at the TLS login or after the UDP connect (protocol version 5 either way); the chunk
