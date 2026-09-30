@@ -90,6 +90,16 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   the Characters tab was in: "to test it we'll need to build up our script and the networking portion (the
   packets to support character creation)", so character select is `test_client.py` and the packets
   together, and it's what puts the first character on the Characters tab.
+  - **The packets, Jacob's names** (2026-09-30), over UDP in `0x2_` (PROTOCOL.md keeps it free for "a
+    character select, say"), protocol version 5, each ask with a u32 ask number so a lost answer can be
+    asked for again (proposed, and his names kept):
+    - `CharacterListRequest`, client to server, and `CharacterListDelivery`, server to client ("makes it
+      less confusing").
+    - `CreateCharacter`, and `CharacterCreateResult`.
+    - `DeleteCharacter`, and `CharacterDeleteResult`.
+    - `CharacterRequestResetHome`, client to server only: "sends character back to 0, 0, 0".
+    - `CharacterIsPlayable`, server to client, "so client can gray their name out".
+    - "That's all I can think of right now."
 - **The GameClock's checks**: an input mailbox and an input packet, a brain for the AI, movement into
   `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their
