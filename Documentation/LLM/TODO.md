@@ -81,8 +81,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       - **The flag lives in memory, for the run only** (Jacob's pick): "the admin will need ot restart the
         server to have it attempt again".  STOP SERVER and START SERVER forget it, and the next try loads
         the save again.  No column and no migration; the Error in that day's log keeps the why.
-      - Written in `characters.rs` (`mark_unplayable()`, `is_unplayable()`, `forget_unplayable()`); what's
-        left is the spawn calling it, and the unplayable flag in the character list packet.
+      - Built in `characters.rs` (`mark_unplayable()`, `is_unplayable()`, `forget_unplayable()`), and the
+        flag is in `CharacterListDelivery`; a reset home marks a broken save.  What's left is the spawn
+        calling it and turning an unplayable character away.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
 
@@ -183,7 +184,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - `Content/cfg/blocked_names.txt`, beside the two access lists, one entry a line and not in
     Constellations' table, so CLAUDE.md's "one exception" becomes three files.
   - A Blocked Names tab under CONFIGURATION, with REMOVE on each and an ADD field.
-  - For now it's curse words, and it checks account usernames.
+  - For now it's curse words, and it checks account usernames.  Open: whether it checks character names
+    too, now players make them (2026-09-30).
   - A blocked word of 4 letters or more blocks any name with the whole word in it: "shit" blocks
     "Shitfox", "bastard" blocks "Bastardfox", but "bastard" doesn't block "Starlight".  A word under 4
     letters blocks nothing ("ass" lets "Ass" and "Cassandra" through).

@@ -12,9 +12,10 @@ Conductor is ten crates, each in a folder without the `conductor-` in front (`Co
 the crate keeps it (`conductor-tools`, `conductor_tools::` in code).  `conductor-tools` (lib) holds DiskMan,
 Scribe, Constellations, Fingerprinter, Security, Archivist, the notices, the clock, the thread list, the
 services list and the server's switch (`server.rs`).  `conductor-accounts` (lib) is the one way in to the
-accounts table (and soon `player_characters`), and the account desk.  `conductor-monitor` (lib) looks at the
+accounts table and `player_characters`, and the account desk.  `conductor-monitor` (lib) looks at the
 process and the machine once a second.  `conductor-networking` (lib) is the front door: a login over TLS on
-TCP that hands a player a ticket for UDP, the UDP side, a ledger of every connection, and the access lists.
+TCP that hands a player a ticket for UDP, the UDP side, character select (Protogame), a ledger of every
+connection, and the access lists.
 `conductor-lua-parser` (lib) runs the Lua scripts, locked down, and reads saved GameObjects back.
 `conductor-primlib` (lib) is the game library, an ECS in memory, with the Living and Character templates.
 `conductor-gameworld` (lib) is GameWorld, the ground.  `conductor-gameclock` (lib) is the GameClock, the game
@@ -33,7 +34,7 @@ project settings commit, behind both; it moves when Jacob says.
 
 **Built and tested on Linux**: everything, this session's code included.  The only check left on
 TEST_CHECKLIST.html is the Parked Windows one.  **On Windows**: built and runs, START SERVER included,
-without a database; the world and this session's code haven't been tried there.
+without a database; the world, the characters and character select haven't been tried there.
 
 ## Jacob's map (2026-09-30)
 
@@ -45,95 +46,71 @@ connection), then the log in to the world, and spawn character in world."  And t
 (done) -> character selection -> selected character spawns in world at its last save loc (0,0,0 for
 now)".  His to change.
 
-1. **The character as a template**, hydrated from an account.  **Part A done** (the GameObject side), and
-   **Part B's table done**; the functions in `conductor-accounts` are what's left of this step.
-2. **Character selection**, at the start of the UDP connection.  The player makes a character here.
+1. **The character as a template**, hydrated from an account.  **Done.**
+2. **Character selection**, at the start of the UDP connection.  **Done**: list, make, delete, reset home.
 3. **Logging in to the world**, and the character spawned there, at its last saved spot (0,0,0 for now).
 
-The map before this one (the tick, the world's voxels, zones) is done.
+**Before step 3**, at the close of this session: "Next session we are going to clean things up and prepare
+the game lib."
 
-## Last session -- 2026-09-30, the docs tidied, and the character
+## Last session -- 2026-09-30, the characters, the Characters tab, and character select
 
-**The docs**, first: re-evaluated at Jacob's ask, the old session notes trimmed out of every file, the
-skeletons checked against the code, and the README made a short front page saying where everything stands.
-Stale comments found in the code on the way are listed in TODO.md.  `design/ecs-discussion.md` is gone.
-CLAUDE.md's id-and-uuid rule became "no game data without an `id` and a `uuid`", with
-`archivist_migrations` the one exception (Jacob's words).
+Jacob kept the session going through four pieces ("we're not even at 40% token use"), each planned, built
+and checked on its own:
 
-**The character, designed with Jacob** (`design/primlib.md`, "The character and saving", has his words):
+1. **The character functions in `conductor-accounts`** (`accounts/src/characters.rs`): `list()`,
+   `list_all()`, `load()`, `create()`, `save()`, `delete()`, the name rule by hand, and the unplayable flag.
+   Jacob's answers: **a new character takes the first empty slot**; **all three full is refused** ("we
+   refuse to even allow them to create"); **only the player deletes, and only their own** ("Player can
+   delete their character from their account that's it").  The unplayable flag (a save that won't load) is
+   an Error on the bell and a flag in memory; the launcher's `stop_server()` forgets it, so the next START
+   SERVER tries the save again.
+2. **The Characters tab** under GAME MANAGEMENT: every player's character, look only, for `admin` and
+   `user` both (Jacob's pick), "their name, their X,Y,Z, and which account", and the UUID.  Read through
+   `GET /Opus/Content/characters` (Jacob's yes) when the tab opens and on REFRESH.  Editing characters and
+   NPCs there is its own conversation (TODO.md, "A tab for the game's entities").
+3. **Character select, step 2** (`design/conductor-networking.md`, "Character select and Protogame";
+   PROTOCOL.md, version 5).  Jacob's packet names in `0x2_` over UDP: CharacterListRequest /
+   CharacterListDelivery (a playable byte per character, "just add a bool in it"), CreateCharacter /
+   CharacterCreateResult, DeleteCharacter (with the typed word; only DELETE deletes) /
+   CharacterDeleteResult, CharacterRequestResetHome ("sends character back to 0, 0, 0"); and the general
+   CommandAccepted / CommandRefused in `0x3_` ("This can be reused elsewhere").  **Protogame**, Jacob's
+   word ("the character selection and character construction are proto game then become game objects after
+   load"), is a thread in networking that answers the asks, so the UDP thread never waits on the database.
+   **Every ask carries a u32 ask number**, and the book keeps the last answer, so a lost answer is sent
+   again, never the ask done twice.  A new character is the Character template with the name in
+   `ShortName` only ("short name here only"; the long name waits until they're in game), saved with
+   primlib's new `Save::of_blueprint()`.  A reset home reads the save back through lua-parser, moves the
+   character and saves it whole.  Networking now depends on primlib and lua-parser.
+4. **The test client** does character select: `--create`, `--delete`, `--delete-word`, `--reset-home`.
 
-- **Living is a "micro template"**, taken in whole the way `inherit STD_LIVING;` did in the Discworld
-  mudlib: `ShortName`, `LongName`, `Health`, `Endurance`, `Mana` ("all living objects will have to have a
-  name.  Its a requirement").  **Character** is Living, a `Transform`, a capsule and `PlayerCharacter` (the
-  account's and the row's `id`).  A new one starts with 10 of each pool.
-- **A GameObject remembers the templates it came from**, so the game can ask `world.is(entity, "Living")`.
-- **The save is the GameObject**, as Lua text in one column, with the name and last position as columns of
-  their own (the mix).  **What's saved is picked per field**, the plain way: a `saved()` under each struct
-  (Jacob wanted C#'s `[SavedField]`; a real attribute would have been a macro crate and two dependencies).
-- **The table**: `player_characters` (`account_id` with `ON DELETE CASCADE`, `character_name`, three `REAL`
-  positions, `save_lua`, `created_at`, `saved_at`), and three slots on `accounts` by `id` (migration `0002`,
-  `ON DELETE SET NULL`).  **A name is 4 to 20 letters, only the first a capital, unique whatever the
-  capital** ("Jacob is fine JaCob is not Mckay is fine but not McKay"); the long name will be the player's
-  to capitalize in game later.
+**What fought back**: nothing in the builds (no warnings, first try each time).  Jacob read a refused
+`--create testchar2` as an overwrite: the list printed after it still showed the old character, and the hex
+didn't make the refusal stand out ("would have been more obvious if it was visual").  The same UUID before
+and after showed nothing was touched.
 
-**What's built**: `Template::take_in()`, `gameobject.rs` (the two templates, `character_from_save()`,
-`check_living()`), `PlayerCharacter`, the templates list per entity, `saved()` / `load()` on every
-component, `save.rs` (`Save`, `Fields`, `Value`, `to_lua()`), and `read_save()` in lua-parser (which now
-depends on primlib; `sandbox::evaluate()` runs a script and hands back what it returns).  The schema file
-and migration `0002`; Archivist's schema test now looks for `DELETE FROM`, so `ON DELETE CASCADE` passes.
-
-**What fought back**: nothing in the build (no warnings, first try).  A checklist message came from a tab
-opened before a push, naming checks already taken out; Jacob's own words covered the one left.  A push was
-turned away once by Jacob's `Cargo.lock` commit, merged in.  The name rule changed after the schema was
-pushed; Jacob looked in DataGrip, the table wasn't made yet, so the schema file took it and no migration was
-needed.
-
-**Tested by Jacob, all passed**: the build, primlib's 41 tests, lua-parser's 16, everything else, START SERVER
-green, the table and its indexes, the slots, and the migration list ending at 2.
-
-## This session so far (2026-09-30)
-
-The character functions are **built and tested** (the build with no warnings, 13 tests in the accounts
-crate, START and STOP SERVER clean): `accounts/src/characters.rs` (list, load, create, save, delete, the name
-rule, the unplayable flag), and the launcher's `stop_server()` forgets the unplayable flags.  Nothing calls
-them until character select.  `design/conductor-accounts.md`, "Characters", has it.
-
-Then **the Characters tab** under GAME MANAGEMENT, **built and tested** (every test passes, and Jacob looked:
-"it looks correct"): every player's character, look
-only, for `admin` and `user` both (name, UUID, x, y, z, account), through `GET /Opus/Content/characters`
-(Jacob's yes) and `list_all()` in `characters.rs`.  Editing characters and NPCs there is next conversation
-(Jacob's words), in TODO.md.
-
-Then **character select**, step 2 of Jacob's map, **built and tested** (every test passes, and all eight of the
-test client's checks against Conductor did: the list, making, the name rules, three slots and no more, reset
-home, deleting with the typed word): Protogame, a thread in
-networking that answers a player's asks at character select over UDP (list, create, delete with DELETE
-typed, reset home), protocol version 5 with Jacob's packet names, an ask number on every ask so a lost answer
-is sent again rather than the ask done twice, and the test client's `--create`, `--delete`, `--delete-word`
-and `--reset-home`.  `design/conductor-networking.md` and PROTOCOL.md have it.  The test client was only
-tried against a stand-in UDP server in the session's scratchpad, not Conductor.
+**Tested by Jacob, all passed**: every test in every crate (67 in networking, 43 in primlib, 13 in accounts,
+39 in the web admin), the Characters tab by eye, and all eight character select checks against Conductor.
 
 ## Where the next session starts
 
-The functions in `conductor-accounts` for `player_characters`, the last of step 1.  Read
-`accounts/src/lib.rs`, `accounts/src/desk.rs` and `design/conductor-accounts.md` first, and bring Jacob a plan.
-What they'd need to do, as far as it's settled: make a character (the row and its slot in one transaction,
-the slot being one of the account's own), list an account's characters for character select (name, position
-and `uuid`, never running Lua; the `CharacterSnapshot` in TODO.md), load one's `save_lua`, save one (the
-columns kept in step with the save), delete one.  Everything through Archivist, so the game loop never
-waits.  Settled at the start of the next session (TODO.md has Jacob's words): the first empty slot, all
-three full is refused, only the player deletes, and the characters get a tab of their own.  And the corrupted character (Jacob, after the hand-off: "fail out the
-character and send a notification to admin and mark this as a corrupted player character somehow"): an
-Error, the character flagged unplayable, still listed at character select with a flag the client greys out
-(and the server refuses).  The flag lives in memory for the run, so a restart tries again; no migration
-(TODO.md, under Protogame).
+Jacob's words: "clean things up and prepare the game lib".  What that covers is his to say; ask him before
+planning.  What's lying about that could count as cleaning up: the stale words in the code (TODO.md, "The
+rest"), the Debug switch and moving routine log lines to Debug, `wgui_port` into `wgui.cfg`, the Unity files
+on `main` (below).  What could count as preparing the game library for the spawn: how a character loaded
+from its row goes into the GameClock's `World` (only the GameClock's thread touches it), when a character
+is saved, what happens to a player's copy when they leave, and saving and loading primlib's copies
+(`design/primlib.md`, "What's open").
 
 ## What's waiting
 
-- **The functions in `conductor-accounts`**, above.
-- **Character selection** and **spawning in the world**, steps 2 and 3 of the map: which messages protogame
-  carries, the packets (protocol version 5), how the test client shows it.  TODO.md, under Protogame.
+- **Spawning in the world**, step 3 of the map: picking a character at character select, loading it into
+  the `World`, and what the client is sent.  When it comes, the Connections tab and the log stop calling a
+  player at character select "in the world", and a reset home of a character in the world moves its copy.
+  TODO.md, under Protogame.
 - **Chat**, the rest of the 0.0.1 goal.  Not designed (TODO.md).
+- **Editing characters and NPCs** from GAME MANAGEMENT: whether an edit goes to the row or the copy in the
+  world, what can be edited, the routes.  TODO.md.
 - **When a character is saved** (leaving the world, STOP SERVER, every so often).  `design/primlib.md`.
 - **The world's part two**: saving changed chunks.  **Sending chunks to a client**, and how Ensemble gets
   `region.map`.  **Loading around players who move**.  `design/world.md`.
@@ -142,8 +119,9 @@ Error, the character flagged unplayable, still listed at character select with a
 - **Saving primlib's copies** with their UUIDs and internal names, **the spawn system**, **primlib in Lua**
   (part 2).  `design/primlib.md`, TODO.md.
 - **What a region does**, and blending biomes.  **A Tick evaluator tab**.  In TODO.md.
-- **The blocked names list**, **playtime metrics**, **moving `wgui_port` into `wgui.cfg`**, **the stale
-  words in the code**, **where the test client lives**: in TODO.md.
+- **The blocked names list** (whether it checks character names too is open), **playtime metrics**,
+  **moving `wgui_port` into `wgui.cfg`**, **the stale words in the code**, **where the test client
+  lives**: in TODO.md.
 - Archivist retrying on its own while disconnected; the Debug switch in `conductor_globals.cfg`; catching
   Ctrl-C.
 - The server on Windows with a database.  Parked in TEST_CHECKLIST.html.

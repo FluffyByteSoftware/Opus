@@ -122,7 +122,8 @@ is the only one who deletes.
 
 ## Characters (`characters.rs`)
 
-Built and tested 2026-09-30; nothing calls it until character select.  The one way in to `player_characters`, and to the three slots on
+Built and tested 2026-09-30.  Protogame (character select, in networking) and the web admin's Characters
+tab are what call it.  The one way in to `player_characters`, and to the three slots on
 `accounts` that point at a character by `id` (`character_slot_1` to `_3`).  This file never runs the save's
 Lua and never reads what's in it: the game writes the text (primlib's `to_lua()`) and reads it back
 (lua-parser's `read_save()`).
@@ -152,8 +153,8 @@ Lua and never reads what's in it: the game writes the text (primlib's `to_lua()`
   why)`, which raises an Error (on the bell) and flags the character.  `list()` and `load()` carry the flag
   in the snapshot, so the client greys it at character select, and `is_unplayable()` is for the spawn to
   turn the player away too.  In memory only: the launcher's `stop_server()` calls `forget_unplayable()`,
-  so the next START SERVER tries the save again.  Nothing calls `mark_unplayable()` until the spawn loads a
-  save.
+  so the next START SERVER tries the save again.  Protogame's reset home calls `mark_unplayable()` when it
+  finds a save broken, and the spawn will when it comes.
 
 Archivist has one worker that does its jobs in order, so two characters made on one account at once can't
 take the same slot; the row lock (`FOR UPDATE`) is there for the day there's more than one.

@@ -142,7 +142,7 @@ by creating `./Content` when neither works.
   words, so rewording a check drops its tick.  A tab left open from an earlier
   session shows that session's checks until it's reloaded: if a message names
   checks the file no longer has, say so and ask for a reload before touching
-  anything.
+  anything.  The page's count ("8 of 9 passed") includes the Parked checks.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another
@@ -156,7 +156,10 @@ by creating `./Content` when neither works.
   like any other answer.
 - **One feature per session.** If a new feature comes up mid-session, add it to
   `Documentation/LLM/TODO.md` and keep going on the current one. It gets its own
-  session later.
+  session later.  When one is done, say so and offer the hand-off; if I say
+  keep going, the next one starts in the same session (2026-09-30 took four:
+  "we're not even at 40% token use"), still planned, OKed, built and checked
+  on its own, with its own commits and its own paragraph in STATUS.md.
 - **Plan before building** anything bigger than a small fix: tell me the files
   you'll touch and the approach, and wait for my OK.  Check the plan against
   the rules here first, and say when an ask runs into one; I may turn the ask
@@ -368,9 +371,10 @@ When I say we're wrapping up:
   time, hard limit, with everybody else in line.  Nothing else calls the
   argon2 crate, and nothing ever logs a password.
 - **Every account goes through `conductor-accounts`.**  Nothing else writes
-  SQL for the `accounts` table, and, once it exists, the `player_characters`
-  table (making or deleting a character writes both, so one crate writes
-  them, in one transaction).  Protogame and the game library call its
+  SQL for the `accounts` table or the `player_characters` table (making or
+  deleting a character writes both, so one crate writes them, in one
+  transaction; `characters.rs`).  A character is three to an account, in
+  the first empty slot, and only the player deletes one.  Protogame and the game library call its
   functions.  **An account is never held in memory**: whatever needs one loads
   it from its row when it needs it (`load()`, `list()`), and every change goes
   straight back to the row, so there's one copy and nothing writes an old one

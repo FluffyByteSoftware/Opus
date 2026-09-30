@@ -27,10 +27,11 @@ settings.  Things will change and things will break.
 | The monitor: CPU, memory, disk, threads          | Built and tested                                       |
 | Lua scripting                                    | First step: scripts run on START SERVER, locked down   |
 | The game library (entities and components)       | Built and tested; nothing spawns into it yet           |
-| The character: its template, its save, its table | Built and tested; nothing makes one yet                |
+| The character: its template, its save, its table | Built and tested                                       |
+| Character select: list, make, delete, reset home | Built and tested with the test client                  |
 | The world (GameWorld)                            | Made and loaded; nothing changes a block yet           |
 | The game loop (the GameClock)                    | Ticking; its five checks are empty                     |
-| Character select, movement, chat                 | Not started                                            |
+| Spawning in the world, movement, chat            | Not started                                            |
 | Ensemble                                         | Unity project settings only                            |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
@@ -53,12 +54,15 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
   **Security** hashes passwords (Argon2id), one at a time, with everybody else in line, since fifty
   logins hashing at once on fifty threads is what blew the tick in the last server I wrote.
   **Archivist** is the database, PostgreSQL on its own thread; callers get the answer back later.
-- **accounts** -- the one way in to the accounts table.  An account is never held in memory: it's read
-  from its row when needed and every change goes straight back, so there's only ever one copy.
+- **accounts** -- the one way in to the accounts table and the players' characters.  An account is never
+  held in memory: it's read from its row when needed and every change goes straight back, so there's only
+  ever one copy.  Three characters to an account, each with a name that's unique on the server.
 - **monitor** -- once a second, CPU, memory, disk and threads for Conductor and the machine.
 - **networking** -- the front door.  TCP is only the login: TLS 1.3, a username and password, and the
-  player gets a ticket for UDP, where everything after happens.  A whitelist and a blacklist, which take
-  at once without a reboot, because a ban that waited for a STOP SERVER wouldn't be much of a ban.
+  player gets a ticket for UDP, where everything after happens, starting with character select (list,
+  make, delete, reset home), answered by Protogame on a thread of its own.  A whitelist and a blacklist,
+  which take at once without a reboot, because a ban that waited for a STOP SERVER wouldn't be much of a
+  ban.
 - **lua-parser** -- the game's content is going to be written in Lua 5.4.  For now every script under
   `Content/scripts/` runs once on START SERVER, with no way to reach the disk, the network or the
   database, and a time limit, a memory limit and a cap on its log lines, so a bad quest can't be a bad
@@ -82,11 +86,12 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
   console shows the log and takes no input).  It only listens on this machine.  Two logins: `admin` does
   everything, `user` looks.  Five sections across the top: CONTROL PANEL (start and stop, the machine,
   Conductor, the services, storage), CONFIGURATION (every setting, the two access lists), LOGS,
-  ACCOUNT MANAGEMENT and GAME MANAGEMENT (who's connecting and who's in the world, with KICK).
+  ACCOUNT MANAGEMENT and GAME MANAGEMENT (who's connecting and who's in the world, with KICK, and every
+  player's character).
 - **launcher** -- the program itself.  Boots, then starts and stops the server on the web admin's say.
 
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
-each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 4).
+each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 5).
 
 ## What it needs
 
@@ -153,8 +158,10 @@ running on.
 ## Talking to it
 
 Until Ensemble can, `Conductor/dev/networking/test_client.py` stands in for it: Python 3, standard library
-only.  It logs in, takes the ticket to UDP, keeps alive, and prints every packet both ways.  Make a test
-account on the web admin's Accounts tab first (players can't make one), then, from the `Opus` folder:
+only.  It logs in, takes the ticket to UDP, lists the account's characters, keeps alive, and prints every
+packet both ways.  `--create Name`, `--delete Name` and `--reset-home Name` do the rest of character
+select.  Make a test account on the web admin's Accounts tab first (players can't make one), then, from the
+`Opus` folder:
 
 ```
 python3 Conductor/dev/networking/test_client.py some_account 'Its password 1!'
