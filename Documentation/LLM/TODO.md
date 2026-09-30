@@ -65,11 +65,11 @@ Things that wait on a piece that doesn't exist yet.
   - **Postgres does the wiping**: `account_id` is `ON DELETE CASCADE`, so an account's characters go
     with its row, and each slot is `ON DELETE SET NULL`, so a deleted character empties its slot.
   Still open: the ECS (below); the game library's name; whether the world and the voxels are the game
-  library's; which messages protogame carries (the client's UDP traffic to its character, chat between characters, or the game telling a
-  character what happened); who makes a character (the player from the client, or the admin); whether
-  one is chosen at the TLS login or after the UDP connect (protocol version 5 either way); the chunk
-  and world sizes and where the world is kept; the tick rate; how the test client shows it working.
-  More than one session's step, so the first one picks where to stop.
+  library's; which messages protogame carries (the client's UDP traffic to its character, chat between
+  characters, or the game telling a character what happened); who makes a character (the player from the
+  client, or the admin); whether one is chosen at the TLS login or after the UDP connect (protocol
+  version 5 either way); the chunk and world sizes and where the world is kept; the tick rate; how the
+  test client shows it working.  More than one session's step, so the first one picks where to stop.
   - **The ECS, open**: written by hand or a crate (bevy_ecs, hecs: a dependency, and heavy on
     generics and macros); which components a character is; how a character's components are saved
     (a column each on `player_characters`, a table per component, or one column holding them all);
