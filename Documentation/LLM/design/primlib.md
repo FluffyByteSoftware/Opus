@@ -18,6 +18,12 @@ blueprints, and tests (`cargo test -p conductor-primlib`).  Built and tested on 
 isn't a server piece itself: the GameClock (`design/gameclock.md`) owns a `World`, made fresh on every
 START SERVER, and hands it to its five checks.  Nothing spawns anything into it yet.
 
+**The character, Part A** (2026-09-30, written, **not built yet**): the first step of Jacob's map, "finishing
+out character as a template for hydrating from an account".  Templates that take in other templates, the
+`Living` and `Character` templates, `PlayerCharacter`, a GameObject remembering its templates, and saving
+a GameObject as Lua text and making a character back from it.  See "The character and saving" below.
+Part B, the `player_characters` table the text goes in, is in TODO.md under Protogame.
+
 **Part two is the Lua**: templates and blueprints written as scripts under `Content/scripts/`, calling into
 this crate.  See "Lua, part two" below.
 
@@ -30,9 +36,14 @@ primlib/
     ├── lib.rs         lists the pieces
     ├── entity.rs      Entity (a slot number and a generation); Entities, which hands them out and takes them back
     ├── store.rs       Store<T>: one kind of component, a slot per entity
-    ├── components.rs  the components; Kind (which one, by name); Component (one of them, with its value)
-    ├── world.rs       World: the entities and a Store per kind; spawn, despawn, add, remove, get
-    └── template.rs    Template (NPC) and Blueprint (goblin_a)
+    ├── components.rs  the components, each with its saved() and load(); Kind (which one, by name);
+    │                    Component (one of them, with its value)
+    ├── world.rs       World: the entities, a Store per kind, and each entity's templates; spawn, despawn,
+    │                    add, remove, get, templates(), is()
+    ├── template.rs    Template (NPC) and Blueprint (goblin_a); take_in(), templates(), is()
+    ├── gameobject.rs  the built-in templates: living_template(), character_template(); character_from_save(),
+    │                    check_living(); LIVING, CHARACTER
+    └── save.rs        Save (templates and saved fields): of(), apply(), to_lua(); Fields; Value
 ```
 
 ## Decided
@@ -43,7 +54,7 @@ primlib/
 - **An entity is a number and a generation.**  The number is its slot.  When an entity is despawned its
   slot is reused, and the generation goes up by one, so an old handle to a dead goblin can't read the
   new goblin that took its slot.  Every call checks it.
-- **A component is plain data**, one struct per kind.  There are ten: Jacob's sample NPC, with Position,
+- **A component is plain data**, one struct per kind.  There are eleven: Jacob's sample NPC, with Position,
   Rotation and Scale made one `Transform`, and what the client draws (a `Model`, a `PrimitiveShape` and an
   `Animator`; Jacob: "may need to divide our current components up more"):
   - `Transform`: a position, a rotation and a scale, each a `Vector3` (x, y, z as `f32`, what Unity uses).
@@ -62,10 +73,12 @@ primlib/
   - `Health`, `Endurance` and `Mana`: the same shape, a `Pool` (current and max).  A pool made with just
     a max starts full: "No need to Health.Set it, it auto sets to max unless specified."  Damage stops at
     0 and healing at the max.
-- **The world holds a `Store` per kind.**  Adding a new kind of component: in `components.rs`, the struct,
-  a line in `Kind`, `Kind::ALL` and `name()`, a line in `Component`, `kind()` and `default_of()`; in
-  `world.rs`, its store, a line in each of the four matches (`add`, `remove`, `has`, `component`), and its
-  two getters.
+  - `PlayerCharacter`: the account's `id` and the `player_characters` row's `id`.  It says a player steers
+    this GameObject, and it's how the game gets back to the account ("their account is what we track").
+- **The world holds a `Store` per kind.**  Adding a new kind of component: in `components.rs`, the struct
+  with its `saved()` and `load()`, a line in `Kind`, `Kind::ALL` and `name()`, a line in `Component`,
+  `kind()`, `default_of()`, `saved()` and `load()`; in `world.rs`, its store, a line in each of the four
+  matches (`add`, `remove`, `has`, `component`), and its two getters.
 - **Template, blueprint, copy.**  Three layers:
   - The **template** (`NPC`) is a cheat sheet: components with their defaults, "so I don't write the
     same 50 lines in 50 npcs".
@@ -101,6 +114,56 @@ primlib/
   Since the copies come back after a restart, their names come back with them, and the number carries on
   from the highest one in use, so there are never two `goblin_1`s.  Built with the UUID, together with
   saving.
+
+## The character and saving
+
+Jacob's answers, 2026-09-30, for the first step of his map.  Written, not built yet.
+
+- **A template can take in another whole**: `Template::take_in()`.  "Its similar to inheritance in old
+  discworld mudlib okay?  inherit STD_LIVING;"  The components come in at the other template's values, and
+  whatever the template sets after wins.
+- **Living is a "micro template"**: `ShortName`, `LongName`, `Health`, `Endurance`, `Mana`.  The three pools
+  stay separate components, since "some objects may have health and no endurance... but all living objects
+  will have all 3", and the names are in it because "all living objects will have to have a name.  Its a
+  requirement."  `check_living()` holds a Living blueprint to that: all five, and a short name that isn't
+  blank.
+- **A Character is `Transform`, Living, `PrimitiveShape` (capsule) and `PlayerCharacter`.**  "Nothing else for
+  now."
+- **A GameObject remembers the templates it came from**, its own first (`Character`, `Living`), so the game
+  can ask `world.is(entity, "Living")`, the way Discworld's `living(ob)` did.  Blueprints carry the list, and
+  the world keeps it per entity beside the stores (not a component: nothing adds or drops it after).
+- **The save is the GameObject**: "our save needs to be the GameObject and all of its components, and the
+  components settings", and its templates.  Saved as Lua text, one column on the row, with the name and last
+  position as columns of their own (the mix, Jacob's yes).
+- **What's saved is picked per field** ("I think we do it per field and attribute?  like we add this above
+  in C# or something [SavedField]"), the plain way (Jacob: "plain way I'll get used to it either way"): a
+  `saved()` right under each struct names the fields it keeps, and a `load()` reads them back.  A field not
+  named isn't saved and keeps the template's value.  Today:
+  - `Transform`: `position` and `rotation`.  Not the scale, which is the template's.
+  - `ShortName`, `LongName`: `text`.
+  - `Titles`: `list`, and `picked` counted from 1 (0 is none).
+  - `Health`, `Endurance`, `Mana`: `current` and `max`.
+  - `Model`, `PrimitiveShape`, `Animator`: nothing (the template's, and what a model was doing doesn't
+    outlast a logout).  `PlayerCharacter`: nothing, since it's put back from the row.
+- **The text** is a script that hands back one table:
+  ```lua
+  return {
+    templates = { "Character", "Living" },
+    components = {
+      Transform = { position = { x = 12.5, y = 0, z = -7.25 }, rotation = { x = 0, y = 90, z = 0 } },
+      ShortName = { text = "jacob" },
+      Health = { current = 150, max = 200 },
+    },
+  }
+  ```
+  `lua-parser`'s `read_save()` runs it in the locked-down Lua and hands back a `Save`.  Anything in it that
+  isn't data (a function) or is the wrong shape turns the save away; a component name the game has dropped
+  is a Warn and the rest loads.
+- **Hydrating**: `character_from_save()` starts from the Character template, lays the save over it, then
+  puts the `PlayerCharacter` on from the row.  A component added to Character later turns up on old saves at
+  its default.
+- Open: a new character's starting health, endurance and mana (Living's defaults are 0), for character
+  creation; when a character is saved (leaving the world, STOP SERVER, every so often), for spawning.
 
 ## Lua, part two
 

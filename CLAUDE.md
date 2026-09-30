@@ -416,11 +416,21 @@ When I say we're wrapping up:
   crate: an entity is a slot and a generation, a component is a plain struct
   with a `Store` in the `World`, and objects are made from a **template**
   (`NPC`: components and defaults) through a **blueprint** (`goblin_a`: its
-  own changes).  A new kind of component goes in `components.rs` (the struct,
-  `Kind`, `Kind::ALL`, `name()`, `Component`, `kind()`, `default_of()`) and in
-  `world.rs` (a store, the four matches, two getters).  The world lives in
-  memory and the game loop never waits on the database: copies are written to
-  it on STOP SERVER and read back on START SERVER.
+  own changes).  A template can take in another whole (`Character` takes in
+  `Living`, my `inherit STD_LIVING;`), and every copy remembers the templates
+  it came from (`world.is(entity, "Living")`).  A new kind of component goes
+  in `components.rs` (the struct with its `saved()` and `load()`, `Kind`,
+  `Kind::ALL`, `name()`, `Component`, `kind()`, `default_of()`, and
+  `Component`'s `saved()` and `load()`) and in `world.rs` (a store, the four
+  matches, two getters).  The world lives in memory and the game loop never
+  waits on the database: copies are written to it on STOP SERVER and read
+  back on START SERVER.
+- **What's saved is picked per field**, the plain way: `saved()` right under
+  a component's struct names the fields a save keeps, and a field it doesn't
+  name isn't saved.  A GameObject is saved as Lua text (`primlib/src/save.rs`)
+  and read back by `lua-parser`'s `read_save()` in the locked-down Lua; a
+  character is made from the Character template with its save laid over it
+  (`gameobject.rs`).
 - **The ground is `conductor-gameworld`** (`design/world.md` has all of it).
   GameWorld's thread does the slow part (making the world, reading
   `region.map`, the heights and chunk files through DiskMan, building a chunk

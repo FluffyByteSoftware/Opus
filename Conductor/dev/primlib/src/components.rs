@@ -5,14 +5,21 @@
 //! The components: plain data, one struct per kind.  The first ones are
 //! from my sample NPC, with its position, rotation and scale made into one
 //! Transform the way Unity has it, then what the client draws: a Model, a
-//! PrimitiveShape to fall back on, and an Animator.  `Kind` names a kind
-//! of component (for a template's list, a script, or the log), and
-//! `Component` is one of them with its value, which is how a template or
-//! blueprint holds them.
+//! PrimitiveShape to fall back on, and an Animator.  `PlayerCharacter`
+//! says a player steers it.  `Kind` names a kind of component (for a
+//! template's list, a script, or the log), and `Component` is one of them
+//! with its value, which is how a template or blueprint holds them.
 //!
-//! Adding a kind: its struct here, a line in `Kind` (and `Kind::ALL` and
-//! `name()`), a line in `Component` (and `kind()`), then its store and
-//! getters in `world.rs`.
+//! Right under each struct, `saved()` names the fields a save keeps and
+//! `load()` reads them back (`save.rs` has the rest).  A field that isn't
+//! named in `saved()` isn't saved.
+//!
+//! Adding a kind: its struct here with its `saved()` and `load()`, a line
+//! in `Kind` (and `Kind::ALL` and `name()`), a line in `Component` (and
+//! `kind()`, `default_of()`, `saved()` and `load()`), then its store, the
+//! four matches and two getters in `world.rs`.
+
+use crate::save::Fields;
 
 /// Three numbers, x, y and z, as in Unity.  Y is up.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -50,6 +57,18 @@ impl Transform {
     pub fn at(position: Vector3) -> Transform {
         Transform { position, rotation: Vector3::default(), scale: Vector3::new(1.0, 1.0, 1.0) }
     }
+
+    /// Saved: where it is and which way it faces.  Not the scale, which is
+    /// always what the template says.
+    pub fn saved(&self, out: &mut Fields) {
+        out.put_vector3("position", self.position);
+        out.put_vector3("rotation", self.rotation);
+    }
+
+    pub fn load(&mut self, from: &Fields) -> Result<(), String> {
+        from.read_vector3("position", &mut self.position)?;
+        from.read_vector3("rotation", &mut self.rotation)
+    }
 }
 
 // Rust note: `Default` is written out by hand here, because the one Rust
@@ -74,6 +93,13 @@ impl Model {
     pub fn new(path: &str) -> Model {
         Model { path: path.to_string() }
     }
+
+    /// Nothing saved: the model is what the template or blueprint says.
+    pub fn saved(&self, _out: &mut Fields) {}
+
+    pub fn load(&mut self, _from: &Fields) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// The shape the client draws when it can't draw the object's model:
@@ -89,6 +115,15 @@ pub enum PrimitiveShape {
     Cylinder,
     Plane,
     Quad,
+}
+
+impl PrimitiveShape {
+    /// Nothing saved: the shape is what the template says.
+    pub fn saved(&self, _out: &mut Fields) {}
+
+    pub fn load(&mut self, _from: &Fields) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// What the object's model is doing, for the client to play.  A skeleton
@@ -107,6 +142,13 @@ impl Animator {
     pub fn playing(track: &str, looping: bool) -> Animator {
         Animator { current_track: track.to_string(), is_looping_currently: looping }
     }
+
+    /// Nothing saved: what the model was doing doesn't outlast a logout.
+    pub fn saved(&self, _out: &mut Fields) {}
+
+    pub fn load(&mut self, _from: &Fields) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// What an object is called for short, usually lower case: "goblin"
@@ -120,6 +162,15 @@ impl ShortName {
     pub fn new(text: &str) -> ShortName {
         ShortName { text: text.to_string() }
     }
+
+    /// Saved: the name.
+    pub fn saved(&self, out: &mut Fields) {
+        out.put_text("text", &self.text);
+    }
+
+    pub fn load(&mut self, from: &Fields) -> Result<(), String> {
+        from.read_text("text", &mut self.text)
+    }
 }
 
 /// An object's full name, capitalized, with a title or a name of its own
@@ -132,6 +183,15 @@ pub struct LongName {
 impl LongName {
     pub fn new(text: &str) -> LongName {
         LongName { text: text.to_string() }
+    }
+
+    /// Saved: the name.
+    pub fn saved(&self, out: &mut Fields) {
+        out.put_text("text", &self.text);
+    }
+
+    pub fn load(&mut self, from: &Fields) -> Result<(), String> {
+        from.read_text("text", &mut self.text)
     }
 }
 
@@ -171,6 +231,32 @@ impl Titles {
             Some(index) => self.list.get(index).map(|title| title.as_str()),
             None => None,
         }
+    }
+
+    /// Saved: every title, and which one it goes by.  `picked` is counted
+    /// from 1 the way Lua counts, and 0 is none picked.
+    pub fn saved(&self, out: &mut Fields) {
+        out.put_texts("list", &self.list);
+        let picked = match self.picked {
+            Some(index) => index + 1,
+            None => 0,
+        };
+        out.put_number("picked", picked as f64);
+    }
+
+    pub fn load(&mut self, from: &Fields) -> Result<(), String> {
+        from.read_texts("list", &mut self.list)?;
+        if from.get("picked").is_none() {
+            return Ok(());
+        }
+        let mut picked = 0;
+        from.read_u32("picked", &mut picked)?;
+        self.picked = match picked {
+            0 => None,
+            number if (number as usize) <= self.list.len() => Some(number as usize - 1),
+            number => return Err(format!("picked is title {number}, but there are only {}", self.list.len())),
+        };
+        Ok(())
     }
 }
 
@@ -217,6 +303,44 @@ impl Pool {
     pub fn is_empty(&self) -> bool {
         self.current == 0
     }
+
+    /// Saved: how full it is, and the cap.
+    pub fn saved(&self, out: &mut Fields) {
+        out.put_number("current", f64::from(self.current));
+        out.put_number("max", f64::from(self.max));
+    }
+
+    /// Reads the max first, so a current over it comes down to it.
+    pub fn load(&mut self, from: &Fields) -> Result<(), String> {
+        from.read_u32("max", &mut self.max)?;
+        let mut current = self.current;
+        from.read_u32("current", &mut current)?;
+        self.current = current.min(self.max);
+        Ok(())
+    }
+}
+
+/// Says a player steers this GameObject: the account it belongs to, and
+/// the `player_characters` row it's saved to, both by their `id`.  The
+/// account is what the server keeps track of; this is how the game gets
+/// from the character back to it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PlayerCharacter {
+    pub account_id: i64,
+    pub character_id: i64,
+}
+
+impl PlayerCharacter {
+    pub fn new(account_id: i64, character_id: i64) -> PlayerCharacter {
+        PlayerCharacter { account_id, character_id }
+    }
+
+    /// Nothing saved: it's put back from the row the save was read from.
+    pub fn saved(&self, _out: &mut Fields) {}
+
+    pub fn load(&mut self, _from: &Fields) -> Result<(), String> {
+        Ok(())
+    }
 }
 
 /// A kind of component, by name, without its value.
@@ -232,11 +356,12 @@ pub enum Kind {
     Health,
     Endurance,
     Mana,
+    PlayerCharacter,
 }
 
 impl Kind {
     /// Every kind, in the order they're listed here.
-    pub const ALL: [Kind; 10] = [
+    pub const ALL: [Kind; 11] = [
         Kind::Transform,
         Kind::Model,
         Kind::PrimitiveShape,
@@ -247,6 +372,7 @@ impl Kind {
         Kind::Health,
         Kind::Endurance,
         Kind::Mana,
+        Kind::PlayerCharacter,
     ];
 
     /// The kind's name, as a script or the log would write it.
@@ -262,6 +388,7 @@ impl Kind {
             Kind::Health => "Health",
             Kind::Endurance => "Endurance",
             Kind::Mana => "Mana",
+            Kind::PlayerCharacter => "PlayerCharacter",
         }
     }
 
@@ -287,6 +414,7 @@ pub enum Component {
     Health(Pool),
     Endurance(Pool),
     Mana(Pool),
+    PlayerCharacter(PlayerCharacter),
 }
 
 impl Component {
@@ -303,13 +431,15 @@ impl Component {
             Component::Health(_) => Kind::Health,
             Component::Endurance(_) => Kind::Endurance,
             Component::Mana(_) => Kind::Mana,
+            Component::PlayerCharacter(_) => Kind::PlayerCharacter,
         }
     }
 
     /// The kind with its default value: a transform at 0, 0, 0 facing the
     /// way its model was made at its own size, no model path, a cube, an
-    /// animator playing nothing, empty names and titles, and pools of 0.
-    /// A template sets its own where these won't do.
+    /// animator playing nothing, empty names and titles, pools of 0, and a
+    /// player character belonging to nobody.  A template sets its own where
+    /// these won't do.
     pub fn default_of(kind: Kind) -> Component {
         match kind {
             Kind::Transform => Component::Transform(Transform::default()),
@@ -322,6 +452,42 @@ impl Component {
             Kind::Health => Component::Health(Pool::default()),
             Kind::Endurance => Component::Endurance(Pool::default()),
             Kind::Mana => Component::Mana(Pool::default()),
+            Kind::PlayerCharacter => Component::PlayerCharacter(PlayerCharacter::default()),
+        }
+    }
+
+    /// Puts the component's saved fields in `out`, by asking its own
+    /// `saved()`.
+    pub fn saved(&self, out: &mut Fields) {
+        match self {
+            Component::Transform(value) => value.saved(out),
+            Component::Model(value) => value.saved(out),
+            Component::PrimitiveShape(value) => value.saved(out),
+            Component::Animator(value) => value.saved(out),
+            Component::ShortName(value) => value.saved(out),
+            Component::LongName(value) => value.saved(out),
+            Component::Titles(value) => value.saved(out),
+            Component::Health(value) => value.saved(out),
+            Component::Endurance(value) => value.saved(out),
+            Component::Mana(value) => value.saved(out),
+            Component::PlayerCharacter(value) => value.saved(out),
+        }
+    }
+
+    /// Reads saved fields into the component, by asking its own `load()`.
+    pub fn load(&mut self, from: &Fields) -> Result<(), String> {
+        match self {
+            Component::Transform(value) => value.load(from),
+            Component::Model(value) => value.load(from),
+            Component::PrimitiveShape(value) => value.load(from),
+            Component::Animator(value) => value.load(from),
+            Component::ShortName(value) => value.load(from),
+            Component::LongName(value) => value.load(from),
+            Component::Titles(value) => value.load(from),
+            Component::Health(value) => value.load(from),
+            Component::Endurance(value) => value.load(from),
+            Component::Mana(value) => value.load(from),
+            Component::PlayerCharacter(value) => value.load(from),
         }
     }
 }
@@ -381,6 +547,57 @@ mod tests {
     #[test]
     fn the_fallback_shape_is_a_cube() {
         assert_eq!(PrimitiveShape::default(), PrimitiveShape::Cube);
+    }
+
+    #[test]
+    fn a_pool_reads_back_with_its_current_under_its_max() {
+        let mut saved = Fields::new();
+        Pool { current: 150, max: 200 }.saved(&mut saved);
+        let mut pool = Pool::full(10);
+        assert_eq!(pool.load(&saved), Ok(()));
+        assert_eq!(pool, Pool { current: 150, max: 200 });
+
+        let mut over = Fields::new();
+        over.put_number("current", 500.0);
+        over.put_number("max", 100.0);
+        assert_eq!(pool.load(&over), Ok(()));
+        assert_eq!(pool, Pool { current: 100, max: 100 });
+    }
+
+    #[test]
+    fn titles_read_back_with_the_one_picked() {
+        let mut titles = Titles::one("the plucky");
+        titles.add("the Cursed");
+        titles.pick(1);
+        let mut saved = Fields::new();
+        titles.saved(&mut saved);
+
+        let mut read = Titles::default();
+        assert_eq!(read.load(&saved), Ok(()));
+        assert_eq!(read, titles);
+
+        let mut none = Fields::new();
+        Titles::default().saved(&mut none);
+        assert_eq!(read.load(&none), Ok(()));
+        assert_eq!(read, Titles::default());
+
+        let mut wrong = Fields::new();
+        wrong.put_texts("list", &["one".to_string()]);
+        wrong.put_number("picked", 3.0);
+        assert!(read.load(&wrong).is_err(), "there's no third title to pick");
+    }
+
+    #[test]
+    fn a_transform_keeps_its_scale_from_the_template() {
+        let mut moved = Transform::at(Vector3::new(1.0, 2.0, 3.0));
+        moved.scale = Vector3::new(9.0, 9.0, 9.0);
+        let mut saved = Fields::new();
+        moved.saved(&mut saved);
+
+        let mut read = Transform::default();
+        assert_eq!(read.load(&saved), Ok(()));
+        assert_eq!(read.position, Vector3::new(1.0, 2.0, 3.0));
+        assert_eq!(read.scale, Vector3::new(1.0, 1.0, 1.0), "the scale isn't saved");
     }
 
     #[test]

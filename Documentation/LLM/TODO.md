@@ -40,47 +40,19 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     spawns in world at its last save loc (0,0,0 for now)".  Character selection is the start of the UDP
     connection, so a character is picked after the UDP connect, not at the TLS login (protocol version 5).
   - **The character is a template** (primlib's), hydrated from the account: Jacob's first step of the
-    three on his map in STATUS.md.  Jacob's answers, 2026-09-30:
-    - **From the `player_characters` table**, not the account row: "the account has a pointer and referral
-      to the character's UUID and ID".
-    - **A character is `Transform`, `ShortName` / `LongName`, Living (health, endurance, mana) and
-      `PrimitiveShape` (capsule).  "Nothing else for now."**
-    - **Saving** (Jacob's yes, 2026-09-30, to the mix): the name and the last position are columns on
-      `player_characters`, so character select lists names and the spawn reads the position without
-      running anything; everything else is Lua text in one column.  (Asked first: "we may have to
-      frequently update the database rows ... or we could just dump the LUA data to a single row?"  A
-      row is rewritten whole on any UPDATE, so how often doesn't pick between them; what SQL needs to
-      see does.)
-    - **The save is the GameObject**: "our save needs to be the GameObject and all of its components, and
-      the components settings", and the templates it took in.  "We may when creating the components,
-      need to define what needs to be [saved]."  **Per field** (Jacob, 2026-09-30): "I think we do it per
-      field and attribute?  like we add this above in C# or something [SavedField]".  Written the plain
-      way (Jacob: "plain way I'll get used to it either way"): a `saved()` function right under each
-      component's struct names the fields it keeps, since a real attribute would be a macro crate and two
-      new dependencies.
-    - **The player component is `PlayerCharacter`** (the account's `id` and the character's row `id`).
-    - **The built-in templates (Living, Character) live in `primlib/src/gameobject.rs`** (Jacob's name).
-    - **Part A first** (Jacob's yes): the GameObject side in primlib and lua-parser, no database.  Part B,
-      the `player_characters` table, the slots and the functions in `conductor-accounts`, after.
+    three on his map in STATUS.md.  Part A, the GameObject side (Living, Character, `PlayerCharacter`,
+    saving as Lua text), is written: `design/primlib.md`, "The character and saving", has Jacob's
+    answers.  **Part B** is what's left of this step:
+    - **`player_characters`**, as above, with the name and the last position as columns of their own and
+      the rest of the save as Lua text in one column (the mix, Jacob's yes: character select lists names
+      and the spawn reads the position without running anything).  Every UPDATE rewrites the row whole,
+      so how often it's saved doesn't pick the shape; what SQL needs to see does.
     - **The account's slots point at the character by `id`**, per CLAUDE.md ("refer to CLAUDE on this").
-    - **Living is a "micro template"** (Jacob): it holds health, endurance and mana, and is added instead
-      of adding each one.  "Some objects may have health and no endurance... but all living objects will
-      have all 3.  You know we can tie name to this too.  Its similar to inheritance in old discworld
-      mudlib okay?  inherit STD_LIVING;"  So the three stay separate components, and Living is a set of
-      them a template takes in whole.  **Living includes the names**: "all living objects will have to have
-      a name.  Its a requirement."  So Living is `ShortName`, `LongName`, `Health`, `Endurance`, `Mana`.
-    - **A GameObject remembers the templates it took in** (Jacob's yes), so the game can ask "is this
-      living?", the way Discworld's `living(ob)` did.
-    - **So a Character is `Transform`, Living, `PrimitiveShape` (capsule) and the player component.**
-    - **The character holds a referral back to its account**: "their account is what we track".  A
-      component on the GameObject that's steered by a player ("that seems right").
-    - **The player makes a character at character select**, from the client.  So nothing makes one until
-      step 2, and it's tested through the game then: "We'll build it to test it through the game".
+    - **The functions in `conductor-accounts`**: make, list, load and save a character, and delete one.
+  - **The player makes a character at character select**, from the client, so nothing makes one until
+    step 2, and it's tested through the game then: "We'll build it to test it through the game".
 
-  Open: which components a character is, and which properties it has "baked" beside them; how its
-  components are saved (a column each on `player_characters`, a table per component, or one column
-  holding them all); which messages protogame carries; who makes a character (the player or the admin);
-  how the test client shows it working.
+  Open: which messages protogame carries; how the test client shows it working.
 - **The GameClock's checks**: an input mailbox and an input packet, a brain for the AI, movement into
   `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their
@@ -181,11 +153,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - The launcher's `main.rs`: `stop_server()` says networking goes first (the monitor does), and the header
     calls `start_server()` / `stop_server()` the list of what the server is (networking opens from
     `take_commands()`).  Its boot line names the soft files and leaves out `game.cfg`.
-  - primlib: `world.rs` says "when the game loop comes" (the GameClock is here), and `components.rs`'s
-    note on adding a kind leaves out `default_of()` and the four matches in `world.rs`.
   - Networking's `lib.rs` and `Cargo.toml` say it starts on START SERVER (it's once the ground is in), and
     `lib.rs` and `udp.rs` say there's no game yet.
-  - `lua-parser/src/lib.rs` says templates and blueprints come with the ECS (primlib is in; it's part 2).
   - The monitor's `lib.rs` header leaves out the process list, per-core load and the machine's RAM.
   - `protocol.rs` says the client will most likely be C# (it is), and `LoginAnswer::Unavailable`'s comment
     leaves out Fingerprinter failing to make a token.

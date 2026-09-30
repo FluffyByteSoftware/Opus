@@ -87,20 +87,23 @@ Opus/
 │       │       ├── dns/other.rs       # macOS and the rest: no names yet
 │       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep
 │       ├── lua-parser/                # lib, conductor-lua-parser -- a server piece
-│       │   ├── Cargo.toml             # depends on conductor-tools and mlua (Lua 5.4, built from source)
+│       │   ├── Cargo.toml             # depends on conductor-tools, conductor-primlib and mlua (Lua 5.4)
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(); the lua thread: finds Content/scripts/**/*.lua, runs each once
-│       │       └── sandbox.rs         # the locked-down Lua: the safe libraries, the log, the time and memory limits
+│       │       ├── sandbox.rs         # the locked-down Lua: the safe libraries, the log, the time and memory limits
+│       │       └── save.rs            # read_save(): a saved GameObject back from its Lua text
 │       ├── primlib/                   # lib, conductor-primlib -- the game library; the GameClock owns its World
 │       │   ├── Cargo.toml             # no dependencies
 │       │   └── src/
 │       │       ├── lib.rs             # lists the pieces
 │       │       ├── entity.rs          # Entity (a slot and a generation); Entities hands them out and takes them back
 │       │       ├── store.rs           # Store<T>: one kind of component, a slot per entity
-│       │       ├── components.rs      # the components (Transform, Health, ...); Kind (which one, by name);
-│       │       │                      #   Component (one, with its value)
-│       │       ├── world.rs           # World: the entities and a store per kind; spawn, despawn, add, remove, get
-│       │       └── template.rs        # Template (NPC) and Blueprint (goblin_a)
+│       │       ├── components.rs      # the components (Transform, Health, PlayerCharacter, ...), each with
+│       │       │                      #   saved() and load(); Kind (which one, by name); Component
+│       │       ├── world.rs           # World: the entities, a store per kind, each one's templates; spawn, is()
+│       │       ├── template.rs        # Template (NPC) and Blueprint (goblin_a); take_in() another template
+│       │       ├── gameobject.rs      # the built-in templates, Living and Character; a character from its save
+│       │       └── save.rs            # a GameObject saved as Lua text: its templates and saved fields
 │       ├── gameworld/                 # lib, conductor-gameworld -- the ground; a server piece, its thread is gameworld
 │       │   ├── Cargo.toml             # depends on conductor-tools
 │       │   └── src/

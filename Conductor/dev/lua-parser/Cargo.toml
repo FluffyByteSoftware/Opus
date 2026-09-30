@@ -8,7 +8,10 @@
 # folder without the conductor- in front, and its name is
 # conductor-lua-parser, so code says conductor_lua_parser.
 #
-# mlua is the one dependency beyond our own tools.  "lua54" picks Lua 5.4,
+# It reads saved GameObjects back too, so it leans on primlib for what a
+# save is.
+#
+# mlua is the one dependency beyond our own crates.  "lua54" picks Lua 5.4,
 # and "vendored" builds Lua from source inside mlua with the C compiler, so
 # there's nothing to install on the machine but the compiler itself.
 
@@ -18,5 +21,6 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+conductor-primlib = { path = "../primlib" }
 conductor-tools = { path = "../tools" }
 mlua = { version = "0.12", features = ["lua54", "vendored"] }

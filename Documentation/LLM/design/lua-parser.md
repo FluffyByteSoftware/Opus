@@ -20,7 +20,7 @@ LONGTERM_TODO.md with the language's other open questions, Jacob's sample among 
 
 ```
 lua-parser/
-├── Cargo.toml         depends on conductor-tools and mlua 0.12 ("lua54", "vendored")
+├── Cargo.toml         depends on conductor-tools, conductor-primlib and mlua 0.12 ("lua54", "vendored")
 └── src/
     ├── lib.rs         start(), stop()
     │                    the lua thread: make Content/scripts/ if it's missing, find every .lua file
@@ -28,8 +28,11 @@ lua-parser/
     │                    read each through DiskMan and hand it to sandbox::run(); then check in with
     │                    the services list once a second until stop() drops the Sender
     │                  name_of(): the path from Content/ with / on every OS, scripts/npcs/goblin.lua
-    └── sandbox.rs     run(name, source) -> Result<(), String>: a fresh Lua, the script, the Lua dropped
-                       TIME_LIMIT 1 s, MEMORY_LIMIT 64 MB, LOG_LINES 50, LINE_CHARS 1000
+    ├── sandbox.rs     run(name, source) -> Result<(), String>: a fresh Lua, the script, the Lua dropped
+    │                  evaluate(name, source, read): the same, handing what the script returns to read
+    │                  TIME_LIMIT 1 s, MEMORY_LIMIT 64 MB, LOG_LINES 50, LINE_CHARS 1000
+    └── save.rs        read_save(name, text) -> Result<Save, String>: a saved GameObject back from its Lua
+                       text, in the same locked-down Lua (not built yet; `design/primlib.md`)
 ```
 
 ## Decided

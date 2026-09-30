@@ -9,10 +9,13 @@
 //! SERVER stops it, and RESTART SERVER runs them all again, so a changed
 //! script takes on a soft reboot.
 //!
-//! For now that's all it does.  The only thing a script can call is the
-//! log, so `hello.lua` saying hello on the Log tab is the proof that Lua
-//! runs inside Conductor and can't hurt it.  Templates, blueprints and
-//! behaviour scripts on objects come with the ECS.
+//! The only thing a script can call is the log, so `hello.lua` saying
+//! hello on the Log tab is the proof that Lua runs inside Conductor and
+//! can't hurt it.  Templates, blueprints and behaviour scripts on objects
+//! come with primlib's part 2.
+//!
+//! It also reads saved GameObjects back (`save.rs`): primlib writes a save
+//! as Lua text, and `read_save()` runs it in the same locked-down Lua.
 //!
 //! A script with an error is a Warn naming its file and line, and the rest
 //! still run.  Nothing a script does is ever an Error or takes the server
@@ -25,6 +28,9 @@
 //! live once there are objects for them to drive.
 
 mod sandbox;
+mod save;
+
+pub use save::read_save;
 
 use std::fs;
 use std::path::{Path, PathBuf};

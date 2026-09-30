@@ -99,7 +99,13 @@ has every answer in his words; `REGION_MAP.md` is new.
 ## What's waiting
 
 - **The 0.0.1 goal**: a player spawned in the world and able to chat.  Chat isn't designed (TODO.md).
-- **Jacob's next**: the character as a template, hydrated from an account (his map above).  Being designed.
+- **The character, Part A, is written and NOT BUILT YET**: `Template::take_in()`, the Living and Character
+  templates (`primlib/src/gameobject.rs`), `PlayerCharacter`, every GameObject remembering its templates,
+  `saved()` / `load()` per component, a save as Lua text (`primlib/src/save.rs`) and `read_save()` in
+  lua-parser (which now depends on primlib).  Expect compile fixes first.  Its checks are on
+  TEST_CHECKLIST.html; `design/primlib.md` has the design.
+- **The character, Part B**: the `player_characters` table, the slots and the functions in
+  `conductor-accounts`.  TODO.md, under Protogame.
 - **The world's part two**: saving changed chunks on STOP SERVER and every `save_minutes`, with the first
   thing that changes a block.  `design/world.md`.
 - **Sending chunks to a client**, and how Ensemble gets `region.map`.  A protocol change.

@@ -10,6 +10,12 @@
 //! a value, a component the template doesn't have, or one it does that a
 //! goblin_a shouldn't.  The world spawns copies of a blueprint.
 //!
+//! A template can take in another whole, the way `inherit STD_LIVING;`
+//! did in the Discworld mudlib: `Character` takes in `Living` and gets
+//! its names, health, endurance and mana in one go.  It remembers the
+//! names of the templates it took in, and so do its blueprints and every
+//! copy spawned from them, so the game can ask "is this living?".
+//!
 //! Both hold at most one component of each kind; setting one that's
 //! already there replaces it.  Today they're built in Rust.  They'll be
 //! written as Lua scripts later, and the scripts will call these same
@@ -35,12 +41,41 @@ fn put(list: &mut Vec<Component>, component: Component) {
 pub struct Template {
     name: String,
     components: Vec<Component>,
+    /// The templates it took in, and the ones they took in, in the order
+    /// they came.  Not its own name.
+    took_in: Vec<String>,
 }
 
 impl Template {
     /// An empty template.
     pub fn new(name: &str) -> Template {
-        Template { name: name.to_string(), components: Vec::new() }
+        Template { name: name.to_string(), components: Vec::new(), took_in: Vec::new() }
+    }
+
+    /// Takes in every component of `other`, at `other`'s values, and
+    /// remembers its name (and the names of the ones it took in).  One
+    /// this template already has of the same kind is replaced, so take in
+    /// first and set your own after.
+    pub fn take_in(&mut self, other: &Template) {
+        for component in &other.components {
+            put(&mut self.components, component.clone());
+        }
+        for name in std::iter::once(&other.name).chain(other.took_in.iter()) {
+            if *name != self.name && !self.took_in.contains(name) {
+                self.took_in.push(name.clone());
+            }
+        }
+    }
+
+    /// Every template this one is: its own name first, then the ones it
+    /// took in.
+    pub fn templates(&self) -> Vec<String> {
+        std::iter::once(self.name.clone()).chain(self.took_in.iter().cloned()).collect()
+    }
+
+    /// Whether this template is, or took in, the one named.
+    pub fn is(&self, name: &str) -> bool {
+        self.name == name || self.took_in.iter().any(|took| took == name)
     }
 
     /// Adds a component with its default, or replaces the one of its kind.
@@ -67,7 +102,8 @@ impl Template {
 #[derive(Clone, Debug)]
 pub struct Blueprint {
     name: String,
-    template: String,
+    /// Its template's name first, then the ones the template took in.
+    templates: Vec<String>,
     components: Vec<Component>,
 }
 
@@ -77,7 +113,7 @@ impl Blueprint {
     pub fn from_template(name: &str, template: &Template) -> Blueprint {
         Blueprint {
             name: name.to_string(),
-            template: template.name.clone(),
+            templates: template.templates(),
             components: template.components.clone(),
         }
     }
@@ -113,7 +149,15 @@ impl Blueprint {
 
     /// The name of the template it started from.
     pub fn template_name(&self) -> &str {
-        &self.template
+        // Rust note: a blueprint is only ever made from a template, so the
+        // list always has its name first; `map_or` covers the list being
+        // empty anyway, rather than panic.
+        self.templates.first().map_or("", |name| name.as_str())
+    }
+
+    /// Its template's name, then every template that one took in.
+    pub fn templates(&self) -> &[String] {
+        &self.templates
     }
 
     pub fn components(&self) -> &[Component] {
@@ -163,6 +207,40 @@ mod tests {
         assert!(goblin.has(Kind::Titles), "the template didn't have titles; the blueprint added them");
         assert!(!goblin.has(Kind::Mana), "a goblin_a doesn't get the NPC's mana");
         assert!(npc.components().contains(&Component::default_of(Kind::Mana)), "the template keeps its own");
+    }
+
+    #[test]
+    fn a_template_takes_in_another_whole() {
+        let mut living = Template::new("Living");
+        living.add_default(Kind::ShortName);
+        living.add(Component::Health(Pool::full(10)));
+
+        let mut character = Template::new("Character");
+        character.take_in(&living);
+        character.add(Component::Health(Pool::full(100)));
+        character.add_default(Kind::Transform);
+
+        let kinds: Vec<Kind> = character.components().iter().map(|component| component.kind()).collect();
+        assert_eq!(kinds, vec![Kind::ShortName, Kind::Health, Kind::Transform]);
+        assert!(character.components().contains(&Component::Health(Pool::full(100))), "set after, so it wins");
+        assert!(character.is("Character") && character.is("Living") && !character.is("NPC"));
+        assert_eq!(character.templates(), vec!["Character".to_string(), "Living".to_string()]);
+    }
+
+    #[test]
+    fn what_a_template_took_in_carries_on_down() {
+        let mut living = Template::new("Living");
+        living.add_default(Kind::Health);
+        let mut character = Template::new("Character");
+        character.take_in(&living);
+        let mut hero = Template::new("Hero");
+        hero.take_in(&character);
+        hero.take_in(&living);
+
+        assert_eq!(hero.templates(), vec!["Hero".to_string(), "Character".to_string(), "Living".to_string()]);
+        let blueprint = Blueprint::from_template("hero_a", &hero);
+        assert_eq!(blueprint.template_name(), "Hero");
+        assert_eq!(blueprint.templates(), hero.templates().as_slice());
     }
 
     #[test]

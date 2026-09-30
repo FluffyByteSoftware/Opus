@@ -65,6 +65,31 @@ enum Level {
 /// (`scripts/hello.lua`).  An error comes back as the Warn to log, naming
 /// the file and, where Lua knows it, the line.
 pub fn run(name: &str, source: &str) -> Result<(), String> {
+    let lua = timed(name)?;
+    // The `@` tells Lua this is a file name, so its errors read
+    // `scripts/hello.lua:3: ...`.
+    lua.load(source)
+        .set_name(format!("@{name}"))
+        .exec()
+        .map_err(|e| describe(name, &e))
+}
+
+/// Runs one script the same way, and hands what it returns to `read`,
+/// while its Lua is still there to read it from.  A save is read back
+/// this way: the script is `return { ... }`.
+// Rust note: `<T>` lets `read` hand back whatever the caller turns the
+// value into (a `Save`, for one), and `FnOnce` means it's called once.
+pub fn evaluate<T>(name: &str, source: &str, read: impl FnOnce(Value) -> Result<T, String>) -> Result<T, String> {
+    let lua = timed(name)?;
+    let value = lua.load(source)
+        .set_name(format!("@{name}"))
+        .eval::<Value>()
+        .map_err(|e| describe(name, &e))?;
+    read(value)
+}
+
+/// A locked-down Lua with the time limit's clock started.
+fn timed(name: &str) -> Result<Lua, String> {
     let lua = locked_down(name).map_err(|e| describe(name, &e))?;
 
     // The clock starts here, so building the Lua doesn't count against
@@ -87,13 +112,7 @@ pub fn run(name: &str, source: &str) -> Result<(), String> {
         Err(Error::runtime(format!("{file}:{line}: still running after {} s, its time limit",
                                    TIME_LIMIT.as_secs())))
     }).map_err(|e| describe(name, &e))?;
-
-    // The `@` tells Lua this is a file name, so its errors read
-    // `scripts/hello.lua:3: ...`.
-    lua.load(source)
-        .set_name(format!("@{name}"))
-        .exec()
-        .map_err(|e| describe(name, &e))
+    Ok(lua)
 }
 
 /// A Lua with only the safe libraries, the unsafe bits of those taken
@@ -255,6 +274,17 @@ mod tests {
                       error(why, 0)";
         let why = run("scripts/test.lua", script).unwrap_err();
         assert!(why.contains("time limit"), "{why}");
+    }
+
+    #[test]
+    fn a_script_can_hand_back_a_value() {
+        let answer = evaluate("scripts/test.lua", "return 6 * 7", |value| match value {
+            Value::Integer(number) => Ok(number),
+            _ => Err("not a whole number".to_string()),
+        });
+        assert_eq!(answer, Ok(42));
+        let why = evaluate("scripts/test.lua", "return (", |_| Ok(())).unwrap_err();
+        assert!(why.contains("didn't load"), "{why}");
     }
 
     #[test]

@@ -10,10 +10,18 @@
 //! A template (`NPC`) is a cheat sheet of components and their defaults,
 //! so we don't write the same 50 lines in 50 NPCs.  A blueprint
 //! (`goblin_a`) starts from a template and changes what it needs to.  The
-//! world spawns copies of a blueprint, each with its own values.
+//! world spawns copies of a blueprint, each with its own values.  A
+//! template can take in another whole (`Character` takes in `Living`), and
+//! every copy remembers the templates it came from.
+//!
+//! A GameObject is saved as Lua text: its templates and each component's
+//! saved fields (`save.rs`).  A player's character is made back from that
+//! (`gameobject.rs`).
 
 pub mod components;
 pub mod entity;
+pub mod gameobject;
+pub mod save;
 pub mod store;
 pub mod template;
 pub mod world;
@@ -21,8 +29,10 @@ pub mod world;
 // Rust note: these `pub use` lines let the rest of Conductor write
 // `conductor_primlib::World` instead of `conductor_primlib::world::World`.
 pub use components::{
-    Animator, Component, Kind, LongName, Model, Pool, PrimitiveShape, ShortName, Titles, Transform, Vector3,
+    Animator, Component, Kind, LongName, Model, PlayerCharacter, Pool, PrimitiveShape, ShortName, Titles, Transform,
+    Vector3,
 };
 pub use entity::Entity;
+pub use save::{Fields, Save, Value};
 pub use template::{Blueprint, Template};
 pub use world::World;

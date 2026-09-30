@@ -6,12 +6,14 @@
 //! where objects are spawned from a blueprint, have components added and
 //! taken away, and are despawned.  Every call checks the entity is alive
 //! first, so an old handle gets nothing rather than somebody else's goblin.
+//! Each one also keeps the names of the templates it was made from, so
+//! the game can ask whether it's living.
 //!
-//! There are no locks.  When the game loop comes, one thread owns the
-//! world and everything else asks it.
+//! There are no locks.  The GameClock's thread owns the world and
+//! everything else asks it.
 
 use crate::components::{
-    Animator, Component, Kind, LongName, Model, Pool, PrimitiveShape, ShortName, Titles, Transform,
+    Animator, Component, Kind, LongName, Model, PlayerCharacter, Pool, PrimitiveShape, ShortName, Titles, Transform,
 };
 use crate::entity::{Entities, Entity};
 use crate::store::Store;
@@ -29,6 +31,10 @@ pub struct World {
     health: Store<Pool>,
     endurance: Store<Pool>,
     mana: Store<Pool>,
+    player_character: Store<PlayerCharacter>,
+    /// The templates each entity was made from, its own template's first.
+    /// Not a component: nothing adds or takes one away after the spawn.
+    templates: Store<Vec<String>>,
 }
 
 impl World {
@@ -46,6 +52,8 @@ impl World {
             health: Store::new(),
             endurance: Store::new(),
             mana: Store::new(),
+            player_character: Store::new(),
+            templates: Store::new(),
         }
     }
 
@@ -55,13 +63,15 @@ impl World {
     }
 
     /// A copy of the blueprint: a new entity with every component on the
-    /// blueprint's list, each with its own value.  A hundred calls make a
-    /// hundred goblins, and hurting one doesn't touch the rest.
+    /// blueprint's list, each with its own value, and the blueprint's list
+    /// of templates.  A hundred calls make a hundred goblins, and hurting
+    /// one doesn't touch the rest.
     pub fn spawn(&mut self, blueprint: &Blueprint) -> Entity {
         let entity = self.entities.create();
         for component in blueprint.components() {
             self.add(entity, component.clone());
         }
+        self.templates.insert(entity.index(), blueprint.templates().to_vec());
         entity
     }
 
@@ -76,7 +86,23 @@ impl World {
         for kind in Kind::ALL {
             self.remove(entity, kind);
         }
+        self.templates.remove(entity.index());
         self.entities.destroy(entity)
+    }
+
+    /// The templates the entity was made from, its own template's first.
+    /// Empty for one made with `spawn_empty()`, or one that's gone.
+    pub fn templates(&self, entity: Entity) -> &[String] {
+        match self.slot(entity).and_then(|slot| self.templates.get(slot)) {
+            Some(templates) => templates.as_slice(),
+            None => &[],
+        }
+    }
+
+    /// Whether the entity was made from the template named, or from one
+    /// that took it in: `is(goblin, "Living")`.
+    pub fn is(&self, entity: Entity, template: &str) -> bool {
+        self.templates(entity).iter().any(|name| name == template)
     }
 
     /// Whether the entity is still in the world.
@@ -117,6 +143,7 @@ impl World {
             Component::Health(value) => self.health.insert(slot, value),
             Component::Endurance(value) => self.endurance.insert(slot, value),
             Component::Mana(value) => self.mana.insert(slot, value),
+            Component::PlayerCharacter(value) => self.player_character.insert(slot, value),
         }
         true
     }
@@ -138,6 +165,7 @@ impl World {
             Kind::Health => self.health.remove(slot).is_some(),
             Kind::Endurance => self.endurance.remove(slot).is_some(),
             Kind::Mana => self.mana.remove(slot).is_some(),
+            Kind::PlayerCharacter => self.player_character.remove(slot).is_some(),
         }
     }
 
@@ -157,6 +185,7 @@ impl World {
             Kind::Health => self.health.has(slot),
             Kind::Endurance => self.endurance.has(slot),
             Kind::Mana => self.mana.has(slot),
+            Kind::PlayerCharacter => self.player_character.has(slot),
         }
     }
 
@@ -184,6 +213,7 @@ impl World {
             Kind::Health => self.health.get(slot).copied().map(Component::Health),
             Kind::Endurance => self.endurance.get(slot).copied().map(Component::Endurance),
             Kind::Mana => self.mana.get(slot).copied().map(Component::Mana),
+            Kind::PlayerCharacter => self.player_character.get(slot).copied().map(Component::PlayerCharacter),
         }
     }
 
@@ -278,6 +308,15 @@ impl World {
     pub fn mana_mut(&mut self, entity: Entity) -> Option<&mut Pool> {
         let slot = self.slot(entity)?;
         self.mana.get_mut(slot)
+    }
+
+    pub fn player_character(&self, entity: Entity) -> Option<&PlayerCharacter> {
+        self.player_character.get(self.slot(entity)?)
+    }
+
+    pub fn player_character_mut(&mut self, entity: Entity) -> Option<&mut PlayerCharacter> {
+        let slot = self.slot(entity)?;
+        self.player_character.get_mut(slot)
     }
 }
 
@@ -410,6 +449,35 @@ mod tests {
         }
         assert_eq!(world.animator(walker).map(|animator| animator.current_track.as_str()), Some("walk"));
         assert_eq!(world.animator(idler).map(|animator| animator.current_track.as_str()), Some("idle"));
+    }
+
+    #[test]
+    fn a_copy_remembers_its_templates_and_forgets_them_when_despawned() {
+        let mut world = World::new();
+        let mut living = Template::new("Living");
+        living.add(Component::Health(Pool::full(10)));
+        let mut npc = Template::new("NPC");
+        npc.take_in(&living);
+        let goblin = world.spawn(&Blueprint::from_template("goblin_a", &npc));
+
+        assert!(world.is(goblin, "NPC") && world.is(goblin, "Living"));
+        assert!(!world.is(goblin, "Character"));
+        assert_eq!(world.templates(goblin), &["NPC".to_string(), "Living".to_string()]);
+
+        assert!(world.despawn(goblin));
+        let rock = world.spawn_empty();
+        assert_eq!(rock.index(), goblin.index());
+        assert!(world.templates(rock).is_empty(), "the slot's next entity doesn't inherit the goblin's");
+        assert!(!world.is(goblin, "Living"), "the old handle gets nothing");
+    }
+
+    #[test]
+    fn a_player_character_says_whose_it_is() {
+        let mut world = World::new();
+        let thing = world.spawn_empty();
+        assert!(world.add(thing, Component::PlayerCharacter(PlayerCharacter::new(7, 42))));
+        assert_eq!(world.player_character(thing).map(|player| player.account_id), Some(7));
+        assert_eq!(world.player_character(thing).map(|player| player.character_id), Some(42));
     }
 
     #[test]
