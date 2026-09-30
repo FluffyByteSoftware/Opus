@@ -142,37 +142,42 @@ else, and it pulls nothing from the internet.
 It asks for a login first.  There are two accounts: `admin` can do everything, and `user` can look at
 everything and change nothing.  Their passwords are in `Content/cfg/wgui.cfg` (`admin` and `user` out of
 the box).  Every time Conductor starts, everybody starts logged out.  Until you're in, the page is only
-the login.  With the server stopped, only the Control Panel, the Log and the Settings open; the rest wait
+the login.  With the server stopped, only the Server tab, the Log and the Settings open; the rest wait
 for START SERVER.  So does the bell: a Warn at boot (a leftover line in a config file, say) is in the Log
 tab meanwhile, and on the bell once the server is up.
 
-The page is a sidebar of tabs:
+The page is five sections across the top, and the side menu lists the tabs of the one that's open:
 
-- **Control Panel** -- the server's state, START SERVER, RESTART SERVER, STOP SERVER and SHUT DOWN, and a
-  short list of the services.
-- **System** -- the whole machine: every core, memory, and every process, busiest first.  Click one to see
-  its threads.
-- **Conductor** -- its own CPU with a 60-second chart per core, memory against the machine's, disk, and
-  its threads (every one the OS knows about, and the ones we asked for, with who started them).
-- **Services** -- every service and how it says it's doing.
-- **Storage** -- Archivist's jobs and slow ones, and what DiskMan has waiting, held and written.
-- **Notifications History** -- every open notice, each with an ACK.
-- **Network Admin** -- three tabs under one heading.  **Connections** is the door (every TCP connection
-  since START SERVER, in a Recent view of the newest five and a Historical one of the whole run) and the
-  world (every player on UDP, by account, with how long they've been in and how quiet they are).  Each
-  connection has a menu to kick it or put its address on either list.  **Whitelist** and **Blacklist**
-  are the two lists, with ADD and REMOVE.
-- **Game Admin** -- **Accounts**, `admin` only: every game account, and a card for each (click its name)
-  to change the owner's names and email, give it a new password (typed twice), or delete it.  Deleting
-  an account whose player is in the world takes them out, and the client says ACCOUNT TERMINATED.  NEW
-  ACCOUNT makes one.  It only works while the server is running.
-- **Log** -- the log as it's written, coloured by how bad each line is.
-- **Settings** -- every config file, a card each, drawn straight from Constellations' table.  A save
-  waits for the file's reboot and says so.
+- **CONTROL PANEL**
+  - **Server** -- the server's state, START SERVER, RESTART SERVER, STOP SERVER and SHUT DOWN, and a
+    short list of the services.
+  - **System** -- the whole machine: every core, memory, and every process, busiest first.  Click one to
+    see its threads.
+  - **Conductor** -- its own CPU with a 60-second chart per core, memory against the machine's, disk, and
+    its threads (every one the OS knows about, and the ones we asked for, with who started them).
+  - **Services** -- every service and how it says it's doing.
+  - **Storage** -- Archivist's jobs and slow ones, and what DiskMan has waiting, held and written.
+- **CONFIGURATION**
+  - **Settings** -- every config file, a card each, drawn straight from Constellations' table.  A save
+    waits for the file's reboot and says so.
+  - **Whitelist** and **Blacklist** -- the two lists of addresses, with ADD and REMOVE.
+- **LOGS**
+  - **Log** -- the log as it's written, coloured by how bad each line is.
+  - **Notifications History** -- every open notice, each with an ACK.  The bell's tray opens it too.
+- **ACCOUNT MANAGEMENT**
+  - **Accounts**, `admin` only -- every game account, and a card for each (click its name) to change the
+    owner's names and email, give it a new password (typed twice), or delete it.  Deleting an account
+    whose player is in the world takes them out, and the client says ACCOUNT TERMINATED.  NEW ACCOUNT
+    makes one.  It only works while the server is running.
+- **GAME MANAGEMENT**
+  - **Connections** -- the door (every TCP connection since START SERVER, in a Recent view of the newest
+    five and a Historical one of the whole run) and the world (every player on UDP, by account, with how
+    long they've been in and how quiet they are).  Each connection has a menu to kick it or put its
+    address on either list.
 
-Until the server is running, only the Control Panel, the Log and the Settings can be opened.  While the
+Until the server is running, only the Server tab, the Log and the Settings can be opened.  While the
 server runs without a database, everything else is blurred and locked, since the game can't run without
-it.  The Network Admin tabs also wait for both of the network's listeners to be up.
+it.  Connections, Whitelist and Blacklist also wait for both of the network's listeners to be up.
 
 ## What it needs
 

@@ -7,18 +7,24 @@ Author:     Jacob Chacko
 The web admin's one page.  Baked into Conductor with include_str!, and it
 pulls nothing from the internet: no fonts, no scripts, no stylesheets.  It
 asks /Opus/status for the numbers once a second and draws them.  The shape
-of that answer is written down at the top of json.rs.  Twelve tabs down
-the left side: the Control Panel, System, Conductor, Services, Storage,
-Notifications History, a Network Admin subsection under a rule
-(Connections, Whitelist, Blacklist), a Game Admin subsection under
-another (Accounts), Scribe's log and Settings.  The Control Panel is
+of that answer is written down at the top of json.rs.  Five sections
+across the top (Jacob's layout, 2026-09-30), and the side menu lists the
+tabs of the one that's open:
+
+  CONTROL PANEL       Server, System, Conductor, Services, Storage
+  CONFIGURATION       Settings, Whitelist, Blacklist
+  LOGS                Log, Notifications History
+  ACCOUNT MANAGEMENT  Accounts
+  GAME MANAGEMENT     Connections
+
+The Server tab (it was the Control Panel tab before the sections) is
 where the server is started and stopped, and it's all there is until the
 server is running: the other tabs are locked, bar the log and the
 settings, and the bell is hidden.
 Once the server is running the tabs open up, and while the database isn't
 connected they're locked again and the page under the header is blurred.
-The three Network Admin tabs stay locked until both of networking's
-listeners are up.  Connections lists every connection that reached the
+Connections, Whitelist and Blacklist stay locked until both of
+networking's listeners are up.  Connections lists every connection that reached the
 login door since START SERVER, by address and never by account,
 with where each one is and a menu for admin (KICK, whitelist,
 blacklist), then every player in the world over UDP, by account.  The
@@ -26,10 +32,11 @@ Whitelist and Blacklist tabs are the two access lists, changed at once.
 The Accounts tab is the game's accounts, admin's only: the list, a card
 for one account (its owner's details, a new password, DELETE), and a card
 for a new one.
-The Control Panel, the Log, the Settings and the bell stay above that
-lock, so the server can still be stopped and the log read to see why.
-SHUT DOWN is on the Control Panel, with the server buttons, and nowhere
-else.  The Settings tab is the config editor: one card per file, drawn
+The Server tab, the Log, the Settings and the header (the bell and the
+sections) stay above that lock, so the server can still be stopped and
+the log read to see why.  SHUT DOWN is on the Server tab, with the server
+buttons, and nowhere else.  The bell's tray has HISTORY, which opens the
+Notifications History tab.  The Settings tab is the config editor: one card per file, drawn
 from /Opus/settings, with SAVE and DISCARD.  A save goes to a .wait4server
 file and takes at the file's reboot; nothing changes before then.
 
@@ -38,7 +45,7 @@ who can look at everything and change nothing, and admin, who can do
 everything.  Conductor answers 401 to a browser that isn't logged in, and
 the page shows the card whenever it sees one.  Every start of Conductor
 starts logged out; reloading the page doesn't.  Who's logged in, and LOG
-OUT, sit at the bottom of the sidebar.
+OUT, sit at the bottom of the side menu.
 -->
 <html lang="en">
 <head>
@@ -68,17 +75,39 @@ OUT, sit at the bottom of the sidebar.
     font-family: Inter, system-ui, "Segoe UI", Roboto, sans-serif;
     background: var(--page);
     color: var(--ink);
-    display: flex;
+    display: flex; flex-direction: column;
   }
   ::selection { background: var(--green-deep); color: var(--ink-bright); }
   .mono { font-family: var(--mono); }
 
-  /* The sidebar: the logo, and the tabs under it. */
-  aside {
-    width: 168px; flex-shrink: 0; padding: 24px 12px;
-    border-right: 1px solid var(--line); background: var(--page);
-    display: flex; flex-direction: column; align-items: stretch; gap: 24px;
+  /* The header across the top: the logo, the name and the status line,
+     the database pill, the uptime and the bell on one row, and the five
+     sections under them.  It never scrolls; the tab under it does. */
+  .top { flex-shrink: 0; border-bottom: 1px solid var(--line); background: var(--page); }
+  .top-row { display: flex; align-items: center; gap: 16px; padding: 12px 24px; flex-wrap: wrap; }
+  .top-name { flex: 1; min-width: 0; }
+  .sections { display: flex; gap: 4px; padding: 0 12px; overflow-x: auto; }
+  .section {
+    flex-shrink: 0; padding: 13px 18px; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;
+    white-space: nowrap; background: transparent; color: var(--ink-soft); border: none; border-radius: 0;
   }
+  .section:hover { background: var(--panel-dark); color: var(--ink); }
+  .section.on {
+    color: var(--green); background: rgba(16, 185, 129, 0.06); box-shadow: inset 0 -2px 0 var(--green-deep);
+  }
+  .section .dot { margin: 0 0 0 8px; vertical-align: middle; }
+
+  /* Under the header: the side menu with the open section's tabs, and the
+     tab itself beside it. */
+  .below { flex: 1; min-height: 0; display: flex; }
+  aside {
+    width: 200px; flex-shrink: 0; padding: 24px 12px; overflow-y: auto;
+    border-right: 1px solid var(--line); background: var(--page);
+    display: flex; flex-direction: column; align-items: stretch; gap: 12px;
+  }
+  .side-heading { padding: 0 4px 4px 12px; }
+  .side-note { padding: 0 4px 0 12px; line-height: 1.5; }
+  .side-note:empty { display: none; }
   .logo {
     width: 40px; height: 40px; border-radius: 4px;
     background: var(--green-deep); color: var(--page);
@@ -92,8 +121,11 @@ OUT, sit at the bottom of the sidebar.
     display: flex; flex-direction: column; gap: 24px;
     background: radial-gradient(ellipse at top right, #1e293b, #0f172a 55%, #000000);
   }
-  header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-  h1 { margin: 0; font-size: 24px; font-weight: 600; color: var(--ink-bright); letter-spacing: -0.02em; }
+  h1 { margin: 0; font-size: 22px; font-weight: 600; color: var(--ink-bright); letter-spacing: -0.02em; }
+  /* The open tab's name at the top of it, under its section's. */
+  .page-head h2 {
+    margin: 4px 0 0; font-size: 20px; font-weight: 600; color: var(--ink-bright); letter-spacing: -0.01em;
+  }
   .sub { margin-top: 4px; font-size: 13px; color: var(--ink-soft); }
   .clock { text-align: right; }
   .label { font-size: 11px; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; }
@@ -205,7 +237,8 @@ OUT, sit at the bottom of the sidebar.
     border: 1px solid var(--line); background: var(--panel-dark); color: var(--ink);
   }
   .tall-body .note { margin-top: 12px; }
-  /* A red dot on a sidebar tab when something on it needs looking at. */
+  /* A red dot on a tab, or a section, when something on it needs looking
+     at. */
   .maintab .dot { margin: 0 0 0 8px; vertical-align: middle; }
   .dot[hidden] { display: none; }
   .good-ink { color: var(--green); }
@@ -318,17 +351,12 @@ OUT, sit at the bottom of the sidebar.
   }
   @media (prefers-reduced-motion: reduce) { .pill.bad, .veil-card.bad, .dot.flash { animation: none; } }
 
-  /* The tabs, down the sidebar.  A locked one is disabled: greyed out and
-     unclickable.  Which ones are locked depends on whether the server is
-     running and whether the database is connected; see lockTabs(). */
+  /* The tabs, down the side menu, only the open section's showing.  A
+     locked one is disabled: greyed out and unclickable.  Which ones are
+     locked depends on whether the server is running and whether the
+     database is connected; see lockTabs(). */
   .tabs { display: flex; flex-direction: column; gap: 4px; }
-  /* The Network Admin heading: a rule across the sidebar, then the label,
-     with its three tabs indented under it.  Jacob's layout, 2026-09-29. */
-  .tabs-heading {
-    margin: 12px 0 2px; padding: 14px 0 0 12px; border-top: 1px solid var(--line);
-    font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-faint);
-  }
-  .maintab.sub { padding-left: 24px; }
+  .maintab[hidden] { display: none; }
   .maintab:disabled { opacity: 0.35; filter: grayscale(1); }
   .maintab {
     padding: 10px 12px; font-size: 12px; text-align: left; text-transform: uppercase; letter-spacing: 0.08em;
@@ -348,7 +376,7 @@ OUT, sit at the bottom of the sidebar.
   .content.locked { filter: blur(8px) grayscale(0.7); opacity: 0.5; pointer-events: none; user-select: none; }
   .veil { display: none; position: absolute; inset: 0; z-index: 5; }
   .veil-card {
-    position: sticky; top: 96px; max-width: 560px; margin: 0 auto; padding: 24px; text-align: center;
+    position: sticky; top: 24px; max-width: 560px; margin: 0 auto; padding: 24px; text-align: center;
     border: 2px solid var(--line); border-radius: 8px; background: rgba(15, 23, 42, 0.96);
   }
   .veil-card.bad { border-color: var(--red); animation: pulse 1s ease-in-out infinite; }
@@ -357,8 +385,8 @@ OUT, sit at the bottom of the sidebar.
   .veil-card p { margin: 8px 0 0 0; font-size: 13px; color: var(--ink-soft); }
 
   /* The log tab: the terminal fills what's left of the window under the
-     header and the tabs. */
-  .full { height: calc(100vh - 150px); min-height: 320px; }
+     header and the tab's name. */
+  .full { height: calc(100vh - 250px); min-height: 320px; }
 
   /* The bell, its count, and the tray of notices it pulls out.  The tray
      sits over whatever tab is open, and above the database lock. */
@@ -376,11 +404,15 @@ OUT, sit at the bottom of the sidebar.
   }
   .bell-count[hidden] { display: none; }
   .tray {
-    position: fixed; top: 80px; right: 24px; width: 380px; max-width: calc(100vw - 48px); z-index: 8;
+    position: fixed; top: 76px; right: 24px; width: 380px; max-width: calc(100vw - 48px); z-index: 8;
     display: none; flex-direction: column; gap: 8px;
   }
   .tray.open { display: flex; }
-  .tray-head { display: flex; justify-content: flex-end; }
+  .tray-head { display: flex; justify-content: flex-end; gap: 8px; }
+  /* The tray opens with nothing in it too, so HISTORY is always a click
+     away from the bell. */
+  .tray-empty { text-align: right; }
+  .tray-empty[hidden] { display: none; }
   .card {
     background: rgba(15, 23, 42, 0.97); border: 1px solid var(--line); border-left: 3px solid var(--blue);
     border-radius: 6px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -402,7 +434,7 @@ OUT, sit at the bottom of the sidebar.
 
   .bell[hidden] { display: none; }
 
-  /* The Control Panel's buttons: green to bring the server up, red to
+  /* The Server tab's buttons: green to bring the server up, red to
      take it down or to close Conductor. */
   .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
   .controls button { padding: 12px 20px; letter-spacing: 0.08em; }
@@ -454,8 +486,8 @@ OUT, sit at the bottom of the sidebar.
   .settings-card .controls { align-items: center; }
   .tag.warn { color: var(--yellow); background: rgba(250, 204, 21, 0.12); border-color: rgba(250, 204, 21, 0.4); }
 
-  /* Who's logged in, at the bottom of the sidebar, with LOG OUT. */
-  .who { margin-top: auto; display: flex; flex-direction: column; gap: 8px; font-size: 11px; }
+  /* Who's logged in, at the bottom of the side menu, with LOG OUT. */
+  .who { margin-top: auto; display: flex; flex-direction: column; gap: 8px; font-size: 11px; padding-top: 12px; }
   .who[hidden] { display: none; }
   .who .name { font-family: var(--mono); font-size: 13px; color: var(--ink); }
   .who button { padding: 6px 10px; font-size: 11px; letter-spacing: 0.08em; align-self: flex-start; }
@@ -463,38 +495,10 @@ OUT, sit at the bottom of the sidebar.
 </head>
 <body>
 
-<aside>
-  <div class="logo">OP</div>
-  <nav class="tabs" id="tabs" aria-orientation="vertical" role="tablist">
-    <button class="maintab" role="tab" data-tab="control">Control Panel</button>
-    <button class="maintab" role="tab" data-tab="system" disabled>System</button>
-    <button class="maintab" role="tab" data-tab="conductor" disabled>Conductor</button>
-    <button class="maintab" role="tab" data-tab="services" disabled>Services<span class="dot bad flash"
-      id="services-badge" hidden></span></button>
-    <button class="maintab" role="tab" data-tab="storage" disabled>Storage</button>
-    <button class="maintab" role="tab" data-tab="notices" disabled>Notifications History</button>
-    <div class="tabs-heading">Network Admin</div>
-    <button class="maintab sub" role="tab" data-tab="connections" disabled>Connections</button>
-    <button class="maintab sub" role="tab" data-tab="whitelist" disabled>Whitelist</button>
-    <button class="maintab sub" role="tab" data-tab="blacklist" disabled>Blacklist</button>
-    <div class="tabs-heading">Game Admin</div>
-    <button class="maintab sub" role="tab" data-tab="accounts" disabled>Accounts</button>
-    <button class="maintab" role="tab" data-tab="log" disabled>Log</button>
-    <button class="maintab" role="tab" data-tab="settings" disabled>Settings</button>
-  </nav>
-  <div class="who" id="who" hidden>
-    <div>
-      <div class="label">Logged in as</div>
-      <div class="name" id="who-name"></div>
-    </div>
-    <div class="note" id="who-note"></div>
-    <button class="tab" id="log-out">LOG OUT</button>
-  </div>
-</aside>
-
-<main>
-  <header>
-    <div>
+<header class="top">
+  <div class="top-row">
+    <div class="logo">OP</div>
+    <div class="top-name">
       <h1>Opus Conductor</h1>
       <div class="sub mono" id="summary">Waiting for the first look...</div>
     </div>
@@ -514,7 +518,54 @@ OUT, sit at the bottom of the sidebar.
         <span class="bell-count" id="bell-count" hidden></span>
       </button>
     </div>
-  </header>
+  </div>
+  <!-- The five sections.  Jacob's names and order, 2026-09-30.  A tab
+       below says which one it's under with data-section. -->
+  <nav class="sections" id="sections" aria-label="Sections">
+    <button class="section" data-section="control">Control Panel<span class="dot bad flash"
+      id="services-badge-top" hidden></span></button>
+    <button class="section" data-section="configuration">Configuration</button>
+    <button class="section" data-section="logs">Logs</button>
+    <button class="section" data-section="accounts">Account Management</button>
+    <button class="section" data-section="game">Game Management</button>
+  </nav>
+</header>
+
+<div class="below">
+<aside>
+  <div class="label side-heading" id="side-heading">Control Panel</div>
+  <nav class="tabs" id="tabs" aria-orientation="vertical" role="tablist">
+    <button class="maintab" role="tab" data-section="control" data-tab="control">Server</button>
+    <button class="maintab" role="tab" data-section="control" data-tab="system" disabled>System</button>
+    <button class="maintab" role="tab" data-section="control" data-tab="conductor" disabled>Conductor</button>
+    <button class="maintab" role="tab" data-section="control" data-tab="services" disabled>Services<span
+      class="dot bad flash" id="services-badge" hidden></span></button>
+    <button class="maintab" role="tab" data-section="control" data-tab="storage" disabled>Storage</button>
+    <button class="maintab" role="tab" data-section="configuration" data-tab="settings" disabled>Settings</button>
+    <button class="maintab" role="tab" data-section="configuration" data-tab="whitelist" disabled>Whitelist</button>
+    <button class="maintab" role="tab" data-section="configuration" data-tab="blacklist" disabled>Blacklist</button>
+    <button class="maintab" role="tab" data-section="logs" data-tab="log" disabled>Log</button>
+    <button class="maintab" role="tab" data-section="logs" data-tab="notices" disabled>Notifications
+      History</button>
+    <button class="maintab" role="tab" data-section="accounts" data-tab="accounts" disabled>Accounts</button>
+    <button class="maintab" role="tab" data-section="game" data-tab="connections" disabled>Connections</button>
+  </nav>
+  <div class="note side-note" id="side-note"></div>
+  <div class="who" id="who" hidden>
+    <div>
+      <div class="label">Logged in as</div>
+      <div class="name" id="who-name"></div>
+    </div>
+    <div class="note" id="who-note"></div>
+    <button class="tab" id="log-out">LOG OUT</button>
+  </div>
+</aside>
+
+<main>
+  <div class="page-head">
+    <div class="label" id="page-section">Control Panel</div>
+    <h2 id="page-title">Server</h2>
+  </div>
 
   <div class="stage">
   <section class="tabpage" id="page-control">
@@ -1032,11 +1083,16 @@ OUT, sit at the bottom of the sidebar.
   </div>
   </div>
 </main>
+</div>
 
 <div class="menu" id="row-menu" hidden></div>
 
 <div class="tray" id="tray">
-  <div class="tray-head"><button class="ack" id="tray-ack-all">ACK ALL</button></div>
+  <div class="tray-head">
+    <button class="ack" id="tray-history">HISTORY</button>
+    <button class="ack" id="tray-ack-all">ACK ALL</button>
+  </div>
+  <div class="note tray-empty" id="tray-empty" hidden>No open notices.</div>
 </div>
 
 <div class="login on" id="login">
@@ -1073,8 +1129,8 @@ const MOST_LINES = 500;
 const MAIN_TABS = ["control", "system", "conductor", "services", "storage", "notices", "connections", "whitelist",
                    "blacklist", "accounts", "log", "settings"];
 
-// The Network Admin subsection.  These three want both of networking's
-// listeners up as well as the database.
+// The tabs networking draws: Connections, and the two lists.  These three
+// want both of networking's listeners up as well as the database.
 const NET_TABS = ["connections", "whitelist", "blacklist"];
 
 // The tabs that are always clickable: the server can always be stopped,
@@ -1475,7 +1531,7 @@ function applyDbMode(mode, dbState, takenAt) {
     $("veil-title").textContent = "DATABASE OFFLINE";
     $("veil-text").textContent = "The game can't run right now.  Archivist says Postgres is " + dbState +
       ".  Conductor is still running and keeps trying to connect.  Seen offline since " + offlineSince +
-      ".  The rest of this page comes back when the database does.  The Control Panel and the Log still " +
+      ".  The rest of this page comes back when the database does.  The Server tab and the Log still " +
       "work, to see why and to stop the server or shut down.";
   } else {
     offlineSince = null;
@@ -1484,11 +1540,12 @@ function applyDbMode(mode, dbState, takenAt) {
   }
 }
 
-// Which sidebar tabs can be clicked.  The Control Panel, the Log and the
-// Settings always (OPEN_TABS).  The rest only with the server running and
-// the database connected, the Network Admin tabs only once both of
-// networking's listeners are up as well (Jacob's rule for them), and the
-// Accounts tab only for admin (user can't see the list; Jacob's call).
+// Which tabs can be clicked.  The Server tab, the Log and the Settings
+// always (OPEN_TABS).  The rest only with the server running and the
+// database connected, networking's three only once both of its listeners
+// are up as well (Jacob's rule for them), and the Accounts tab only for
+// admin (user can't see the list; Jacob's call).  The sections themselves
+// are never locked: a section whose tabs all are shows them greyed.
 let dbLocked = true;
 let netOnline = false;
 
@@ -1501,6 +1558,71 @@ function lockTabs() {
       : name === "accounts" ? dbLocked || !canChange
       : dbLocked;
   }
+  // The tray's HISTORY opens the Notifications History tab, so it goes
+  // with that tab's lock.
+  $("tray-history").disabled = tabButton("notices").disabled;
+  drawSideNote();
+}
+
+// ---------------------------------------------------------------------------
+// The sections across the top (Jacob's layout, 2026-09-30).  Each tab
+// says which one it's under with data-section, and the side menu shows the
+// open section's tabs only.
+// ---------------------------------------------------------------------------
+
+let currentSection = "control";
+
+function tabButton(name) {
+  return document.querySelector('.maintab[data-tab="' + name + '"]');
+}
+
+function sectionButton(name) {
+  return document.querySelector('.section[data-section="' + name + '"]');
+}
+
+// A button's words, with the line breaks in the HTML taken out.
+function words(button) {
+  return button.textContent.replace(/\s+/g, " ").trim();
+}
+
+function showSection(name) {
+  currentSection = name;
+  for (const button of document.querySelectorAll(".section")) {
+    const on = button.dataset.section === name;
+    button.classList.toggle("on", on);
+    button.setAttribute("aria-current", on ? "true" : "false");
+  }
+  for (const tab of document.querySelectorAll(".maintab")) {
+    tab.hidden = tab.dataset.section !== name;
+  }
+  $("side-heading").textContent = words(sectionButton(name));
+  drawSideNote();
+}
+
+// A line under the side menu when every tab in the open section is
+// locked, so a click on the section that opens nothing says why.
+function drawSideNote() {
+  const tabs = [...document.querySelectorAll('.maintab[data-section="' + currentSection + '"]')];
+  const allLocked = tabs.every(tab => tab.disabled);
+  $("side-note").textContent = !allLocked ? ""
+    : !serverRunning ? "These open once the server is running."
+    : dbLocked ? "These open once the database is connected."
+    : currentSection === "accounts" ? "Only admin can open the accounts."
+    : "These open once both of networking's listeners are up.";
+}
+
+// A click on a section.  If the open tab is in it, only the side menu
+// changes; otherwise the section's first tab that isn't locked opens.  If
+// they're all locked, the side menu shows them greyed and the open tab
+// stays where it is.
+function pickSection(name) {
+  const tabs = [...document.querySelectorAll('.maintab[data-section="' + name + '"]')];
+  if (tabs.some(tab => tab.dataset.tab === currentTab)) {
+    showSection(name);
+    return;
+  }
+  const open = tabs.find(tab => !tab.disabled);
+  if (open) showMainTab(open.dataset.tab); else showSection(name);
 }
 
 // The database veil covers the data tabs, never the always-open ones,
@@ -1511,8 +1633,9 @@ function showVeil() {
 }
 
 // The tab that was open last time is remembered by the browser, if it lets
-// us.  The Control Panel isn't remembered: it shows itself whenever the
-// server isn't running, and the remembered tab is for when it is.
+// us.  The Server tab isn't remembered: it shows itself whenever the
+// server isn't running, and the remembered tab is for when it is.  Opening
+// a tab opens its section too.
 let currentTab = "control";
 
 function showMainTab(name) {
@@ -1523,6 +1646,10 @@ function showMainTab(name) {
     tab.classList.toggle("on", on);
     tab.setAttribute("aria-selected", on);
   }
+  const tab = tabButton(name);
+  showSection(tab.dataset.section);
+  $("page-section").textContent = words(sectionButton(tab.dataset.section));
+  $("page-title").textContent = words(tab);
   for (const page of document.querySelectorAll(".tabpage")) {
     page.classList.toggle("on", page.id === "page-" + name);
   }
@@ -1549,7 +1676,7 @@ function savedMainTab() {
 }
 
 // ---------------------------------------------------------------------------
-// The Control Panel: the server's switch
+// The Server tab: the server's switch
 // ---------------------------------------------------------------------------
 
 // Whether the server was running at the last answer.  null before the
@@ -1708,7 +1835,7 @@ async function logOut() {
   showLogin("Logged out.");
 }
 
-// The services, in short, on the Control Panel: the same list as the
+// The services, in short, on the Server tab: the same list as the
 // Services tab, which is locked until the server is running.  A piece
 // that's expected or stopped is grey while the server is down, since
 // that's how it should be, and red once the server is up.
@@ -1804,11 +1931,14 @@ function drawServices(services) {
   const healthy = services.filter(service => service.healthy).length;
   $("services-count").textContent = healthy + " of " + services.length + " healthy";
   // With the server stopped, its pieces being down is the normal state.
+  // The dot goes on the CONTROL PANEL section too, or it would be out of
+  // sight whenever another section is open.
   $("services-badge").hidden = down === 0 || !serverRunning;
+  $("services-badge-top").hidden = $("services-badge").hidden;
 }
 
 // The Connections tab: the door, every connection that reached it this
-// run, and every player in the world.  The Network Admin tabs lock themselves
+// run, and every player in the world.  Networking's three tabs lock themselves
 // while either listener is down; if one was open, the page moves to the
 // default tab rather than sit on a locked one.
 let lastListCounts = null;
@@ -2624,10 +2754,14 @@ function noticeCard(notice) {
   return card;
 }
 
+// The tray opens even with nothing in it, so the bell always leads to
+// HISTORY (Jacob, 2026-09-30: the notices are the bell and the LOGS
+// section).
 function openTray() {
   const tray = $("tray");
   for (const card of tray.querySelectorAll(".card")) card.remove();
-  if (newestNotices.length === 0) return;
+  $("tray-empty").hidden = newestNotices.length > 0;
+  $("tray-ack-all").hidden = newestNotices.length === 0;
   for (const notice of newestNotices) {
     const card = noticeCard(notice);
     tray.appendChild(card);
@@ -2954,7 +3088,7 @@ $("tab-in-use").addEventListener("click", () => showTab(true));
 $("process-filter").addEventListener("input", () => { if (lastMonitor) drawSystem(lastMonitor); });
 $("tab-asked-for").addEventListener("click", () => showTab(false));
 
-// SHUT DOWN, on the Control Panel.
+// SHUT DOWN, on the Server tab.
 async function shutDown() {
   if (!confirm("Shut Conductor down?")) return;
   shuttingDown = true;
@@ -3002,11 +3136,19 @@ $("history-ack-all").addEventListener("click", async () => {
   drawHistory([]);
 });
 
+$("tray-history").addEventListener("click", () => {
+  closeTray();
+  showMainTab("notices");
+});
+
 for (const tab of document.querySelectorAll(".maintab")) {
   tab.addEventListener("click", () => showMainTab(tab.dataset.tab));
 }
+for (const button of document.querySelectorAll(".section")) {
+  button.addEventListener("click", () => pickSection(button.dataset.section));
+}
 
-// The Control Panel, with every other tab locked, until the first answer
+// The Server tab, with every other tab locked, until the first answer
 // says where the server is at.  The login card is up until that answer
 // comes, and stays up if it's a 401.
 showMainTab("control");

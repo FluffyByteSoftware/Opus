@@ -60,10 +60,7 @@ Things that wait on a piece that doesn't exist yet.
   which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
   `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
   rest.
-- **Web admin: rethink the sidebar** (Jacob, 2026-09-29).  With Network Admin and now an accounts
-  subsection, each with its own rule, a flat list of tabs with headings is getting cluttered: menus and
-  submenus, maybe.  Its own session, the one after the account manager.
-- **A list of blocked names** (Jacob, 2026-09-30, during the sidebar rethink): names nobody gets to use,
+- **A list of blocked names** (Jacob, 2026-09-30, while the sections were drawn): names nobody gets to use,
   one a line, with a Blocked Names page under the web admin's CONFIGURATION heading (REMOVE on each, an
   ADD field, like the Whitelist and Blacklist tabs).  Its own session.  Jacob's answers:
   - The file is `Content/cfg/blocked_names.txt`, beside `whitelist.cfg` and `blacklist.cfg`.  Like
@@ -102,7 +99,9 @@ Things that wait on a piece that doesn't exist yet.
   (it's since START SERVER); `tcp.rs`'s header says a stop has no deadline (it has 2 seconds);
   `json.rs`'s notes and the Control Panel's note on the page leave out the Settings tab and networking;
   the header of `constellations.rs` names only `postgres.cfg` as soft; the monitor's `Cargo.toml` header
-  leaves out the process list.
+  leaves out the process list; `json.rs` and the web admin's `Cargo.toml` say "the Network Admin tabs" (there's
+  no such heading since the sections, 2026-09-30), and `json.rs` says the page shows "the Control Panel"
+  while the server is stopped (the Server tab).
 
 ## Ideas
 

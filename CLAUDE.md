@@ -428,13 +428,20 @@ When I say we're wrapping up:
   is added, make sure the CSS for it exists.
 - Checking `page.html` by rendering it in a headless browser with made-up
   numbers is fine (it isn't running Conductor). Say that's all it was.
-- The page is twelve tabs down the left sidebar, under the OP logo: Control
-  Panel, System, Conductor, Services, Storage, Notifications History, then
-  a rule and a **Network Admin** subsection (Connections, Whitelist,
-  Blacklist; Jacob's layout, 2026-09-29), then another rule and a **Game
-  Admin** subsection (Accounts, 2026-09-29), then Log, Settings. Anything
-  new goes on one of them, or is a new tab I agree to.  The sidebar is to
-  be rethought (menus and submenus are getting cluttered; TODO.md).
+- **The page is five sections across the top** (Jacob's layout,
+  2026-09-30, picked from four mockups), and a side menu listing the open
+  section's tabs:
+  - CONTROL PANEL: Server, System, Conductor, Services, Storage
+  - CONFIGURATION: Settings, Whitelist, Blacklist
+  - LOGS: Log, Notifications History
+  - ACCOUNT MANAGEMENT: Accounts
+  - GAME MANAGEMENT: Connections
+
+  The **Server** tab was the Control Panel tab; its section took the
+  name.  A tab says its section with `data-section` in `page.html`.
+  Anything new goes on one of the tabs, or is a new tab (or section) I
+  agree to.  The notices are the bell and the LOGS section: the tray has
+  HISTORY, which opens Notifications History.
 - **The Accounts tab** (2026-09-29) is the game's accounts, `admin` only
   (`user` can't see the list).  The list, and a card per account opened by
   clicking its name: the owner's names and email (SAVE), a new password
@@ -464,18 +471,19 @@ When I say we're wrapping up:
   dropped at once, the player with a Kicked (reason 3, banned; protocol
   version 2).  KICK in a TCP row's three-dot menu kicks an open connection,
   or the player its login became (reason 4, kicked by the admin; protocol
-  version 3; Jacob's ask, 2026-09-29), greyed when nothing is left to kick.  All three Network Admin tabs are locked until both of networking's
-  listeners are up; the lists can't be changed from the page while the
+  version 3; Jacob's ask, 2026-09-29), greyed when nothing is left to kick.  Connections, Whitelist and
+  Blacklist are locked until both of networking's listeners are up; the lists can't be changed from the page while the
   server is stopped (edit the files by hand then).
-- The Control Panel, the Log and the Settings are always clickable. Until
+- The Server tab, the Log and the Settings are always clickable. Until
   the server is running they're the only tabs that are, and the bell is
-  hidden. The Control Panel is the only place the server is started,
-  restarted and stopped, and the only place SHUT DOWN is; the header has no
-  buttons but the bell. LOG OUT is at the bottom of the sidebar.
+  hidden. The Server tab is the only place the server is started,
+  restarted and stopped, and the only place SHUT DOWN is; the header has
+  the bell at the top right and the sections under it. LOG OUT is at the
+  bottom of the side menu.
 - While the server is running and the database isn't connected, the data
   tabs are blurred and locked. Anything new on the page sits under that lock;
-  only the header (the bell and its tray included), the Control Panel, the
-  Log and the Settings stay above it.
+  only the header (the bell, its tray and the sections included), the
+  Server tab, the Log and the Settings stay above it.
 - **The page has a login** (2026-09-29). Two accounts, fixed: `user` looks
   and touches nothing, `admin` does everything. Their passwords are the two
   settings in `wgui.cfg`, as they are, not hashed (Security only runs with

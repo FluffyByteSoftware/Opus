@@ -94,7 +94,7 @@ Opus/
 │       │       ├── http.rs            # just enough HTTP: the head, then the body Content-Length says
 │       │       ├── login.rs           # the two accounts (user, admin) and the live logins, by cookie
 │       │       ├── json.rs            # every JSON answer the page reads; the shapes at its top
-│       │       └── page.html          # the page, baked in: the login card, twelve tabs, the bell, the locks
+│       │       └── page.html          # the page, baked in: the login card, five sections of tabs, the bell, the locks
 │       └── conductor-launcher/        # bin -- the program
 │           ├── Cargo.toml             # depends on the five libs
 │           └── src/
