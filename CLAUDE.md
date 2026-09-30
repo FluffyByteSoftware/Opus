@@ -503,6 +503,11 @@ When I say we're wrapping up:
   `/discard` behind it. A new config file or setting shows up there with
   no page work. A save goes to `.wait4server` and takes at the file's
   reboot; the tab never hot swaps anything.
+- **Mockups go on a canvas, not in the repo.**  A new layout for the page
+  can start as a few clickable mockups on a claude.ai design canvas, in
+  the page's own colours with the real tab names, for Jacob to pick from
+  and comment on.  They stay there ("just on the canvas", 2026-09-30);
+  only the one he picks is built into `page.html`.
 - When talking about the page, name the panel or tab ("the Log tab"), not the
   tool behind it. "Where does Scribe go?" read as moving the crate.
 - [FILL IN the tick rate once there is a game loop]

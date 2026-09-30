@@ -31,12 +31,16 @@ Things that wait on a piece that doesn't exist yet.
 - Scribe: a debug switch in `conductor_globals.cfg` (on or off) that drops Debug lines when off.  Then go
   through every existing log line and move the routine ones to Debug, per the rule in CLAUDE.md.  Archivist's
   connect, schema and settings lines are the obvious first ones.
-- **The protogame library** (Jacob's pick at the 2026-09-29 close): what takes over after the login,
-  holds a reference to the player's account, and builds up the UDP session.  Today `sessions.rs` in
+- **The protocore** (Jacob's pick at the 2026-09-30 close; it was "the protogame library" the close
+  before): "the character and the world, and the voxels so that you can select a character from login
+  and be put into the world itself."  What takes over after the login.  Today `sessions.rs` in
   networking has the account's name and the UDP side only keeps the player alive.  An account is never
-  held in memory (Jacob's rule, 2026-09-29), so "a reference" is the name, and the row is read when
-  it's needed.  What moves where, what the
-  crate is called, and whether it's the game loop's start, are for that session to ask.
+  held in memory (Jacob's rule, 2026-09-29), so the game's reference to it is the name, and the row is
+  read when it's needed.  Open when it comes, in STATUS.md in full: the crate's name; the `characters`
+  table and who makes a character; whether a character is chosen at the TLS login or after the UDP
+  connect (protocol version 5 either way); the chunk and world sizes and where the world is kept; the
+  tick rate; how the test client shows it working.  More than one session's step, so the first one
+  picks where to stop.
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
   - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full
