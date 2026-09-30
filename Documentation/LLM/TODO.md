@@ -133,12 +133,11 @@ Things that wait on a piece that doesn't exist yet.
   the other way round, the client checking the *server's* certificate, as PROTOCOL.md says a client
   does.  The test client looks for `Content/certs/conductor.crt` three folders up from itself, and on
   the laptop it wasn't there, so it fell back to checking nothing, said so, and carried on.  Two
-  readings, Jacob's pick:
-  - **A.** The test client refuses to connect without the server's certificate, instead of carrying
-    on unchecked, the way Ensemble will.  `test_client.py` only.
-  - **B.** Clients carry certificates of their own and the server turns away any that don't (mutual
-    TLS).  Every install needs one, and it doesn't keep out a changed client, since the certificate
-    ships inside it.
+  readings were put to him (the test client refusing to go on unchecked, or clients with certificates
+  of their own), and his answer is the second, **mutual TLS**: "the server should be rejecting a client
+  connecting with no valid certificate ... The clients should be given a cert by the patcher before the
+  game is launched... then both the client should be able to trust the server and vice-versa."  It
+  needs the patcher (LONGTERM_TODO.md), so it waits on that; the questions are there.
 - **Web admin: the character on the Connections tab's UDP list**, beside the account, once there are
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
   the access lists, 2026-09-29.  Kicking is built, from the TCP row the player's login came through.

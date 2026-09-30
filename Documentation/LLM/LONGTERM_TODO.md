@@ -130,6 +130,34 @@ Nothing about it is designed yet.  Open when it opens:
   near), and how the tick handles one.
 - How it's seen on the web admin, if at all.
 
+## The patcher, and a certificate for every client
+
+Jacob's, 2026-09-30, after the first login from outside: a patcher runs before the game and gives the
+client a certificate, and the server turns away any connection without a valid one ("then both the
+client should be able to trust the server and vice-versa").  Mutual TLS: today only the server shows a
+certificate (`with_no_client_auth()` in `tls.rs`), and a player proves who they are with the password.
+
+What it buys: anything that isn't our client is turned away in the TLS handshake, before it gets near
+Security's line, so a bot throwing logins at the door never costs a hash.  What it doesn't: a changed
+client still has the certificate its install was given, so it keeps out strangers, not cheaters (the
+server deciding what each client sees is what handles those).
+
+Open when it opens:
+
+- **The patcher's name.**  It's a third piece, so Jacob names it before it's made (CLAUDE.md).  What
+  it's written in, where it lives, what else it does (the game's files, updates).
+- **One certificate for everybody, or one per install** (or per account).  One for everybody is simple,
+  but anyone who has the game has it and there's no taking it back from one person.  One each needs a
+  signer: our own certificate authority (a key that signs the clients' certificates, which the server
+  trusts), something to do the signing (the patcher asking the server, most likely), and a way to take
+  one back (a ban list of certificates).  rustls checks certificates but doesn't make them; making them
+  in Rust is a crate (`rcgen`), or openssl by hand as today.
+- **How the patcher proves who's asking** before it hands one out, if they're per account.
+- **The test client** gets one too, and a `--client-cert` of its own.
+- **PROTOCOL.md** changes: the handshake asks for the client's certificate.  Whether that's a protocol
+  version bump (it happens before the Hello, so an old client would fail in the handshake, not on the
+  version).
+
 ## A program of its own for account management
 
 Jacob's, 2026-09-29, while the web admin's account manager was being planned: "eventually we will make a
