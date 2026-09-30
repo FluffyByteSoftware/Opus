@@ -45,15 +45,25 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       to the character's UUID and ID".
     - **A character is `Transform`, `ShortName` / `LongName`, Living (health, endurance, mana) and
       `PrimitiveShape` (capsule).  "Nothing else for now."**
-    - **Saving**: "I imagine we dump the LUA code to their database record?"  Then: "we may have to
-      frequently update the database rows ... or we could just dump the LUA data to a single row?  which
-      is the better standard?"  Being talked through.
+    - **Saving** (Jacob's yes, 2026-09-30, to the mix): the name and the last position are columns on
+      `player_characters`, so character select lists names and the spawn reads the position without
+      running anything; everything else is Lua text in one column.  (Asked first: "we may have to
+      frequently update the database rows ... or we could just dump the LUA data to a single row?"  A
+      row is rewritten whole on any UPDATE, so how often doesn't pick between them; what SQL needs to
+      see does.)
+    - **The save is the GameObject**: "our save needs to be the GameObject and all of its components, and
+      the components settings", and the templates it took in.  "We may when creating the components,
+      need to define what needs to be [saved]."
     - **The account's slots point at the character by `id`**, per CLAUDE.md ("refer to CLAUDE on this").
     - **Living is a "micro template"** (Jacob): it holds health, endurance and mana, and is added instead
       of adding each one.  "Some objects may have health and no endurance... but all living objects will
       have all 3.  You know we can tie name to this too.  Its similar to inheritance in old discworld
       mudlib okay?  inherit STD_LIVING;"  So the three stay separate components, and Living is a set of
-      them a template takes in whole.
+      them a template takes in whole.  **Living includes the names**: "all living objects will have to have
+      a name.  Its a requirement."  So Living is `ShortName`, `LongName`, `Health`, `Endurance`, `Mana`.
+    - **A GameObject remembers the templates it took in** (Jacob's yes), so the game can ask "is this
+      living?", the way Discworld's `living(ob)` did.
+    - **So a Character is `Transform`, Living, `PrimitiveShape` (capsule) and the player component.**
     - **The character holds a referral back to its account**: "their account is what we track".  A
       component on the GameObject that's steered by a player ("that seems right").
     - **The player makes a character at character select**, from the client.  So nothing makes one until
