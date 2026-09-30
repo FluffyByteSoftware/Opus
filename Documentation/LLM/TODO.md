@@ -182,7 +182,7 @@ Things that wait on a piece that doesn't exist yet.
     Slower is fine but faster becomes bad."  The crate is `conductor-gameclock` (folder `gameclock`),
     so code says `conductor_gameclock` (for a while it was `conductor_heartbeat` in code; Jacob's slip,
     turned round the same day).  Its name is the GameClock.
-  - **Written and built, 2026-09-30** (no warnings, every test passes): `design/gameclock.md` has it.  The five checks are empty
+  - **Written, built and tested, 2026-09-30** (no warnings, every test and run check passed): `design/gameclock.md` has it.  The five checks are empty
     slots; what goes in each is open there.
 - **A Tick evaluator tab under GAME MANAGEMENT** (Jacob, 2026-09-30, while the GameClock was
   planned): a tab beside Connections that shows how the GameClock is keeping time.  For now the

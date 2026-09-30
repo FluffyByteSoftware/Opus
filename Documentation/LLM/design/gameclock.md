@@ -10,13 +10,19 @@ A lib crate and a server piece: `Conductor/dev/gameclock/`, the crate `conductor
 `conductor_gameclock::start()`.  Jacob named it the GameClock, 2026-09-30.  (For about an hour code called it
 `conductor_heartbeat` through a `[lib] name`; that was a slip in how he put it, and he turned it round.)
 
+Why not "heartbeat": it's what his MUD called the tick, and it stuck with him as lingo, but it didn't read
+right here.  Jacob: "Opus is like a more grown up code base."  So the docs and the code say the GameClock, and
+"heartbeat" only turns up in the history of how it got its name.
+
 It's the game loop.  It owns primlib's `World` and steps it forward on a fixed beat.
 
 ## Where it stands
 
-Written 2026-09-30 and built the same day on Linux: no warnings, its 8 tests pass, and so does every other
-test.  The run checks (START SERVER, a login, STOP SERVER) are open on TEST_CHECKLIST.html.  The beat, the
-schedule, the tallies, the Services line, start and stop.  The five checks are empty: nothing in the world moves yet, and the protocol has no input packet.
+Written, built and tested on Linux, 2026-09-30: no warnings, its 8 tests pass, and every run check passed
+(GameClock green on the Services tab at about 240 cycles a minute, its thread near nothing on the CPU, a login
+leaving the late count at 0, and a clean STOP SERVER and START SERVER).  The beat, the schedule, the tallies,
+the Services line, start and stop.  The five checks are empty: nothing in the world moves yet, and the
+protocol has no input packet.
 
 ## Skeleton
 
