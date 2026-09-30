@@ -144,6 +144,14 @@ Things that wait on a piece that doesn't exist yet.
   own `sockaddr` layout (a length byte first).  Waits on a Mac, like the monitor.
 - Networking: the protocol version in the Hello is `4` and the client versions are a list in
   `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
+- **The world tick** (Jacob, 2026-09-30, at the end of primlib's first part: "next session ... we need
+  to put the world tick in").  Jacob's pick for next.  primlib's `World` exists but nothing runs it:
+  the tick is the game loop that owns the world and steps it forward.  It's a server piece, so it goes
+  in `start_server()` and `stop_server()` in the launcher, on its own thread through `threads::spawn()`,
+  reporting to `services.rs` (`EXPECTED` and the test's list).  Open for then: the tick rate (CLAUDE.md
+  has a line waiting for it; a soft-reboot setting, by the rule); what runs each tick, and in what
+  order; what happens when a tick runs long; whether the world is made fresh on every START SERVER.
+  Saving the copies on STOP SERVER and loading them back (`design/primlib.md`) lean on it too.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
   which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
   `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
