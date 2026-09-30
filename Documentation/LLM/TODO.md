@@ -109,7 +109,14 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         become game objects after load".
       - **A new character's name goes in `ShortName` only** ("short name here only").
       - **Deleting is typed out**: "player should have to type out and send back delete and get a
-        deleteapproved or denied then the server deletes".
+        deleteapproved or denied then the server deletes".  Then, asked how: "player presses delete, and the client
+        pre-reqs to ask them to type in delete then sends the packet to the server with the typed in
+        word.  Server either approves or denies."  One round: `DeleteCharacter` carries the uuid and the
+        typed word, and the server deletes only when the word is DELETE.
+      - **Two general packets in `0x3_`**, `CommandAccepted` (the ask number) and `CommandRefused` (the ask
+        number and why), Jacob's pick of the two readings.
+      - **The long name is left empty** until the player is in game ("the longname is not dealt with until
+        they're in game yup").
 - **The GameClock's checks**: an input mailbox and an input packet, a brain for the AI, movement into
   `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their
