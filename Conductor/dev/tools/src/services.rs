@@ -40,7 +40,7 @@ pub const NETWORK_UDP: &str = "Network (UDP)";
 pub const ACCOUNT_DESK: &str = "Account desk";
 pub const MONITOR: &str = "Monitor";
 pub const LUA: &str = "Lua";
-pub const HEARTBEAT: &str = "Heartbeat";
+pub const GAMECLOCK: &str = "GameClock";
 pub const WEB_ADMIN: &str = "Web admin";
 
 /// Every service Conductor expects, in the order the page lists them, and
@@ -58,13 +58,13 @@ const EXPECTED: [(&str, Option<&str>); 13] = [
     (ACCOUNT_DESK, Some("account-desk")),
     (MONITOR, Some("monitor")),
     (LUA, Some("lua")),
-    (HEARTBEAT, Some("heartbeat")),
+    (GAMECLOCK, Some("gameclock")),
     (WEB_ADMIN, Some("wgui")),
 ];
 
 /// How long a service that checks in can go quiet before it counts as
 /// stuck.  The monitor, DiskMan, Security and the UDP side check in at
-/// least once a second (the heartbeat four times a second), so this is
+/// least once a second (the GameClock four times a second), so this is
 /// five missed.
 pub const QUIET_LIMIT: Duration = Duration::from_secs(5);
 
@@ -209,7 +209,7 @@ mod tests {
     fn every_expected_service_is_there_from_the_start() {
         let names: Vec<&str> = list().iter().map(|service| service.name).collect();
         assert_eq!(names, vec![DISKMAN, SCRIBE, CONSTELLATIONS, FINGERPRINTER, SECURITY, ARCHIVIST, NETWORK_TCP,
-                               NETWORK_UDP, ACCOUNT_DESK, MONITOR, LUA, HEARTBEAT, WEB_ADMIN]);
+                               NETWORK_UDP, ACCOUNT_DESK, MONITOR, LUA, GAMECLOCK, WEB_ADMIN]);
     }
 
     #[test]

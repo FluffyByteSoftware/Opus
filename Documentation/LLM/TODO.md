@@ -180,14 +180,15 @@ Things that wait on a piece that doesn't exist yet.
     one late, and the cycle catches up where it can; nothing is skipped.  **The rate is fixed in
     code, not a setting**: "from all the testing I did before anything faster is gonna be a problem.
     Slower is fine but faster becomes bad."  The crate is `conductor-gameclock` (folder `gameclock`),
-    and code calls it `conductor_heartbeat`.
+    so code says `conductor_gameclock` (for a while it was `conductor_heartbeat` in code; Jacob's slip,
+    turned round the same day).  Its name is the GameClock.
   - **Written and built, 2026-09-30** (no warnings, every test passes): `design/gameclock.md` has it.  The five checks are empty
     slots; what goes in each is open there.
-- **A Tick evaluator tab under GAME MANAGEMENT** (Jacob, 2026-09-30, while the heartbeat was
-  planned): a tab beside Connections that shows how the heartbeat is keeping time.  For now the
+- **A Tick evaluator tab under GAME MANAGEMENT** (Jacob, 2026-09-30, while the GameClock was
+  planned): a tab beside Connections that shows how the GameClock is keeping time.  For now the
   Services tab's line for it is all there is (cycles, late ones, the longest).  Open for when it's
   built: what it shows (each check's time, the longest and the latest, how many cycles ran late,
-  maybe a graph of the last minute); where the numbers come from (the heartbeat keeping them for the
+  maybe a graph of the last minute); where the numbers come from (the GameClock keeping them for the
   page, like the monitor's `latest()`); its read path under `/Opus/`, asked for when it's built.
   Nothing on it changes anything, so no `wwwhook` route.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,

@@ -4,12 +4,11 @@ Component:  Documentation
 Author:     Jacob Chacko
 -->
 
-# gameclock (the heartbeat)
+# gameclock (the GameClock)
 
-A lib crate and a server piece: `Conductor/dev/gameclock/`, the crate `conductor-gameclock`, and code calls it
-`conductor_heartbeat` (Jacob's names, 2026-09-30).  It's the only crate whose name in code isn't its crate name
-with an underscore; the `[lib] name` in its `Cargo.toml` does that.  So `cargo test -p conductor-gameclock`,
-and `conductor_heartbeat::start()` in the launcher.
+A lib crate and a server piece: `Conductor/dev/gameclock/`, the crate `conductor-gameclock`, so code says
+`conductor_gameclock::start()`.  Jacob named it the GameClock, 2026-09-30.  (For about an hour code called it
+`conductor_heartbeat` through a `[lib] name`; that was a slip in how he put it, and he turned it round.)
 
 It's the game loop.  It owns primlib's `World` and steps it forward on a fixed beat.
 
@@ -23,9 +22,9 @@ schedule, the tallies, the Services line, start and stop.  The five checks are e
 
 ```
 gameclock/
-├── Cargo.toml     depends on conductor-tools and conductor-primlib; [lib] name = "conductor_heartbeat"
+├── Cargo.toml     depends on conductor-tools and conductor-primlib
 └── src/
-    ├── lib.rs     start(), stop(); the heartbeat's thread, the schedule, the tallies, the Warn
+    ├── lib.rs     start(), stop(); the GameClock's thread, the schedule, the tallies, the Warn
     └── checks.rs  the five checks, in order, each a function that gets the world
 ```
 
@@ -48,10 +47,10 @@ gameclock/
   rushing through checks to make up the time.
 - **What a late cycle says**: a Debug line (by how much, and the slowest check).  Only a cycle a full second
   or more over is a Warn, and at most one a minute, since every Warn rings the bell.
-- **What it shows**: the Services tab's Heartbeat line, "Beating.  N cycles, M late.  The busiest spent X ms
+- **What it shows**: the Services tab's GameClock line, "Beating.  N cycles, M late.  The busiest spent X ms
   of its 250 in the checks."  It checks in (`seen()`) every cycle.  A Tick evaluator tab under GAME
   MANAGEMENT is for later (TODO.md).
-- **The world is only touched on the heartbeat's thread**, so it has no lock.  Networking and the web admin
+- **The world is only touched on the GameClock's thread**, so it has no lock.  Networking and the web admin
   will reach it through a mailbox the input check empties (not built: nothing sends yet).
 - **The world is made fresh on every START SERVER.**  Saving the copies on STOP SERVER and loading them back
   is in `design/primlib.md`.
@@ -67,4 +66,4 @@ gameclock/
   see), the spawn system in housekeeping.
 - Whether a check's group of objects is picked by its components (the AI check runs over everything with a
   brain), which is how an ECS usually does it.
-- The Tick evaluator tab: what it shows, and the numbers the heartbeat keeps for it (TODO.md).
+- The Tick evaluator tab: what it shows, and the numbers the GameClock keeps for it (TODO.md).

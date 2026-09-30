@@ -91,7 +91,7 @@ Opus/
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(); the lua thread: finds Content/scripts/**/*.lua, runs each once
 │       │       └── sandbox.rs         # the locked-down Lua: the safe libraries, the log, the time and memory limits
-│       ├── primlib/                   # lib, conductor-primlib -- the game library; the heartbeat owns its World
+│       ├── primlib/                   # lib, conductor-primlib -- the game library; the GameClock owns its World
 │       │   ├── Cargo.toml             # no dependencies
 │       │   └── src/
 │       │       ├── lib.rs             # lists the pieces
@@ -100,10 +100,10 @@ Opus/
 │       │       ├── components.rs      # the components (Transform, PrimitiveShape, ...); Kind (which one, by name); Component (one, with its value)
 │       │       ├── world.rs           # World: the entities and a store per kind; spawn, despawn, add, remove, get
 │       │       └── template.rs        # Template (NPC) and Blueprint (goblin_a)
-│       ├── gameclock/                 # lib, conductor-gameclock, code calls it conductor_heartbeat -- a server piece
-│       │   ├── Cargo.toml             # depends on conductor-tools and conductor-primlib; the [lib] name
+│       ├── gameclock/                 # lib, conductor-gameclock -- the GameClock, the game loop; a server piece
+│       │   ├── Cargo.toml             # depends on conductor-tools and conductor-primlib
 │       │   └── src/
-│       │       ├── lib.rs             # start(), stop(); the heartbeat's thread: five checks of 50 ms, a 250 ms cycle
+│       │       ├── lib.rs             # start(), stop(); the GameClock's thread: five checks of 50 ms, a 250 ms cycle
 │       │       └── checks.rs          # the five checks in order: input, AI, movement, broadcast, housekeeping
 │       ├── wgui/                      # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -monitor and -networking
@@ -115,7 +115,7 @@ Opus/
 │       │       ├── json.rs            # every JSON answer the page reads; the shapes at its top
 │       │       └── page.html          # the page, baked in: the login card, five sections of tabs, the bell, the locks
 │       └── launcher/                  # bin -- the program
-│           ├── Cargo.toml             # depends on seven of the libs (not primlib; the heartbeat has it)
+│           ├── Cargo.toml             # depends on seven of the libs (not primlib; the GameClock has it)
 │           └── src/
 │               └── main.rs            # boots the program, starts and stops the server on the Control Panel's say
 ├── Ensemble/                          # the client -- Unity, on Jacob's machine, not committed yet
@@ -153,7 +153,7 @@ Opus/
             ├── conductor-launcher.md  # the launcher crate
             ├── lua-parser.md          # the Lua crate: what a script gets, what it can't do, the limits
             ├── primlib.md             # the game library: entities, components, templates, blueprints; what's open
-            ├── gameclock.md           # the heartbeat: the beat, the order of the checks, a late cycle; what's open
+            ├── gameclock.md           # the GameClock: the beat, the order of the checks, a late cycle; what's open
             └── ecs-discussion.md      # the ECS brief for another chat; answered by primlib, kept as history
 ```
 
@@ -172,7 +172,7 @@ Where each one lives is in the tree above.
 | conductor-networking | Lib crate: the login over TLS, the game over UDP. | Runs on Linux              |
 | conductor-lua-parser | Lib crate (folder `lua-parser`): runs the Lua scripts, locked down. | Built and tested on Linux |
 | conductor-primlib  | Lib crate (folder `primlib`): the game library, an ECS. | Built and tested on Linux    |
-| conductor-gameclock | Lib crate (folder `gameclock`, `conductor_heartbeat` in code): the heartbeat. | Built, tests pass; run checks open |
+| conductor-gameclock | Lib crate (folder `gameclock`): the GameClock, the game loop. | Built, tests pass; run checks open |
 | conductor-wgui     | Lib crate: the web admin on 127.0.0.1.        | Runs on Linux                |
 | conductor-launcher | Bin crate: the program.  Boots, then waits on the Control Panel. | Runs on Linux |
 | Scribe             | The log.                                      | Built and tested             |

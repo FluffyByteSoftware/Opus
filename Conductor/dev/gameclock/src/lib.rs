@@ -2,7 +2,7 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! The heartbeat: the game loop.  It owns the world (primlib's `World`)
+//! The GameClock: the game loop.  It owns the world (primlib's `World`)
 //! and steps it forward on a fixed beat.  A full cycle is 250 ms, cut into
 //! five checks of 50 ms each, and each check does its own job on its own
 //! group of objects: the players' input, the AI's brains, movement, the
@@ -60,44 +60,44 @@ const WARN_EVERY_AT_MOST: Duration = Duration::from_secs(60);
 // Nothing is ever sent on this.  Dropping the Sender is the signal to
 // stop, the same way the monitor does it.
 static STOP: Mutex<Option<Sender<()>>> = Mutex::new(None);
-static HEARTBEAT: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
+static GAMECLOCK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
-/// Starts the heartbeat's thread, with a fresh world.  It comes straight
+/// Starts the GameClock's thread, with a fresh world.  It comes straight
 /// back.  The launcher calls this every time the server starts, and
 /// `stop()` every time it stops.
 pub fn start() {
-    if lock(&HEARTBEAT).as_ref().is_some_and(|handle| !handle.is_finished()) {
-        scribe::warn(Channel::Game, "The heartbeat was asked to start while it's already running.  \
+    if lock(&GAMECLOCK).as_ref().is_some_and(|handle| !handle.is_finished()) {
+        scribe::warn(Channel::Game, "The GameClock was asked to start while it's already running.  \
             The running one stands.");
         return;
     }
 
-    services::set(services::HEARTBEAT, State::Starting, "Making a fresh world.");
+    services::set(services::GAMECLOCK, State::Starting, "Making a fresh world.");
     let (stop, stopped) = mpsc::channel();
-    match threads::spawn("heartbeat", move || run(stopped)) {
+    match threads::spawn("gameclock", move || run(stopped)) {
         Ok(handle) => {
             *lock(&STOP) = Some(stop);
-            *lock(&HEARTBEAT) = Some(handle);
-            scribe::info(Channel::Game, "The heartbeat is up: five checks of 50 ms, a 250 ms cycle.");
+            *lock(&GAMECLOCK) = Some(handle);
+            scribe::info(Channel::Game, "The GameClock is up: five checks of 50 ms, a 250 ms cycle.");
         }
         Err(e) => {
-            scribe::error_with(Channel::Game, &e, "The heartbeat couldn't start its thread.  \
+            scribe::error_with(Channel::Game, &e, "The GameClock couldn't start its thread.  \
                 Nothing in the world moves this run.");
-            services::set(services::HEARTBEAT, State::Stopped, &format!("Couldn't start its thread: {e}"));
+            services::set(services::GAMECLOCK, State::Stopped, &format!("Couldn't start its thread: {e}"));
         }
     }
 }
 
-/// Stops the heartbeat and waits for its thread to end.  It stops at the
+/// Stops the GameClock and waits for its thread to end.  It stops at the
 /// next wait between two checks, so it's never cut off halfway through
 /// one.  The world goes with it.
 pub fn stop() {
     lock(&STOP).take();
 
-    let handle = lock(&HEARTBEAT).take();
+    let handle = lock(&GAMECLOCK).take();
     if let Some(handle) = handle {
         if handle.join().is_err() {
-            scribe::error(Channel::Game, "The heartbeat's thread had already died.");
+            scribe::error(Channel::Game, "The GameClock's thread had already died.");
         }
     }
 }
@@ -108,7 +108,7 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// The heartbeat's thread: a cycle of five checks, each at its time, and
+/// The GameClock's thread: a cycle of five checks, each at its time, and
 /// again, until `stop()` drops the Sender.
 fn run(stopped: Receiver<()>) {
     let mut world = World::new();
@@ -119,7 +119,7 @@ fn run(stopped: Receiver<()>) {
     let mut busiest = Duration::ZERO;
     let mut last_warn: Option<Instant> = None;
 
-    services::set(services::HEARTBEAT, State::Running, "Beating.  No cycle finished yet.");
+    services::set(services::GAMECLOCK, State::Running, "Beating.  No cycle finished yet.");
     let mut cycle_start = Instant::now();
 
     // Rust note: `'beating:` names the outer loop, so the `break` inside
@@ -152,27 +152,27 @@ fn run(stopped: Receiver<()>) {
                                ms(over), slowest.0, ms(slowest.1));
             if over >= BADLY_LATE && may_warn(last_warn, finished) {
                 last_warn = Some(finished);
-                scribe::warn(Channel::Game, &format!("The heartbeat is falling behind.  {what}  {late} of \
+                scribe::warn(Channel::Game, &format!("The GameClock is falling behind.  {what}  {late} of \
                     {cycles} cycles have run late since START SERVER."));
             } else {
                 scribe::debug(Channel::Game, &what);
             }
         }
 
-        services::set(services::HEARTBEAT, State::Running, &format!("Beating.  {cycles} cycles, {late} late.  \
+        services::set(services::GAMECLOCK, State::Running, &format!("Beating.  {cycles} cycles, {late} late.  \
             The busiest spent {} ms of its 250 in the checks.", ms(busiest)));
-        services::seen(services::HEARTBEAT);
+        services::seen(services::GAMECLOCK);
 
         cycle_start = next_start(cycle_start, finished);
     }
 
-    scribe::info(Channel::Game, &format!("The heartbeat has stopped after {cycles} cycles, {late} of them late."));
-    services::set(services::HEARTBEAT, State::Stopped, "Shut down.");
+    scribe::info(Channel::Game, &format!("The GameClock has stopped after {cycles} cycles, {late} of them late."));
+    services::set(services::GAMECLOCK, State::Stopped, "Shut down.");
 }
 
 /// Waits until `when`, or until `stop()` is called.  False means stop.
 /// A time already gone doesn't wait at all, but still looks for the stop,
-/// so a heartbeat that's always behind can still be stopped.
+/// so a GameClock that's always behind can still be stopped.
 fn wait_until(stopped: &Receiver<()>, when: Instant) -> bool {
     let now = Instant::now();
     if when > now {
@@ -283,7 +283,7 @@ mod tests {
     }
 
     #[test]
-    fn a_stopped_heartbeat_stops_even_when_its_check_is_overdue() {
+    fn a_stopped_gameclock_stops_even_when_its_check_is_overdue() {
         let (stop, stopped) = mpsc::channel::<()>();
         let past = Instant::now();
         assert!(wait_until(&stopped, past));

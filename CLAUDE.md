@@ -64,7 +64,7 @@ Opus/
 │   │   ├── networking/         # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
 │   │   ├── lua-parser/         # lib (conductor-lua-parser): runs the Lua scripts in Content/scripts/, locked down
 │   │   ├── primlib/            # lib (conductor-primlib): the game library -- entities, components, templates, blueprints
-│   │   ├── gameclock/          # lib (conductor-gameclock, conductor_heartbeat in code): the heartbeat, the game loop
+│   │   ├── gameclock/          # lib (conductor-gameclock): the GameClock, the game loop
 │   │   ├── wgui/               # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── launcher/           # bin: the program -- boots, then starts and stops the server on the Control Panel's say
 │   └── build/             # compiled output -- never committed
@@ -283,9 +283,9 @@ When I say we're wrapping up:
   folder is `Conductor/dev/tools/`, the crate in its `Cargo.toml` is
   `conductor-tools`, and code says `conductor_tools::`.  So `-p` in a cargo
   command takes the crate's name (`cargo test -p conductor-tools`), and a
-  `path = "../tools"` takes the folder's.  Jacob, 2026-09-30.  One
-  exception, his too: `conductor-gameclock` is `conductor_heartbeat` in
-  code (a `[lib] name`).
+  `path = "../tools"` takes the folder's.  Jacob, 2026-09-30.  Why the
+  crate keeps it: in code the `conductor_` prefix tells our crates apart
+  from everybody else's (his reason, the same day).
 - Prefer clear ownership and simple types over heavy generics or macros.
 - **The scripting language is Lua 5.4**, embedded through the `mlua`
   crate with Lua built in (Jacob, 2026-09-30).  A script never gets Lua's
@@ -317,7 +317,7 @@ When I say we're wrapping up:
   the tick in code (2026-09-30).
 - **Conductor and the server are two things.** The program (DiskMan, Scribe,
   Constellations, the web admin) is up from boot. The server (Fingerprinter,
-  Security, Archivist, the account desk, Lua, the heartbeat, networking, the
+  Security, Archivist, the account desk, Lua, the GameClock, networking, the
   monitor, and the rest of the game as it comes) only runs between START SERVER and STOP SERVER on the web admin's
   Control Panel: Conductor comes up with its door closed, and the admin opens
   it (and closes it) from there. Jacob's rule, 2026-09-29. The launcher does
@@ -576,13 +576,12 @@ When I say we're wrapping up:
   tool behind it. "Where does Scribe go?" read as moving the crate.
 - **The tick is 250 ms, five checks of 50 ms, fixed in code** (Jacob,
   2026-09-30: "anything faster is gonna be a problem.  Slower is fine but
-  faster becomes bad").  Never a setting.  The heartbeat is
-  `conductor-gameclock` (folder `gameclock`), which code calls
-  `conductor_heartbeat` through the `[lib] name` in its `Cargo.toml`: the
-  one crate whose name in code isn't its crate name.  The checks run in
+  faster becomes bad").  Never a setting.  It's run by **the GameClock**,
+  `conductor-gameclock` (folder `gameclock`, `conductor_gameclock` in
+  code; Jacob named it, 2026-09-30).  The checks run in
   order (input, AI, movement, broadcast, housekeeping), each timed from the
   cycle's start; a late one makes the next late and nothing is skipped.
-  Only the heartbeat's thread touches the `World`.
+  Only the GameClock's thread touches the `World`.
 
 ## Database (Conductor)
 

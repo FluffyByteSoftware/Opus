@@ -2,20 +2,15 @@
 # Component:  Conductor
 # Author:     Jacob Chacko
 #
-# The game clock: the heartbeat that owns the world and steps it forward,
+# The GameClock: the game loop that owns the world and steps it forward,
 # five checks of 50 ms to a 250 ms cycle.  A lib crate, and a server piece.
 # Its folder is gameclock and its name is conductor-gameclock, like every
-# crate, but code calls it conductor_heartbeat (Jacob's pick, 2026-09-30).
-# The [lib] name below is what does that, so a cargo command says
-# -p conductor-gameclock and the launcher says conductor_heartbeat::start().
+# crate, so code says conductor_gameclock.
 
 [package]
 name = "conductor-gameclock"
 version = "0.1.0"
 edition = "2024"
-
-[lib]
-name = "conductor_heartbeat"
 
 [dependencies]
 conductor-primlib = { path = "../primlib" }

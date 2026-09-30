@@ -196,32 +196,39 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>The heartbeat (2026-09-30)</h2>
+<h2>The GameClock (2026-09-30)</h2>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      START SERVER: the Log tab has "The heartbeat is up: five checks of 50 ms, a 250 ms cycle.", and the
-      Services tab has Heartbeat green, between Lua and Web admin, its note counting cycles with 0 late.
+      After the rename (code says <code>conductor_gameclock</code> now), the whole workspace still builds with
+      no <code>warning:</code> lines, <code>Cargo.lock</code> doesn't change, and every test passes.
+    </span></label>
+    <pre class="cmd">cargo build &amp;&amp; cargo test &amp;&amp; git status --short</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      START SERVER: the Log tab has "The GameClock is up: five checks of 50 ms, a 250 ms cycle.", and the
+      Services tab has GameClock green, between Lua and Web admin, its note counting cycles with 0 late.
       About 240 cycles a minute.
     </span></label>
     <pre class="cmd">cargo run -p conductor-launcher</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      The Conductor tab's Threads has <code>heartbeat</code> under Asked for, started from
+      The Conductor tab's Threads has <code>gameclock</code> under Asked for, started from
       <code>gameclock/src/lib.rs</code>, and under In use its CPU is near nothing (it sleeps between checks).
     </span></label>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      A login with the test client while the server runs leaves the heartbeat's late count at 0: the
-      password's hash is on Security's thread, not the heartbeat's.
+      A login with the test client while the server runs leaves the GameClock's late count at 0: the
+      password's hash is on Security's thread, not the GameClock's.
     </span></label>
     <pre class="cmd">python3 networking/test_client.py newplayer_01 'Its password 1!' --leave-after 10</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      STOP SERVER: the Log tab has "The heartbeat has stopped after N cycles, 0 of them late.", and Heartbeat
+      STOP SERVER: the Log tab has "The GameClock has stopped after N cycles, 0 of them late.", and GameClock
       reads stopped.  START SERVER again and the count starts over from 0.
     </span></label>
   </li>
