@@ -115,7 +115,8 @@ the blueprint (`goblin_a`, their starting values), and the copies in the world.
 ## The world: voxels and zones
 
 Jacob's map at the 2026-09-30 close (STATUS.md has it): the world tick first, "then after that we build
-our world (voxel information and zone management after that)".  The world is going to be **voxels**.
+our world (voxel information and zone management after that)".  The tick is built (the GameClock,
+2026-09-30), so the world is what's next on his map.  The world is going to be **voxels**.
 Nothing about it is designed yet.  Open when it opens:
 
 - **Voxel information**: what a voxel holds; the chunk size; the world's size; flat or generated; where

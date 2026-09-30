@@ -155,8 +155,20 @@ and past 50 log lines in a run the rest are dropped.
 entity is only a number, and the components hung on it (a position, a health pool, a name) are what make
 it a goblin or a sword.  A template (`NPC`) is a cheat sheet of components and their defaults, so I don't
 write the same 50 lines in 50 NPCs, and a blueprint (`goblin_a`) starts from a template and changes what
-it needs.  The world spawns copies of a blueprint, each with its own values.  For now it's Rust and its
-tests only; nothing runs it yet, and the templates and blueprints get written in Lua later.
+it needs.  The world spawns copies of a blueprint, each with its own values.  For now it's Rust only; the
+GameClock runs a world of it, and the templates and blueprints get written in Lua later.
+
+### The GameClock (`conductor-gameclock`)
+
+The game loop.  It owns the world and steps it forward on a fixed beat: a full cycle is 250 ms, cut into
+five checks of 50 ms, and each check does its own job on its own group of objects.  In order: the
+players' input, the AI's brains, movement, the positions going out to everybody, and housekeeping.  The
+checks are empty for now, since nothing in the world moves yet.
+
+The rate is fixed in the code on purpose.  From my testing on an earlier go at this, anything faster than
+250 ms is a problem; slower is fine.  A check that runs long makes the next one late, and nothing is
+skipped.  A cycle that runs past its 250 ms just starts the next one straight away, and the Services tab
+counts how many did.  Password hashing stays on its own thread, so a login never makes a cycle late.
 
 ### The web admin (`conductor-wgui`)
 
@@ -321,6 +333,7 @@ Opus/
 │   │   ├── networking/            the login over TLS, the game over UDP, the access lists; test_client.py
 │   │   ├── lua-parser/            runs the Lua scripts, locked down
 │   │   ├── primlib/               the game library: entities, components, templates and blueprints
+│   │   ├── gameclock/             the GameClock: the game loop, five checks of 50 ms to a 250 ms cycle
 │   │   ├── wgui/                  the web admin
 │   │   └── launcher/              the program: boots, then runs the server on the Control Panel's say
 │   └── build/                     compiled output, never committed

@@ -15,9 +15,9 @@ components that make them what they are, and the templates and blueprints they'r
 
 The first part is Rust only (Jacob, 2026-09-30): the entities, the first components, the world that
 holds them, templates and blueprints, and tests.  Written, built and tested on Linux on 2026-09-30:
-no warnings, all 23 tests pass.  Nothing calls it yet.  It isn't a server piece yet either, since
-there's no game loop to run it; the world tick (TODO.md, Jacob's pick for next) is what will own a
-`World`, and it goes in `start_server()` and `stop_server()`.
+no warnings, all 23 tests pass.  It isn't a server piece itself: the GameClock (`design/gameclock.md`,
+built 2026-09-30) owns a `World`, made fresh on every START SERVER, and hands it to its five checks.
+Nothing spawns anything into it yet.
 
 **Part 2 is the Lua** (Jacob, 2026-09-30): templates and blueprints written as scripts under
 `Content/scripts/`, calling into this crate.  See "Lua, part 2" below.
@@ -131,5 +131,6 @@ today builds the blueprint once and copies it); whether `awake()` runs on every 
   so a copy will need to know its blueprint.  Whether that's a component or something every entity has
   "baked" (the question TODO.md already has for characters) waits on the spawn system.
 - **Behaviour**: in the components (the Unity way) or in systems that run over every entity with a
-  given set of components.  Waits on the game loop and the Lua.
+  given set of components.  The GameClock's five checks are the place for the second; waits on the
+  Lua.
 - **Tests**: `cargo test -p conductor-primlib`.

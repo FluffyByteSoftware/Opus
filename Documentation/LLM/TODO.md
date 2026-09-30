@@ -160,8 +160,9 @@ Things that wait on a piece that doesn't exist yet.
 - Networking: the protocol version in the Hello is `4` and the client versions are a list in
   `networking.cfg`.  Whether Ensemble reports a version string or a number is Ensemble's call.
 - **The world tick** (Jacob, 2026-09-30, at the end of primlib's first part: "next session ... we need
-  to put the world tick in").  Jacob's pick for next.  primlib's `World` exists but nothing runs it:
-  the tick is the game loop that owns the world and steps it forward.  It's a server piece, so it goes
+  to put the world tick in").  **Built the same day: the GameClock** (`design/gameclock.md`).  What's
+  left of this entry is the checks' insides, open in the design file.  As it was asked: the tick is the
+  game loop that owns the world and steps it forward.  It's a server piece, so it goes
   in `start_server()` and `stop_server()` in the launcher, on its own thread through `threads::spawn()`,
   reporting to `services.rs` (`EXPECTED` and the test's list).  Open for then: the tick rate (CLAUDE.md
   has a line waiting for it; a soft-reboot setting, by the rule); what runs each tick, and in what
@@ -192,9 +193,8 @@ Things that wait on a piece that doesn't exist yet.
   page, like the monitor's `latest()`); its read path under `/Opus/`, asked for when it's built.
   Nothing on it changes anything, so no `wwwhook` route.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
-  which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
-  `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
-  rest.
+  which today is Fingerprinter, Security, Archivist, the account desk, Lua, the GameClock, networking and
+  the monitor.  The game loop is in (the GameClock, 2026-09-30), and comes up and down with the rest.
 - **A list of blocked names** (Jacob, 2026-09-30, while the sections were drawn): names nobody gets to use,
   one a line, with a Blocked Names page under the web admin's CONFIGURATION heading (REMOVE on each, an
   ADD field, like the Whitelist and Blacklist tabs).  Its own session.  Jacob's answers:

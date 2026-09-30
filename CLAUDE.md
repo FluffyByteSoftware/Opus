@@ -581,7 +581,10 @@ When I say we're wrapping up:
   code; Jacob named it, 2026-09-30).  The checks run in
   order (input, AI, movement, broadcast, housekeeping), each timed from the
   cycle's start; a late one makes the next late and nothing is skipped.
-  Only the GameClock's thread touches the `World`.
+  Only the GameClock's thread touches the `World`.  Jacob may call it "the
+  heartbeat": that's his MUD's word for the tick and it stuck as lingo, but
+  it "doesn't seem professional" for Opus, so the code and docs say the
+  GameClock (2026-09-30).
 
 ## Database (Conductor)
 

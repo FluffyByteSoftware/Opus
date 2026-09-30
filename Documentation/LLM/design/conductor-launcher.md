@@ -15,7 +15,7 @@ when the web admin stops.
 ```
 launcher/
 ├── Cargo.toml         depends on conductor-tools, conductor-accounts, conductor-monitor, conductor-networking,
-│                        conductor-wgui
+│                        conductor-lua-parser, conductor-gameclock, conductor-wgui
 └── src/
     └── main.rs        threads::name_this_thread("main")
                        -> diskman::start -> scribe::start -> constellations::load(&GLOBALS) -> scribe::move_to
@@ -24,10 +24,10 @@ launcher/
                             loop: wgui::has_ended()?  server::next_command() -> start_server() / stop_server(),
                                   or Restart: stop_server() then start_server()
                        -> stop_server() unless stopped -> wait_on_diskman() (which calls diskman::stop first)
-                       start_server(): fingerprinter -> security -> archivist -> account desk -> networking
-                                       -> monitor
-                       stop_server():  monitor -> networking -> account desk -> security -> archivist
-                                       -> fingerprinter
+                       start_server(): fingerprinter -> security -> archivist -> account desk -> lua
+                                       -> gameclock -> networking -> monitor
+                       stop_server():  monitor -> networking -> gameclock -> lua -> account desk -> security
+                                       -> archivist -> fingerprinter
                                        -> constellations::server_stopped()
 ```
 
@@ -38,7 +38,8 @@ launcher/
   greets you with is a control panel, and nothing but the log is up until START SERVER.  So main boots only
   what the page needs (DiskMan, Scribe, Constellations, the web admin) and `start_server()` /
   `stop_server()` are the list of what the server is: Fingerprinter, Security, Archivist, the account desk,
-  networking and the monitor today, the game later.  A new piece goes in both.  Security's 64 MiB arena comes and
+  Lua, the GameClock, networking and the monitor today.  The GameClock starts after Lua and before
+  networking, so there's a world before there are players, and stops after networking (2026-09-30).  A new piece goes in both.  Security's 64 MiB arena comes and
   goes with the server, so a stopped Conductor holds none of it.
 - **main does the starting and stopping, not the web admin's thread.**  The routes only drop a command in
   `server.rs`'s mailbox and answer; main picks it up within `COMMAND_WAIT` (250 ms).  Archivist's stop can
