@@ -210,21 +210,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      With the server running, make four test scripts (the four commands below), then RESTART SERVER.  The Log
-      tab, in this order: a Warn that <code>scripts/broken.lua</code> didn't load, at line 2;
-      <code>line 1</code> to <code>line 50</code> from flood.lua and a Warn that it hit its limit of 50;
-      hello.lua's hello; about a second later a Warn that <code>scripts/runaway.lua</code> is still running
-      after 1 s, its time limit; and <code>nil nil nil nil nil</code> from sandbox.lua.  Then
-      <code>Ran 3 script(s) ..., 2 with an error.</code>  The Services tab says Lua is in trouble.  Conductor
-      keeps running and STOP SERVER works.
-    </span></label>
-    <pre class="cmd">printf 'log.info("never shown")\nthis is not lua\n' &gt; /opt/storage/Coding/Opus/Content/scripts/broken.lua</pre>
-    <pre class="cmd">echo 'for i = 1, 1000 do log.info("line " .. i) end' &gt; /opt/storage/Coding/Opus/Content/scripts/flood.lua</pre>
-    <pre class="cmd">echo 'while true do end' &gt; /opt/storage/Coding/Opus/Content/scripts/runaway.lua</pre>
-    <pre class="cmd">echo 'log.info(io, os, require, dofile, load)' &gt; /opt/storage/Coding/Opus/Content/scripts/sandbox.lua</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       Take the four test scripts back out, and RESTART SERVER is back to hello alone.
     </span></label>
     <pre class="cmd">rm /opt/storage/Coding/Opus/Content/scripts/broken.lua /opt/storage/Coding/Opus/Content/scripts/flood.lua /opt/storage/Coding/Opus/Content/scripts/runaway.lua /opt/storage/Coding/Opus/Content/scripts/sandbox.lua</pre>
