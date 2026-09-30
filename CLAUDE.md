@@ -127,7 +127,9 @@ a `Content/` folder, or by creating `./Content` when neither works.
   for the hand-off, so a lost or deleted chat loses nothing (2026-09-30,
   after one was).  A design Jacob wants to talk through in a separate
   chat gets a brief in `Documentation/LLM/design/`, written for that chat
-  to read cold, ending with the shape its summary comes back in.
+  to read cold, ending with the shape its summary comes back in.  (Tried
+  once, 2026-09-30, for the ECS: the other chat lost the thread, and the
+  talk went better back in the session, with the docs at hand.)
 - **One feature per session.** If a new feature comes up mid-session, add it to
   `Documentation/LLM/TODO.md` and keep going on the current one. It gets its own session later.
 - **Plan before building** anything bigger than a small fix: tell me the files

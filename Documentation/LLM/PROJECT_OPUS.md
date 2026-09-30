@@ -131,7 +131,7 @@ Opus/
             ├── conductor-networking.md# the networking crate
             ├── conductor-wgui.md      # the web admin crate
             ├── conductor-launcher.md  # the launcher crate
-            └── ecs-discussion.md      # the game library's ECS: a brief for a separate chat, and what came back
+            └── ecs-discussion.md      # the game library's ECS: the questions, written as a brief for another chat
 ```
 
 ## The named pieces

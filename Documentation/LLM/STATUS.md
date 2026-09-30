@@ -27,58 +27,65 @@ on the web admin's Server tab (CONTROL PANEL > Server), and STOP SERVER takes it
 
 **The branches**: `unstable` is where the sessions write, `testing` is where Jacob tests, `main` is the
 stable release, moved only when Jacob says.  At this close `unstable` and `testing` are on this hand-off.
-`main` has two commits of Jacob's own from his machine (`bind_address = 10.0.0.84` in `networking.cfg`,
-his machine's address and correct, and a merge); `unstable` took them in, so `main` is behind by this
-session's doc commits only, and its next release is a plain catch-up to `testing`.
+Jacob released `main` mid-session (it took in his own `bind_address = 10.0.0.84`, his machine's address
+and correct); it's behind `testing` by doc commits only, so its next release is a plain catch-up.
 
 **Built and tested on Linux (Nobara 44)**: everything.  This session changed no code, so there's nothing
 to build and nothing new on TEST_CHECKLIST.md, which is down to its Parked list.  The Windows code has
 never been built.
 
-## Last session -- 2026-09-30, a soft review and the protogame design talk
+## Last session -- 2026-09-30, a soft review, the protogame design talk, and Lua
+
+No code.  Everything settled went into the docs and was pushed as it came (CLAUDE.md's rule now).
 
 - **The soft review.**  Two chats had got mixed up (the other was deleted, and had pushed nothing).
   The repo was sound: code and docs agreed, the protocol version was 4 everywhere.  Four doc slips
   were fixed: CLAUDE.md said questions go at the top in one place (they go at the bottom), said
   "nothing hot swaps" after naming the access lists as the exception, and it and TODO.md still had
   kicking from the web admin as not built; the folder layout now names the two list files.
-- **The protogame design talk**, no code.  Every answer went into TODO.md's protogame entry as it came
-  and was pushed, so the entry is the whole of it.  Settled: the name is **protogame** again; Actor,
-  Character and Agent live in a separate **game library**; a read-only **`CharacterSnapshot`** (name,
-  where it is, from the last save) lives in `conductor-accounts` beside `Account`, since protogame in
-  its place would make a circle of crates; a **`player_characters`** table, each row with its
-  `account_id`; **three slots** on `accounts` (`character_slot_1` to `_3`, each a character's `id`, by
-  migration); **`conductor-accounts` writes the SQL for both tables** (CLAUDE.md says so now);
-  **Postgres does the wiping** (`ON DELETE CASCADE` from the account, `ON DELETE SET NULL` on a slot);
-  the **first step is the database side** (the table, the slots, the functions).
-- **Then Jacob stepped back: the game library is going to be an ECS**, and a character is a few
-  components, not one type.  The database step waits on it, for what's in the row.  He's taking the
-  ECS to a separate chat with a brief written at this close
-  (`Documentation/LLM/design/ecs-discussion.md`), and bringing what comes out of it back here.
+- **The protogame design talk.**  TODO.md's protogame entry is the whole of it.  Settled: the name is
+  **protogame** again; Actor, Character and Agent live in a separate **game library**; a read-only
+  **`CharacterSnapshot`** (name, where it is, from the last save) lives in `conductor-accounts` beside
+  `Account`, since protogame in its place would make a circle of crates; a **`player_characters`**
+  table, each row with its `account_id`; **three slots** on `accounts` (`character_slot_1` to `_3`,
+  each a character's `id`, by migration); **`conductor-accounts` writes the SQL for both tables**
+  (CLAUDE.md says so); **Postgres does the wiping** (`ON DELETE CASCADE` from the account, `ON DELETE
+  SET NULL` on a slot); the first step there is the database side.
+- **The ECS.**  Jacob stepped back: the game library is going to be component driven, an object packed
+  with components that make it into something else, with a character having some baked properties.  A
+  brief for a separate chat (`design/ecs-discussion.md`) didn't work out, and the talk came back here.
+  Jacob wrote a sample NPC in an LPC-like script (LONGTERM_TODO.md): a template is a named set of
+  components, `goblin_a` is a blueprint of their starting values, and `spawn goblin_a x 100` makes a
+  hundred copies.  An object's behaviour is a behaviour script added to it; GOAP for the thinking,
+  maybe.  Who sees what isn't a setting on the components: **the server decides what each client is
+  sent** (a CLAUDE.md rule now).  Then he **paused the ECS behind the scripting language**.
+- **The scripting language is Lua 5.4**, embedded through the **`mlua`** crate with Lua built in (Jacob
+  said yes to the dependency).  A CLAUDE.md rule: a script never gets `io`, `os` or anything else that
+  reaches the disk, the network or the database.
 
-## Jacob's pick for next: the scripting language
+## Jacob's pick for next: Lua's first step
 
-Later the same day the separate ECS chat didn't work out, and the talk came back here.  Jacob wrote a
-sample NPC in the scripting language he has in mind (LPC-like; in LONGTERM_TODO.md), and then paused
-the ECS: **the scripting language comes first**, and it's **Lua 5.4**, embedded in Conductor through the
-`mlua` crate with Lua built in (Jacob said yes to the crate).  Nothing written yet; its first step is
-planned when it opens.  The ECS notes so far are in TODO.md's protogame entry.  What follows below was written before
-that, and holds for when the ECS opens again.
+Agreed in outline at the close (Jacob: "yes"); the plan with files still comes first, per CLAUDE.md, and
+waits for his OK:
 
-
-The next session here starts with what Jacob brings back from the ECS chat.  The brief asks that chat
-to end with a summary in a fixed shape (decisions, open questions, a sketch); fold the decisions into
-TODO.md's protogame entry and the brief, ask about anything that runs into a rule in CLAUDE.md, and
-only then plan the first step (the database side, now with its columns).  The questions the brief
-carries: written by hand or a crate (`bevy_ecs`, `hecs`: a dependency, heavy on generics and macros);
-which components a character is and what makes an Actor; how a character's components are saved (a
-column each on `player_characters`, a table per component, or one column holding them all); the tick
-and the world's size; where the world and the voxels live.
+- A new **lib** crate that embeds Lua 5.4 through `mlua` (vendored).  Jacob named it **`lua-parser`**.
+  Ask first: is the crate `conductor-lua-parser` like the others (its folder losing `conductor-` with
+  the rest when that TODO comes), or plain `lua-parser`?  And "parser" is a fair name for now, though
+  `mlua` does the parsing and the crate mostly runs scripts; his call.
+- It loads the `.lua` files from a folder under `Content/` through DiskMan (the folder's name isn't
+  picked; `Content/scripts/` was offered) and runs each in a locked-down Lua.
+- It reports to `services.rs`, its threads go through `threads::spawn()`, and it's in `start_server()`
+  and `stop_server()`.
+- A script with an error logs its file and line, and the server keeps running.
+- The only thing a script can call is a log function, so a `hello.lua` shows on the Log tab.
+- No ECS, no templates.  It proves Lua runs safely inside Conductor.
+- `mlua` builds Lua with the C compiler; the first build changes `Cargo.lock`, so Jacob gets the
+  commit commands for it.  Windows needs Visual Studio's compiler, untested like the rest of Windows.
 
 ## What's waiting
 
-- **The scripting language**, above.  Jacob's pick.
-- **Protogame** and the ECS, paused behind the language.
+- **Lua's first step**, above.  Jacob's pick.
+- **Protogame** and the ECS, paused behind the language.  TODO.md's protogame entry has all of it.
 - **The blocked names list**, in TODO.md with his answers.
 - **Drop `conductor-` from the crate folders**, folders only.  In TODO.md.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.

@@ -10,6 +10,11 @@ Written at the close of the 2026-09-30 session, for Jacob to hand to a regular C
 game library's ECS through before any of it is written.  What comes out of that chat comes back to the
 Opus sessions, which fold it into TODO.md and this file.  Everything below is written to the chat.
 
+**How it went**: the separate chat didn't work out (it lost the thread), and the ECS talk came back to
+the session the same day.  Where it landed is in TODO.md's protogame entry and LONGTERM_TODO.md's
+scripting language: component driven, Jacob's LPC-like sample, then paused behind Lua.  Kept for the
+questions below, which still hold when the ECS opens again.
+
 ---
 
 ## Who you're talking to
