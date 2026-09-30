@@ -122,7 +122,7 @@ a `Content/` folder, or by creating `./Content` when neither works.
   reminder of what changed and what to look at in game.  It's a page he opens from the disk
   (2026-09-30; it was a .md): a check is an `<li class="check">`, a command a one-line
   `<pre class="cmd">` that gets a COPY button.  His ticks live in his browser only and
-  no session sees them; he says which passed (COPY WHAT'S TICKED gives the words), the
+  no session sees them; he says which passed (each tick writes it into the page's message, and COPY MESSAGE copies it), the
   same as before.  A tick is keyed by the check's words, so rewording a check drops its tick.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.

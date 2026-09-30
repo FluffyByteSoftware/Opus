@@ -9,6 +9,9 @@ storage and nowhere else: nothing in the repo or in Conductor changes when
 a box is ticked, and no session sees it.  It's place-keeping while going
 through the checks.  The rule is the same as it was for the .md: Jacob
 says which checks passed, and the session takes them out of this file.
+The message panel writes that for him: every tick adds its check to the
+message, every untick takes it out, and COPY MESSAGE copies it to paste
+into the session (Jacob's ask, 2026-10-01).
 
 A tick is keyed by the check's words, so a session rewriting the file (new
 checks in, passed ones out) doesn't move a tick onto the wrong line.  A
@@ -48,7 +51,40 @@ button on its own.  Pulls nothing from the internet, like the web admin.
     line-height: 1.5;
   }
   ::selection { background: var(--green-deep); color: var(--ink-bright); }
-  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  main { max-width: 1320px; margin: 0 auto; padding: 24px 16px 64px; }
+  /* The checks on the left and the message on the right, on a screen
+     wide enough for both.  Narrower, the message goes under the checks. */
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  @media (min-width: 1100px) {
+    .layout { grid-template-columns: minmax(0, 1fr) 380px; }
+    .message { position: sticky; top: 72px; align-self: start; }
+  }
+  .message {
+    margin-top: 32px;
+    padding: 14px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .message.has-ticks { border-color: var(--green-deep); }
+  .message h2 { margin: 0 0 8px; }
+  .message .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+  .message .row .said { margin-left: auto; }
+  textarea#message {
+    display: block;
+    width: 100%;
+    min-height: 220px;
+    max-height: 60vh;
+    padding: 10px;
+    resize: vertical;
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ink);
+    background: rgba(15, 23, 42, 0.8);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
   h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: 0.04em; color: var(--ink-bright); }
   h2 {
     margin: 32px 0 8px;
@@ -142,8 +178,8 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   on what went wrong, until it passes.
 </p>
 <p class="soft">
-  Ticking a box only marks my place, in this browser.  To clear a check for good, tell the session it passed
-  (COPY WHAT'S TICKED gives the words to paste).  Every command is one line, from <code>Conductor/dev</code>.
+  Ticking a box marks my place, in this browser only, and writes the check into the message for the session.
+  COPY MESSAGE copies it to paste back; the session takes the passed checks out of this file.  Every command is one line, from <code>Conductor/dev</code>.
   The test account is <code>throwaway_01</code> / <code>Throwaway 1!</code>, and the client is
   <code>conductor-networking/test_client.py</code>.
 </p>
@@ -151,9 +187,12 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="bar">
   <span class="count"><b id="ticked">0</b> of <b id="total">0</b> ticked</span>
   <span class="said" id="said"></span>
-  <button type="button" id="copy-ticked">COPY WHAT'S TICKED</button>
+  <button type="button" id="copy-message">COPY MESSAGE</button>
   <button type="button" id="clear-ticks">CLEAR TICKS</button>
 </div>
+
+<div class="layout">
+<div class="checks-column">
 
 <h2>2026-09-30 -- Lua's first step (lua-parser)</h2>
 <p class="soft">
@@ -223,6 +262,17 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+</div>
+<aside class="message" id="message-panel">
+  <h2>Message for the session</h2>
+  <textarea id="message" readonly spellcheck="false" aria-label="The message for the session"></textarea>
+  <div class="row">
+    <button type="button" id="copy-message-too">COPY MESSAGE</button>
+    <span class="said" id="said-too"></span>
+  </div>
+</aside>
+</div>
+
 </main>
 <script>
   "use strict";
@@ -269,10 +319,41 @@ button on its own.  Pulls nothing from the internet, like the web admin.
     }
     document.getElementById("ticked").textContent = String(ticked);
     document.getElementById("total").textContent = String(checks.length);
+
+    document.getElementById("message").value = message();
+    document.getElementById("message-panel").classList.toggle("has-ticks", ticked > 0);
   }
 
-  function say(text) {
-    const said = document.getElementById("said");
+  // The heading a check sits under: the nearest <h2> before its list.
+  function headingOf(check) {
+    let before = check.closest("ul.checks").previousElementSibling;
+    while (before && before.tagName !== "H2") before = before.previousElementSibling;
+    return before ? before.textContent.trim() : "";
+  }
+
+  // The message for the session, from the ticked boxes, grouped under
+  // their headings in the page's order.
+  function message() {
+    const ticked = checks.filter((check) => check.querySelector("input").checked);
+    if (ticked.length === 0) {
+      return "Nothing ticked yet.  Tick a check and it's written in here.";
+    }
+
+    const lines = [`Test checklist: ${ticked.length} of ${checks.length} passed on testing.`];
+    let heading = null;
+    for (const check of ticked) {
+      if (headingOf(check) !== heading) {
+        heading = headingOf(check);
+        lines.push("", heading);
+      }
+      lines.push("- " + wordsOf(check));
+    }
+    return lines.join("\n");
+  }
+
+  // A word beside the button that was pressed, gone after two seconds.
+  function say(text, where = "said") {
+    const said = document.getElementById(where);
     said.textContent = text;
     setTimeout(() => { if (said.textContent === text) said.textContent = ""; }, 2000);
   }
@@ -328,15 +409,16 @@ button on its own.  Pulls nothing from the internet, like the web admin.
     row.appendChild(button);
   }
 
-  document.getElementById("copy-ticked").addEventListener("click", () => {
-    const ticked = checks.filter((check) => check.querySelector("input").checked);
-    if (ticked.length === 0) {
-      say("Nothing ticked.");
+  // The same COPY MESSAGE in the bar and under the message.
+  function copyMessage(where) {
+    if (!checks.some((check) => check.querySelector("input").checked)) {
+      say("Nothing ticked.", where);
       return;
     }
-    const text = "These checks passed:\n" + ticked.map((check) => "- " + wordsOf(check)).join("\n");
-    copy(text).then((worked) => say(worked ? "Copied." : "Couldn't copy."));
-  });
+    copy(message()).then((worked) => say(worked ? "Copied." : "Couldn't copy.", where));
+  }
+  document.getElementById("copy-message").addEventListener("click", () => copyMessage("said"));
+  document.getElementById("copy-message-too").addEventListener("click", () => copyMessage("said-too"));
 
   document.getElementById("clear-ticks").addEventListener("click", () => {
     for (const check of checks) check.querySelector("input").checked = false;
