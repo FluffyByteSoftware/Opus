@@ -37,21 +37,28 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   the entire point of our world just more for destructive view."
 - **The world starts flat, in three layers, counted in blocks** (Jacob, 2026-09-30): "blocks at 0 are all
   dirt, blocks at -1 thru -15 are stone, blocks 1 and higher are air".  One block of dirt on top of 15 of
-  stone (7.5 m), and air above.  With air up to +15, that's 31 blocks top to bottom, which fits in one
-  chunk's 32: **the world is one chunk tall**.
+  stone (7.5 m), and air above.
+- **The ceiling is +30, the floor below -15** (Jacob, 2026-09-30): "you can go 30 voxels HIGH before you
+  hit the ceiling; you can go down to -15 voxels in the ground before its undiggable".  Read as: +30 is the
+  last block that can be built, and -15 the last that can be dug, with -16 the floor nobody breaks.  That's
+  46 blocks from -15 to +30, so **the world is two chunks tall**: a lower row of chunks from -16 to +15
+  (the floor, the stone, the dirt and 15 of air) and an upper row from +16 to +47, all air at the start,
+  with nothing allowed above +30.
 - **8 km by 8 km to start** (Jacob, 2026-09-30), "it may _grow_ later".  16,384 blocks a side, 512 by 512
-  chunks, 262,144 chunks in all.
+  chunks across, 524,288 chunks in all with two rows.
 - **Every chunk starts the same**, so a chunk nobody has changed needn't be stored at all: it's made from
   the three layers when it's needed, and only a changed chunk is kept.  Put forward, 2026-09-30.
+- **A changed chunk is saved as a file in `Content/world/chunks/`** (Jacob, 2026-09-30), through DiskMan,
+  not in the database.
 
 ## Still open
 
 - How big that number is.  Two bytes (65,536 kinds, 64 KB a chunk before anything is squeezed) was put
   forward, so high-res textures never run out of kinds; a chunk that's all one kind (all air, all stone)
   kept as that one value.
-- **The floor and the ceiling.**  Whether -15 is the bottom, stone nobody can dig through, and +15 the
-  top, where nothing can be built above.  A 32-block chunk from -16 to +15 leaves one row at -16.
-- Where it's kept and when it's saved (the database, files through DiskMan, or both).
+- When a changed chunk is saved (STOP SERVER, like primlib's objects, or more often too), and what its file
+  is called and holds.
+- Whether `Content/world/` is kept out of git, the way `Content/logs/` is.
 - What each client is sent: the chunks near them, since the server decides what each client sees.
 - Whether the world belongs to primlib beside its `World` of entities, or is a piece of its own.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
