@@ -86,7 +86,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **The player makes a character at character select**, from the client, so nothing makes one until
     step 2, and it's tested through the game then: "We'll build it to test it through the game".
 
-  Open: which messages protogame carries; how the test client shows it working.
+  Open: which messages protogame carries; how the test client shows it working.  Jacob, 2026-09-30, once
+  the Characters tab was in: "to test it we'll need to build up our script and the networking portion (the
+  packets to support character creation)", so character select is `test_client.py` and the packets
+  together, and it's what puts the first character on the Characters tab.
 - **The GameClock's checks**: an input mailbox and an input packet, a brain for the AI, movement into
   `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their

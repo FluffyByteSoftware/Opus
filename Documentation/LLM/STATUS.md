@@ -98,8 +98,8 @@ crate, START and STOP SERVER clean): `accounts/src/characters.rs` (list, load, c
 rule, the unplayable flag), and the launcher's `stop_server()` forgets the unplayable flags.  Nothing calls
 them until character select.  `design/conductor-accounts.md`, "Characters", has it.
 
-Then **the Characters tab** under GAME MANAGEMENT, **built, and every test passes** (the tab itself not yet
-looked at in the browser): every player's character, look
+Then **the Characters tab** under GAME MANAGEMENT, **built and tested** (every test passes, and Jacob looked:
+"it looks correct"): every player's character, look
 only, for `admin` and `user` both (name, UUID, x, y, z, account), through `GET /Opus/Content/characters`
 (Jacob's yes) and `list_all()` in `characters.rs`.  Editing characters and NPCs there is next conversation
 (Jacob's words), in TODO.md.
