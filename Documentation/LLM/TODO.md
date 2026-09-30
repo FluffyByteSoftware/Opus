@@ -167,6 +167,13 @@ Things that wait on a piece that doesn't exist yet.
   has a line waiting for it; a soft-reboot setting, by the rule); what runs each tick, and in what
   order; what happens when a tick runs long; whether the world is made fresh on every START SERVER.
   Saving the copies on STOP SERVER and loading them back (`design/primlib.md`) lean on it too.
+  - **Jacob's design, 2026-09-30 (the heartbeat)**: a full tick cycle is **250 ms**, cut into **five
+    checks of 50 ms** each.  Each check touches its own group of objects and does whatever it needs
+    to: one takes in the players' input, one sends positions out to everybody else, one runs the AI's
+    brains, "and so on".  Argon2 stays on its one thread on the side (Security's worker), and with
+    that it never ran far over 250 ms.  Jacob remembered a heartbeat stashed in `conductor-tools`
+    from an earlier go; there isn't one in Opus's history (it was likely Stratum or Mantle, whose code
+    doesn't carry over), so it's written fresh.
 - Web admin: the Control Panel (built 2026-09-29; the "Manage System" screen) starts and stops the server,
   which today is Fingerprinter, Security, Archivist, networking and the monitor.  The game loop goes in
   `start_server()` and `stop_server()` in the launcher when it exists, and comes up and down with the
