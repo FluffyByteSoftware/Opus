@@ -54,16 +54,16 @@ Things that wait on a piece that doesn't exist yet.
   characters.  The list itself (address, account, connected when, playing for, quiet for) was built with
   the access lists, 2026-09-29.  Kicking a player from it is client management, above.
 - **TEST_CHECKLIST.md becomes an HTML page with checkboxes** (Jacob, 2026-09-30, going through the 09-29
-  checks): tick them off while testing instead of reading them out.  Open when it comes:
-  - **Where a tick is kept.**  A plain HTML file opened from the disk can't write back to itself, so a
-    tick lives in the browser (lost with its data, and no session sees it) unless something else holds
-    it: a claude.ai page that keeps its own state, which a session can read back and clear; or a tab on
-    the web admin, which means a route that writes a file (asked first, like every route).
-  - **Whether passed checks still come out of the file** (today's rule: a pass is taken out, not struck
-    through), or a tick is the record until a session clears the ticked ones.
-  - Where it lives (`Documentation/LLM/TEST_CHECKLIST.html`, say) and who writes the new checks into it:
-    the sessions still do, at every hand-off.  CLAUDE.md names TEST_CHECKLIST.md in three places, which
-    change with it.
+  checks): "a local browser html page only, it's just to help me track what I cleared."  So:
+  - Opened from the disk in the browser; a tick is kept in the browser's own storage and nowhere else.
+    Nothing in the repo or in Conductor changes when a box is ticked, and no session sees it.
+  - The rule stays as it is: Jacob tells the session which checks passed, and the session takes them out
+    of the file.  The ticks are only his place-keeping while he goes through them.
+  - A tick is keyed by the check's own words, so a session rewriting the file (new checks, passed ones
+    gone) doesn't move the ticks onto the wrong lines.
+  - Pulls nothing from the internet, like the web admin's page.  It lives where the .md does
+    (`Documentation/LLM/TEST_CHECKLIST.html`), and the sessions write the new checks into it at every
+    hand-off.  CLAUDE.md names TEST_CHECKLIST.md in three places, which change with it.
 - **The whitelist and blacklist changeable from the page while the server is stopped** (Jacob,
   2026-09-30, going through the 09-29 checks).  Today it runs into a rule in CLAUDE.md: the Whitelist
   and Blacklist tabs are locked until both of networking's listeners are up, and `addip` / `removeip`
