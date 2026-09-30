@@ -39,6 +39,54 @@ Nothing is decided yet.  What has to be, when it opens:
 
 Its name is Jacob's to give when it opens.
 
+**Jacob's first sample** (2026-09-30, while the game library's ECS was talked through), MudOS / LPC in
+spirit.  A template is a named set of components; `create` makes an object from a template and sets its
+components' values.  Conductor knows from it which components to put on the object, and sends the
+object to the clients as it changes.
+
+```
+define template as "NPC"
+{
+	// adds the position X, Y, Z floats to this game object
+	AddComponent(Position);
+	// adds the rotation directions, X, Y, Z floats for this game object
+	AddComponent(Rotation);
+	// Adds the scalar values for X, Y, Z floats for this game object
+	AddComponent(Scale);
+	// Adds a "short name" to refer to this item as (this is usually lower case, examples goblin instead of
+	// "a Goblin Warrior")
+	AddComponent(ShortName);
+	// Adds a "long name" with proper capitalization and title or unique name if necessary (ie: "a Goblin
+	// Warrior named, Serah")
+	AddComponent(LongName);
+	// Adds a titles component like "the Cursed" this is an array with one value selected as CurrentTitle;
+	AddComponent(Titles);
+	AddComponent(Health);
+	AddComponent(Endurance);
+	AddComponent(Mana);
+}
+
+// Tell our script parser that we are creating a gameobject called goblin_a that is a template NPC (comes
+// prefixed with these components)
+create NPC goblin_a{
+	// Spawns this at 0 0 0 facing 0 0 0
+	Position.SetPosition(0, 0, 0);
+	Rotation.SetRotation(0, 0, -90);
+	Scale.SetScale(1,1,1);
+	ShortName.Set("goblin");
+	LongName.Set("goblin archer");
+	Titles.Set("the plucky");
+	Health.SetMax(2000);
+	// No need to Health.Set it, it auto sets to max unless specified
+	Endurance.SetMax(200);
+	Mana.SetMax(2);
+}
+```
+
+What it settles so far: the language describes objects as components with values, and a component can
+have a default that follows from another value (current health starts at its max).  Behaviour (what the
+goblin does) isn't in the sample yet.
+
 ## A program of its own for account management
 
 Jacob's, 2026-09-29, while the web admin's account manager was being planned: "eventually we will make a

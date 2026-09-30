@@ -73,7 +73,10 @@ Things that wait on a piece that doesn't exist yet.
   - **The ECS, so far** (Jacob, 2026-09-30, talked through here after the separate chat didn't
     work out): component driven.  An object is packed with components, and the components make it
     into something else.  The exception is a character, which will probably have some baked
-    properties, always there, beside its components.
+    properties, always there, beside its components.  Jacob's sample of an NPC in the scripting
+    language (in LONGTERM_TODO.md) shows the shape: a **template** is a named set of components
+    (`NPC`: Position, Rotation, Scale, ShortName, LongName, Titles, Health, Endurance, Mana), `create`
+    makes an object from it and sets the values, and Conductor sends it to the clients as it changes.
   - **The ECS, open**: where behaviour lives (in the components, the way a Unity script does, or in
     systems that run over every object with a given set of components); which properties a character
     has baked, and whether other objects have any; written by hand or a crate (bevy_ecs, hecs: a dependency, and heavy on
