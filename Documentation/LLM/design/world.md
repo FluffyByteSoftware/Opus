@@ -87,23 +87,27 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
   east "from origin 0,0,0"**.
 - **Omega's bumps are saved, not made again** (Jacob, 2026-09-30): "Omega chunks will need to be saved
   with their bumpiness before server shuts down".  Made once, when the world is made, and kept, so a
-  change to the noise code later never reshapes hills already there.  How they're kept is open below.
-- **Chunk 0 is the world's lower left corner** (Jacob, 2026-09-30, "I think"), so chunks run 0 to 511 each
-  way and a file's numbers are never negative.  Asked again the same day, since "Alpha west, Omega east
-  from origin 0,0,0" reads as the origin in the middle.
-- **A file's numbers are padded to three digits** (Jacob, 2026-09-30): `alpha_003_015_0.chunk`, east,
+  change to the noise code later never reshapes hills already there.  **Kept as one heights file**
+  (Jacob's yes, 2026-09-30): one number per 50 cm column, how high the dirt is, -5 to +5, about 134 MB
+  for half of 8 km, written once when the world is made.  Omega's untouched chunks are built from it.
+  Saving every Omega chunk in full (about 8 GB) was weighed and passed over.
+- **A chunk's own file always wins** (Jacob's yes, 2026-09-30, after asking what happens to a hole): the
+  first time anybody digs or builds in a chunk, it's saved whole as its own `.chunk` file, and from then on
+  that file is the truth for it.  Only a chunk nobody has touched is built from its region's rule (the
+  flat layers for Alpha, the heights file for Omega).
+- **0,0,0 is the middle of the world** (Jacob, 2026-09-30, turning round his "lower left corner" the same
+  day): "I want it to span -8096 to 8096 and at 0, 0 its gold".  Alpha is everything west of 0, Omega
+  everything east, and the gold block sits on the line between.  File names take negative numbers.
+  Whether that span is blocks or metres is asked; see "Still open".
+- **A file's numbers are padded to three digits** (Jacob, 2026-09-30): `alpha_-015_003_0.chunk`, east,
   north, then row.
 
 ## Still open
 
 - What's in a chunk's file beyond its blocks (a version number, at least).
-- Where 0,0,0 is: the lower left corner, or the middle, with Alpha's chunks west of it and Omega's east.
-- **How Omega's bumps are kept.**  Every Omega chunk saved in full is 131,072 chunks of 64 KB, about 8 GB
-  (the upper row is all air and needn't be).  Put forward instead: Omega's heights saved once, one number
-  per 50 cm column, in one file (about 134 MB), and its chunks built from those heights; a chunk somebody
-  changed is saved as usual.  The smallest way, saving only the noise's seed, is what Jacob turned down.
-  Jacob asked what happens to a hole somebody digs: the dug chunk gets its own `.chunk` file, whole, and
-  a chunk's own file always wins over the heights, so the hole stays (being talked through, 2026-09-30).
+- **-8096 to 8096: blocks or metres.**  In blocks (as -8192 to 8191, since 8096 isn't a whole number of
+  chunks) it's the 8 km already settled, chunks -256 to 255.  In metres it's 16 km a side, four times the
+  ground, chunks -512 to 511, and file numbers still fit three digits.
 - What's in `region.map` and how it's laid out.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
