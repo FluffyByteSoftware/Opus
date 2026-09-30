@@ -15,7 +15,7 @@ web admin shows.
 ## Skeleton
 
 ```
-conductor-monitor/
+monitor/
 ├── Cargo.toml         depends on conductor-tools, nothing else
 └── src/
     ├── lib.rs         start(), stop(), latest() -> Option<Snapshot>

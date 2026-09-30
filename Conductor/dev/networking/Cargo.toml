@@ -1,0 +1,25 @@
+# File:       Opus/Conductor/dev/networking/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# Networking: the TLS front door players log in at over TCP, and the UDP
+# side the game runs on.  A lib crate, and a server piece: it comes up on
+# START SERVER and down on STOP SERVER.  conductor-accounts is how the
+# login reads a password hash and how a player's login time is written.
+#
+# rustls is the TLS.  Nobody writes their own, and this includes us.  Its
+# default features are off: "ring" picks the crypto (pure Rust plus a bit
+# of C, no cmake, the same on Linux and Windows), "std" is the sockets and
+# the PEM reading for the certificate and key files, and leaving "tls12"
+# out makes it TLS 1.3 only, which is less code and less CPU per
+# handshake.
+
+[package]
+name = "conductor-networking"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-accounts = { path = "../accounts" }
+conductor-tools = { path = "../tools" }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }

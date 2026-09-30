@@ -17,7 +17,7 @@ features off and two turned back on: `alloc` (for a stored line that wants more 
 ## Skeleton
 
 ```
-conductor-tools/
+tools/
 ├── Cargo.toml
 └── src/
     ├── lib.rs             pub mod archivist; clock; constellations; diskman; fingerprinter; notices; pending;

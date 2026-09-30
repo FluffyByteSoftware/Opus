@@ -14,7 +14,7 @@ accents, a terminal box), redone in plain CSS.
 ## Skeleton
 
 ```
-conductor-wgui/
+wgui/
 ├── Cargo.toml         depends on conductor-tools, conductor-monitor, conductor-networking (Connections and the lists)
 │                        and conductor-accounts (the Accounts tab)
 └── src/
@@ -387,7 +387,7 @@ while DiskMan finishes.
 ## Services
 
 Built on 2026-09-28, Zabbix style, the way the TLP at Jacob's work does it.  The list lives in
-`conductor-tools/src/services.rs` (see `conductor-tools.md`).  What each one reports:
+`tools/src/services.rs` (see `conductor-tools.md`).  What each one reports:
 
 | Service        | Running when                                  | Trouble when                                   |
 |----------------|-----------------------------------------------|------------------------------------------------|

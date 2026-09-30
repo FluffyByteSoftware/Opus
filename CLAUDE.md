@@ -53,13 +53,13 @@ Opus/
 ├── .gitignore
 ├── Conductor/             # server
 │   ├── dev/               # source code -- a Cargo workspace
-│   │   ├── conductor-tools/    # lib: the tools (DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, ...)
-│   │   ├── conductor-accounts/ # lib: the one way in to the accounts table, and the account desk
-│   │   ├── conductor-monitor/  # lib: looks at the process once a second (RAM, CPU, disk, threads)
-│   │   ├── conductor-networking/ # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
+│   │   ├── tools/              # lib: the tools (DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, ...)
+│   │   ├── accounts/           # lib: the one way in to the accounts table, and the account desk
+│   │   ├── monitor/            # lib: looks at the process once a second (RAM, CPU, disk, threads)
+│   │   ├── networking/         # lib: the login over TLS on TCP, the game over UDP; test_client.py beside it
 │   │   ├── lua-parser/         # lib (conductor-lua-parser): runs the Lua scripts in Content/scripts/, locked down
-│   │   ├── conductor-wgui/     # lib: the web admin on 127.0.0.1, and the only way to shut down
-│   │   └── conductor-launcher/ # bin: the program -- boots, then starts and stops the server on the Control Panel's say
+│   │   ├── wgui/               # lib: the web admin on 127.0.0.1, and the only way to shut down
+│   │   └── launcher/           # bin: the program -- boots, then starts and stops the server on the Control Panel's say
 │   └── build/             # compiled output -- never committed
 ├── Ensemble/              # client
 │   ├── dev/               # source code
@@ -266,6 +266,11 @@ When I say we're wrapping up:
   test run by hand, and its doc comment gives the exact command.
 - Whenever you create a new crate, say explicitly whether it is a **bin** or a
   **lib**.
+- **A crate's folder drops the `conductor-`; the crate keeps it.**  The
+  folder is `Conductor/dev/tools/`, the crate in its `Cargo.toml` is
+  `conductor-tools`, and code says `conductor_tools::`.  So `-p` in a cargo
+  command takes the crate's name (`cargo test -p conductor-tools`), and a
+  `path = "../tools"` takes the folder's.  Jacob, 2026-09-30.
 - Prefer clear ownership and simple types over heavy generics or macros.
 - **The scripting language is Lua 5.4**, embedded through the `mlua`
   crate with Lua built in (Jacob, 2026-09-30).  A script never gets Lua's
@@ -437,7 +442,7 @@ When I say we're wrapping up:
 - There is no "which OS" setting in the config. The compiler knows what it is
   building for, and `#[cfg(target_os = "linux")]` / `#[cfg(windows)]` pick the
   code. OS-specific code gets one file per OS behind a common set of functions
-  (see `conductor-monitor/src/probe/`), plus a fallback file for anything else
+  (see `monitor/src/probe/`), plus a fallback file for anything else
   that builds and reports "not measured here yet" instead of failing.
 - Talk to the OS through what it already has, not a crate: `/proc` files on
   Linux, kernel32 (and ntdll) through an `extern` block on Windows. `unsafe`

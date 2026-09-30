@@ -15,7 +15,7 @@ feature exists.
 ## Skeleton
 
 ```
-conductor-networking/
+networking/
 ├── Cargo.toml
 ├── test_client.py       the stand-in client: TLS, Login, Ticket, Connect, keep-alives, Goodbye.  Python 3.
 └── src/

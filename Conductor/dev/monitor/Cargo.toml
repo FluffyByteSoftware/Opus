@@ -1,0 +1,16 @@
+# File:       Opus/Conductor/dev/monitor/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# The monitor: a thread that looks at Conductor once a second (memory, CPU,
+# disk, threads, the database) and keeps the latest look for whoever wants
+# it.  A lib crate.  No dependencies but our own tools -- it reads what the
+# OS already offers, /proc on Linux and kernel32 on Windows.
+
+[package]
+name = "conductor-monitor"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-tools = { path = "../tools" }

@@ -7,7 +7,7 @@ Author:     Jacob Chacko
 # Opus -- Protocol
 
 What Conductor and its clients say to each other, down to the byte.  Written for somebody building a
-client who has never seen Conductor's code.  Conductor's half is `conductor-networking/src/protocol.rs`,
+client who has never seen Conductor's code.  Conductor's half is `networking/src/protocol.rs`,
 and the Python test client beside it is the other half for now; when either disagrees with this document,
 it is the code that gets fixed.
 

@@ -279,12 +279,12 @@ shut down and run again for a hard one.  DiskMan notices the file changed on dis
 
 ## Talking to it
 
-Until Ensemble exists, `Conductor/dev/conductor-networking/test_client.py` stands in for it: Python 3,
+Until Ensemble exists, `Conductor/dev/networking/test_client.py` stands in for it: Python 3,
 standard library only.  It logs in, takes the ticket to UDP, keeps alive, and prints every packet both
 ways:
 
 ```
-python3 Conductor/dev/conductor-networking/test_client.py some_account 'Its password 1!'
+python3 Conductor/dev/networking/test_client.py some_account 'Its password 1!'
 ```
 
 Its switches: `--host` and `--tcp-port` for another server, `--cert` for another certificate,
@@ -306,13 +306,13 @@ Unity 6000.6, in C#.  It's on my machine and not in the repo yet.
 Opus/
 ├── Conductor/
 │   ├── dev/                       a Cargo workspace
-│   │   ├── conductor-tools/       DiskMan, Scribe, Constellations, Security, Archivist and the rest
-│   │   ├── conductor-accounts/    the accounts table, read on demand, never held; the account desk
-│   │   ├── conductor-monitor/     looks at the process and the machine once a second
-│   │   ├── conductor-networking/  the login over TLS, the game over UDP, the access lists; test_client.py
+│   │   ├── tools/                 DiskMan, Scribe, Constellations, Security, Archivist and the rest
+│   │   ├── accounts/              the accounts table, read on demand, never held; the account desk
+│   │   ├── monitor/               looks at the process and the machine once a second
+│   │   ├── networking/            the login over TLS, the game over UDP, the access lists; test_client.py
 │   │   ├── lua-parser/            runs the Lua scripts, locked down
-│   │   ├── conductor-wgui/        the web admin
-│   │   └── conductor-launcher/    the program: boots, then runs the server on the Control Panel's say
+│   │   ├── wgui/                  the web admin
+│   │   └── launcher/              the program: boots, then runs the server on the Control Panel's say
 │   └── build/                     compiled output, never committed
 ├── Ensemble/                      the client (on my machine, not in the repo yet)
 ├── Content/

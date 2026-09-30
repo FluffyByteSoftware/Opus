@@ -151,12 +151,6 @@ Things that wait on a piece that doesn't exist yet.
   Ensemble's first session's call.
 - Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is ignored
   for now, so it stays out of git.  Jacob's call when the client needs it.
-- **Drop the `conductor-` from the crate folders** (Jacob, 2026-09-29: redundant now).  Its own session.
-  Jacob's pick: the folders only (`Conductor/dev/tools/`, `accounts/`, ...); every crate keeps its
-  `conductor` name, so code still says `conductor_tools::scribe`.  Touches the workspace `Cargo.toml`,
-  every `path = "../conductor-..."`, the `File:` lines, the `include_str!` paths that climb out of a
-  crate (same depth, so likely none), CLAUDE.md, PROJECT_OPUS.md and the design docs.  `lua-parser`
-  (2026-09-30) was made without it from the start; its crate is `conductor-lua-parser`.
 - **Playtime metrics** (Jacob, 2026-09-29: "cool metrics later").  `last_login_datetime` is when a player
   came in over UDP, but only the latest one is kept, and nothing records when they left.  Playtime needs
   a table of play sessions (account, in, out, how it ended), a row written as each player leaves the
@@ -184,7 +178,7 @@ Things we thought of along the way.  None of them are promised.
   folders are the same one.
 - Scribe: a lost log file only gets retried at midnight UTC or on `move_to()`.  A retry every few minutes
   would get it back sooner after, say, a full disk is cleaned up.
-- Scribe: the caller shows the path Rust compiled with (`conductor-launcher/src/main.rs`).  Trim to the file
+- Scribe: the caller shows the path Rust compiled with (`launcher/src/main.rs`).  Trim to the file
   name if that gets noisy.
 - Constellations: a stray `Content/` inside `Conductor/dev` (made by hand by mistake, 2026-09-29) shadows
   the real one, since the walk up takes the nearest.  Skipping a `Content` whose parent holds a

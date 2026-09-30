@@ -8,10 +8,9 @@
 # talks to players, conductor-lua-parser runs the Lua scripts,
 # conductor-wgui is the web admin, and conductor-launcher is the program.
 #
-# The members are folders.  lua-parser is the first without the
-# conductor- in front; the rest lose theirs when that rename comes.
+# The members are folders, named without the conductor- in front (tools,
+# accounts, ...).  The crates keep it, so code still says conductor_tools.
 
 [workspace]
-members = ["conductor-tools", "conductor-accounts", "conductor-monitor", "conductor-networking", "lua-parser",
-           "conductor-wgui", "conductor-launcher"]
+members = ["tools", "accounts", "monitor", "networking", "lua-parser", "wgui", "launcher"]
 resolver = "3"

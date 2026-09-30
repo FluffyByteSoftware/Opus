@@ -1,0 +1,20 @@
+# File:       Opus/Conductor/dev/launcher/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# The program.  It starts the tools and the web admin, starts and stops the
+# server when the web admin's Control Panel says to, and shuts down when
+# SHUT DOWN is pressed there.  A bin crate.
+
+[package]
+name = "conductor-launcher"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-accounts = { path = "../accounts" }
+conductor-lua-parser = { path = "../lua-parser" }
+conductor-monitor = { path = "../monitor" }
+conductor-networking = { path = "../networking" }
+conductor-tools = { path = "../tools" }
+conductor-wgui = { path = "../wgui" }

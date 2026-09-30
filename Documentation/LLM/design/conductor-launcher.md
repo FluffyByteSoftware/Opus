@@ -13,7 +13,7 @@ when the web admin stops.
 ## Skeleton
 
 ```
-conductor-launcher/
+launcher/
 ├── Cargo.toml         depends on conductor-tools, conductor-accounts, conductor-monitor, conductor-networking,
 │                        conductor-wgui
 └── src/

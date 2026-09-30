@@ -7,7 +7,7 @@ Author:     Jacob Chacko
 # lua-parser
 
 A lib crate, and a server piece.  The folder is `Conductor/dev/lua-parser/` (the first without the
-`conductor-` in front; the others lose theirs when that rename comes), and the crate is
+`conductor-` in front; the others lost theirs on 2026-09-30), and the crate is
 `conductor-lua-parser`, so code says `conductor_lua_parser::start()`.  Jacob named it, 2026-09-30.
 "Parser" is a loose name: `mlua` does the parsing, and this crate mostly runs scripts.
 

@@ -13,7 +13,7 @@ while they do: only while the server is running.
 ## Skeleton
 
 ```
-conductor-accounts/
+accounts/
 ├── Cargo.toml     depends on conductor-tools, nothing else
 └── src/
     ├── lib.rs     struct Account; load(), list(), password_hash(), taken(), create(), edit(),

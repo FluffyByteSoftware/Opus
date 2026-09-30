@@ -14,8 +14,7 @@ Security, Archivist, the notices, the clock, the thread list, the services list 
 `conductor-monitor` (lib) looks at the process and every process on the machine once a second.
 `conductor-networking` (lib) is the front door: a login over TLS on TCP that hands a player a ticket for
 UDP, the UDP side the game will run on, a ledger of every connection at the door, and a whitelist and a
-blacklist of addresses checked at the door.  **`lua-parser`** (lib, `conductor-lua-parser` in code, the
-first folder without `conductor-`) runs the Lua scripts in `Content/scripts/`, locked down.
+blacklist of addresses checked at the door.  **`lua-parser`** (lib, `conductor-lua-parser` in code) runs the Lua scripts in `Content/scripts/`, locked down.
 `conductor-wgui` (lib) is the web admin at `http://127.0.0.1:9996/Opus`, and the only way to start and stop
 the server and to shut Conductor down.  `conductor-launcher` (bin) boots the program and waits on the web
 admin's Server tab.  Ensemble is Unity 6000.6, on Jacob's machine, not in the repo.
@@ -91,12 +90,10 @@ the three layers, the Unity question).  The plan with files comes first, per CLA
 - **The game library** and its ECS, unpaused now that Lua is in.  TODO.md's protogame entry and
   LONGTERM_TODO.md's scripting entry have everything settled and open, the Unity question included.
 - **The blocked names list**, in TODO.md with his answers.
-- **Drop `conductor-` from the other crate folders**, folders only.  In TODO.md.  `lua-parser` was made
-  without it.
 - **Playtime metrics**: a table of play sessions.  In TODO.md.
 - **Move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`** (Jacob, 2026-09-29).  In TODO.md.
 - **The stale words in the code**, in TODO.md.
-- **Where the test client lives** and what it's called.  It's `Conductor/dev/conductor-networking/
+- **Where the test client lives** and what it's called.  It's `Conductor/dev/networking/
   test_client.py` for now.
 - Archivist retrying on its own every 5 seconds while disconnected.  Asked, not answered.
 - The Debug switch in `conductor_globals.cfg`.
