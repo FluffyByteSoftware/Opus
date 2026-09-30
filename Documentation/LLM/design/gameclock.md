@@ -15,8 +15,9 @@ It's the game loop.  It owns primlib's `World` and steps it forward on a fixed b
 
 ## Where it stands
 
-Written 2026-09-30, **not built yet**.  The beat, the schedule, the tallies, the Services line, start and
-stop.  The five checks are empty: nothing in the world moves yet, and the protocol has no input packet.
+Written 2026-09-30 and built the same day on Linux: no warnings, its 8 tests pass, and so does every other
+test.  The run checks (START SERVER, a login, STOP SERVER) are open on TEST_CHECKLIST.html.  The beat, the
+schedule, the tallies, the Services line, start and stop.  The five checks are empty: nothing in the world moves yet, and the protocol has no input packet.
 
 ## Skeleton
 

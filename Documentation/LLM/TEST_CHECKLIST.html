@@ -200,25 +200,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      The whole workspace builds with no errors and no <code>warning:</code> lines.  <code>Cargo.lock</code>
-      changes this time (the new crate, <code>conductor-gameclock</code>), and gets committed.
-    </span></label>
-    <pre class="cmd">cargo build &amp;&amp; git status --short</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The heartbeat's 8 tests pass.
-    </span></label>
-    <pre class="cmd">cargo test -p conductor-gameclock</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Every test passes, the Services list's included (it has Heartbeat now).
-    </span></label>
-    <pre class="cmd">cargo test</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       START SERVER: the Log tab has "The heartbeat is up: five checks of 50 ms, a 250 ms cycle.", and the
       Services tab has Heartbeat green, between Lua and Web admin, its note counting cycles with 0 late.
       About 240 cycles a minute.

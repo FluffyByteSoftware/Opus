@@ -181,7 +181,7 @@ Things that wait on a piece that doesn't exist yet.
     code, not a setting**: "from all the testing I did before anything faster is gonna be a problem.
     Slower is fine but faster becomes bad."  The crate is `conductor-gameclock` (folder `gameclock`),
     and code calls it `conductor_heartbeat`.
-  - **Written, 2026-09-30, not built yet**: `design/gameclock.md` has it.  The five checks are empty
+  - **Written and built, 2026-09-30** (no warnings, every test passes): `design/gameclock.md` has it.  The five checks are empty
     slots; what goes in each is open there.
 - **A Tick evaluator tab under GAME MANAGEMENT** (Jacob, 2026-09-30, while the heartbeat was
   planned): a tab beside Connections that shows how the heartbeat is keeping time.  For now the
