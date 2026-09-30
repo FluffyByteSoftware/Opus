@@ -70,10 +70,12 @@ Things that wait on a piece that doesn't exist yet.
     them, one entry a line and not in Constellations' table, so CLAUDE.md's "one exception" becomes
     three files.
   - For now it's curse words, and it checks account usernames.
-  - A name is blocked if 4 letters or more of a blocked word are in it.  Exactly what that means is
-    still asked (below).
-  Still open: what "4 letters or more" means exactly; whether a change from the page takes at once (a
-  hot swap, like the access lists) or at the next START SERVER.
+  - A blocked word of 4 letters or more blocks any name with the whole word in it: "shit" blocks
+    "Shitfox", "bastard" blocks "Bastardfox".  Only the whole word counts, never a piece of it, so
+    "bastard" doesn't block "Starlight".  A word under 4 letters blocks nothing ("ass" lets "Ass"
+    and "Cassandra" through).  Jacob's examples, 2026-09-30.
+  - Read on START SERVER, like the soft files; a change from the page waits for the next one.  Not a
+    hot swap (Jacob: "we don't need this to be hot swappable").
 - **Web admin: move `wgui_port` from `conductor_globals.cfg` into `wgui.cfg`.**  Jacob's call at the
   2026-09-29 wrap-up, once the web admin had a file of its own.  The steps are in STATUS.md.
 - Launcher: catch Ctrl-C and shut down cleanly (or ignore it).  Since DiskMan, there is something to save
