@@ -84,6 +84,11 @@ Things that wait on a piece that doesn't exist yet.
     5.4 through `mlua`, in `lua-parser` (`design/lua-parser.md`).  Jacob, closing that session: next is
     "constructing the first primitive components and the ECS for game objects".  An object's behaviour is a behaviour script added to it; GOAP for the
     thinking, maybe.
+  - **Opened, 2026-09-30** (Jacob): this session builds the "GameObject", an entity storage system.
+    Components are added to an entity to change how it behaves and how it can be dealt with on the
+    server and in the client.  "We'll cheat a little" with templates or blueprints that set out the
+    components a whole kind of object needs or is expected to have: an NPC's has health, position,
+    rotation and the rest.
   - **The ECS, open**: where behaviour lives (in the components, the way a Unity script does, or in
     systems that run over every object with a given set of components); which properties a character
     has baked, and whether other objects have any; written by hand or a crate (bevy_ecs, hecs: a dependency, and heavy on
