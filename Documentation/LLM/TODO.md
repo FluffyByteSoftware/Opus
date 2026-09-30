@@ -111,8 +111,9 @@ Things that wait on a piece that doesn't exist yet.
     holding them all); how many entities and what tick the world is sized for.  And whether a spawned
     NPC is saved at all: Jacob's first thought was that a copy becomes a database row once it's
     spawned and its values are managed through the row until it's destroyed ("Flat files made this
-    easier").  That runs into the game loop never waiting on the database; `design/primlib.md` has
-    it.
+    easier").  That ran into the game loop never waiting on the database, and Jacob's answer is that
+    a copy is written to the database as a row of its own when the server is stopped.  Every copy has
+    a UUID and an internal name (`goblin_archer_1`).  `design/primlib.md` has it, and what's open.
 - **Client management**, Jacob's words for the lot of it, 2026-09-29: not this iteration.  The point of
   this one was handing a client from TCP to UDP and logging them off.  Waiting in here:
   - A player limit: "The server is full." (Stratum had 50, with a few more TCP connections so a full

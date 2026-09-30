@@ -85,29 +85,36 @@ today builds the blueprint once and copies it); whether `awake()` runs on every 
 
 ## Open
 
-- **Is a spawned NPC saved?**  Jacob's first thought (2026-09-30): once a copy is spawned it becomes a
-  database entry, and its values are managed through the row until it's destroyed ("Flat files made
-  this easier").  That runs into a rule: the game loop never waits on the database.  The world in
-  memory has to be what the tick reads and writes.  A hundred goblins read from Postgres twenty times
-  a second is 2,000 round trips a second through Archivist's one worker, before anything else wants it.
-  So the choice is when the world's copy goes to the row, not whether memory holds it:
-  - **Never, for NPCs**: a server restart starts the world empty, and the spawn system fills it again
-    from the blueprints.  No table.
-  - **Every so often and on STOP SERVER**, through Archivist, the game loop never waiting: a restart
-    brings back the same goblins, hurt where they were hurt.  A table (or tables) for them.
-  - Players' characters are saved either way (`player_characters`, in TODO.md).
-- **Visuals** (Jacob, 2026-09-30, mid-session): a component for what the client draws: which model
-  Ensemble loads, which animation it's in (if any), and whether it's animated at all.  "May need to
-  divide our current components up more."  Open: one `Visuals` component, or split the way Unity
-  does (a `Model` component, and an `Animation` component only on what moves, so "is it animated" is
-  whether it has one); what names a model (a name Ensemble looks up, or a path under `Content/Assets/`);
-  and which of the first nine get split too.
+- **Saving the copies.**  Decided (Jacob, 2026-09-30): "when the goblin needs to be saved from memory
+  it is saved to the database as a per instance item.  This can happen during shut down or rather when
+  the server is being stopped."  So memory is what the game reads and writes while the server runs,
+  and on STOP SERVER every copy is written to the database as a row of its own, through Archivist.
+  (His first thought, a row managed live, ran into the game loop never waiting on the database.)
+  Open: whether START SERVER loads them back (the same goblins, hurt where they were hurt); whether
+  anything is saved between stops, so a crash doesn't lose the lot; the table's shape.  Players'
+  characters are saved too (`player_characters`, in TODO.md).
+- **Every copy has a UUID** (Jacob, 2026-09-30): "you will be able to search NPCs by their UUIDs (which
+  is unique to every instantiated one)".  From Fingerprinter (`new_uuid()`), like every row's.  The
+  entity number is only good while the server runs; the UUID is the copy's name for good.
+- **And an internal name**, "like goblin_archer_1".  Open: whether it's the blueprint's name and a
+  number that goes up with each copy, and whether the number carries on past a restart (it would have
+  to, if the copies are loaded back, or there'd be two goblin_archer_1s).
+- **Visuals, split up** (Jacob, 2026-09-30, mid-session: "may need to divide our current components up
+  more").  Decided:
+  - **`Transform`** takes over Position, Rotation and Scale, the way Unity has it.  Jacob said it
+    "holds the rotation and position of its parent"; open whether that means objects hang off other
+    objects (a sword in a goblin's hand, moving with it) and a transform is relative to its parent,
+    the way Unity's local position is.  Built without a parent for now.
+  - **`PrimitiveShape`**: the shape the client draws if it can't draw the model ("cube, capsule,
+    etc.").  Unity's six built-in shapes: cube, sphere, capsule, cylinder, plane, quad.
+  - **`Animator`**: "controls animation state on the server".  Open: what it holds (the name of the
+    state it's in, "idle" or "walk"; a speed; whether it loops).
+  - Open: where the model itself goes (a `Model` component?) and what names it (a name Ensemble looks
+    up, or a path under `Content/Assets/`).  An object without an `Animator` isn't animated, so there's
+    no flag for it.
 - **Which blueprint a copy came from.**  The spawn system (in TODO.md) needs to count the goblin_as,
   so a copy will need to know its blueprint.  Whether that's a component or something every entity has
   "baked" (the question TODO.md already has for characters) waits on the spawn system.
-- **The entity and the database's `uuid`.**  An entity number is only good while the server runs.
-  Anything saved, or named to the client and the logs, will want a `uuid` from Fingerprinter as well.
-  Waits on the question above.
 - **Behaviour**: in the components (the Unity way) or in systems that run over every entity with a
   given set of components.  Waits on the game loop and the Lua.
 - **Tests**: `cargo test -p conductor-primlib`.
