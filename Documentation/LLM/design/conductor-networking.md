@@ -6,43 +6,48 @@ Author:     Jacob Chacko
 
 # conductor-networking
 
-A lib crate, and a server piece: it comes up on START SERVER after Archivist and down on STOP SERVER
-before Security.  The part of Conductor that talks to players.  Started 2026-09-29, named by Jacob.  One
-new crate, `rustls` (with `ring` for the crypto, TLS 1.3 only).  The PEM reading comes with its `std`
-feature; a separate `rustls-pki-types` line with a `pem` feature was the first build error, since no such
-feature exists.
+A lib crate (`conductor-networking`, folder `networking/`), and a server piece: the part of Conductor that
+talks to players.  Named by Jacob.  One crate beyond our own, `rustls`, default features off: `ring` for the
+crypto, `std` for the sockets and the PEM files, and no `tls12`, so TLS 1.3 only.
+
+**The door opens once the world is in** (Jacob, 2026-09-30: nobody gets in before there's a voxel to step
+on).  START SERVER only calls `wait_for_world()`, which puts both services on "Waiting on the world".  The
+launcher's command loop (`take_commands()`, round every 250 ms) asks `conductor_gameclock::ready()` while
+the server runs with the door shut, and calls `start()` once the ground around 0,0,0 is in.  STOP SERVER
+takes networking down right after the monitor and before the GameClock, so every player is told before
+anything a login leans on goes.  `stop()` is safe when the door never opened, and says so on the Services tab.
 
 ## Skeleton
 
 ```
 networking/
-├── Cargo.toml
-├── test_client.py       the stand-in client: TLS, Login, Ticket, Connect, keep-alives, Goodbye.  Python 3.
+├── Cargo.toml         conductor-accounts, conductor-tools, rustls 0.23 ("ring", "std")
+├── test_client.py     the stand-in client: TLS, Login, Ticket, Connect, keep-alives, Goodbye.  Python 3.
 └── src/
-    ├── lib.rs           start(), stop(), status() -> Status { tcp, udp, players, tickets, connections, in_world, access,
-    │                      whitelisted, blacklisted },
-    │                      kick(id), terminate(account), access_lists(), list_address(), unlist_address(), enforce();
-    │                      timed_out(), wake_address()
-    ├── settings.rs      networking.cfg as networking reads it: struct Settings, load()
-    ├── tls.rs           server_config(settings) -> Arc<ServerConfig>; MAKE_PAIR, the openssl command
-    ├── protocol.rs      the packets, byte for byte: PacketType, LoginAnswer, ConnectAnswer, KickReason, Choice
-    │                      frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
-    │                      connect_result(), keep_alive(), kicked(); read_login(), read_session_choice(), read_connect()
-    ├── sessions.rs      the book: tickets by token, players by address, each account's whereabouts
-    │                      playing(), issue(), connect(), heard(), leave(), kick(), terminate(), sweep(), clear(),
-    │                      counts(), players(), drop_where(); every ticket and player carries its account's name and
-    │                      its ledger row, marked LINKDEAD on the way out through with_book()
-    ├── ledger.rs        the door's ledger: every connection since START SERVER and its Stage; End; Gone; Connection
-    │                      clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
-    ├── access.rs        the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
-    │                      start(mode, paths), stop(), verdict(ip), add(), remove(), snapshot(), counts()
-    ├── dns.rs           reverse DNS on thread net-dns, with a cache: start(), stop(), ask(), name_of()
-    ├── dns/linux.rs     reverse(ip) around getnameinfo from the C library
-    ├── dns/windows.rs   the same around ws2_32's; never built
-    ├── dns/other.rs     macOS and the rest: no names
-    ├── tcp.rs           the acceptor thread, the login threads, TLS, the login flow, the failure hold, kick(),
-    │                      close_where() for a ban
-    └── udp.rs           the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; tell() for kicks
+    ├── lib.rs         start(), wait_for_world(), stop(), status() -> Status { tcp, udp, players, tickets,
+    │                    connections, in_world, access, whitelisted, blacklisted }, kick(id), terminate(account),
+    │                    access_lists(), list_address(), unlist_address() -> Changed; enforce();
+    │                    timed_out(), wake_address()
+    ├── settings.rs    networking.cfg as networking reads it: struct Settings, load()
+    ├── tls.rs         server_config(settings) -> Arc<ServerConfig>; make_pair(), the openssl command
+    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 4: PacketType, LoginAnswer, ConnectAnswer,
+    │                    KickReason, Choice; frame(), take_packet(), take_datagram(); hello(), in_line(),
+    │                    login_result(), ticket(), connect_result(), keep_alive(), kicked(); read_login(),
+    │                    read_session_choice(), read_connect()
+    ├── sessions.rs    the book: tickets by token, players by address, each account's whereabouts
+    │                    playing(), issue(), connect(), heard(), leave(), kick(), terminate(), kick_login(),
+    │                    sweep(), clear(), counts(), players(), drop_where(); with_book()
+    ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
+    │                    start(), clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
+    ├── access.rs      the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
+    │                    start(mode, paths), stop(), verdict(ip), mode(), add(), remove(), snapshot(), counts()
+    ├── dns.rs         reverse DNS on thread net-dns, with a cache: start(), stop(), ask(), name_of()
+    ├── dns/linux.rs   reverse(ip) around getnameinfo from the C library
+    ├── dns/windows.rs the same around ws2_32's
+    ├── dns/other.rs   macOS and the rest: no names
+    ├── tcp.rs         the acceptor, the login threads, TLS, the login flow, the failure hold; kick(),
+    │                    close_where() for a ban, listening_on()
+    └── udp.rs         the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; tell(), listening_on()
 ```
 
 ## What Jacob asked for
@@ -56,177 +61,127 @@ because of the CPU cost.
 
 ## What we decided
 
-- **TCP is only the login.**  Stratum kept the TCP connection open for the whole session (chat, character
-  select).  Opus closes it the moment the Ticket is sent.  So there are no long-lived connection threads
-  at all: a connection lives for one TLS handshake and one login.
-- **A fixed pool of login threads, not a thread per connection.**  `login_threads` in `networking.cfg`
-  (8) threads take connections off a queue the acceptor fills.  A thread per connection would cost a
-  thread start per connection and an entry on the threads list for good, and buy nothing, since Security
-  hashes one login at a time however many threads wait on it.  A connection that finds the queue full
-  (`max_waiting_logins`, 64) is closed at the door; one that waited in the queue past the login deadline
-  is closed unserved.
-- **No thread polls.**  Stratum's connection threads woke every 50 ms to look at flags.  Here every read is
-  armed with exactly the time left to the connection's deadline, so a thread sleeps in the OS's read until
-  bytes come or the time is up.  `stop()` wakes the acceptor by connecting to it, and the login threads by
-  shutting down the sockets they're reading (a clone of each is kept on a list for that).  `stop()` gives
-  the login threads 2 seconds (`STOP_WAIT`) and the DNS thread 1, then logs a Warn and goes on without
-  them.  The UDP thread wakes once a second, packets or none, to sweep and check in; a login thread in
-  Security's line wakes once a second to send an InLine; and after a failed accept or receive the thread
-  rests 100 ms so a broken socket can't spin.  Those are the only timers.
-- **A failed login puts the address on a 2-second hold at the door**, not in a sleeping thread: the
-  acceptor closes the next connection from that address without queuing it.  Stratum slept a thread for
-  the hold.
-- **The login is one packet.**  Stratum had Hello, secret word, "awaiting", credentials: two round trips
-  before the password.  Opus is Hello, then one Login with the client version, the secret word, the
-  username and the password, then the answer.  The version is checked first (an old client is told so
-  without a hash), then the secret word (no hash), then the name's shape (no hash; the rule is in the
-  schema, so a quick no gives nothing away), and only then the accounts table and Security's line.  A name
-  that could be an account but isn't still costs a hash in the same line (`verify_no_account()`), and
-  `pad_login_time()` evens out the rest.
-- **The client is told its place in Security's line.**  The login thread waits on its `Ticket` a second at
-  a time (`wait_for()`, added to `Pending` and `Ticket` for this), and between waits sends an InLine with
-  `place()`'s numbers.  Jacob asked for that when Security was built.
-- **The right password for an account already in the world gets asked**, Stratum's SessionChoice: log the
-  other session out (it hears a Kicked over UDP) or hang up.  Jacob's answer, 2026-09-29.
+- **TCP is only the login.**  The connection closes the moment the Ticket is sent, so a connection lives for
+  one TLS handshake and one login, and no thread is kept for it.
+- **A fixed pool of login threads**, `login_threads` (8), taking connections off a queue the acceptor fills.
+  A thread per connection would cost a thread start each and a threads-list entry for good, and buy
+  nothing, since Security hashes one login at a time however many threads wait.  A full queue
+  (`max_waiting_logins`, 64) closes the connection at the door; one that waited past the login deadline
+  (`login_deadline_seconds`, 10) is closed unserved.
+- **No thread polls.**  Every read is armed with exactly the time left to the connection's deadline.
+  `stop()` wakes the acceptor by connecting to it and the login threads by shutting their sockets, then
+  gives the login threads 2 seconds and the DNS thread 1 before a Warn and going on without them.  The only
+  timers: the UDP thread wakes once a second to sweep and check in, a login thread in Security's line wakes
+  once a second to send an InLine, and a failed accept or receive rests 100 ms so a broken socket can't spin.
+- **The login is one packet.**  Hello, then one Login (client version, secret word, username, password),
+  then the answer.  Cheapest checks first: the version (an old client is told so without a hash), the
+  secret word, the name's shape (the rule is in the schema, so a quick no gives nothing away), and only then
+  the accounts table and Security's line.  A name that could be an account but isn't still costs a hash
+  (`verify_no_account()`), and `pad_login_time()` evens out the rest.  Every failure gets the same answer,
+  and puts the address on a 2-second hold: the acceptor closes its next connection without queuing it,
+  rather than a thread sleeping out the hold.
+- **The client is told its place in Security's line**: the login thread waits on its `Ticket` a second at a
+  time (`wait_for()`) and sends an InLine with `place()`'s numbers in between.  Jacob asked for that when
+  Security was built.
+- **The right password for an account already in the world gets asked** (SessionChoice, 30 seconds to
+  answer): log the other session out (it hears Kicked over UDP) or hang up.  Jacob's answer, 2026-09-29.
 - **A ticket is a token from Fingerprinter, good once, for `token_deadline_seconds` (30).**  The first
-  address to Connect with it is the player; the same address again gets the same answer (a lost reply);
-  any other address is refused.  A second login for an account with an unused ticket replaces the ticket.
-- **The ticket and the player have the account's name, and only the name** (2026-09-29, the day after
-  they held the whole `Account`).  An account is never held in memory: whatever needs one reads it from
-  the row (conductor-accounts), so the web admin can change an account while its player is online and
-  nothing writes an old copy back over it.  The login reads only the password hash.  The ticket's first
-  Connect stamps the account's login time straight in the row (`stamp_login()`, once the book's lock is
-  let go, not waited on): the UDP time is the login time, Jacob's call, for playtime later.  Nothing is
-  saved when a player leaves.
-- **Deleting an account takes its player out** (2026-09-29).  The web admin's Accounts tab deletes the
-  row, then calls `terminate(account)`: the player, if in the world, hears Kicked with reason `5`,
-  account terminated (the client says ACCOUNT TERMINATED, Jacob's words), and an unused ticket dies.
-  Their Connections row reads "LINKDEAD: account terminated".  The new reason took **the protocol to
-  version 4**.
-- **A player is known by their address.**  `sessions.rs` keeps three maps (tickets by token, players by
-  address, accounts by name) so nothing is ever found by a search: a keep-alive is one map lookup and one
-  send.  That's more memory per player for a cost that's the same with 5 or 5000.  Jacob's trade.
-- **The answers that never change are built once** and sent as they are.  A UDP packet is looked at in the
-  buffer it arrived in; nothing is copied for a keep-alive.
-- **The server echoes every KeepAlive** from a player it knows; a stranger's gets nothing.  One tiny packet a second per player, so the client can tell the
-  server is gone and go back to the login on its own.  Without it, a client whose server died would sit
-  there.
+  address to Connect with it is the player; the same address again gets the same answer (a lost reply); any
+  other address is refused.  A second login for an account with an unused ticket replaces the ticket.
+- **The ticket and the player have the account's name, and only the name.**  An account is never held in
+  memory (conductor-accounts reads the row when it's needed), so the web admin can change an account while
+  its player is online and nothing writes an old copy back.  The login reads only the password hash.  The
+  ticket's first Connect stamps the login time straight in the row (`stamp_login()`, once the book's lock
+  is let go): the UDP time is the login time, Jacob's call, for playtime later.  Nothing is saved when a
+  player leaves.
+- **A player is known by their address.**  Three maps (tickets by token, players by address, accounts by
+  name), so nothing is found by a search: a keep-alive is one lookup and one send, the same cost with 5
+  players or 5000, for more memory per player.  Jacob's trade.  The answers that never change are built
+  once, and a UDP packet is read in the buffer it arrived in.
+- **The server echoes every KeepAlive** from a player it knows; a stranger's gets nothing.  So the client
+  can tell the server is gone and go back to the login on its own.
 - **Quiet for `udp_timeout_seconds` (40) and the player is dropped, told nothing, forgotten.**  Jacob's
-  number.  Goodbye, a kick and STOP SERVER end a session the same way, with a Kicked first where the
-  player can hear it.  Nothing is kept for a reconnect: that's TODO, with the rest of client management.
-- **The certificate is made by hand, once, with openssl.**  Stratum made its own pair with the `rcgen`
-  crate on first start; Opus stays a crate lighter and the log says the exact command when the files are
-  missing (`tls::make_pair()`, with the full paths `networking.cfg` gives, so it can be pasted from any
-  folder; since 2026-09-29's test run, when the relative one had already made a stray `Content` once).  An elliptic curve key (P-256), since the server signs on every handshake
-  and an EC signature costs a tenth of an RSA one.  The files live in `Content/certs/`; the `.key` is
-  ignored by git and the `.crt` is committed, since clients need a copy.  Jacob's call on the folder.
-- **Everything is in `networking.cfg`, a soft file**: the address, both ports, the two file paths, the
-  secret word, the client versions (a comma list; Stratum baked them into the build), the login deadline,
-  the pool and queue sizes, the token deadline and the UDP timeout.  One table entry each in
-  `constellations/files.rs`, and the Settings tab shows the file with no page work.
-- **Two services**, "Network (TCP)" on thread `net-tcp` and "Network (UDP)" on `net-udp`.  The login
-  threads are `net-login-1` and up.  The UDP thread checks in once a second; the acceptor has no loop to
-  check in from.  If the TLS files are missing or TCP can't listen, TCP shows trouble, UDP says stopped
-  ("Not started: the TCP side couldn't.") and nothing listens; if UDP can't listen, UDP shows trouble and
-  TCP comes back down.  None of it stops the rest of the server.
-- **Log levels.**  Connections, TLS, hang-ups and timeouts are Debug on the Network channel.  Who logged
-  in, who failed, who's in the world and who left are Info on the Security channel.  A full queue and a
-  failed accept or send are Warn.  Missing TLS files and a token that can't be made are capitals Errors.
-- **The door's ledger** (2026-09-29, the session after), for the web admin's TCP tab (the Connections tab
-  since the session after that).  Jacob's spec: every
-  connection that reached the listener in the last 5 minutes, by IP address and DNS if known, its place
-  in the login queue if it isn't logged in yet, and no account information, tracked purely by address.
-  So `ledger.rs` is a BTreeMap of entries numbered as they arrive: the acceptor writes one in for every
-  accept (the ones it closes at the door too, marked so), the login thread moves it a stage at a time
-  (TLS, waiting for its Login, checking, in Security's line with `place()`'s numbers once a second,
-  asked about another session), and every way out writes the ending.  A handful of lock touches per
-  login, never per byte.  An entry stays until STOP SERVER, finished or not, since the access lists
-  session (2026-09-29), when Jacob asked for a Historical view of the whole run beside a Recent one of
-  the newest five; before that a finished entry went five minutes after it arrived
-  (`connections_remember_seconds`, a setting for one session, gone now).  Past 10,000 entries the
-  oldest finished ones go early; one in progress never does.  The first ending written wins, so a
-  kicked connection reads "kicked" and not
-  the login thread's "hung up" a moment later.  A queued connection's place is a count of the queued
-  entries ahead of it, worked out when the snapshot is taken.  Wiped on START SERVER and STOP SERVER.
-- **Reverse DNS on its own thread**, `net-dns` (`dns.rs`).  A lookup asks the OS's resolver and can take
-  seconds, so the acceptor only drops the address on a queue; the thread looks it up with the OS's own
-  `getnameinfo` (an `extern` block in `dns/linux.rs` and `dns/windows.rs`, the way the monitor talks to
-  the OS, no crate) and writes the name into a cache the snapshot reads.  One lookup per address per
-  START SERVER, at most 4096 cached.  No name is never a failure: the tab shows the address on its own.
-  macOS gets no names until there's a Mac to test on.
-- **KICK from the TCP tab** (Jacob, the same session): a clone of every open socket is kept under its
-  ledger number from accept until its login thread is done with it (the same map `stop()` shuts to wake
-  the threads; it used to hold only the ones being served).  `kick(id)` marks the ledger, shuts the
-  socket, and the login thread finds its read failing, or skips the connection if it was still queued.
-  The client sees the connection drop and nothing else.  A kick is an Info line on the Network channel.
-- **The whitelist and the blacklist** (2026-09-29, the session after the TCP tab), Jacob's ask.  `access.rs`.
-  Two files, `Content/cfg/whitelist.cfg` and `blacklist.cfg`, one address (`1.2.3.4`, `::1`) or range
-  (`1.2.3.0/24`, since a ban on one home address is easy to step around) a line, `#` comments; `.cfg` by
-  his call, but not Constellations' kind (a list that grows from the page doesn't fit `key = value`), so
-  `networking.cfg` points at them (`whitelist_file`, `blacklist_file`) and a switch there, `access_list =
-  off | whitelist | blacklist`, says which one the door looks at.  The switch and the files are read on
-  every START SERVER, so the lists in memory are always rebuilt from disk at a start.  A change from the
-  page takes at once, on the next connection, and rewrites the file the same moment: the first and only
-  hot swap in Conductor, because a ban that waited for a STOP SERVER wouldn't be much of a ban.  While
-  the server is stopped nothing is loaded, so the page can't change them; the files can be edited by hand
-  then.  The check sits in the acceptor before the failure hold, so a listed address costs an accept and
-  a close, and the ledger says "closed at the door: blacklisted" or "not on the whitelist" (Debug lines,
-  never a Warn: a banned address hammering the door shouldn't fill the bell).  A range's host bits are
-  cleared on the way in, an IPv4 address wrapped in IPv6 (`::ffff:1.2.3.4`, what a listener on `::` sees)
-  is checked as the IPv4 one, and a check is one lock and a walk down a short list.  The UDP side checks
-  a Connect too, so a listed address with a ticket in hand gets silence.  **A blacklisting while the
-  blacklist is on is a ban, and so is taking an entry off the whitelist while the whitelist is on**,
-  Jacob's rules: `enforce()` in `lib.rs` asks the verdict again for everybody online, so a whitelist
-  removal is right when another entry still covers the address; `tcp::close_where()` shuts every open
-  TCP connection the door would now turn away (the ledger says banned) and `sessions::drop_where()`
-  drops every such player, each told a Kicked with reason `3`, banned, first.  That reason is new:
-  protocol version 2, the same session.  Taking an address off the blacklist, or adding one to the
-  whitelist, kicks nobody.  An entry on a list that isn't switched on is kept and does nothing, and the
-  page says so.  With the whitelist on and empty, nobody can log in, and the start says so with a Warn.
-- **The players for the page** (the same session): `sessions::players()` copies every player out
-  (address, account, when their Connect was accepted, how long they've been in, how long since their
-  last packet), newest first, for the Connections tab's UDP list.  The account is on it, unlike the
-  door's ledger: the world is about who's in it.
-- **LINKDEAD** (2026-09-29, the documentation pass), Jacob's catch: a second login logged the first
-  player out, and the first login's row on the door still read green, "Logged in and handed a ticket for
-  UDP", as if it were live.  It isn't a live connection (TCP closes at the ticket), so nothing ever went
-  back to it.  Now the ticket carries its row's number, the player takes it over from the ticket, and
-  every way out of the book marks the row LINKDEAD with why (`Gone`): logged out by a second login from
-  its address, said Goodbye, went quiet past the UDP timeout, banned, or never came over UDP (the ticket
-  ran out, or a newer login took it).  The row stays in both views, greyed instead of green.  Jacob's
-  word; he first said NETDEAD, then LINKDEAD.  The book notes the rows in `Book::gone` under its own
-  lock, and `with_book()` hands them to the ledger once that lock is let go, so the two locks are never
-  held together.  STOP SERVER marks nothing: it wipes the ledger anyway.  Still by address: the account
-  never goes on the row.
-- **KICK on any row** (the same evening), Jacob's ask: the three dots on a TCP row kick, whatever the
-  row is.  A login's TCP connection closes at the ticket, so KICK used to be there for a moment and
-  never for anybody playing.  Now `kick(id)` in `lib.rs` tries the door first (`tcp::kick()`, an open
-  connection closed where it stands, as before), and if that row's connection is gone, the book
-  (`sessions::kick_login()`) finds the login's player by its row number, a walk down the players since
-  an admin's click needn't be quick, and takes them out: told a Kicked with reason `4`, kicked by the
-  admin, and their row LINKDEAD "kicked by the admin".  A login whose ticket isn't used yet has the
-  ticket killed instead.  The same route, `/Opus/wwwhook/tcp/kick?id=N` (Jacob: "we can use the
-  existing ROUTE"), now answers 200 with `from_world` for a player, and 404 only when nothing from the
-  row is left.  The new reason took **the protocol to version 3**.  A kicked player can log straight
-  back in; a ban is what keeps somebody out.
-- **The Python test client** stands in for Ensemble: standard library only, trusts the certificate file
-  (`--cert`, `Content/certs/conductor.crt` by default; with neither it checks nothing and says so),
-  prints every packet, and asks whether to log out the other session (`--leave-other-alone` answers no
-  without asking), `--leave-after N` says Goodbye after N seconds, `--go-quiet` sends nothing to watch
-  the timeout, and `--pause-before-login N` sits N seconds after TLS so the row can be kicked or banned
-  while it's open (past `login_deadline_seconds` the server hangs up first).  Its UDP socket is IPv4 only.  Jacob used one for Stratum too.
+  number.  Goodbye, a kick and STOP SERVER end a session the same way, with a Kicked first where the player
+  can hear it.  Nothing is kept for a reconnect.
+- **Each new Kicked reason bumps the protocol**: banned (`3`) made it version 2, kicked by the admin (`4`)
+  version 3, account terminated (`5`) version 4.
+- **The certificate is made by hand, once, with openssl**, a crate lighter than making it ourselves.  When
+  the files are missing the log gives the command (`tls::make_pair()`) with the full paths from
+  `networking.cfg`, so it can be pasted from any folder without making a stray `Content`.  A P-256 key,
+  since the server signs on every handshake and an EC signature costs a tenth of an RSA one.  Self-signed:
+  a client trusts the copy it was given, so a new certificate locks out every client with the old one.  In
+  `Content/certs/` (Jacob's call); the `.key` is ignored by git, the `.crt` committed for clients.
+- **Everything is in `networking.cfg`, a soft file**: the address, both ports, the TLS file paths, the
+  secret word, the client versions (a comma list), the deadlines, the pool and queue sizes, the UDP timeout,
+  and the access switch and list paths.  The Settings tab shows it with no page work.
+- **Two services**, "Network (TCP)" on thread `net-tcp` and "Network (UDP)" on `net-udp`; the login threads
+  are `net-login-1` and up.  UDP checks in once a second; the acceptor has no loop to check in from.  TLS
+  files missing or TCP unable to listen: TCP shows trouble, UDP says "Not started: the TCP side couldn't.",
+  nothing listens.  UDP unable to listen: UDP shows trouble and TCP comes back down.  Neither stops the rest
+  of the server.
+- **Log levels.**  Connections, TLS, hang-ups and timeouts are Debug on the Network channel.  Who logged in,
+  who failed, who's in the world and who left are Info on the Security channel.  A full queue and a failed
+  accept or send are Warn.  Missing TLS files and a token that can't be made are capitals Errors.
+- **The door's ledger** (`ledger.rs`), for the Connections tab.  Jacob's spec: every connection that reached
+  the listener, by IP address and DNS name if known, its place in the login queue if it isn't logged in
+  yet, and no account information, tracked purely by address.  Entries are numbered as they arrive (the
+  ones closed at the door too); the login thread moves each a stage at a time and every way out writes the
+  ending, and the first ending written wins, so a kick isn't overwritten by "hung up".  A handful of lock
+  touches per login, never per byte.  An entry stays until STOP SERVER, so the Historical view is the whole
+  run beside Recent, the newest five (Jacob's ask); past 10,000 the oldest finished ones go early, one in
+  progress never.  Wiped on START SERVER and STOP SERVER.
+- **LINKDEAD** (Jacob's catch and his word).  A login's row would otherwise read green, "Logged in", long
+  after its player left, since TCP closed at the ticket.  The ticket carries its row's number, the player
+  takes it over, and every way out of the book marks the row LINKDEAD with why (`Gone`): logged out by a
+  second login, Goodbye, gone quiet, banned, kicked by the admin, account terminated, or never came over UDP
+  (ticket ran out or replaced).  The row stays in both views, greyed.  The book notes rows under its own
+  lock and `with_book()` hands them to the ledger after, so the two locks are never held together.
+- **Reverse DNS on its own thread**, `net-dns`, since a lookup can take seconds: the acceptor only queues
+  the address, and the thread asks the OS's own `getnameinfo` (an `extern` block per OS, no crate) and fills
+  a cache the snapshot reads.  One lookup per address per START SERVER, at most 4096 cached.  No name is
+  never a failure: the tab shows the address on its own.
+- **KICK on any row** (Jacob's ask).  A clone of every open socket is kept under its ledger number from
+  accept until its login thread is done (the same map `stop()` shuts).  `kick(id)` tries the door first: an
+  open connection is shut where it stands and the client sees it drop.  If it's gone,
+  `sessions::kick_login()` finds the login's player by row number (a walk, since an admin's click needn't be
+  quick) and takes them out with Kicked, reason `4`, row LINKDEAD "kicked by the admin"; an unused ticket
+  is killed instead.  The route is `/Opus/wwwhook/tcp/kick?id=N` (Jacob: "we can use the existing ROUTE"):
+  200, with `from_world` for a player, and 404 only when nothing from the row is left.  A kicked player can
+  log straight back in; a ban is what keeps somebody out.
+- **Deleting an account takes its player out.**  The Accounts tab deletes the row, then calls
+  `terminate(account)`: the player hears Kicked with reason `5` (the client says ACCOUNT TERMINATED, Jacob's
+  words), an unused ticket dies, and the row reads "LINKDEAD: account terminated".
+- **The whitelist and the blacklist** (`access.rs`), Jacob's ask.  `Content/cfg/whitelist.cfg` and
+  `blacklist.cfg`, one address (`1.2.3.4`, `::1`) or range (`1.2.3.0/24`, since a ban on one home address
+  is easy to step around) a line.  `.cfg` by his call, but not Constellations' kind (a list that grows from
+  the page doesn't fit `key = value`), so `networking.cfg` points at them and `access_list = off |
+  whitelist | blacklist` says which one the door looks at.  All read on every START SERVER.  A change from
+  the page takes at once and rewrites the file (comments in it are lost): the only hot swap in Conductor,
+  because a ban that waited for a STOP SERVER wouldn't be much of a ban.  While the server is stopped the
+  page can't change them; the files can be edited by hand.  The acceptor checks before the failure hold, so
+  a listed address costs an accept and a close, logged as Debug, never a Warn (a banned address hammering
+  the door shouldn't fill the bell); UDP checks a Connect too.  Host bits are cleared on the way in, and an
+  IPv4 address wrapped in IPv6 (`::ffff:1.2.3.4`) is checked as the IPv4 one.  **A blacklisting while the
+  blacklist is on is a ban, and so is taking an entry off the whitelist while the whitelist is on**, Jacob's
+  rules: `enforce()` asks the verdict again for everybody online (so a removal is right when another entry
+  still covers the address), closes their open TCP connections and drops their players with Kicked, reason
+  `3`.  The other two changes kick nobody.  An entry on a list that isn't switched on does nothing, and the
+  page says so.  The whitelist on and empty means nobody can log in, and the start says so with a Warn.
+- **The players for the page**: `sessions::players()` (address, account, connected when, for how long,
+  quiet how long), newest first.  The account is on it, unlike the ledger: the world is about who's in it.
+- **The Python test client** stands in for Ensemble: standard library only, UDP over IPv4 only.  It trusts
+  `--cert` (by default `Content/certs/conductor.crt`, found from the script's own folder; with neither it
+  checks nothing and says so), prints every packet, and asks whether to log out another session
+  (`--leave-other-alone` says no).  `--leave-after N` says Goodbye after N seconds, `--go-quiet` stops the
+  keep-alives, and `--pause-before-login N` sits open after TLS so the row can be kicked or banned.
 
 ## What's open
 
-- **Built and run on Linux, 2026-09-29**, the same day it was written: one Cargo.toml fix (a feature
-  that didn't exist) and then the Python client did the whole loop against a throwaway account inserted
-  by hand.  Two clients on one account, the quiet drop, the hold and a kick at STOP SERVER haven't been
-  tried by hand yet (TEST_CHECKLIST.html has them); the unit tests cover the book and the bytes.
 - **Client management** is all TODO: a player limit ("The server is full."), reconnecting with a token
-  instead of a fresh hash, and anything an admin does to a player from the web admin.
+  instead of a fresh hash, and anything an admin does to a player beyond KICK.
 - **NAT rebinding.**  A player is their address, so a home router that changes the port mid-session ends
   the session.  A session id in each UDP packet would survive it.  Later, if it bites.
-- **The Windows side** has never been built.  The OS-specific parts are the three `dns/` files and the
-  `ConnectionReset` line in `udp.rs`, which is Windows telling us about a bounced packet.
-- **The web admin shows the door and the world** (the Connections tab, 2026-09-29): the players are listed by
-  account; the character goes beside it once there is one.
+- **Windows**: it builds there (2026-09-30) but hasn't run networking yet (no world made, no certificate,
+  no database).  The OS-specific parts are the three `dns/` files and the `ConnectionReset` line in
+  `udp.rs`, Windows telling us about a bounced packet.  macOS gets no DNS names until there's a Mac.
+- **The character** goes beside the account on the Connections tab's player list once there is one.

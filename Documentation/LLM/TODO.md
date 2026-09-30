@@ -133,6 +133,29 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - The monitor's `Cargo.toml` header leaves out the process list.
   - `json.rs` and the web admin's `Cargo.toml` say "the Network Admin tabs", and `json.rs` says the page
     shows "the Control Panel" while the server is stopped (the Server tab).
+  - "The Control Panel" where the Server tab is meant: `accounts.rs:202` (text the admin sees), the launcher's
+    boot line (`main.rs:78`), and comments in the web admin's `lib.rs`; `page.html:20` has a history note.
+  - The web admin's `lib.rs`: "KICK on the TCP tab"; "when Security brings in TLS for the game" (networking
+    has it); the header's list of what needs `X-Opus` leaves out LOG OUT, the settings, the kick, the lists
+    and the accounts.
+  - The launcher's `main.rs`: `stop_server()` says networking goes first (the monitor does), and the header
+    calls `start_server()` / `stop_server()` the list of what the server is (networking opens from
+    `take_commands()`).  Its boot line names the soft files and leaves out `game.cfg`.
+  - primlib: `world.rs` says "when the game loop comes" (the GameClock is here), and `components.rs`'s
+    note on adding a kind leaves out `default_of()` and the four matches in `world.rs`.
+  - Networking's `lib.rs` and `Cargo.toml` say it starts on START SERVER (it's once the ground is in), and
+    `lib.rs` and `udp.rs` say there's no game yet.
+  - `lua-parser/src/lib.rs` says templates and blueprints come with the ECS (primlib is in; it's part 2).
+  - The monitor's `lib.rs` header leaves out the process list, per-core load and the machine's RAM.
+  - `protocol.rs` says the client will most likely be C# (it is), and `LoginAnswer::Unavailable`'s comment
+    leaves out Fingerprinter failing to make a token.
+  - gameworld: `Ground::Flat`'s doc leaves out BEDROCK at -16; `lib.rs` says saving chunks "comes next".
+  - `archivist/schemas.rs`: the `include_str!` note counts the `..` from `src/archivist/`; it's
+    `tools/src/archivist/`.
+  - `test_client.py`'s usage lines only work from inside `networking/` (the terminal sits in
+    `Conductor/dev`), and its `--cert` example is relative to the working directory.
+- `RegionMap::from_bytes` never checks for a count of 0 regions.  REGION_MAP.md says 1 to 255, and a map of
+  0 is refused anyway unless its width or depth is also 0.  The code is what gets fixed, if it's worth it.
 
 ## Ideas
 

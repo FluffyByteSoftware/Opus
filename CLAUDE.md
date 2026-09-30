@@ -300,7 +300,8 @@ When I say we're wrapping up:
   START SERVER and STOP SERVER on the web admin's Server tab: Conductor comes
   up with its door closed, and the admin opens it (and closes it) from there.
   The launcher does the calling, so a new server piece goes in both
-  `start_server()` and `stop_server()` in the launcher, and has to be able to
+  `start_server()` and `stop_server()` in the launcher (networking's start is
+  the one exception, below), and has to be able to
   stop and start again in the same run. The switch's state lives in
   `server.rs` in `conductor-tools`.
 - **The door waits on the world.**  Networking isn't started in
