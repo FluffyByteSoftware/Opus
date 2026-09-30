@@ -151,7 +151,9 @@ by creating `./Content` when neither works.
   TODO.md entry (or design file) and is pushed as it comes, not saved for the
   hand-off, so a lost chat loses nothing.  Design is talked through here, with
   the docs at hand; a brief for a separate chat was tried once (the ECS) and
-  the other chat lost the thread.
+  the other chat lost the thread.  I may be writing a GDD with another chat
+  (2026-09-30); what it settles comes in through me, and goes into these docs
+  like any other answer.
 - **One feature per session.** If a new feature comes up mid-session, add it to
   `Documentation/LLM/TODO.md` and keep going on the current one. It gets its own
   session later.
@@ -632,7 +634,9 @@ When I say we're wrapping up:
   is a migration in `Content/psql/migrations/`, named `0001_what_it_does.sql`.
   Archivist runs each one exactly once, in number order, in a transaction, and
   records it in the `archivist_migrations` table. Never edit a migration that
-  has already run; write a new one.
+  has already run; write a new one.  A new schema file can still change until
+  its table is made: before changing one that's been pushed, ask me to look
+  (I check in DataGrip).  If the table's there, the change is a migration.
 - **No game data is without an `id` and a `uuid`** (Jacob, 2026-09-30: "no
   gamelib data is without an id or uuid").  Every table that holds the game's
   data (accounts, characters, primlib's copies, anything the game names) has

@@ -18,19 +18,20 @@ settings.  Things will change and things will break.
 
 ## Where it stands
 
-| Piece                                           | State                                                  |
-|-------------------------------------------------|--------------------------------------------------------|
-| The tools: disk, log, config, hashing, database | Built and tested                                       |
-| The web admin, the only way to run Conductor    | Built and tested                                       |
-| The login over TLS, then a session over UDP     | Built and tested; a player logs in and stays connected |
-| Accounts, made by the admin                     | Built and tested                                       |
-| The monitor: CPU, memory, disk, threads         | Built and tested                                       |
-| Lua scripting                                   | First step: scripts run on START SERVER, locked down   |
-| The game library (entities and components)      | Built and tested; nothing spawns into it yet           |
-| The world (GameWorld)                           | Made and loaded; nothing changes a block yet           |
-| The game loop (the GameClock)                   | Ticking; its five checks are empty                     |
-| Characters, movement, chat                      | Not started                                            |
-| Ensemble                                        | Unity project settings only                            |
+| Piece                                            | State                                                  |
+|--------------------------------------------------|--------------------------------------------------------|
+| The tools: disk, log, config, hashing, database  | Built and tested                                       |
+| The web admin, the only way to run Conductor     | Built and tested                                       |
+| The login over TLS, then a session over UDP      | Built and tested; a player logs in and stays connected |
+| Accounts, made by the admin                      | Built and tested                                       |
+| The monitor: CPU, memory, disk, threads          | Built and tested                                       |
+| Lua scripting                                    | First step: scripts run on START SERVER, locked down   |
+| The game library (entities and components)       | Built and tested; nothing spawns into it yet           |
+| The character: its template, its save, its table | Built and tested; nothing makes one yet                |
+| The world (GameWorld)                            | Made and loaded; nothing changes a block yet           |
+| The game loop (the GameClock)                    | Ticking; its five checks are empty                     |
+| Character select, movement, chat                 | Not started                                            |
+| Ensemble                                         | Unity project settings only                            |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.
@@ -65,7 +66,10 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
 - **primlib** -- the game library, an ECS (entity, component, system).  An entity is just a number, and
   the components on it (a position, a health pool, a name) make it a goblin or a sword.  A template
   (`NPC`) sets out components and defaults, "so I don't write the same 50 lines in 50 npcs", and a
-  blueprint (`goblin_a`) starts from one and changes what it needs.
+  blueprint (`goblin_a`) starts from one and changes what it needs.  A template can take in another whole,
+  like `inherit STD_LIVING;` in the old Discworld mudlib: a player's Character takes in Living (a name,
+  health, endurance and mana).  A character is saved as Lua text in its database row, each component
+  naming the fields it keeps, and made back from the template with the save laid over it.
 - **gameworld** -- the ground.  8 km a side, seamless, in blocks 50 cm a side (a player is 4 blocks
   tall), chunks of 32 blocks a side, two chunks tall.  Regions are biomes: Alpha to the west of 0,0,0 is
   flat, Omega to the east rolls in hills, and the block at 0,0,0 is gold.  The first START SERVER makes
