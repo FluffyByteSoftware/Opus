@@ -41,29 +41,34 @@ Jacob's map (the tick, then the world's voxels, then zones).  Being designed, 20
 - **The ceiling is +30, the floor below -15** (Jacob, 2026-09-30): "you can go 30 voxels HIGH before you
   hit the ceiling; you can go down to -15 voxels in the ground before its undiggable".  Read as: +30 is the
   last block that can be built, and -15 the last that can be dug, with -16 the floor nobody breaks (he
-  said so: "-16 is undiggable").  That's
-  46 blocks from -15 to +30, so **the world is two chunks tall**: a lower row of chunks from -16 to +15
-  (the floor, the stone, the dirt and 15 of air) and an upper row from +16 to +47, all air at the start,
-  with nothing allowed above +30.
+  said so: "-16 is undiggable").  That's 46 blocks from -15 to +30, so **the world is two chunks tall**:
+  a lower row of chunks from -16 to +15 (the floor, the stone, the dirt and 15 of air) and an upper row
+  from +16 to +47, all air at the start, with nothing allowed above +30.
 - **8 km by 8 km to start** (Jacob, 2026-09-30), "it may _grow_ later".  16,384 blocks a side, 512 by 512
   chunks across, 524,288 chunks in all with two rows.
 - **Every chunk starts the same**, so a chunk nobody has changed needn't be stored at all: it's made from
   the three layers when it's needed, and only a changed chunk is kept.  Put forward, 2026-09-30.
 - **A changed chunk is saved as a file in `Content/world/chunks/`** (Jacob, 2026-09-30), through DiskMan,
   not in the database.  **`Content/world/` is gitignored** (his yes, the same day): it's the game's save.
-- **It's saved on STOP SERVER, and by a global save every 15 minutes** (Jacob, 2026-09-30, put as a
-  question).  The GameClock never waits on it: it hands over copies of what changed, and the writing is
-  done on another thread.
+- **It's saved on STOP SERVER, and by a global save every 15 minutes** (Jacob, 2026-09-30).  The GameClock
+  never waits on it: it hands over copies of what changed, and the writing is done on another thread.
+- **The global save is the terrain only** (Jacob, 2026-09-30): "whatever is in memory about the voxel
+  states", dumped to disk.  Not primlib's objects, which go to the database on STOP SERVER as before.
+- **The 15 minutes is a setting, in a new config file, `game.cfg`** (Jacob, 2026-09-30).  Not fixed in
+  code like the tick.
+- **A player is sent the chunks 4 each way around them, to start** (Jacob, 2026-09-30): 64 m, "but it
+  might need to be 8" (128 m).  With the world two chunks tall, that's a 9 by 9 square of chunks, both
+  rows, 162 chunks a player.
 
 ## Still open
 
 - How big that number is.  Two bytes (65,536 kinds, 64 KB a chunk before anything is squeezed) was put
   forward, so high-res textures never run out of kinds; a chunk that's all one kind (all air, all stone)
   kept as that one value.
-- What "global" takes in: the chunks only, or primlib's objects in the database as well.  And whether 15
-  minutes is fixed in code, like the tick, or a setting.
+- Whether `game.cfg` is soft (read on every START SERVER, like `networking.cfg`) or hard (read at boot).
+  A file is one or the other as a whole.
+- Whether the 4 chunks is a setting in `game.cfg` too, or fixed in code.
 - What a chunk's file is called and holds.
-- What each client is sent: the chunks near them, since the server decides what each client sees.
 - Whether the world belongs to primlib beside its `World` of entities, or is a piece of its own.
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
