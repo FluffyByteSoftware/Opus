@@ -231,6 +231,14 @@ slots, and Play.  The Console says each thing below.</p>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
+      A good layout of your own, made on 1920 x 1080 (made by the command): the Console says it's using your
+      layout, no warnings; health in the middle of the top edge, the chat on the right edge a bit below the
+      middle, and the minimap in the bottom-right corner drawn over the chat's bottom (layer 2 over layer 1).
+    </span></label>
+    <pre class="cmd">mkdir -p &quot;$HOME/.config/unity3d/FluffyByte Studios/Opus.Ensemble&quot; &amp;&amp; printf &#x27;%s\n&#x27; &#x27;{&quot;format&quot;:&quot;opus-hud-layout&quot;,&quot;version&quot;:1,&quot;screen&quot;:&quot;hud&quot;,&quot;name&quot;:&quot;Test&quot;,&quot;reference&quot;:{&quot;width&quot;:1920,&quot;height&quot;:1080},&quot;widgets&quot;:[{&quot;id&quot;:&quot;health&quot;,&quot;anchor&quot;:&quot;Top&quot;,&quot;offset&quot;:{&quot;x&quot;:0,&quot;y&quot;:16},&quot;size&quot;:{&quot;width&quot;:360,&quot;height&quot;:40},&quot;layer&quot;:0},{&quot;id&quot;:&quot;chat&quot;,&quot;anchor&quot;:&quot;Right&quot;,&quot;offset&quot;:{&quot;x&quot;:-16,&quot;y&quot;:200},&quot;size&quot;:{&quot;width&quot;:480,&quot;height&quot;:300},&quot;layer&quot;:1},{&quot;id&quot;:&quot;minimap&quot;,&quot;anchor&quot;:&quot;BottomRight&quot;,&quot;offset&quot;:{&quot;x&quot;:-16,&quot;y&quot;:-16},&quot;size&quot;:{&quot;width&quot;:240,&quot;height&quot;:240},&quot;layer&quot;:2}]}&#x27; &gt; &quot;$HOME/.config/unity3d/FluffyByte Studios/Opus.Ensemble/hud_layout.json&quot;</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
       Your layout with three things wrong (made by the command): the Console warns widget 1 (health) is off
       the screen and moved back on, widget 2 (radar) isn't a widget, widget 3 (chat) was 10 x 10 and made
       bigger.  Health sits top-right, there's no minimap, the chat is small.
