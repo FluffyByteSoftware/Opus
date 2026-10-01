@@ -54,12 +54,12 @@ Opus/
 │       │       ├── services.rs        # the services we expect, each reporting how it's doing
 │       │       └── threads.rs         # threads::spawn(): every thread we start, who asked and when
 │       ├── accounts/                  # lib
-│       │   ├── Cargo.toml             # depends on conductor-tools only
+│       │   ├── Cargo.toml             # depends on conductor-tools, and conductor-primlib for the world save
 │       │   └── src/
 │       │       ├── lib.rs             # the accounts table: load(), list(), create(), edit(), delete(), stamp_login();
 │       │       │                      #   never held, the hash apart; the field checks
 │       │       ├── characters.rs      # player_characters and the account's slots: list, list_all, load,
-│       │       │                      #   create, save, delete; the name rule; the unplayable flag, for the run
+│       │       │                      #   create, save, save_all, delete; the name rule; the unplayable flag
 │       │       └── desk.rs            # the account desk: the web admin's jobs that need a hash, on their own thread
 │       ├── monitor/                   # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools only

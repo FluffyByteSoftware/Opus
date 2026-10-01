@@ -286,7 +286,10 @@ When I say we're wrapping up:
   rather see the warnings.
 - **Benchmarks run with `--release`.** `cargo test` builds unoptimized, and
   unoptimized Argon2 read six times slow. A timing test is an `#[ignore]`
-  test run by hand, and its doc comment gives the exact command.
+  test run by hand, and its doc comment gives the exact command.  A cost
+  given in a plan is a guess until a timing test measures it, and the
+  plan says so (the world save's snapshot was guessed at "a few
+  milliseconds" for 10,000 characters and measured at 33).
 - Whenever you create a new crate, say explicitly whether it is a **bin** or a
   **lib**.
 - **A crate's folder drops the `conductor-`; the crate keeps it.**  The
@@ -320,7 +323,10 @@ When I say we're wrapping up:
   Constellations below).
 - Anything that can be slow (database, disk, network) runs on its own thread,
   and callers get the answer back later (Archivist's `Pending`). The game loop
-  never waits on it. No async runtime.
+  never waits on it. No async runtime.  **Archivist doesn't log a job that
+  fails**: the failure is in its `Pending` and nowhere else, so a caller that
+  drops one never hears.  The GameClock keeps its saves' `Pending`s and looks
+  at them in housekeeping without waiting.
 - **Every thread goes through `threads::spawn(name, ...)`** in `conductor-tools`,
   never `std::thread::spawn` directly. That is what puts it on the web admin's
   "asked for" list with who started it and when.
@@ -453,6 +459,7 @@ When I say we're wrapping up:
 - **The tick is 250 ms, five checks of 50 ms, fixed in code** ("anything
   faster is gonna be a problem.  Slower is fine but faster becomes bad").
   Never a setting.  It's run by **the GameClock**, `conductor-gameclock`.
+  Jacob's "tick" is one of these 250 ms cycles, not a 50 ms check.
   The checks run in order (input, AI, movement, broadcast, housekeeping),
   each timed from the cycle's start; a late one makes the next late and
   nothing is skipped.  Only the GameClock's thread touches the `World` and
@@ -461,6 +468,20 @@ When I say we're wrapping up:
   before there's ground under it.  I may call it "the heartbeat" (my MUD's
   word for the tick), but it "doesn't seem professional" for Opus, so the
   code and docs say the GameClock.
+- **Players' characters come into the world through the GameClock's
+  mailbox** (`gameclock/src/players.rs`): `conductor_gameclock::enter()`
+  with a finished blueprint (the slow part, the row and the save, done on
+  the caller's thread) and `leave()`, which saves the character and
+  despawns it at once.  Nothing is left standing in the world for a
+  reconnect.
+- **The world save is global** (Jacob, 2026-10-01): every
+  `world_save_seconds` (`game.cfg`, 150, from 30 to 1800), counted from
+  `ready()`, one cycle copies every player's character (`Save::of()`, plain
+  data, no text, no database), and Archivist turns each into Lua text and
+  writes it, all in one transaction (`characters::save_all()`), so the
+  database holds the world at one moment or the save before.  The GameClock
+  only ever copies; "I'm just worried about blocking or lagging the regular
+  tick".  STOP SERVER saves the world one last time.
 
 ### Networking (conductor-networking)
 

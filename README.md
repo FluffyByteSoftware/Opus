@@ -26,11 +26,11 @@ settings.  Things will change and things will break.
 | Accounts, made by the admin                      | Built and tested                                       |
 | The monitor: CPU, memory, disk, threads          | Built and tested                                       |
 | Lua scripting                                    | First step: scripts run on START SERVER, locked down   |
-| The game library (entities and components)       | Built and tested; nothing spawns into it yet           |
+| The game library (entities and components)       | Built and tested; ready for characters to come in      |
 | The character: its template, its save, its table | Built and tested                                       |
 | Character select: list, make, delete, reset home | Built and tested with the test client                  |
 | The world (GameWorld)                            | Made and loaded; nothing changes a block yet           |
-| The game loop (the GameClock)                    | Ticking; its five checks are empty                     |
+| The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Spawning in the world, movement, chat            | Not started                                            |
 | Ensemble                                         | Unity project settings only                            |
 
@@ -81,7 +81,9 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
 - **gameclock** -- the GameClock, the game loop.  A cycle is 250 ms, five checks of 50 ms: input, AI,
   movement, broadcast, housekeeping.  The rate is fixed in code on purpose: from my testing on an earlier
   go at this, anything faster than 250 ms is a problem.  Nobody gets in, and nothing acts, until the
-  ground around 0,0,0 is loaded.
+  ground around 0,0,0 is loaded.  Players' characters come into the world and leave it through a
+  mailbox, and the world is saved every `world_save_seconds` (`game.cfg`, 2.5 minutes to start): one
+  cycle copies every character, and the database writes them behind the game loop.
 - **wgui** -- the web admin at `http://127.0.0.1:9996/Opus`, and the only way to run Conductor (the
   console shows the log and takes no input).  It only listens on this machine.  Two logins: `admin` does
   everything, `user` looks.  Five sections across the top: CONTROL PANEL (start and stop, the machine,
