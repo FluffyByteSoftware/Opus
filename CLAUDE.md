@@ -33,7 +33,7 @@ Project root: `/opt/storage/Coding/Opus`
     "Linux and Windows" under the Rust rules.
 - **Ensemble** -- the game client that players run.
   - Engine / language: Unity 6000.6 (C#).  Its project settings and our
-    three folders under `Assets/` are committed; the rest is on Jacob's
+    four folders under `Assets/` are committed; the rest is on Jacob's
     machine.
   - Folder: `Ensemble/`
 - **Soundcheck** (`Opus.Soundcheck`) -- the patcher, not started.  It runs
@@ -75,10 +75,11 @@ Opus/
 ├── Ensemble/              # client
 │   ├── dev/
 │   │   └── Opus.Ensemble/ # the Unity project.  Its Packages/ and UserSettings/ are gitignored
-│   │       └── Assets/    # gitignored (the purchased art), all but our three:
+│   │       └── Assets/    # gitignored (the purchased art), all but our four:
 │   │           ├── Editor/    # editor plugins, under Tools > Opus
 │   │           ├── Code/      # the plain C#: the networking, say
-│   │           └── Scripts/   # the scripts
+│   │           ├── Scripts/   # the scripts
+│   │           └── Data/      # our own data files: the HUD's layouts in Data/Hud/
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/, logs/ and world/
 │   ├── Assets/            # purchased art -- never committed
@@ -721,11 +722,12 @@ When I say we're wrapping up:
 
 - **Our folders under `Assets/`** (Jacob, 2026-10-01): `Assets/Editor/` for
   the editor plugins, `Assets/Code/` for the plain C# (the networking, say),
-  `Assets/Scripts/` for the scripts.  Those three, and their `.meta` files,
+  `Assets/Scripts/` for the scripts, `Assets/Data/` for our own data files
+  (the HUD's in `Assets/Data/Hud/`).  Those four, and their `.meta` files,
   are the only part of `Assets/` that's committed (the root `.gitignore`);
   everything else in `Assets/` is the purchased art and what Unity makes
   from it, and stays on Jacob's machine.  So purchased art, and anything
-  copied out of it, never goes in those three.  Jacob keeps the purchased
+  copied out of it, never goes in those four.  Jacob keeps the purchased
   art in `Assets/Purchased/`, and art copied out of it (the animations)
   under `Assets/Art/`.  A new folder of ours under
   `Assets/` goes past Jacob first, and into the `.gitignore` with its
