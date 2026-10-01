@@ -293,8 +293,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     with the game, never the player's.  **The login screen is settled and its plan waits on Jacob's OK**
     (`design/ensemble-hud.md`, "The login and character select screens").
 - **The login screen, later** (2026-10-01): what SUBMIT does once there's a network client; what
-  Remember Me remembers and where it's kept (a guess, not settled: the server IP, the port and the
-  username, never the password, in the player's folder); the effects between screens ("cool ass
+  Remember Me remembers and where it's kept: Jacob, "when we write our hash in it will hash the password
+  and I think we may rewrite the server to accept a hash instead of plaintext" (so the client would keep
+  a hash of the password, not the password).  Worth weighing then: a hash the server takes as the login
+  is the password as far as anybody who copies the file is concerned, so the file is worth guarding as
+  much as a saved password would be.  The server would still run what it's sent through Argon2 (Security)
+  either way.  The effects between screens ("cool ass
   effects if we can", "I don't know yet"); then character select's layout.
 - **Stale words in the code**, for whichever session next touches each file:
   - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and

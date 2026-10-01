@@ -108,3 +108,15 @@ Jacob: "we need to build our HUD up for login and char select".  Settled so far:
   one is showing.
 - **What's on the login screen, "just for now"**: Server IP and Server Port side by side, Username,
   Password, a Remember Me checkbox, and SUBMIT.
+- **The plan is OK'd** (2026-10-01), with three things added (Jacob): "add in a "logo" placeholder widget
+  and a background image placeholder as well (for now just a black background)", and "make it so that we
+  can easily change the color and font for the text displayed as well".  The plan: six widgets,
+  `login_server_ip`, `login_server_port`, `login_username`, `login_password` (dots), `login_remember_me`
+  and `login_submit`, each its label and its box together, `"screens": ["login"]`;
+  `Assets/Data/Layouts/login_default.json`; `Assets/Scripts/Hud/ScreenRoot.cs` in place of `HudRoot.cs`,
+  starting on the login, with Show Login, Show HUD and Reset HUD To Default on its right-click menu;
+  `LayoutLoader` loading any screen; `Assets/Data/Styles/login.uss`.
+- **The boxes start filled** ("Prefilled with those numbers please"): Server IP `10.0.0.84`, Server Port
+  `9997`, Conductor's TCP port, as `networking.cfg` has them.
+- **Remember Me doesn't work yet.**  Once it does, Jacob: "when we write our hash in it will hash the
+  password and I think we may rewrite the server to accept a hash instead of plaintext".  TODO.md has it.
