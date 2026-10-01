@@ -79,7 +79,7 @@ Opus/
 │   │           ├── Editor/    # editor plugins, under Tools > Opus
 │   │           ├── Code/      # the plain C#: the networking, say
 │   │           ├── Scripts/   # the scripts
-│   │           └── Data/      # our own data files: the screens' layouts in Data/Layouts/
+│   │           └── Data/      # our own data files: layouts in Data/Layouts/, styles in Data/Styles/
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/, logs/ and world/
 │   ├── Assets/            # purchased art -- never committed
@@ -723,7 +723,8 @@ When I say we're wrapping up:
 - **Our folders under `Assets/`** (Jacob, 2026-10-01): `Assets/Editor/` for
   the editor plugins, `Assets/Code/` for the plain C# (the networking, say),
   `Assets/Scripts/` for the scripts, `Assets/Data/` for our own data files
-  (the screens' layouts in `Assets/Data/Layouts/`).  Those four, and their `.meta` files,
+  (the screens' layouts in `Assets/Data/Layouts/`, their stylesheets in
+  `Assets/Data/Styles/`).  Those four, and their `.meta` files,
   are the only part of `Assets/` that's committed (the root `.gitignore`);
   everything else in `Assets/` is the purchased art and what Unity makes
   from it, and stays on Jacob's machine.  So purchased art, and anything

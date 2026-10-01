@@ -26,8 +26,8 @@ built yet.**
     `Assets/Scripts/Hud/HudRoot.cs`; the catalog's export in `Assets/Editor/`.
   - **The data in `Assets/Data/Layouts/`**, a new folder of ours (Jacob first said `Assets/Data/Hud/`,
     then `Assets/Data/Layouts` once the login and character select were layouts too): the HUD's default
-    layout, the login's and character select's when they come, and `hud.uss`, dragged onto HudRoot in the
-    Inspector.
+    layout, the login's and character select's when they come, dragged onto HudRoot in the Inspector.
+    **The stylesheets in `Assets/Data/Styles/`** (Jacob), `hud.uss` the first.
   - **The player's layout in Unity's per-user folder** ("per user folder yep"):
     `persistentDataPath/hud_layout.json`, `~/.config/unity3d/<Company>/<Product>/` on Linux,
     `AppData\LocalLow\<Company>\<Product>\` on Windows.
@@ -43,9 +43,6 @@ built yet.**
 - **The two formats** (catalog and layout) are as proposed, `format` and `version` in each, `maxCount`
   and `defaultAnchor` in the catalog, `name` in the layout, and they'll be written down as a contract in
   `../HUD_FORMATS.md` the way PROTOCOL.md is.  Their units are reference pixels, below.
-
-## Open
-
 - **Reference pixels, not percent** (turning round the brief's "no pixel-based positions"): Jacob,
   "actually shouldn't most of these sizes be in pixels?"  So sizes, offsets and minimum sizes are pixels
   on a reference screen, and UI Toolkit scales the whole HUD to the real one (PanelSettings, Scale With
@@ -54,9 +51,9 @@ built yet.**
   tool webpage defaults to a 1080p screen.  Player can pick their resolution and change it.  Then the
   webpage rescales the projection so that it's pixel right and scrollable in the window."  And: "need a
   default scaled off my monitor which is 1440".
-  - Read as: **each layout says the resolution it was made at** (`"reference"`, width and height), the
-    web editor's canvas is that many pixels, shown one for one and scrolled when it's bigger than the
-    window, 1920 x 1080 unless the maker picks another, and the game scales from the file's reference
-    to the real screen.  Not yet confirmed.
-  - **Open**: whether the 1440 is the default HUD layout made on Jacob's 2560 x 1440 monitor, or the
-    editor's default canvas moving from 1080 to 1440.
+  - **Each layout says the resolution it was made at** (`"reference"`, width and height).  The web
+    editor's canvas is that many pixels, shown one for one and scrolled when it's bigger than the
+    window, and the game scales from the file's reference to the real screen, the bigger of the two
+    fitting (Expand), so nothing falls off.  Jacob, on that reading: "yes now you got the picture".
+  - **The editor's canvas starts at 2560 x 1440**, Jacob's monitor, not 1080 (his "b"), and the maker
+    can change it.
