@@ -196,48 +196,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>The game library ready for the spawn (2026-10-01)</h2>
-<p class="soft">Nobody can come into the world until networking's side is built, so these are the tests, the setting and the GameClock's line.</p>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      It builds with no warnings, and every test passes in the GameClock, accounts and tools (the new ones:
-      a character asked in twice is spawned once, leaving despawns and hands back its save, a snapshot is
-      every player as they stand, and no world save comes before the ground is in or before its seconds).
-    </span></label>
-    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-gameclock -p conductor-accounts -p conductor-tools</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The snapshot's cost: the timing test prints how long copying 10,000 characters took, out of
-      housekeeping's 50 ms.  Paste the number back.
-    </span></label>
-    <pre class="cmd">cargo test --release -p conductor-gameclock -- --ignored --nocapture snapshot_of_ten_thousand</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      START SERVER: the Settings tab has world_save_seconds = 150 under game.cfg, with its comment, and
-      Content/cfg/game.cfg has gained the line.  The Services tab's GameClock line says 0 players in the
-      world and "No world save yet; one every 150 s".  Two and a half minutes after the ground is in, it
-      says 1 world save(s), the last of 0 characters.
-    </span></label>
-    <pre class="cmd">cargo run -p conductor-launcher</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      STOP SERVER: the Log tab says the GameClock stopped "and saved the world on the way out (0
-      characters)", nothing goes on the bell, and START SERVER after it comes up clean.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The setting's range: on the Settings tab, world_save_seconds 29 and 1801 are refused, 30 is saved,
-      and after STOP SERVER and START SERVER the GameClock line says "one every 30 s".  Put it back to 150
-      after.
-    </span></label>
-  </li>
-</ul>
-
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">

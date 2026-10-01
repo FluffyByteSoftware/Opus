@@ -22,8 +22,8 @@ count at 0, and a clean STOP SERVER and START SERVER).  Housekeeping takes in th
 saves the world; input brings players' characters in and out of the world through the mailbox; AI, movement
 and broadcast are empty, since nothing in the world moves and the protocol has no input packet.
 
-**Ready for the spawn** (2026-10-01, written, not built yet): the mailbox, the players' list, and the world
-save.  See "Players and the world save" below.
+**Ready for the spawn** (2026-10-01, built and tested, every check passed): the mailbox, the players' list,
+and the world save.  See "Players and the world save" below.
 
 ## Skeleton
 

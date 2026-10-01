@@ -211,7 +211,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | conductor-lua-parser | Lib: runs the Lua scripts, locked down.                 | Tested                           |
 | conductor-primlib    | Lib: the game library, an ECS.                          | Tested; nothing spawns yet       |
 | conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested                  |
-| conductor-gameclock  | Lib: the GameClock, the game loop.                      | Players and world save not built |
+| conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input and housekeeping   |
 | conductor-wgui       | Lib: the web admin on 127.0.0.1.                        | Tested                           |
 | conductor-launcher   | Bin: the program.  Boots, then waits on the Server tab. | Tested                           |
 | DiskMan              | Every file read and write, one worker thread.           | Tested                           |

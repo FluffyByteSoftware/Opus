@@ -125,7 +125,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     - **Picking a character to play** is the spawn, step 3 of Jacob's map, and not this.  When it comes:
       the Connections tab and the log say "in the world" for a player who is only at character select, and
       a reset home for a character already in the world would need the world's copy moved, not the row.
-      **The game library's half is written** (2026-10-01, not built yet): `conductor_gameclock::enter()`
+      **The game library's half is built and tested** (2026-10-01): `conductor_gameclock::enter()`
       and `leave()`, the players' list, saving on leaving and the world save (`design/gameclock.md`,
       "Players and the world save").  What's left is networking's: the pick packet, loading the row and
       the save into a blueprint off the GameClock's thread (turning an unplayable character away), calling

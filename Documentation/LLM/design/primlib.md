@@ -202,7 +202,7 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
     spreading it over several loses the one moment, so it comes back to Jacob then.
 - **Leaving takes the copy out**: "when the character's registered as quit out the game removes them".
   Saved, then despawned at once; no linkdead body left standing in the world.
-- **Written, not built yet** (2026-10-01): the GameClock's mailbox, its list of players and the world save,
+- **Built and tested** (2026-10-01): the GameClock's mailbox, its list of players and the world save,
   `design/gameclock.md`, "Players and the world save"; `save_all()` in conductor-accounts.
 
 ## Lua, part two
