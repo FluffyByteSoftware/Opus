@@ -56,6 +56,7 @@ Phases 2 and 3 are in TODO.md.
     Unity's own folder for a player is named after the Product Name, which is the game's name, Forgotten
     Legends, and the game's name isn't the directory path (Jacob: "its the games name but not the
     directory path", then "change it to /home/froggy/.config/unity3d/FluffyByte Studios/Opus.Ensemble/Unity").
+    It's "the folder we're stuck with for now" (Jacob, asked whether the `Unity` at the end was meant).
     So the code takes the company's folder above Unity's (`persistentDataPath`'s parent, Company Name from
     Player Settings) and names its own under it.  Unity's own per-player files stay in the Product Name
     folder.

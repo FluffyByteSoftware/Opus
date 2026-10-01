@@ -35,6 +35,9 @@ Ensemble/dev/Opus.Ensemble/Assets/*
 !Ensemble/dev/Opus.Ensemble/Assets/Data.meta
 Ensemble/dev/Opus.Ensemble/Packages/
 Ensemble/dev/Opus.Ensemble/UserSettings/
+# UI Builder writes the UXML schemas beside Assets/ and rewrites them
+# itself, so they're Unity's, not ours.
+Ensemble/dev/Opus.Ensemble/UIElementsSchema/
 # A change saved from the web admin, waiting for its reboot.  It's this
 # machine's, not the repo's.
 Content/cfg/*.wait4server
