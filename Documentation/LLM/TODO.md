@@ -25,7 +25,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **Up and down**: open.  Jacob is picturing "how tall a mountain needs to be to seem significant or a
     watch tower".  The ceiling, the stone's depth, Omega's hills and how many chunk rows tall the world is
     all follow from it.
-  - **Other blocks-to-metres numbers to recheck**: a player 2 blocks tall, `view_chunks` 4 is now 128 m.
+  - **A player is 2 blocks tall, 2 m** (Jacob: "yes").
+  - **Still to recheck**: `view_chunks` 4 is now 128 m.
 
 - **Chat** (Jacob, 2026-09-30: the 0.0.1 goal is "get a player spawned in the world and able to chat").
   Nothing designed: who hears whom (everybody, or those nearby), what the packets are (a protocol bump),
