@@ -185,5 +185,11 @@ out there.
 
 ## Still open
 
+- **The world's size as a setting** (Jacob, 2026-10-01): first "make the world twice as big": twice as wide
+  each way, 16 km a side, "no impact on height" (still eleven rows), replacing the old world, not growing
+  it ("this server is like hella lean so far lets squeeze").  Then, before it was built: "let's make this a
+  variable we can change in game.cfg a \"world size divisible by 8\"".  Still to settle: what the number
+  counts (1024-block "km" or chunks), its range, and what happens when it doesn't match the world on disk
+  (the world is only made once; its size is in `region.map`).
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
