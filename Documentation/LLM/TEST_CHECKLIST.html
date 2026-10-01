@@ -182,8 +182,9 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <p class="soft">
   Ticking a box marks my place, in this browser only, and writes the check into the message for the session.
   COPY MESSAGE copies it to paste back; the session takes the passed checks out of this file.  Every command is one line, from <code>Conductor/dev</code>.
-  The test account is <code>throwaway_01</code> / <code>Throwaway 1!</code>, and the client is
-  <code>networking/test_client.py</code>.
+  The test account is <code>testuser123</code> / <code>Testpass1!</code>, and the client is
+  <code>networking/test_client.py</code>, pointed at <code>--host 10.0.0.84</code> (the
+  <code>bind_address</code> in networking.cfg).
 </p>
 
 <div class="bar">
@@ -206,10 +207,10 @@ button on its own.  Pulls nothing from the internet, like the web admin.
       Into the world and out: the Hello says protocol version 6, the CharacterEnteredWorld says Spawny is in
       the world at 0, 0, 0, the list asked for after it is refused ("Your character is in the world.  Log
       out to get back to character select."), the keep-alives are answered, and the Goodbye goes after 5
-      seconds.  The Log tab says throwaway_01 "is at character select", then "is in the world as Spawny",
+      seconds.  The Log tab says testuser123 "is at character select", then "is in the world as Spawny",
       then logged out; nothing on the bell.
     </span></label>
-    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --create Spawny --play Spawny --leave-after 5 throwaway_01 'Throwaway 1!'</pre>
+    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --host 10.0.0.84 --create Spawny --play Spawny --leave-after 5 testuser123 'Testpass1!'</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
@@ -217,14 +218,14 @@ button on its own.  Pulls nothing from the internet, like the web admin.
       column with Spawny in it, and the count says "1 in the world, 0 at character select".  The Services
       tab's GameClock line says 1 player in the world, and 0 once Ctrl-C has said Goodbye.
     </span></label>
-    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --play Spawny throwaway_01 'Throwaway 1!'</pre>
+    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --host 10.0.0.84 --play Spawny testuser123 'Testpass1!'</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
       At character select only (no --play): the Character column says "character select", greyed, and the
       count says "0 in the world, 1 at character select".
     </span></label>
-    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --leave-after 10 throwaway_01 'Throwaway 1!'</pre>
+    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --host 10.0.0.84 --leave-after 10 testuser123 'Testpass1!'</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
@@ -235,7 +236,7 @@ button on its own.  Pulls nothing from the internet, like the web admin.
       moment; log in again", its TCP row reading "LINKDEAD: picked a character locked for a moment; logs in
       again".  Run it once more and Spawny comes in.  Nothing on the bell.
     </span></label>
-    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --play Spawny throwaway_01 'Throwaway 1!'</pre>
+    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --host 10.0.0.84 --play Spawny testuser123 'Testpass1!'</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
