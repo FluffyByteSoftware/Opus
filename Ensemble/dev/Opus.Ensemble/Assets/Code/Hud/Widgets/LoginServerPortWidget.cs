@@ -2,7 +2,7 @@
 // Component:  Ensemble
 // Author:     Jacob Chacko
 // The login's Server Port box.  It starts filled with Conductor's TCP port,
-// networking.cfg's tcp_port.
+// networking.cfg's tcp_port, or the remembered login's.
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -30,6 +30,7 @@ namespace Opus.Hud
         {
             TextField field = LoginField.Build(box, "Server Port", "9997");
             field.maxLength = 5;
+            LoginForm.ServerPortBuilt(field);
         }
     }
 }

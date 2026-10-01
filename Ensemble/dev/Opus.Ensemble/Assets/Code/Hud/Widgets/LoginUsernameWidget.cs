@@ -1,7 +1,8 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/Widgets/LoginUsernameWidget.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// The login's Username box.
+// The login's Username box, filled from the remembered login if there is
+// one.
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -27,7 +28,8 @@ namespace Opus.Hud
 
         public override void Build(VisualElement box)
         {
-            LoginField.Build(box, "Username", "");
+            TextField field = LoginField.Build(box, "Username", "");
+            LoginForm.UsernameBuilt(field);
         }
     }
 }

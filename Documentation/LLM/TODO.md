@@ -293,8 +293,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     with the game, never the player's.  **The login is built and tested** (2026-10-01,
     `design/ensemble-hud.md`, "The login, as written"); character select's layout is still to come.
 - **Security in the client** (Jacob, 2026-10-01, at the login's hand-off: "next conversation we start
-  building security into the client").  **Being designed** (2026-10-01).  What it covers, Jacob's
-  answers:
+  building security into the client").  **The client's half is built** (2026-10-01, waiting on Jacob's
+  Unity run); `design/client-security.md` has the contract and **Conductor's half, to build in a session of
+  its own** (protocol version 7, the key refused if it isn't one, the account desk making the key from what
+  the admin types, with the `pbkdf2` and `sha2` crates to be OKed then, and every account deleted).  What it
+  covers, Jacob's answers:
   - **The password is turned into a key on the client**, in `Assets/Code/`, on SUBMIT and for Remember
     Me: "even though its going over TLS we don't want to save it to their local disk as plain text!"
     The point is that the password never crosses the internet or lands on disk as typed; "I suppose
@@ -305,18 +308,20 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     are of the password, not the key).
   - **Remember Me is a file of our own** in the player's own folder for the game (Unity's
     `persistentDataPath`).
-  - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256 is proposed: it's built
-    into Unity's .NET, Python's standard library and the browser, so nothing new to add.
+  - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256, 600,000 rounds: built
+    into Unity's .NET and Python's standard library.  **The rounds are settled once SUBMIT has timed
+    them** in Unity, before any account is made again.
+  - **The Accounts tab: Conductor makes the key** from what the admin types (Jacob: "we'll have conductor
+    do it"); the page doesn't.
+  - **The Remember Me file is readable by other users on the same Linux machine**: Unity's .NET can't set
+    a file's permissions without reaching into the OS (a `chmod` through libc).  Worth doing before
+    players have it.
   - Still to come: the client checking the server's TLS certificate, `Content/certs/conductor.crt` (the
     entry on Ensemble finding `Content/`); and, further off, Soundcheck handing each client a certificate
     of its own (LONGTERM_TODO.md).
-- **The login screen, later** (2026-10-01): what SUBMIT does once there's a network client; what
-  Remember Me remembers and where it's kept: Jacob, "when we write our hash in it will hash the password
-  and I think we may rewrite the server to accept a hash instead of plaintext" (so the client would keep
-  a hash of the password, not the password).  Worth weighing then: a hash the server takes as the login
-  is the password as far as anybody who copies the file is concerned, so the file is worth guarding as
-  much as a saved password would be.  The server would still run what it's sent through Argon2 (Security)
-  either way.  The effects between screens ("cool ass
+- **The login screen, later** (2026-10-01): what SUBMIT does once there's a network client (it makes
+  the key and keeps or forgets it now; logging in, sending the key, comes with the network client).
+  Remember Me is built (`design/client-security.md`).  The effects between screens ("cool ass
   effects if we can", "I don't know yet"); then character select's layout.
 - **Stale words in the code**, for whichever session next touches each file:
   - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and

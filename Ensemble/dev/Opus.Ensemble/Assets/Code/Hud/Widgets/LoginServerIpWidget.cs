@@ -2,7 +2,7 @@
 // Component:  Ensemble
 // Author:     Jacob Chacko
 // The login's Server IP box.  It starts filled with Conductor's address,
-// networking.cfg's bind_address.
+// networking.cfg's bind_address, or the remembered login's.
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -28,7 +28,8 @@ namespace Opus.Hud
 
         public override void Build(VisualElement box)
         {
-            LoginField.Build(box, "Server IP", "10.0.0.84");
+            TextField field = LoginField.Build(box, "Server IP", "10.0.0.84");
+            LoginForm.ServerIpBuilt(field);
         }
     }
 }

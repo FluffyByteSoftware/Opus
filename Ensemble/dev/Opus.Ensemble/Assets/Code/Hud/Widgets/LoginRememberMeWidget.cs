@@ -1,8 +1,9 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/Widgets/LoginRememberMeWidget.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// The login's Remember Me box.  It only ticks for now: nothing is
-// remembered until there's a network client to log in with.
+// The login's Remember Me box.  Ticked when SUBMIT is pressed, the server,
+// the username and the password's key are kept for next time; unticked,
+// they're forgotten (LoginForm.cs).  Starts ticked if there's a login kept.
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -33,6 +34,7 @@ namespace Opus.Hud
             toggle.text = "Remember Me";
             toggle.AddToClassList("login-remember");
             box.Add(toggle);
+            LoginForm.RememberMeBuilt(toggle);
         }
     }
 }

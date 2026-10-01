@@ -1,7 +1,8 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/Widgets/LoginPasswordWidget.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// The login's Password box.  What's typed shows as dots.
+// The login's Password box.  What's typed shows as dots, and so does a
+// remembered login's key standing in for it (LoginForm.cs).
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -30,6 +31,7 @@ namespace Opus.Hud
             TextField field = LoginField.Build(box, "Password", "");
             field.isPasswordField = true;
             field.maskChar = '\u2022';   // a dot, not Unity's asterisk
+            LoginForm.PasswordBuilt(field);
         }
     }
 }

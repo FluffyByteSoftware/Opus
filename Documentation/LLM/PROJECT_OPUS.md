@@ -157,14 +157,18 @@ Opus/
 │           │                          #   EVERY CLIP and CLASHES views
 │           ├── Code/                  # the plain C#
 │           │   ├── InputSystem.cs     # Unity's Input System actions, generated (Jacob's), and its .inputactions
-│           │   └── Hud/               # every screen from a layout, namespace Opus.Hud (design/ensemble-hud.md)
-│           │       ├── Widget.cs      # what every widget is, and WidgetInfo, its catalog entry
-│           │       ├── WidgetRegistry.cs # every widget there is, a line each
-│           │       ├── HudLayout.cs   # a layout file's classes, and the nine anchors
-│           │       ├── LayoutLoader.cs # a screen's shipped layout; the HUD's can be the player's file instead
-│           │       ├── LayoutChecker.cs # the load rules: skipped, clamped, moved back on
-│           │       ├── HudBuilder.cs  # a screen: the layers and a box per widget, placed from its anchor
-│           │       └── Widgets/       # the HUD's health, minimap, chat (placeholders); the login's eight
+│           │   ├── Hud/               # every screen from a layout, namespace Opus.Hud (design/ensemble-hud.md)
+│           │   │   ├── Widget.cs      # what every widget is, and WidgetInfo, its catalog entry
+│           │   │   ├── WidgetRegistry.cs # every widget there is, a line each
+│           │   │   ├── HudLayout.cs   # a layout file's classes, and the nine anchors
+│           │   │   ├── LayoutLoader.cs # a screen's shipped layout; the HUD's can be the player's file instead
+│           │   │   ├── LayoutChecker.cs # the load rules: skipped, clamped, moved back on
+│           │   │   ├── HudBuilder.cs  # a screen: the layers and a box per widget, placed from its anchor
+│           │   │   └── Widgets/       # the HUD's health, minimap, chat (placeholders); the login's eight, and
+│           │   │                      #   LoginForm.cs, where they meet: SUBMIT and Remember Me
+│           │   └── Security/          # namespace Opus.Security (design/client-security.md)
+│           │       ├── PasswordKey.cs # the password's key, made on SUBMIT: what's sent and kept, never the password
+│           │       └── RememberedLogin.cs # Remember Me's file, in the player's own folder for the game
 │           ├── Scripts/
 │           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the login, the HUD) and
 │           │                          #   which is showing; the login's text colour and font
@@ -221,7 +225,8 @@ Opus/
             ├── primlib.md             # the game library: entities, components, templates, blueprints; what's open
             ├── gameclock.md           # the GameClock: the beat, the order of the checks, a late cycle; what's open
             ├── world.md               # the world: regions, chunks, blocks, its files; GameWorld; what's open
-            └── ensemble-hud.md        # the HUD and its layouts; the login screen, being settled
+            ├── ensemble-hud.md        # the HUD and its layouts; the login screen
+            └── client-security.md     # the password's key: the contract, the client's half, Conductor's to build
 ```
 
 ## The named pieces
