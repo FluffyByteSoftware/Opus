@@ -20,11 +20,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **1 m, cubes**: "it will be simpler to start there for now and then we may make different non cubed
     voxels".
   - **Chunks stay 32 a side**, so 32 m.
-  - **The world**: "same as before".  Whether that's 8 km (blocks -4096 to 4095, 256 by 256 chunks) or the
-    same 16,384 blocks (16 km) is being asked.
-  - **Up and down**: open.  Jacob is picturing "how tall a mountain needs to be to seem significant or a
-    watch tower".  The ceiling, the stone's depth, Omega's hills and how many chunk rows tall the world is
-    all follow from it.
+  - **The world stays 8 km by 8 km** ("I thought we bout 8k x 8k?"): 8192 blocks a side, -4096 to 4095,
+    256 by 256 chunks.
+  - **Minecraft's height**: "we're gonna squeeze more memory and go Minecraft height and depth values for
+    now", with the depth Jacob's own: **-31 is BEDROCK**, "can dig to -30 and stand on top of -31".  Read
+    as: build up to +319, Minecraft's top.
+  - **Omega's hills stay ±5** for this step: "we will test a mountain out after we get the client up".
   - **A player is 2 blocks tall, 2 m** (Jacob: "yes").
   - **Still to recheck**: `view_chunks` 4 is now 128 m.
 
