@@ -351,6 +351,16 @@ pub static GAME: ConfigFile = ConfigFile {
             a comment.",
     settings: &[
         Setting {
+            key: "world_size",
+            kind: Kind::Number { low: 2, high: 32 },
+            default: "16",
+            about: "How big the world is, in steps of 1024 blocks a side, with 0,0,0 in\n\
+                    the middle: 16 is 16384 blocks, -8192 to 8191 each way.  2 to 32.\n\
+                    A change deletes the world on disk and makes a new one at the next\n\
+                    START SERVER, dug chunks and all.  Omega's hills are held in memory\n\
+                    whole: 134 MB at 16, 537 MB at 32.",
+        },
+        Setting {
             key: "view_chunks",
             kind: Kind::Number { low: 1, high: 16 },
             default: "4",

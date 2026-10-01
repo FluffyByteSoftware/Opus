@@ -10,7 +10,8 @@ The world is what the game is played in: the ground, what it's made of, and how 
 designed with Jacob on 2026-09-30, and part one (`conductor-gameworld`) was built and tested the same day, so
 every decision and quote below is his from that day unless it says otherwise.  On 2026-10-01 the blocks went
 from 50 cm to 1 m, Minecraft's size, and the world from two rows of chunks to eleven, Minecraft's height
-(under "Blocks and chunks" and "The shape"), built and tested on Linux the same day.
+(under "Blocks and chunks" and "The shape"), built and tested on Linux the same day.  Later that day the
+world's size became `world_size` in `game.cfg`, 16 to start, twice as wide as before (under "The shape").
 
 ## Where it stands
 
@@ -22,7 +23,8 @@ running until the ground is in included.
 not primlib.  It's a server piece with its own thread, `gameworld`, and a GameWorld line on the Services tab,
 and rebuilds the world from its files on every START SERVER.  It reads `region.map`, or makes the world if
 there isn't one: a seed from Fingerprinter, Omega's heights file, then `region.map` last, so a stop part way
-leaves no half world.  (To make a new world, stop the server and delete `Content/world/`.)  A heights file
+leaves no half world.  (To make a new world, stop the server and delete `Content/world/`, or change
+`world_size`: a world on disk that isn't that size is deleted, `region.map` last, and made again.)  A heights file
 that has gone missing is made again from the map's seed, with a Warn.  Then it answers the GameClock's asks:
 each chunk from its own file if it has one, otherwise built from its region's ground.  A chunk file that
 doesn't read right is a Warn and that chunk stays out of the game, never built over, since it may be the only
@@ -46,8 +48,8 @@ binary, not text: "its a summary that tells the chunks how to assemble themselve
 client".  **`Documentation/LLM/REGION_MAP.md`** has it, byte for byte, with a worked example, the checks a
 reader makes, a C# reader for Ensemble and a one-line Python look at a real file (Jacob's ask: "a thorough
 document that explains how to read our new binary map file").  That document is the contract with Ensemble,
-like PROTOCOL.md, so it isn't copied here, and a change to the layout bumps its version.  720,938 bytes for
-the first world (version 2).
+like PROTOCOL.md, so it isn't copied here, and a change to the layout bumps its version.  2,883,626 bytes
+at `world_size` 16 (version 2).
 
 `Regions/<Region>/<region>.heights` (Omega's, today):
 
@@ -63,7 +65,7 @@ i8 x every column   the dirt's height, -5 to 5: the south line first,
                     in a line west to east.
 ```
 
-33,554,458 bytes for Omega.
+134,217,754 bytes for Omega at `world_size` 16: half the world's columns, a byte each.
 
 `Regions/<Region>/<region>_<x>_<z>_<row>.chunk` (`alpha_-015_003_01.chunk`), one per changed chunk:
 
@@ -115,10 +117,26 @@ out there.
 
 ### The shape
 
-- **8 km by 8 km to start**, "it may _grow_ later", and still 8 km at 1 m ("I thought we bout 8k x 8k?").
-  8192 blocks a side, 256 by 256 chunks across, 720,896 chunks in all with eleven rows.
+- **The world's size is `world_size` in `game.cfg`** (Jacob, 2026-10-01): "let's make this a variable we
+  can change in game.cfg".  **1 is 1024 blocks a side** ("world_size = 1 = 1024 blocks"), so 32 chunks,
+  half either side of 0, and every whole number comes out in whole chunks.  **2 to 32, 16 to start**: 16 is
+  16,384 blocks a side, 512 by 512 chunks, 2,883,584 chunks in all with eleven rows.  It came from "make
+  the world twice as big": twice as wide each way, "no impact on height".  Before it the world was fixed at
+  8192 blocks a side ("8 km by 8 km to start", "it may _grow_ later"), which is `world_size` 8.
+- **A change deletes the world and makes a new one** (Jacob: "Delete the world on disk and recreate"), on
+  the next START SERVER, since `game.cfg` is soft.  GameWorld finds `region.map` isn't that size, says so
+  at Info, deletes everything under `Content/world/` through DiskMan with `region.map` last (so a stop part
+  way still finds the wrong size next time, and a new world is never made over the old one's chunk files),
+  and makes the world again from a new seed.  This runs into "a chunk's own file always wins": once digging
+  is saved, a size change wipes every dug chunk.  Nothing writes chunk files yet, so it costs nothing today;
+  keeping the seed and the dug chunks inside the new edges is in TODO.md for when it would.
+- **What the size costs in memory**: Omega's heights file is held whole for the server's run, half the
+  world's columns at a byte each, so it goes with the square: 2 MB at 2, 34 MB at 8, 134 MB at 16, 537 MB
+  at 32.  `region.map` is held too, 2.9 MB at 16.  The chunks around the players don't change with it.
+  Making the world takes longer the same way.
 - **0,0,0 is the middle of the world**: "I want it to span -8096 to 8096 and at 0, 0 its gold", taken at
-  50 cm as -8192 to 8191 blocks.  At 1 m it's **-4096 to 4095** blocks each way.  Chunks run -128 to 127.
+  50 cm as -8192 to 8191 blocks.  At 1 m and `world_size` 16 it's **-8192 to 8191** blocks each way, chunks
+  -256 to 255.
   File names take negative numbers.
 - **The origin block, 0,0,0, is GOLD**, so the middle of everything can be seen, whatever is around it.
 - **The world starts flat, in three layers, counted in blocks**: "blocks at 0 are all dirt, blocks at -1 thru
@@ -173,8 +191,8 @@ out there.
 - **Omega's bumps are saved, not made again**: "Omega chunks will need to be saved with their bumpiness
   before server shuts down".  Made once, when the world is made, and kept, so a change to the noise code
   later never reshapes hills already there.  **Kept as one heights file**: one number per column, how
-  high the dirt is, -5 to +5, about 34 MB for half of 8 km at 1 m blocks (every Omega chunk whole would be
-  about 23 GB).
+  high the dirt is, -5 to +5, about 134 MB at `world_size` 16 (every Omega chunk whole would be about
+  94 GB).
 - **It's saved on STOP SERVER, and by a global save every 15 minutes.**  A chunk that changes is marked, and
   the GameClock hands copies of the changed ones to GameWorld to write, never waiting on it.
 - **The global save is the terrain only**: "whatever is in memory about the voxel states", dumped to disk.
@@ -185,11 +203,5 @@ out there.
 
 ## Still open
 
-- **The world's size as a setting** (Jacob, 2026-10-01): first "make the world twice as big": twice as wide
-  each way, 16 km a side, "no impact on height" (still eleven rows), replacing the old world, not growing
-  it ("this server is like hella lean so far lets squeeze").  Then, before it was built: "let's make this a
-  variable we can change in game.cfg a \"world size divisible by 8\"".  Still to settle: what the number
-  counts (1024-block "km" or chunks), its range, and what happens when it doesn't match the world on disk
-  (the world is only made once; its size is in `region.map`).
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.

@@ -463,8 +463,10 @@ When I say we're wrapping up:
   (`gameobject.rs`).
 - **The ground is `conductor-gameworld`** (`design/world.md` has all of it).
   **A block is 1 m a side**, Minecraft's size (2026-10-01; it was 50 cm),
-  chunks 32 a side, the world 8 km a side and eleven chunks tall, -32 to
-  +319, BEDROCK at -31 and -32.  The code counts in blocks only and never
+  chunks 32 a side, eleven chunks tall, -32 to +319, BEDROCK at -31 and
+  -32.  **The world's size is `world_size` in `game.cfg`**, 1024 blocks
+  a side per step, 2 to 32, 16 to start (2026-10-01); a change deletes
+  the world on disk and makes a new one at the next START SERVER.  The code counts in blocks only and never
   in metres, so a change of size is the numbers and what the docs say
   they mean.
   GameWorld's thread does the slow part (making the world, reading

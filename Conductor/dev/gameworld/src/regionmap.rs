@@ -20,10 +20,10 @@
 //! 8 bytes   OPUSRMAP
 //! u16       version, 2
 //! u64       the seed the world was made from
-//! i16       the westmost chunk's x (-128)
-//! i16       the southmost chunk's z (-128)
-//! u16       how many chunks east-west (256)
-//! u16       how many chunks north-south (256)
+//! i16       the westmost chunk's x (-256 at world_size 16)
+//! i16       the southmost chunk's z (-256)
+//! u16       how many chunks east-west (512)
+//! u16       how many chunks north-south (512)
 //! u8        how many rows up and down (11)
 //! u8        how many regions, then for each:
 //!             u8   its ground: 0 flat, 1 heights
@@ -33,9 +33,9 @@
 //!                    the south line first; in a line, west to east.
 //! ```
 //!
-//! Row 0's bottom is block -32, and every row is 32 blocks.  For the world
-//! as it is today that's 720,896 chunks, a byte each, about 704 KB.  Every
-//! number is little-endian.
+//! Row 0's bottom is block -32, and every row is 32 blocks.  At world_size
+//! 16 that's 2,883,584 chunks, a byte each, about 2.75 MB; at 32, four
+//! times that.  Every number is little-endian.
 
 use crate::bytes::Reader;
 use crate::chunk::{ChunkPos, ROWS, SIDE};
@@ -79,35 +79,37 @@ pub struct RegionMap {
     grid: Vec<u8>,
 }
 
-/// The world as it's first made (Jacob, 2026-09-30): 8 km a side, chunks
-/// -128 to 127 each way (blocks 1 m since 2026-10-01), so 0,0,0 is the
-/// middle.  Alpha is everything west of 0, flat; Omega everything east of
-/// it, in rolling hills.
-pub const FIRST_WEST: i32 = -128;
-pub const FIRST_SOUTH: i32 = -128;
-pub const FIRST_WIDTH: i32 = 256;
-pub const FIRST_DEPTH: i32 = 256;
+/// How many chunks across one `world_size` is: 1024 blocks (Jacob,
+/// 2026-10-01: "world_size = 1 = 1024 blocks").  Half of it either side
+/// of 0, so any whole size comes out in whole chunks with 0,0,0 in the
+/// middle.
+pub const CHUNKS_PER_SIZE: i32 = 1024 / SIDE;
 
 impl RegionMap {
-    /// The world's first map, made from `seed`: Alpha west of 0, Omega
-    /// east, every row the same.
-    pub fn first(seed: u64) -> RegionMap {
+    /// The world's first map, made from `seed`, `size` times 1024 blocks a
+    /// side (`world_size` in `game.cfg`): Alpha everything west of 0, flat,
+    /// and Omega everything east of it, in rolling hills, every row the
+    /// same.  At 16, the default, that's chunks -256 to 255 each way.
+    pub fn first(seed: u64, size: i32) -> RegionMap {
         let regions = vec![
             Region { name: "Alpha".to_string(), ground: Ground::Flat },
             Region { name: "Omega".to_string(), ground: Ground::Heights },
         ];
+        let across = size * CHUNKS_PER_SIZE;
+        let west = -across / 2;
+        let south = -across / 2;
         let mut map = RegionMap {
             seed,
             regions,
-            west: FIRST_WEST,
-            south: FIRST_SOUTH,
-            width: FIRST_WIDTH,
-            depth: FIRST_DEPTH,
-            grid: vec![0; (FIRST_WIDTH * FIRST_DEPTH * ROWS as i32) as usize],
+            west,
+            south,
+            width: across,
+            depth: across,
+            grid: vec![0; (across * across * ROWS as i32) as usize],
         };
         for row in 0..ROWS {
-            for z in FIRST_SOUTH..FIRST_SOUTH + FIRST_DEPTH {
-                for x in FIRST_WEST..FIRST_WEST + FIRST_WIDTH {
+            for z in south..south + across {
+                for x in west..west + across {
                     let region = if x < 0 { 0 } else { 1 };
                     if let Some(slot) = map.slot(ChunkPos { x, z, row }) {
                         map.grid[slot] = region;
@@ -116,6 +118,18 @@ impl RegionMap {
             }
         }
         map
+    }
+
+    /// True if this map is the shape `first()` makes at `size`: as wide as
+    /// it is deep, the right number of chunks, 0,0,0 in the middle.
+    pub fn is_size(&self, size: i32) -> bool {
+        let across = size * CHUNKS_PER_SIZE;
+        self.width == across && self.depth == across && self.west == -across / 2 && self.south == -across / 2
+    }
+
+    /// How many blocks the map runs east-west, for telling a person.
+    pub fn blocks_across(&self) -> i32 {
+        self.width * SIDE
     }
 
     /// The region a chunk is in, and its number in the list.  `None` for a
@@ -229,35 +243,50 @@ mod tests {
 
     #[test]
     fn alpha_is_west_of_0_and_omega_east() {
-        let map = RegionMap::first(7);
+        let map = RegionMap::first(7, 16);
         let name = |x, z, row| map.region_at(ChunkPos { x, z, row }).map(|(_, region)| region.name.clone());
         assert_eq!(name(-1, 0, 0).as_deref(), Some("Alpha"));
-        assert_eq!(name(-128, -128, 10).as_deref(), Some("Alpha"));
+        assert_eq!(name(-256, -256, 10).as_deref(), Some("Alpha"));
         assert_eq!(name(0, 0, 0).as_deref(), Some("Omega"));
-        assert_eq!(name(127, 127, 10).as_deref(), Some("Omega"));
-        assert_eq!(name(128, 0, 0), None);
-        assert_eq!(name(-129, 0, 0), None);
+        assert_eq!(name(255, 255, 10).as_deref(), Some("Omega"));
+        assert_eq!(name(256, 0, 0), None);
+        assert_eq!(name(-257, 0, 0), None);
         assert_eq!(name(0, 0, 11), None);
     }
 
     #[test]
     fn omegas_box_is_the_east_half() {
-        let map = RegionMap::first(7);
-        assert_eq!(map.block_box(1), Some((0, -4096, 4096, 8192)));
-        assert_eq!(map.block_box(0), Some((-4096, -4096, 4096, 8192)));
+        let map = RegionMap::first(7, 16);
+        assert_eq!(map.block_box(1), Some((0, -8192, 8192, 16384)));
+        assert_eq!(map.block_box(0), Some((-8192, -8192, 8192, 16384)));
         assert_eq!(map.block_box(2), None);
     }
 
     #[test]
+    fn the_size_is_1024_blocks_a_step_with_0_in_the_middle() {
+        let small = RegionMap::first(7, 2);
+        assert_eq!(small.blocks_across(), 2048);
+        assert_eq!(small.block_box(0), Some((-1024, -1024, 1024, 2048)));
+        assert!(small.region_at(ChunkPos { x: -32, z: 31, row: 0 }).is_some());
+        assert!(small.region_at(ChunkPos { x: 32, z: 0, row: 0 }).is_none());
+        let odd = RegionMap::first(7, 3);
+        assert_eq!(odd.block_box(1), Some((0, -1536, 1536, 3072)));
+        assert!(small.is_size(2));
+        assert!(!small.is_size(3));
+        assert!(odd.is_size(3));
+        assert_eq!(RegionMap::first(7, 32).blocks_across(), 32768);
+    }
+
+    #[test]
     fn the_map_comes_back_from_its_file_as_it_went_in() {
-        let map = RegionMap::first(0x1234_5678_9abc_def0);
+        let map = RegionMap::first(0x1234_5678_9abc_def0, 16);
         let bytes = map.to_bytes();
         assert_eq!(RegionMap::from_bytes(&bytes), Ok(map));
     }
 
     #[test]
     fn a_chunk_in_a_region_that_isnt_there_is_turned_away() {
-        let mut bytes = RegionMap::first(7).to_bytes();
+        let mut bytes = RegionMap::first(7, 16).to_bytes();
         let last = bytes.len() - 1;
         bytes[last] = 9;
         assert!(RegionMap::from_bytes(&bytes).is_err());

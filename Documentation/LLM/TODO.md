@@ -18,6 +18,15 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   yet).  The world is eleven chunks tall now, so a player's 891 chunks are mostly air, each kept whole at
   64 KB (about 57 MB a player).  A chunk that's all one kind could be held as that one kind until a block
   in it changes.  Worth it if memory bites with more players.
+- **A `world_size` change that keeps the digging** (2026-10-01, Jacob's yes, for when chunks are saved).
+  Today a change deletes the whole world and makes a new one from a new seed, which costs nothing while
+  nothing writes chunk files.  Once digging is saved, it would wipe every dug chunk.  Keeping the old seed
+  instead makes Omega's hills the same wherever the two sizes overlap (the heights come from the seed
+  column by column), so a new `region.map` and heights file could be made at the new size with the dug
+  chunks inside its edges kept.  The chunks outside them need a call: deleted, or kept aside.
+- **A character saved outside a smaller world** (2026-10-01).  A smaller `world_size` can leave a
+  character's last saved spot past the edge.  Everybody stands at 0,0,0 today, so it can't happen yet;
+  it can once there's movement.  Where it goes then (0,0,0, the nearest edge) is Jacob's call.
 
 - **Chat** (Jacob, 2026-09-30: the 0.0.1 goal is "get a player spawned in the world and able to chat").
   Nothing designed: who hears whom (everybody, or those nearby), what the packets are (a protocol bump),

@@ -6,8 +6,9 @@
 //! sum of everything (Jacob, 2026-09-30), cut into regions (a region is a
 //! zone is a biome), regions into chunks, chunks into blocks.  A block is
 //! 1 m a side, Minecraft's size, and a player 2 blocks tall.  The world is
-//! 8 km a side, -4096 to 4095 blocks each way with 0,0,0 in the middle, and
-//! -32 to +319 up and down, seamless, and starts as two regions: Alpha to
+//! `world_size` in `game.cfg` times 1024 blocks a side (16 to start, so
+//! -8192 to 8191 each way) with 0,0,0 in the middle, and -32 to +319 up
+//! and down, seamless, and starts as two regions: Alpha to
 //! the west, flat, and Omega to the east, in rolling hills.
 //! `design/world.md` has the whole of it.
 //!
@@ -40,7 +41,8 @@ pub mod noise;
 pub mod regionmap;
 pub mod terrain;
 
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
 use std::sync::Mutex;
@@ -131,6 +133,12 @@ pub fn stop() {
 /// (Jacob, 2026-09-30).
 pub fn view_chunks() -> i32 {
     constellations::number(&GAME, "view_chunks") as i32
+}
+
+/// How big the world is, in steps of 1024 blocks a side: `world_size` in
+/// `game.cfg`, 2 to 32 (Jacob, 2026-10-01).  16 to start.
+pub fn world_size() -> i32 {
+    constellations::number(&GAME, "world_size") as i32
 }
 
 /// Asks GameWorld for the chunk at `pos`, to be sent back on `reply`.
@@ -245,17 +253,32 @@ fn run(jobs: Receiver<Job>) {
 }
 
 /// Reads `region.map` and the heights files, or makes the world if there's
-/// no map.  A heights file that has gone missing is made again from the
-/// map's seed, the same as it was.
+/// no map.  A world that isn't `world_size` is deleted and made again at
+/// the new size (Jacob, 2026-10-01: "Delete the world on disk and
+/// recreate").  A heights file that has gone missing is made again from
+/// the map's seed, the same as it was.
 fn read_world() -> Result<Shape, String> {
+    let size = world_size();
     let map_path = region_map_path();
     let map = match diskman::read(&map_path).wait() {
         // A world made by an older Conductor is turned away here too (its
         // version is wrong), so the way out goes with it.
-        Ok(bytes) => regionmap::RegionMap::from_bytes(&bytes)
-            .map_err(|why| format!("{} isn't right: {why}.  To make a new world, stop the server and delete {}",
-                                   map_path.display(), world_dir().display()))?,
-        Err(e) if e.is_not_found() => make::world()?,
+        Ok(bytes) => {
+            let map = regionmap::RegionMap::from_bytes(&bytes)
+                .map_err(|why| format!("{} isn't right: {why}.  To make a new world, stop the server and delete {}",
+                                       map_path.display(), world_dir().display()))?;
+            if map.is_size(size) {
+                map
+            } else {
+                scribe::info(Channel::Game, &format!("The world on disk is {} blocks a side, and world_size {size} \
+                    in game.cfg asks for {}.  GameWorld is deleting it and making a new one.", map.blocks_across(),
+                    size * 1024));
+                services::set(services::GAMEWORLD, State::Starting, "Deleting the old world: world_size changed.");
+                delete_world()?;
+                make::world(size)?
+            }
+        }
+        Err(e) if e.is_not_found() => make::world(size)?,
         Err(e) => return Err(format!("{} can't be read: {e}", map_path.display())),
     };
 
@@ -286,6 +309,50 @@ fn read_world() -> Result<Shape, String> {
     scribe::debug(Channel::Game, &format!("GameWorld read {} and its {} regions.", map_path.display(),
                                           map.regions.len()));
     Ok(Shape { map, heights: every_heights })
+}
+
+/// Deletes everything under `Content/world/`, for a world whose size no
+/// longer matches `world_size`.  Every file goes through DiskMan, so it
+/// drops what it held; the emptied folders go after.  `region.map` goes
+/// last of all: if this stops part way, the next START SERVER still finds
+/// the old map, sees the size is wrong, and finishes the job, where a new
+/// world made over the leftovers would take the old chunk files as its
+/// own.
+fn delete_world() -> Result<(), String> {
+    let map_path = region_map_path();
+    let mut files = Vec::new();
+    let mut folders = Vec::new();
+    find_world_files(&world_dir(), &mut files, &mut folders)
+        .map_err(|e| format!("{} can't be looked through: {e}", world_dir().display()))?;
+
+    for file in files.iter().filter(|file| **file != map_path) {
+        diskman::remove(file).wait().map_err(|e| format!("{} couldn't be deleted: {e}", file.display()))?;
+    }
+    // The deepest folders were found last, so they're emptied first.
+    for folder in folders.iter().rev() {
+        fs::remove_dir(folder).map_err(|e| format!("the folder {} couldn't be deleted: {e}", folder.display()))?;
+    }
+    diskman::remove(&map_path).wait().map_err(|e| format!("{} couldn't be deleted: {e}", map_path.display()))?;
+    scribe::debug(Channel::Game, &format!("GameWorld deleted the old world: {} files and {} folders.", files.len(),
+                                          folders.len()));
+    Ok(())
+}
+
+/// Every file and folder inside `folder`, and the folders inside those.  A
+/// folder goes in `folders` before anything inside it.  A link isn't
+/// followed, only deleted.
+fn find_world_files(folder: &Path, files: &mut Vec<PathBuf>, folders: &mut Vec<PathBuf>) -> std::io::Result<()> {
+    for entry in fs::read_dir(folder)? {
+        let entry = entry?;
+        let path = entry.path();
+        if entry.file_type()?.is_dir() {
+            folders.push(path.clone());
+            find_world_files(&path, files, folders)?;
+        } else {
+            files.push(path);
+        }
+    }
+    Ok(())
 }
 
 /// The chunk at `pos`: its own file if it has one, or built from its

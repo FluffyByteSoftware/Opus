@@ -143,8 +143,8 @@ impl Chunk {
         let mut bytes = Vec::with_capacity(8 + 2 + 2 + 2 + 1 + BLOCKS * 2);
         bytes.extend_from_slice(TAG);
         bytes.extend_from_slice(&VERSION.to_le_bytes());
-        // The positions fit in an i16: the world is 256 chunks across,
-        // -128 to 127.
+        // The positions fit in an i16: at world_size 32, the most, the
+        // world is 1024 chunks across, -512 to 511.
         bytes.extend_from_slice(&(self.pos.x as i16).to_le_bytes());
         bytes.extend_from_slice(&(self.pos.z as i16).to_le_bytes());
         bytes.push(self.pos.row);
@@ -199,7 +199,7 @@ mod tests {
         assert_eq!(ChunkPos::of_block(0, 0, 0), Some(ChunkPos { x: 0, z: 0, row: 1 }));
         assert_eq!(ChunkPos::of_block(-1, 0, -1), Some(ChunkPos { x: -1, z: -1, row: 1 }));
         assert_eq!(ChunkPos::of_block(31, 0, 32), Some(ChunkPos { x: 0, z: 1, row: 1 }));
-        assert_eq!(ChunkPos::of_block(-4096, 0, 4095), Some(ChunkPos { x: -128, z: 127, row: 1 }));
+        assert_eq!(ChunkPos::of_block(-8192, 0, 8191), Some(ChunkPos { x: -256, z: 255, row: 1 }));
     }
 
     #[test]
@@ -220,7 +220,7 @@ mod tests {
     #[test]
     fn file_names_are_padded_to_three_digits_and_the_row_to_two() {
         assert_eq!(ChunkPos { x: -15, z: 3, row: 0 }.file_name("Alpha"), "alpha_-015_003_00.chunk");
-        assert_eq!(ChunkPos { x: 127, z: -128, row: 10 }.file_name("Omega"), "omega_127_-128_10.chunk");
+        assert_eq!(ChunkPos { x: 255, z: -256, row: 10 }.file_name("Omega"), "omega_255_-256_10.chunk");
     }
 
     #[test]

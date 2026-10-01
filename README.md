@@ -78,10 +78,11 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
   like `inherit STD_LIVING;` in the old Discworld mudlib: a player's Character takes in Living (a name,
   health, endurance and mana).  A character is saved as Lua text in its database row, each component
   naming the fields it keeps, and made back from the template with the save laid over it.
-- **gameworld** -- the ground.  8 km a side, seamless, in blocks 1 m a side, Minecraft's size (a player
-  is 2 blocks tall), chunks of 32 blocks a side, eleven chunks tall: BEDROCK at -31, up to +319.  Regions
-  are biomes: Alpha to the west of 0,0,0 is flat, Omega to the east rolls in hills, and the block at 0,0,0
-  is gold.  The first START SERVER makes the world; every one after reads it from `Content/world/`.
+- **gameworld** -- the ground.  16,384 blocks a side to start (`world_size` in `game.cfg`), seamless, in
+  blocks 1 m a side, Minecraft's size (a player is 2 blocks tall), chunks of 32 blocks a side, eleven
+  chunks tall: BEDROCK at -31, up to +319.  Regions are biomes: Alpha to the west of 0,0,0 is flat, Omega
+  to the east rolls in hills, and the block at 0,0,0 is gold.  The first START SERVER makes the world;
+  every one after reads it from `Content/world/`, unless `world_size` has changed, which makes a new one.
 - **gameclock** -- the GameClock, the game loop.  A cycle is 250 ms, five checks of 50 ms: input, AI,
   movement, broadcast, housekeeping.  The rate is fixed in code on purpose: from my testing on an earlier
   go at this, anything faster than 250 ms is a problem.  Nobody gets in, and nothing acts, until the

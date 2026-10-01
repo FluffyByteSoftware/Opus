@@ -9,7 +9,9 @@
 //! the next START SERVER starts the making over instead of finding half a
 //! world.
 //!
-//! To make a new world, stop the server and delete `Content/world/`.
+//! Its size is `world_size` in `game.cfg`.  A change to it makes a new
+//! world on the next START SERVER (`lib.rs`); so does deleting
+//! `Content/world/` while the server is stopped.
 
 use conductor_tools::diskman;
 use conductor_tools::fingerprinter;
@@ -19,15 +21,16 @@ use conductor_tools::services::{self, State};
 use crate::heights;
 use crate::regionmap::{Ground, RegionMap};
 
-/// Makes the world and writes it out, waiting on DiskMan (this is
-/// GameWorld's own thread, so the waiting costs nobody).  The map comes
-/// back once it's all on disk.
-pub fn world() -> Result<RegionMap, String> {
+/// Makes the world `size` times 1024 blocks a side and writes it out,
+/// waiting on DiskMan (this is GameWorld's own thread, so the waiting costs
+/// nobody).  The map comes back once it's all on disk.
+pub fn world(size: i32) -> Result<RegionMap, String> {
     let mut seed_bytes = [0u8; 8];
     fingerprinter::random_bytes(&mut seed_bytes)
         .map_err(|e| format!("the OS wouldn't give a seed: {e}"))?;
-    let map = RegionMap::first(u64::from_le_bytes(seed_bytes));
-    scribe::info(Channel::Game, &format!("GameWorld is making a new world, from seed {}.", map.seed));
+    let map = RegionMap::first(u64::from_le_bytes(seed_bytes), size);
+    scribe::info(Channel::Game, &format!("GameWorld is making a new world, {} blocks a side (world_size {size}), \
+        from seed {}.", map.blocks_across(), map.seed));
 
     for number in 0..map.regions.len() {
         if map.regions[number].ground == Ground::Heights {

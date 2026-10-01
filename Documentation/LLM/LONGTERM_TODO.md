@@ -78,9 +78,9 @@ create NPC goblin_a{
 
 ## The world
 
-`conductor-gameworld` is part one: a seamless world 8 km a side, in 1 m blocks and chunks of 32 a side,
-eleven chunks tall (-32 to +319), cut into regions (a region is a zone is a biome).  The first world is Alpha (flat) and
-Omega (hills).  `design/world.md` has it.  What's left, a session or more each:
+`conductor-gameworld` is part one: a seamless world `world_size` times 1024 blocks a side (16 to start), in
+1 m blocks and chunks of 32 a side, eleven chunks tall (-32 to +319), cut into regions (a region is a zone
+is a biome).  The first world is Alpha (flat) and Omega (hills).  `design/world.md` has it.  What's left, a session or more each:
 
 - **Saving changed chunks** (part two): on STOP SERVER and every `save_minutes` (15, in `game.cfg`).
   Comes with the first thing that changes a block.
