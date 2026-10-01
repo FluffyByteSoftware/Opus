@@ -136,7 +136,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   blueprint when a kind runs low ("when the number of goblin_as is growing low").  So a copy needs to know
   its blueprint.  It goes in the housekeeping check and has to wait for `conductor_gameclock::ready()`.
 - **Saving primlib's copies** on STOP SERVER, with their UUIDs and internal names (`goblin_archer_1`),
-  and loading them back on START SERVER.  `design/primlib.md`.
+  and loading them back on START SERVER.  `design/primlib.md`.  When they join the world save, its snapshot's
+  cost matters: 32.88 ms for 10,000 characters (2026-10-01), likely most of it `Save::of()`'s small
+  allocations.  `design/gameclock.md`, "Its cost".
 - **The world's part two**, sending chunks to a client, loading around players who move: LONGTERM_TODO.md
   and `design/world.md`.
 

@@ -109,8 +109,13 @@ Jacob's answers, 2026-09-30 and 2026-10-01, preparing the game library for the s
   A `leave()` that arrives after the mailbox closes is turned away, and its character is saved by this.
 - **The Services tab** adds how many players are in the world and how the world saves are going.
 - **Its cost**: the snapshot copies plain data; a timing test (`snapshot_of_ten_thousand`, `#[ignore]`,
-  run with `--release`) says how long 10,000 take.  If it ever grows too big for one cycle, spreading it
-  over several loses the one moment, so it comes back to Jacob.
+  run with `--release`) says how long 10,000 take.  **Measured 2026-10-01 on Jacob's machine: 32.88 ms for
+  10,000 characters**, about 3.3 microseconds each, so a few hundred players is about a millisecond.  The
+  guess beforehand was a few milliseconds for 10,000; it's ten times that, and 10,000 copies would take two
+  thirds of housekeeping's 50 ms.  Most of it is likely the small allocations in `Save::of()` (every field
+  name and template name copied as a `String`), which is where to look first if NPC copies join the world
+  save in their thousands.  If it ever grows too big for one cycle, spreading it over several loses the one
+  moment, so it comes back to Jacob.
 
 ## Open
 
