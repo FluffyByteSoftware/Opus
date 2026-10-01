@@ -208,6 +208,50 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>Ensemble: the HUD, Phase 1</h2>
+<p class="soft">In the Unity editor: a UI Document with HudRoot on it, hud_default.json and hud.uss in its two
+slots, and Play.  The Console says each thing below.</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      With no layout of your own, Play shows health top-left, the minimap top-right and the chat bottom-left,
+      the Console says there's no layout of yours (with the path) and so it's the default, and no warnings.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Game view at 16:9, 16:10 and 21:9 (a custom 2560 x 1080): each widget stays in its corner, the
+      minimap stays square, and nothing stretches or falls off.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A widget's border lights up under the mouse, and a line typed in the chat with Enter shows up in the box.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Your layout with three things wrong (made by the command): the Console warns widget 1 (health) is off
+      the screen and moved back on, widget 2 (radar) isn't a widget, widget 3 (chat) was 10 x 10 and made
+      bigger.  Health sits top-right, there's no minimap, the chat is small.
+    </span></label>
+    <pre class="cmd">mkdir -p &quot;$HOME/.config/unity3d/FluffyByte Studios/Opus.Ensemble&quot; &amp;&amp; sed -e 's/&quot;minimap&quot;/&quot;radar&quot;/' -e 's/&quot;width&quot;: 640, &quot;height&quot;: 320/&quot;width&quot;: 10, &quot;height&quot;: 10/' -e 's/&quot;x&quot;: 24, &quot;y&quot;: 24/&quot;x&quot;: 5000, &quot;y&quot;: 24/' /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Data/Layouts/hud_default.json &gt; &quot;$HOME/.config/unity3d/FluffyByte Studios/Opus.Ensemble/hud_layout.json&quot;</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Your layout at version 9 (made by the command): the Console warns it isn't used, since it's version 9
+      and the game reads up to version 1, and the HUD is the default.
+    </span></label>
+    <pre class="cmd">sed -e 's/&quot;version&quot;: 1/&quot;version&quot;: 9/' /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Data/Layouts/hud_default.json &gt; &quot;$HOME/.config/unity3d/FluffyByte Studios/Opus.Ensemble/hud_layout.json&quot;</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      In Play, Reset HUD To Default (HudRoot's three-dot menu in the Inspector): the Console says your file
+      was deleted, the HUD is built again as the default, and the file is gone.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">

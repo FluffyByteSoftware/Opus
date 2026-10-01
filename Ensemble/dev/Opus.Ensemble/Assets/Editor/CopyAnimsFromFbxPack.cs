@@ -16,13 +16,13 @@ using UnityEngine;
 // keeps its own clip, and the copy is a plain .anim that's ours.
 //
 // The copies are still the pack's art, bought, not made, so they never go in
-// the folders git keeps (Assets/Editor, Assets/Code, Assets/Scripts).  The
-// window refuses a destination inside one of them.
+// the folders git keeps (Assets/Editor, Assets/Code, Assets/Scripts,
+// Assets/Data).  The window refuses a destination inside one of them.
 public class CopyAnimsFromFbxPack : EditorWindow
 {
     // The folders under Assets/ that are committed.  Everything else in
     // Assets/ stays on this machine; see the .gitignore at the repo root.
-    static readonly string[] CommittedFolders = { "Assets/Editor", "Assets/Code", "Assets/Scripts" };
+    static readonly string[] CommittedFolders = { "Assets/Editor", "Assets/Code", "Assets/Scripts", "Assets/Data" };
 
     // Unity hides a clip of its own in some model files for the preview
     // window.  It isn't part of the pack.

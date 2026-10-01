@@ -249,7 +249,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - Ensemble has no way to find `Content/` yet, if it ever needs to (it needs the certificate,
   `Content/certs/conductor.crt`, to check the server).  Whichever Ensemble session first needs it.
 - **The purchased art lives in Ensemble** (2026-10-01): `Assets/Purchased/` in the Unity project, ignored
-  like the rest of `Assets/` but our three folders.  It isn't in the repo at all, LFS or not.  Whether
+  like the rest of `Assets/` but our four folders.  It isn't in the repo at all, LFS or not.  Whether
   `Content/Assets/` (ignored, empty) still has a use is open; nothing reads it.
 - **Ensemble's project files in git**, still to look at together:
   - `Packages/` is ignored, so `Packages/manifest.json` (which packages the project uses) and
@@ -266,6 +266,16 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     each copy after its clip.  The CLASHES view shows which, the next time.
   - Unticking is the only way to sort out one clip; a prefix renames every file that has it.  A rename
     box per clip, or the FBX's name in a several-clip copy's name, if that's not enough.
+- **The HUD's Phase 2 and Phase 3** (Jacob's brief, `HUD_LAYOUT_SYSTEM.md`; `design/ensemble-hud.md`):
+  - Phase 2, the catalog's export: an editor menu item (Tools > Opus) writing `WidgetRegistry.All()` out as
+    the catalog JSON, as `HUD_FORMATS.md` has it.
+  - Phase 3, the web layout editor: a static page that loads a catalog and a layout, a canvas at the
+    layout's reference (2560 x 1440 to start, the maker can change it, shown one for one and scrolled),
+    drag, move, resize to the minimum, anchor, remove, snap to a grid, and save as a layout JSON.  It's a
+    new piece of the project, so it needs a name from Jacob, and a home (a new folder at the repo root is
+    his call).
+  - Then the login and character select as layouts (`screen` `"login"` and `"character_select"`), shipped
+    with the game, never the player's.
 - **Stale words in the code**, for whichever session next touches each file:
   - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and
     Blacklist), and a comment the same.

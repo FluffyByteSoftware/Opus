@@ -1,0 +1,21 @@
+{
+  "format": "opus-hud-layout",
+  "version": 1,
+  "screen": "hud",
+  "name": "Default",
+  "reference": { "width": 2560, "height": 1440 },
+  "widgets": [
+    {
+      "id": "health", "anchor": "TopLeft",
+      "offset": { "x": 24, "y": 24 }, "size": { "width": 400, "height": 48 }, "layer": 0
+    },
+    {
+      "id": "minimap", "anchor": "TopRight",
+      "offset": { "x": -24, "y": 24 }, "size": { "width": 320, "height": 320 }, "layer": 0
+    },
+    {
+      "id": "chat", "anchor": "BottomLeft",
+      "offset": { "x": 24, "y": -24 }, "size": { "width": 640, "height": 320 }, "layer": 1
+    }
+  ]
+}

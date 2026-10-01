@@ -6,8 +6,29 @@ Author:     Jacob Chacko
 
 # Ensemble -- the HUD and its layouts
 
-Jacob's brief is `../HUD_LAYOUT_SYSTEM.md`.  This file is what's settled in answer to it.  **Nothing is
-built yet.**
+Jacob's brief is `../HUD_LAYOUT_SYSTEM.md`.  This file is what's settled in answer to it.  The two file
+formats are `../HUD_FORMATS.md`, the contract.
+
+**Phase 1 is written** (2026-10-01): the HUD from a hand-written layout.  **Not yet compiled in Unity.**
+Phases 2 and 3 are in TODO.md.
+
+## Phase 1, as written
+
+- `Assets/Code/Hud/`, namespace `Opus.Hud`: `Widget.cs` (the base class and `WidgetInfo`, a widget's
+  catalog entry), `WidgetRegistry.cs`, `HudLayout.cs` (the layout's classes for JsonUtility, the nine
+  anchors and the one sum that places all of them), `LayoutLoader.cs`, `LayoutChecker.cs`,
+  `HudBuilder.cs`, and three placeholder widgets in `Widgets/`: health (a full bar; no health to show
+  yet), minimap (a box that says so) and chat (what's typed shows in the box and goes nowhere).
+- `Assets/Scripts/Hud/HudRoot.cs`, the MonoBehaviour beside the UI Document, with two slots, Default
+  Layout and Style Sheet.  It sets Scale With Screen Size, Expand and the layout's reference on **a copy**
+  of the UI Document's Panel Settings, since a change to the asset in Play mode would stay in it.
+- `Assets/Data/Layouts/hud_default.json` (2560 x 1440: health top-left, minimap top-right, chat
+  bottom-left on layer 1) and `Assets/Data/Styles/hud.uss`.
+- **Where the off-screen rule runs**: LayoutChecker moves a widget back on against the layout's reference,
+  once, with a warning; HudBuilder places the boxes against the real screen every time its size changes,
+  and only guards quietly there, since the real screen is never smaller than the reference.
+- **The catalog's sizes are for a 2560 x 1440 reference**, scaled by the smaller of `width / 2560` and
+  `height / 1440` for a layout made on another (`HUD_FORMATS.md`).
 
 ## Settled (2026-10-01)
 
