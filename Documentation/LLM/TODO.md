@@ -147,6 +147,14 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         (a new reason, 6) and the client goes back to the login screen.  It can only bite after "log the
         other session out", where the second login's hash is done before the first is kicked.  Jacob
         confirmed the reading (a Kicked and the login screen, not a CommandRefused): "Yes, that's correct."
+        Then, his correction: what he meant was a "load" lock, "a temporary 'load' lock on a character as
+        its pulled from database to memory... and loaded in the world... locked for 1 second and then
+        released?  All that lock does is prevent another one from being instantiated."  Shown that a load
+        lock alone doesn't stop the stale save on a quick re-login: **both ways** ("yeah... that's the
+        solution we lock it when it does that"), so 1 second on loading and 1 second on leaving.  And he
+        asked: "do we have any way to force a save on the connection being kicked before the new one pops
+        in?"  Proposed, waiting on his OK: the GameClock marks a leaving character "saving" until its save
+        lands, and the login that kicked it waits for that before handing out its ticket.
       - **The character goes beside the account on the Connections tab's UDP list** now ("yes").
 - **The GameClock's checks**: an input packet (the mailbox is there, for entering and leaving), a brain for
   the AI, movement into `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
