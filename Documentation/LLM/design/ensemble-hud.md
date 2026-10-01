@@ -50,11 +50,15 @@ Phases 2 and 3 are in TODO.md.
     then `Assets/Data/Layouts` once the login and character select were layouts too): the HUD's default
     layout, the login's and character select's when they come, dragged onto HudRoot in the Inspector.
     **The stylesheets in `Assets/Data/Styles/`** (Jacob), `hud.uss` the first.
-  - **The player's layout in Unity's per-user folder** ("per user folder yep"):
-    `persistentDataPath/hud_layout.json`, `~/.config/unity3d/<Company>/<Product>/` on Linux,
-    `AppData\LocalLow\<Company>\<Product>\` on Windows.  The two names are Player Settings' Company Name
-    and Product Name: on Jacob's machine `FluffyByte Studios` and `Forgotten Legends`, so
-    `~/.config/unity3d/FluffyByte Studios/Forgotten Legends/hud_layout.json`.
+  - **The player's layout in a per-user folder** ("per user folder yep"): `hud_layout.json` in
+    `~/.config/unity3d/FluffyByte Studios/Opus.Ensemble/Unity/` on Linux,
+    `AppData\LocalLow\FluffyByte Studios\Opus.Ensemble\Unity\` on Windows (`LayoutLoader.PlayerFolder`).
+    Unity's own folder for a player is named after the Product Name, which is the game's name, Forgotten
+    Legends, and the game's name isn't the directory path (Jacob: "its the games name but not the
+    directory path", then "change it to /home/froggy/.config/unity3d/FluffyByte Studios/Opus.Ensemble/Unity").
+    So the code takes the company's folder above Unity's (`persistentDataPath`'s parent, Company Name from
+    Player Settings) and names its own under it.  Unity's own per-player files stay in the Product Name
+    folder.
 - **Every screen is built with the tool, and only the player's HUD is dynamic** (Jacob: "we are going to
   use the tool to build layouts but the only dynamic one is the player hud").  The login and character
   select are layouts too, made in the editor and shipped with the game, but never read from the player's

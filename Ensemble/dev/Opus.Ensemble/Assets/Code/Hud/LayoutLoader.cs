@@ -23,12 +23,25 @@ namespace Opus.Hud
         const float SmallestWidth = 320f, SmallestHeight = 240f;
         const float BiggestWidth = 7680f, BiggestHeight = 4320f;
 
-        // The player's layout, in Unity's folder for this player.  On Linux
-        // that's ~/.config/unity3d/<company>/<product>/, on Windows
-        // AppData\LocalLow\<company>\<product>\.
+        // Where the player's files go, under the company's folder: on Linux
+        // ~/.config/unity3d/FluffyByte Studios/Opus.Ensemble/Unity/, on
+        // Windows AppData\LocalLow\FluffyByte Studios\Opus.Ensemble\Unity\.
+        // Unity's own folder for a player is named after the Product Name,
+        // which is the game's name (Forgotten Legends), and the game's name
+        // doesn't go in our paths.  So we take the company's folder above it
+        // and name ours.
+        public static string PlayerFolder
+        {
+            get
+            {
+                string company = Path.GetDirectoryName(Application.persistentDataPath);
+                return Path.Combine(company, "Opus.Ensemble", "Unity");
+            }
+        }
+
         public static string PlayerFilePath
         {
-            get { return Path.Combine(Application.persistentDataPath, "hud_layout.json"); }
+            get { return Path.Combine(PlayerFolder, "hud_layout.json"); }
         }
 
         // The HUD's layout.  The player's file wins when it's there and good;
