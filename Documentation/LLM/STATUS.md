@@ -36,10 +36,10 @@ Lua, GameWorld, the GameClock, the monitor, and networking last) only runs betwe
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
 **The branches**: `main` is still at `8bf9f70`, released at the hand-off of 2026-09-30.  `unstable` and
-`testing` are level with each other and carry everything since, this session included.  `main` moves when
-Jacob says.
+`testing` are level with each other and carry everything since, this session's docs included.  `main`
+moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor, this session's `world_size` included.  **In Unity**: Copy
+**Built and tested on Linux**: all of Conductor, `world_size` included.  **In Unity**: Copy
 Anims From FBX Pack, its CLASHES view included, and the HUD's Phase 1, every check passed.
 TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now (Jacob opened
 it, "Windows x86/x64 Untested").  **On Windows**: Conductor builds and runs, START SERVER included, without
@@ -67,29 +67,50 @@ it with a real client".  Chat, the other half of 0.0.1, isn't designed yet.
 
 On the world (2026-10-01): "we will test a mountain out after we get the client up".
 
-At this session's hand-off (2026-10-01): **"wrap up and prepare to go back to the client"**.
+At the `world_size` hand-off (2026-10-01): **"wrap up and prepare to go back to the client"**.  Then, on
+the client: **"we need to build our HUD up for login and char select"**, "just the login submit screen
+first".
 
-## Last session -- 2026-10-01, the world's size in game.cfg
+## Last session -- 2026-10-01, the login screen settled (no code)
 
-Jacob: "I want to double the world size to see how it affects RAM".  Twice as wide each way, "no impact on
-height", replacing the old world.  Before it was built he turned it round: "let's make this a variable we
-can change in game.cfg".  His answers, all in `design/world.md` under "The shape":
+The HUD's Phase 1 session carried on after the `world_size` one, so this is its tail.  **Nothing in this
+session needs building**: it tidied up and settled the login screen's design, and its plan waits on Jacob's
+OK.
 
-- **`world_size` in `game.cfg`**, "world_size = 1 = 1024 blocks", **2 to 32, 16 to start** (16,384 blocks a
-  side, chunks -256 to 255).  Half either side of 0, so every whole number is whole chunks.
-- **A change deletes the world and makes a new one** ("Delete the world on disk and recreate") on the next
-  START SERVER: GameWorld sees `region.map` isn't that size, says so at Info, deletes `Content/world/`
-  through DiskMan with `region.map` last, and makes a new world from a new seed.  This runs into "a chunk's
-  own file always wins" once digging is saved; Jacob's yes to keeping the seed and the dug chunks then
-  (TODO.md).
-- `region.map` stays version 2: the size was always in its header.  REGION_MAP.md's worked example is a
-  `world_size` 16 world now.
+- **Tidied**: `UIElementsSchema/` (UI Builder's schemas, which Unity writes beside `Assets/`) is gitignored
+  and out of the repo; `Assets/Data/Ui/` (one empty UXML file) is gone.  The player's layout folder,
+  `FluffyByte Studios/Opus.Ensemble/Unity/`, is "the folder we're stuck with for now".  **The game's name
+  is Forgotten Legends** (CLAUDE.md, README.md); the project stays Opus.
+- **The login screen** (`design/ensemble-hud.md`, "The login and character select screens"), Jacob's
+  answers: built as a shipped layout by our own builder ("The one we built earlier"), on a 1920 x 1080
+  reference; **a widget per piece** ("its more work up front but may make it more mutatable later"); SUBMIT
+  only presses down for now ("we want to get a feel for the HUD"); effects not decided ("don't worry
+  about it"); **HudRoot becomes ScreenRoot**; on the screen "just for now": Server IP and Server Port side
+  by side, Username, Password, Remember Me, and SUBMIT.
+- **The plan put to him** (not OK'd yet; the chat ran out): six widgets, `login_server_ip`,
+  `login_server_port`, `login_username`, `login_password` (dots), `login_remember_me` and `login_submit`,
+  each its label and its box together, `"screens": ["login"]`, the four text ones sharing one helper;
+  `Assets/Data/Layouts/login_default.json` (`"screen": "login"`, 1920 x 1080, a column in the middle, IP
+  and port side by side); `Assets/Scripts/Hud/ScreenRoot.cs` in place of `HudRoot.cs`, with slots for the
+  login and HUD layouts and the stylesheets, starting on the login, and Show Login, Show HUD and Reset HUD
+  To Default on its right-click menu; `LayoutLoader` loading any screen (only the HUD reads the player's
+  file); `Assets/Data/Styles/login.uss`.  No networking, no switching on SUBMIT, no effects, Remember Me
+  only ticks.  In Unity he'd swap HudRoot for ScreenRoot and drag the four files in.
+- **Still to ask with it**: whether the boxes start filled (`9997`, Conductor's TCP port; `10.0.0.84`) or
+  empty, and what Remember Me remembers (a guess: the IP, the port and the username, never the password).
 
-**Measured**: Jacob tried 2, 4, 8, 16 and 32.  At 32 the whole of Conductor sat around 800 MB, Omega's
-heights 537 MB of it: "I have so much room to work with.  I think I'm really just CPU limited."  Every check
-passed on the first build.
+**On Jacob's side**: the HUD's `.meta` files and the company name (FluffyByte Studios, set in Player
+Settings) still aren't committed.  File > Save Project in Unity, then the `git add -A` of the `Assets` and
+`ProjectSettings` folders (CLAUDE.md, Client rules), `git status --short`, commit, pull, push.
 
-## The session before -- 2026-10-01, the HUD's Phase 1
+## The session before -- 2026-10-01, the world's size in game.cfg
+
+`world_size` in `game.cfg`, 2 to 32, 16 to start, 1024 blocks a side per step; a change deletes the world
+and makes a new one on the next START SERVER (`design/world.md`, "The shape").  At 32, all of Conductor
+sat around 800 MB: "I have so much room to work with.  I think I'm really just CPU limited."  Every check
+passed.
+
+## Earlier -- 2026-10-01, the HUD's Phase 1
 
 Not handed off at the time, so here.  Jacob's brief (`HUD_LAYOUT_SYSTEM.md`) answered in
 `design/ensemble-hud.md`, the two file formats' contract in `HUD_FORMATS.md`.  Phase 1 is the HUD built
@@ -102,13 +123,15 @@ checks passed.  Phases 2 and 3 are in TODO.md.
 
 ## Where the next session starts
 
-Jacob: **"prepare to go back to the client"**.  Ensemble has the HUD's Phase 1 and no networking.  What's
-there to pick from is under "What's waiting": the network client, the HUD's Phases 2 and 3, Ensemble's
-project files in git.  Ask which first.
+**The login screen's plan, above, waits on Jacob's OK**, with the two questions (the boxes filled or empty,
+what Remember Me remembers).  Put it back to him short, then build it.  Expect him to need the Unity steps
+spelled out window by window (Hierarchy, Project, Inspector); "add HudRoot to it" didn't land the first
+time.
 
 ## What's waiting
 
-- **Ensemble's client code**: the network client, and the HUD's Phases 2 and 3.  **Ensemble's project
+- **Ensemble's client code**: the login screen (above), then character select's layout, the network
+  client, and the HUD's Phases 2 and 3 (the catalog's export, the web layout editor).  **Ensemble's project
   files in git** (Packages/, the .csproj files, LFS for scenes): TODO.md.
 - **Chat**, the rest of the 0.0.1 goal.  Not designed (TODO.md).
 - **What the client is sent after CharacterEnteredWorld**: the world around it (chunks, `region.map`),

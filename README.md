@@ -13,7 +13,7 @@ and Conductor decides.
 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
 game loop ticking over it, and a player can pick a character and stand in that world, though nothing moves
-yet.  Ensemble is its project settings and one editor tool so far.  Things will change and things will
+yet.  Ensemble has an editor tool for the art and a HUD built from a layout file so far.  Things will change and things will
 break.
 
 **The first goal, 0.0.1, is a player spawned in the world and able to chat.**
@@ -185,7 +185,7 @@ Opus/
 │   ├── dev/                       the Cargo workspace, one folder per crate (above)
 │   └── build/                     compiled output, never committed
 ├── Ensemble/
-│   └── dev/Opus.Ensemble/         the Unity 6000.6 project: its settings, and Assets/Editor, Code and Scripts
+│   └── dev/Opus.Ensemble/         the Unity 6000.6 project: its settings, and Assets/Editor, Code, Scripts and Data
 ├── Content/                       what both programs read and write
 │   ├── cfg/                       the config files and the two access lists
 │   ├── certs/                     the TLS certificate (committed) and its key (never)

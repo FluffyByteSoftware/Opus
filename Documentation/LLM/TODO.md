@@ -289,8 +289,13 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     drag, move, resize to the minimum, anchor, remove, snap to a grid, and save as a layout JSON.  It's a
     new piece of the project, so it needs a name from Jacob, and a home (a new folder at the repo root is
     his call).
-  - Then the login and character select as layouts (`screen` `"login"` and `"character_select"`), shipped
-    with the game, never the player's.
+  - The login and character select as layouts (`screen` `"login"` and `"character_select"`), shipped
+    with the game, never the player's.  **The login screen is settled and its plan waits on Jacob's OK**
+    (`design/ensemble-hud.md`, "The login and character select screens").
+- **The login screen, later** (2026-10-01): what SUBMIT does once there's a network client; what
+  Remember Me remembers and where it's kept (a guess, not settled: the server IP, the port and the
+  username, never the password, in the player's folder); the effects between screens ("cool ass
+  effects if we can", "I don't know yet"); then character select's layout.
 - **Stale words in the code**, for whichever session next touches each file:
   - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and
     Blacklist), and a comment the same.

@@ -50,7 +50,8 @@ Project root: `/opt/storage/Coding/Opus`
   not in the code.
 - **Shared contracts** -- whatever both sides need to agree on is written down
   once: the packets in `Documentation/LLM/PROTOCOL.md`, the world's
-  `region.map` in `Documentation/LLM/REGION_MAP.md`.
+  `region.map` in `Documentation/LLM/REGION_MAP.md`, the HUD's layout and
+  catalog files in `Documentation/LLM/HUD_FORMATS.md`.
 
 If a future piece appears (tools, admin console, test client), ask me what
 to call it before creating it.
@@ -106,6 +107,7 @@ Opus/
         ├── PROJECT_OPUS.md # skeletal layout of the whole project
         ├── PROTOCOL.md    # server/client contract: the packets
         ├── REGION_MAP.md  # server/client contract: region.map, byte for byte
+        ├── HUD_FORMATS.md # the HUD's layout and catalog files: the game and the web editor's contract
         ├── WRITINGSTYLE.md # my voice for public docs and comments
         ├── TEST_CHECKLIST.html # what's still to check on testing, with boxes to tick
         └── design/        # one markdown file per system or feature
@@ -776,6 +778,20 @@ When I say we're wrapping up:
   2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
 - **Jacob runs Unity**, the same as Conductor: the session writes the C#, he
   opens the editor and pastes back the Console.
+- **The screens are built from layouts by our own builder** (Jacob's "our
+  UI builder" is that, not Unity's UI Builder tool): a screen's pieces are
+  **widgets** (never "UI elements"), each a `Widget` with one line in
+  `WidgetRegistry`, placed by a JSON layout in `Assets/Data/Layouts/`.
+  `HUD_FORMATS.md` is the layouts' and the catalog's contract, the same way
+  PROTOCOL.md is the packets': a format change bumps its `version`, and the
+  code and the document change together.  `design/ensemble-hud.md` has the
+  rest.  Only the HUD's layout is ever the player's (in
+  `FluffyByte Studios/Opus.Ensemble/Unity/`); every other screen's is
+  shipped.
+- **Unity calls two things a "UI Document"**: a UXML file (Create > UI
+  Toolkit > UI Document) and the component on a GameObject.  We use only the
+  component, with no Source Asset.  A reply that sends Jacob into the editor
+  says which window (Hierarchy, Project, Inspector) and which of the two.
 - [More conventions as Ensemble grows]
 
 ---

@@ -150,13 +150,26 @@ Opus/
 ├── Ensemble/                          # the client
 │   └── dev/Opus.Ensemble/             # the Unity 6000.6 project: its ProjectSettings/ are committed; Packages/
 │       │                              #   and UserSettings/ are gitignored, the rest on Jacob's machine
-│       └── Assets/                    # gitignored, all but our three folders and their .metas; the purchased
+│       └── Assets/                    # gitignored, all but our four folders and their .metas; the purchased
 │           │                          #   art is in Assets/Purchased/, copies of it in Assets/Art/
 │           ├── Editor/                # editor plugins, under Tools > Opus
 │           │   └── CopyAnimsFromFbxPack.cs # copies an animation pack's clips out of its FBXs into .anim files;
 │           │                          #   EVERY CLIP and CLASHES views
-│           ├── Code/                  # the plain C#, the networking say (none yet)
-│           └── Scripts/               # the scripts (none yet)
+│           ├── Code/                  # the plain C#
+│           │   ├── InputSystem.cs     # Unity's Input System actions, generated (Jacob's), and its .inputactions
+│           │   └── Hud/               # the HUD from a layout, namespace Opus.Hud (design/ensemble-hud.md)
+│           │       ├── Widget.cs      # what every widget is, and WidgetInfo, its catalog entry
+│           │       ├── WidgetRegistry.cs # every widget there is, a line each
+│           │       ├── HudLayout.cs   # a layout file's classes, and the nine anchors
+│           │       ├── LayoutLoader.cs # the player's file or the shipped default; the player's folder
+│           │       ├── LayoutChecker.cs # the load rules: skipped, clamped, moved back on
+│           │       ├── HudBuilder.cs  # the layers and a box per widget, placed from its anchor
+│           │       └── Widgets/       # health, minimap, chat: placeholders
+│           ├── Scripts/
+│           │   └── Hud/HudRoot.cs     # beside the UI Document: loads, checks and builds the HUD
+│           └── Data/                  # our own data files
+│               ├── Layouts/hud_default.json # the HUD's default layout, 2560 x 1440
+│               └── Styles/hud.uss     # the HUD's look
 ├── Content/                           # committed, except Assets/, logs/ and world/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
@@ -190,6 +203,8 @@ Opus/
         ├── PROJECT_OPUS.md            # this file
         ├── PROTOCOL.md                # the server/client contract: the login over TLS, the game over UDP
         ├── REGION_MAP.md              # region.map, byte for byte: which region every chunk is in
+        ├── HUD_FORMATS.md             # the HUD's layout and catalog files, field by field: the contract
+        ├── HUD_LAYOUT_SYSTEM.md       # Jacob's brief for the HUD, kept as he wrote it
         ├── WRITINGSTYLE.md            # Jacob's voice for anything in the repo
         ├── TEST_CHECKLIST.html        # what's still to check on testing, a page with boxes; a passed check comes out
         └── design/
@@ -202,7 +217,8 @@ Opus/
             ├── lua-parser.md          # the Lua crate: what a script gets, what it can't do, the limits
             ├── primlib.md             # the game library: entities, components, templates, blueprints; what's open
             ├── gameclock.md           # the GameClock: the beat, the order of the checks, a late cycle; what's open
-            └── world.md               # the world: regions, chunks, blocks, its files; GameWorld; what's open
+            ├── world.md               # the world: regions, chunks, blocks, its files; GameWorld; what's open
+            └── ensemble-hud.md        # the HUD and its layouts; the login screen, being settled
 ```
 
 ## The named pieces
