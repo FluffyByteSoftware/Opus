@@ -39,11 +39,12 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 `testing` are level with each other and carry everything since, this session included.  `main` moves when
 Jacob says.
 
-**Built and tested on Linux**: all of Conductor, this session's 1 m blocks included.  **In Unity**: Copy
+**Built and tested on Linux**: all of Conductor, this session's `world_size` included.  **In Unity**: Copy
 Anims From FBX Pack, its CLASHES view included, and the HUD's Phase 1, every check passed.
-TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now.  **On Windows**: Conductor builds and
-runs, START SERVER included, without a database; the world, the characters, character select, the world
-save and the spawn haven't been tried there.
+TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now (Jacob opened
+it, "Windows x86/x64 Untested").  **On Windows**: Conductor builds and runs, START SERVER included, without
+a database; the world, the characters, character select, the world save and the spawn haven't been tried
+there.
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -64,33 +65,29 @@ His order after that (2026-10-01): "building the network infrastructure up then 
 be testing wtih a py script then we're on to building the client", and "then we're ready to start testing
 it with a real client".  Chat, the other half of 0.0.1, isn't designed yet.
 
-On the world (2026-10-01, at this hand-off): **"we're gonna make the world twice as big in the next
-session"**.  And earlier the same day: "we will test a mountain out after we get the client up".
+On the world (2026-10-01): "we will test a mountain out after we get the client up".
 
-## Last session -- 2026-10-01, blocks 1 m a side
+At this session's hand-off (2026-10-01): **"wrap up and prepare to go back to the client"**.
 
-Jacob: "we need to revise conductor voxels so that they are more in line with the size of a Minecraft
-voxel".  The code counted in blocks only (nothing multiplied by 0.5), so most of it was settling what each
-number means in metres.  His answers, all in `design/world.md`:
+## Last session -- 2026-10-01, the world's size in game.cfg
 
-- **A block is 1 m, a cube**: "it will be simpler to start there for now and then we may make different
-  non cubed voxels".  **A player is 2 blocks tall**, 2 m.  **Chunks stay 32 a side**, now 32 m.
-- **The world stays 8 km by 8 km** ("I thought we bout 8k x 8k?"): blocks -4096 to 4095, chunks -128 to
-  127, 256 by 256.
-- **Minecraft's height, his own depth**: "we're gonna squeeze more memory and go Minecraft height and
-  depth values for now", and "-31 is bedrock can dig to -30 and stand on top of -31".  So +319 is the top,
-  -30 the deepest dig, and BEDROCK at -31 and -32 (the floor starts at -32 so the rows line up on 32s;
-  his yes).  **Eleven rows of chunks**: row 0 is -32 to -1, row 1 is 0 to 31.  891 chunks around a player
-  at `view_chunks` 4 (128 m), about 57 MB; most of them air, kept whole.
-- **Omega's hills stay ±5** until a mountain is tried, after the client is up.
-- `region.map` and the chunk file went to **version 2**: the same layout, other numbers, so an old world
-  is turned away (an Error, the door shut, and the message says to delete `Content/world/`).  A chunk
-  file's row is padded to two digits (`alpha_-015_003_01.chunk`).  REGION_MAP.md has the new worked
-  example and a version history line.
+Jacob: "I want to double the world size to see how it affects RAM".  Twice as wide each way, "no impact on
+height", replacing the old world.  Before it was built he turned it round: "let's make this a variable we
+can change in game.cfg".  His answers, all in `design/world.md` under "The shape":
 
-Every check passed on the first build.  **What fought back**: not the code.  Jacob's machine locked up hard
-the first time, and it was RustRover's code analysis running alongside the server; from a terminal it ran
-clean.  CLAUDE.md now says Conductor is run from a terminal.
+- **`world_size` in `game.cfg`**, "world_size = 1 = 1024 blocks", **2 to 32, 16 to start** (16,384 blocks a
+  side, chunks -256 to 255).  Half either side of 0, so every whole number is whole chunks.
+- **A change deletes the world and makes a new one** ("Delete the world on disk and recreate") on the next
+  START SERVER: GameWorld sees `region.map` isn't that size, says so at Info, deletes `Content/world/`
+  through DiskMan with `region.map` last, and makes a new world from a new seed.  This runs into "a chunk's
+  own file always wins" once digging is saved; Jacob's yes to keeping the seed and the dug chunks then
+  (TODO.md).
+- `region.map` stays version 2: the size was always in its header.  REGION_MAP.md's worked example is a
+  `world_size` 16 world now.
+
+**Measured**: Jacob tried 2, 4, 8, 16 and 32.  At 32 the whole of Conductor sat around 800 MB, Omega's
+heights 537 MB of it: "I have so much room to work with.  I think I'm really just CPU limited."  Every check
+passed on the first build.
 
 ## The session before -- 2026-10-01, the HUD's Phase 1
 
@@ -105,15 +102,9 @@ checks passed.  Phases 2 and 3 are in TODO.md.
 
 ## Where the next session starts
 
-Jacob: **"make the world twice as big"**.  Ask before planning what "twice as big" means: twice as wide
-each way (16 km a side, four times the ground: blocks -8192 to 8191, 512 by 512 chunks, Omega's heights
-file back to about 134 MB and the world about four times as slow to make), or twice the ground (about
-11.6 km a side, which isn't a whole number of 32-block chunks, so it'd be rounded to one).  What's known:
-REGION_MAP.md says a bigger world is the same `region.map` version with bigger numbers (its size is in its
-header), and chunk positions fit in an i16 up to ±32,767.  But Conductor reads the world it finds: making
-it bigger means making a new one (delete `Content/world/`), unless growing the one that's there is what
-Jacob wants, which is new code (more `region.map`, more heights, nothing moved).  The constants are
-`FIRST_WEST` and friends in `gameworld/src/regionmap.rs`.
+Jacob: **"prepare to go back to the client"**.  Ensemble has the HUD's Phase 1 and no networking.  What's
+there to pick from is under "What's waiting": the network client, the HUD's Phases 2 and 3, Ensemble's
+project files in git.  Ask which first.
 
 ## What's waiting
 
@@ -124,7 +115,8 @@ Jacob wants, which is new code (more `region.map`, more heights, nothing moved).
   other players, movement.  `design/world.md`, `design/gameclock.md`.
 - **Editing characters and NPCs** from GAME MANAGEMENT: whether an edit goes to the row or the copy in the
   world, what can be edited, the routes.  TODO.md.
-- **The world's part two**: saving changed chunks.  **Loading around players who move**.  **An all-air
+- **The world's part two**: saving changed chunks, and then **a `world_size` change that keeps the
+  digging**.  **A character saved outside a smaller world**.  **Loading around players who move**.  **An all-air
   chunk that costs nothing**, now that most of a player's 891 are air.  **A mountain**, once the client is
   up.  `design/world.md`, LONGTERM_TODO.md.
 - **What goes in each of the GameClock's checks**: an input packet, a brain, movement, the broadcast.

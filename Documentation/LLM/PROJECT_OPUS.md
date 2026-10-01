@@ -115,7 +115,8 @@ Opus/
 │       ├── gameworld/                 # lib, conductor-gameworld -- the ground; a server piece, its thread is gameworld
 │       │   ├── Cargo.toml             # depends on conductor-tools
 │       │   └── src/
-│       │       ├── lib.rs             # start(), stop(); reads the world (or makes it) and hands the GameClock chunks
+│       │       ├── lib.rs             # start(), stop(); reads the world (or makes it, or remakes it when world_size
+│       │       │                      #   changed) and hands the GameClock chunks
 │       │       ├── make.rs            # making the world: a seed, Omega's heights, then region.map last
 │       │       ├── block.rs           # Block: AIR, DIRT, STONE, WOOD, GOLD, BEDROCK; the numbers never change
 │       │       ├── chunk.rs           # ChunkPos and Chunk (32 blocks a side), and a changed chunk's .chunk file
@@ -162,7 +163,7 @@ Opus/
 │   ├── cfg/wgui.cfg                   # the web admin's two accounts: user's and admin's passwords (hard)
 │   ├── cfg/postgres.cfg               # where Postgres is, the login, the time limit, the slow-job limit (soft)
 │   ├── cfg/networking.cfg             # the address and ports, the TLS files, the deadlines, the access switch (soft)
-│   ├── cfg/game.cfg                   # the game world: view_chunks, how far around a player is loaded (soft);
+│   ├── cfg/game.cfg                   # the game world: world_size, view_chunks, world_save_seconds (soft);
 │                                      #   made on first run, not committed yet
 │   ├── cfg/whitelist.cfg              # one address or range a line; read on START SERVER, written by the page
 │   ├── cfg/blacklist.cfg              # the blacklist, the same way
@@ -219,7 +220,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | conductor-networking | Lib: the login over TLS, the game over UDP.             | Tested                           |
 | conductor-lua-parser | Lib: runs the Lua scripts, locked down.                 | Tested                           |
 | conductor-primlib    | Lib: the game library, an ECS.                          | Tested; players' characters spawn|
-| conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested; 1 m blocks      |
+| conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested; world_size      |
 | conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input and housekeeping   |
 | conductor-wgui       | Lib: the web admin on 127.0.0.1.                        | Tested                           |
 | conductor-launcher   | Bin: the program.  Boots, then waits on the Server tab. | Tested                           |

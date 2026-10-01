@@ -469,9 +469,14 @@ When I say we're wrapping up:
   chunks 32 a side, eleven chunks tall, -32 to +319, BEDROCK at -31 and
   -32.  **The world's size is `world_size` in `game.cfg`**, 1024 blocks
   a side per step, 2 to 32, 16 to start (2026-10-01); a change deletes
-  the world on disk and makes a new one at the next START SERVER.  The code counts in blocks only and never
-  in metres, so a change of size is the numbers and what the docs say
-  they mean.
+  the world on disk and makes a new one at the next START SERVER.  The
+  code counts in blocks only and never in metres, so a change of size is
+  the numbers and what the docs say they mean.
+- **Memory has room; CPU is the tight side** (Jacob, 2026-10-01, after
+  measuring about 800 MB for all of Conductor at `world_size` 32: "I
+  have so much room to work with.  I think I'm really just CPU
+  limited").  When a design trades one for the other, say so, and lean
+  toward spending RAM to save CPU, the same steer as networking's.
   GameWorld's thread does the slow part (making the world, reading
   `region.map`, the heights and chunk files through DiskMan, building a chunk
   nobody changed); the chunks in memory are the GameClock's `Terrain`,
