@@ -89,7 +89,10 @@ Omega (hills).  `design/world.md` has it.  What's left, a session or more each:
 - **Loading around players who move**, instead of only around 0,0,0.
 - **What a region does** beyond its name: what grows and what spawns there.
 - **Blending one biome into the next** where two regions meet.
-- **A bigger world** ("it may _grow_ later"): `region.map` keeps its size in its header for that.
+- **A bigger world** ("it may _grow_ later"): `region.map` keeps its size in its header for that.  Jacob,
+  2026-10-01: "we're gonna make the world twice as big in the next session".  Whether that's twice as wide
+  (16 km a side) or twice the ground (about 11.6 km), and whether today's world is made again or grown,
+  is to ask (STATUS.md).
 
 ## Soundcheck, the patcher, and a certificate for every client
 

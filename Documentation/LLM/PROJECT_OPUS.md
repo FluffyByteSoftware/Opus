@@ -211,7 +211,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Name                 | What it is                                              | State                            |
 |----------------------|---------------------------------------------------------|----------------------------------|
 | Conductor            | The server.  It owns the game state.                    | Tested on Linux; runs on Windows |
-| Ensemble             | The client players run.  Unity 6000.6, C#.              | Settings and one editor tool     |
+| Ensemble             | The client players run.  Unity 6000.6, C#.              | Editor tool; the HUD, Phase 1    |
 | Soundcheck           | The patcher: hands each client a certificate.           | Named, not started               |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
@@ -219,7 +219,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | conductor-networking | Lib: the login over TLS, the game over UDP.             | Tested                           |
 | conductor-lua-parser | Lib: runs the Lua scripts, locked down.                 | Tested                           |
 | conductor-primlib    | Lib: the game library, an ECS.                          | Tested; players' characters spawn|
-| conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested                  |
+| conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested; 1 m blocks      |
 | conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input and housekeeping   |
 | conductor-wgui       | Lib: the web admin on 127.0.0.1.                        | Tested                           |
 | conductor-launcher   | Bin: the program.  Boots, then waits on the Server tab. | Tested                           |
@@ -235,4 +235,4 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | The clock            | UTC date and time.                                      | Tested                           |
 | The access lists     | The whitelist and the blacklist at the door.            | Tested                           |
 | The protocol         | What Conductor and a client say to each other.          | Version 6                        |
-| region.map           | Which region every chunk is in, for server and client.  | Version 1                        |
+| region.map           | Which region every chunk is in, for server and client.  | Version 2                        |

@@ -14,6 +14,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 
 ### The game
 
+- **An all-air chunk that costs nothing** (2026-10-01, put forward with the 1 m blocks, not Jacob's ask
+  yet).  The world is eleven chunks tall now, so a player's 891 chunks are mostly air, each kept whole at
+  64 KB (about 57 MB a player).  A chunk that's all one kind could be held as that one kind until a block
+  in it changes.  Worth it if memory bites with more players.
+
 - **Chat** (Jacob, 2026-09-30: the 0.0.1 goal is "get a player spawned in the world and able to chat").
   Nothing designed: who hears whom (everybody, or those nearby), what the packets are (a protocol bump),
   whether the web admin sees it.
@@ -263,7 +268,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - The red "would land on the same file" showed up once with the whole `Assets/Purchased/` as the
     source (about 1000 clips), and not again on `Male`.  With several packs at once, two packs' files
     can come out with the same name in a folder of the same name, or an FBX holding several clips names
-    each copy after its clip.  The CLASHES view shows which, the next time.
+    each copy after its clip.  The CLASHES view (built and tested, 2026-10-01) shows which, the next
+    time.
   - Unticking is the only way to sort out one clip; a prefix renames every file that has it.  A rename
     box per clip, or the FBX's name in a several-clip copy's name, if that's not enough.
 - **The HUD's Phase 2 and Phase 3** (Jacob's brief, `HUD_LAYOUT_SYSTEM.md`; `design/ensemble-hud.md`):

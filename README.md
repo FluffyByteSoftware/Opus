@@ -35,7 +35,7 @@ break.
 | The world (GameWorld)                            | Made and loaded; nothing changes a block yet           |
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Movement, chat                                   | Not started                                            |
-| Ensemble                                         | Project settings, and an editor tool for the art       |
+| Ensemble                                         | An editor tool for the art, and the HUD from a layout  |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.

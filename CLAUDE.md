@@ -191,6 +191,9 @@ by creating `./Content` when neither works.
   client. Stick to writing the code. When it's written, tell me exactly
   which commands to run, with your questions at the bottom of the reply (see
   "How to talk to me"). I paste back what happens and we go from there.
+  Conductor is run from a terminal, not from inside RustRover: on
+  2026-10-01 RustRover's code analysis running beside the server locked
+  the whole machine up, and from a terminal it ran clean.
 - Do not predict or number future sessions ("next session is X, then Y").
   I pick what to open next and I'm free to change my mind.  When I lay
   out an order myself, it's written down as mine, in my words, under
@@ -459,6 +462,11 @@ When I say we're wrapping up:
   character is made from the Character template with its save laid over it
   (`gameobject.rs`).
 - **The ground is `conductor-gameworld`** (`design/world.md` has all of it).
+  **A block is 1 m a side**, Minecraft's size (2026-10-01; it was 50 cm),
+  chunks 32 a side, the world 8 km a side and eleven chunks tall, -32 to
+  +319, BEDROCK at -31 and -32.  The code counts in blocks only and never
+  in metres, so a change of size is the numbers and what the docs say
+  they mean.
   GameWorld's thread does the slow part (making the world, reading
   `region.map`, the heights and chunk files through DiskMan, building a chunk
   nobody changed); the chunks in memory are the GameClock's `Terrain`,

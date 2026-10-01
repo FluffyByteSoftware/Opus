@@ -10,7 +10,7 @@ Jacob's brief is `../HUD_LAYOUT_SYSTEM.md`.  This file is what's settled in answ
 formats are `../HUD_FORMATS.md`, the contract.
 
 **Phase 1 is written** (2026-10-01): the HUD from a hand-written layout.  **It compiles and runs in Unity**
-(Jacob: "holy shit it worked"); the checks in TEST_CHECKLIST.html are still to go through.
+(Jacob: "holy shit it worked"), and every one of its checks passed.
 Phases 2 and 3 are in TODO.md.
 
 ## Phase 1, as written

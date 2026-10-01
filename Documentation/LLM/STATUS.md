@@ -22,10 +22,13 @@ ledger of every connection, and the access lists.
 loop: five checks of 50 ms to a 250 ms cycle; it owns primlib's `World` and GameWorld's `Terrain`, takes
 players' characters in and out through a mailbox, and saves the world.  `conductor-wgui` (lib) is the web
 admin at `http://127.0.0.1:9996/Opus`.  `conductor-launcher` (bin) boots the program and waits on the web
-admin's Server tab.  Ensemble is Unity 6000.6: its project settings and our three folders under `Assets/`
-(`Editor/`, `Code/`, `Scripts/`) are committed, the rest is on Jacob's machine, the purchased art in
-`Assets/Purchased/`.  So far it has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and no game
-code.
+admin's Server tab.
+
+Ensemble is Unity 6000.6: its project settings and our four folders under `Assets/` (`Editor/`, `Code/`,
+`Scripts/`, `Data/`) are committed, the rest is on Jacob's machine, the purchased art in
+`Assets/Purchased/`.  It has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and the HUD's Phase
+1: widgets placed on the screen from a layout file (`design/ensemble-hud.md`).  No networking yet.  **The
+game's name is Forgotten Legends** (Unity's Product Name); the project, its folders and code stay Opus.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -33,13 +36,12 @@ Lua, GameWorld, the GameClock, the monitor, and networking last) only runs betwe
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
 **The branches**: `main` is still at `8bf9f70`, released at the hand-off of 2026-09-30.  `unstable` and
-`testing` are level with each other and carry everything since, this session included (and Jacob's commit of
-Unity's `.meta` files and `ProjectSettings.asset`).  `main` moves when Jacob says.
+`testing` are level with each other and carry everything since, this session included.  `main` moves when
+Jacob says.
 
-**Built and tested on Linux**: all of Conductor.  **Ensemble's editor tool** compiled and ran in Unity
-(653 clips copied from `Male`, the Console clean), all but its last change: **the CLASHES view hasn't been
-confirmed compiled yet**, so expect a fix there first if Unity complains.  Five of the plugin's six checks
-passed and are out of TEST_CHECKLIST.html; the CLASHES one is left (Jacob's tab predated it).  **On Windows**: Conductor builds and
+**Built and tested on Linux**: all of Conductor, this session's 1 m blocks included.  **In Unity**: Copy
+Anims From FBX Pack, its CLASHES view included, and the HUD's Phase 1, every check passed.
+TEST_CHECKLIST.html has nothing left but the Parked Windows check.  **On Windows**: Conductor builds and
 runs, START SERVER included, without a database; the world, the characters, character select, the world
 save and the spawn haven't been tried there.
 
@@ -62,79 +64,69 @@ His order after that (2026-10-01): "building the network infrastructure up then 
 be testing wtih a py script then we're on to building the client", and "then we're ready to start testing
 it with a real client".  Chat, the other half of 0.0.1, isn't designed yet.
 
-On Ensemble (2026-10-01): "first things first" was the animation tool.  At this hand-off: **"we're going to
-move on to setting up the client code (the underlying logic that's going to drive our dynamic UI
-generation)"**.
+On the world (2026-10-01, at this hand-off): **"we're gonna make the world twice as big in the next
+session"**.  And earlier the same day: "we will test a mountain out after we get the client up".
 
-## Last session -- 2026-10-01, Ensemble's first: Copy Anims From FBX Pack
+## Last session -- 2026-10-01, blocks 1 m a side
 
-Jacob: "it is time to start working on Opus::Ensemble!", then "first things first", the animation data: the
-animation packs come as one FBX per animation (`RPG-Character@Unarmed-Attack-L1`, `HumanM@...`) with the
-clip inside it, and he wanted a plugin to find them all under a folder and pull them out.
+Jacob: "we need to revise conductor voxels so that they are more in line with the size of a Minecraft
+voxel".  The code counted in blocks only (nothing multiplied by 0.5), so most of it was settling what each
+number means in metres.  His answers, all in `design/world.md`:
 
-- **Tools > Opus > Copy Anims From FBX Pack** (`Assets/Editor/CopyAnimsFromFbxPack.cs`, an EditorWindow,
-  plain IMGUI).  A source and a destination folder (a path box and BROWSE each; the first version's object
-  fields read as asking for a GameObject).  FIND lists every clip in every model file under the source and
-  its subfolders, all ticked, grouped by folder, Unity's `__preview__` clips left out.  A box per prefix
-  (the file name up to and including the `@`): whatever's typed replaces it in every file that has it,
-  blank drops it (Jacob's `HumanM@` -> `Male_Humanoid_`).  COPY writes the ticked ones as `.anim` under the
-  destination in the same folders as the source's.
-- **A copy, not a move**: a clip in an FBX is made fresh from it on every import and can't be taken out.
-  Jacob: "Yes the copy is what I would do".  A second COPY overwrites in place (his pick), into the `.anim`
-  already there, so its GUID stays and whatever uses it keeps it.
-- Two rules of mine, not objected to: an FBX with several clips names each copy after its clip, and two
-  ticked clips landing on the same file show in red and hold COPY.  Jacob hit that once with the whole
-  `Assets/Purchased/` (about 1000 clips) and asked for **a CLASHES view** of only the red ones ("a bitch
-  scrolling through 300+ to find it"); it didn't come back on `Male`.  TODO.md has it.
-- **Our folders under `Assets/`**, Jacob's names: `Assets/Editor/` for the plugins, `Assets/Code/` for the
-  plain C# ("more our raw C# stuff for net I imagine"), `Assets/Scripts/` for the scripts.  The root
-  `.gitignore` keeps all of `Assets/` out but those three and their `.meta`s; the nested
-  `Ensemble/dev/Opus.Ensemble/.gitignore` (a lone `Assets/`, which beat the root's exceptions) is gone.
-  The copies can't go in the three (they're the packs' art) and the window refuses a destination there.
-- CLAUDE.md's "Client rules (Ensemble)" isn't a FILL IN any more: the folders, where `.meta` files come
-  from, Tools > Opus, Jacob runs Unity.
+- **A block is 1 m, a cube**: "it will be simpler to start there for now and then we may make different
+  non cubed voxels".  **A player is 2 blocks tall**, 2 m.  **Chunks stay 32 a side**, now 32 m.
+- **The world stays 8 km by 8 km** ("I thought we bout 8k x 8k?"): blocks -4096 to 4095, chunks -128 to
+  127, 256 by 256.
+- **Minecraft's height, his own depth**: "we're gonna squeeze more memory and go Minecraft height and
+  depth values for now", and "-31 is bedrock can dig to -30 and stand on top of -31".  So +319 is the top,
+  -30 the deepest dig, and BEDROCK at -31 and -32 (the floor starts at -32 so the rows line up on 32s;
+  his yes).  **Eleven rows of chunks**: row 0 is -32 to -1, row 1 is 0 to 31.  891 chunks around a player
+  at `view_chunks` 4 (128 m), about 57 MB; most of them air, kept whole.
+- **Omega's hills stay ±5** until a mountain is tried, after the client is up.
+- `region.map` and the chunk file went to **version 2**: the same layout, other numbers, so an old world
+  is turned away (an Error, the door shut, and the message says to delete `Content/world/`).  A chunk
+  file's row is padded to two digits (`alpha_-015_003_01.chunk`).  REGION_MAP.md has the new worked
+  example and a version history line.
 
-**What fought back**: git, not the code.  The `.meta` commit went round twice: the commit ran without the
-`git add` before it, so it committed nothing, and the push said everything was up to date.  CLAUDE.md now
-says the add comes first, by full path, every time.
+Every check passed on the first build.  **What fought back**: not the code.  Jacob's machine locked up hard
+the first time, and it was RustRover's code analysis running alongside the server; from a terminal it ran
+clean.  CLAUDE.md now says Conductor is run from a terminal.
 
-## What Ensemble has to speak
+## The session before -- 2026-10-01, the HUD's Phase 1
 
-The session before this one finished networking's half of the spawn (protocol version 6, UserPressPlay and
-CharacterEnteredWorld, the character's lock both ways, no way back to character select from the world);
-`design/conductor-networking.md`, "The spawn", has all of it, and it was all tested by Jacob.
-
-PROTOCOL.md is the whole contract, written for somebody building a client who has never seen Conductor's
-code: TLS 1.3 against the one certificate (`Content/certs/conductor.crt`, the copy the client keeps), the
-Login over TCP, the Ticket, then UDP: Connect, KeepAlive once a second, character select with ask numbers
-(resend after half a second, same number), UserPressPlay, CharacterEnteredWorld, Goodbye, and Kicked with
-its six reasons (5 is ACCOUNT TERMINATED in the client's words; 6 logs straight back in).  Numbers are
-little-endian, strings a u32 count then UTF-8, floats IEEE f32, which is what C#'s `BinaryWriter` writes.
-`networking/test_client.py` is a working client in a few hundred lines of Python to read beside it.  After
-CharacterEnteredWorld the server sends nothing yet: no chunks, no other players, no movement.
+Not handed off at the time, so here.  Jacob's brief (`HUD_LAYOUT_SYSTEM.md`) answered in
+`design/ensemble-hud.md`, the two file formats' contract in `HUD_FORMATS.md`.  Phase 1 is the HUD built
+from a layout file: `Assets/Code/Hud/` (the widgets, the registry, the loader, the checker, the builder),
+`Assets/Scripts/Hud/HudRoot.cs`, the default layout in `Assets/Data/Layouts/`, the stylesheet in
+`Assets/Data/Styles/`.  The player's own layout lives in `FluffyByte Studios/Opus.Ensemble/Unity/` beside
+Unity's per-player folder, not under the game's name.  Every screen is made with the tool, and only the
+player's HUD is the player's to change.  Sizes are reference pixels, scaled to the real screen.  All its
+checks passed.  Phases 2 and 3 are in TODO.md.
 
 ## Where the next session starts
 
-Jacob: **"setting up the client code (the underlying logic that's going to drive our dynamic UI
-generation)"**.  What that means is his to say; ask before planning.  "Dynamic UI generation" could be UI
-built from code at run time (UI Toolkit or uGUI made by script) or screens driven by what the server sends,
-and "the underlying logic" could be the screens' state (login, character select, the world) or the network
-client under them; each reads differently in practice.  What's known: the plain C# goes in `Assets/Code/`,
-scripts in `Assets/Scripts/` (CLAUDE.md); `Packages/` is ignored, so the first package the client needs
-makes the manifest question real (TODO.md, "Ensemble's project files in git"); Conductor speaks TLS 1.3 only,
-and whether Unity's TLS does 1.3 is unchecked, so the first login from Unity should be the handshake alone.
-The CLASHES view is still to compile.
+Jacob: **"make the world twice as big"**.  Ask before planning what "twice as big" means: twice as wide
+each way (16 km a side, four times the ground: blocks -8192 to 8191, 512 by 512 chunks, Omega's heights
+file back to about 134 MB and the world about four times as slow to make), or twice the ground (about
+11.6 km a side, which isn't a whole number of 32-block chunks, so it'd be rounded to one).  What's known:
+REGION_MAP.md says a bigger world is the same `region.map` version with bigger numbers (its size is in its
+header), and chunk positions fit in an i16 up to ±32,767.  But Conductor reads the world it finds: making
+it bigger means making a new one (delete `Content/world/`), unless growing the one that's there is what
+Jacob wants, which is new code (more `region.map`, more heights, nothing moved).  The constants are
+`FIRST_WEST` and friends in `gameworld/src/regionmap.rs`.
 
 ## What's waiting
 
-- **Ensemble's client code**: above.  **Ensemble's project files in git** (Packages/, the .csproj files,
-  LFS for scenes): TODO.md.
+- **Ensemble's client code**: the network client, and the HUD's Phases 2 and 3.  **Ensemble's project
+  files in git** (Packages/, the .csproj files, LFS for scenes): TODO.md.
 - **Chat**, the rest of the 0.0.1 goal.  Not designed (TODO.md).
 - **What the client is sent after CharacterEnteredWorld**: the world around it (chunks, `region.map`),
   other players, movement.  `design/world.md`, `design/gameclock.md`.
 - **Editing characters and NPCs** from GAME MANAGEMENT: whether an edit goes to the row or the copy in the
   world, what can be edited, the routes.  TODO.md.
-- **The world's part two**: saving changed chunks.  **Loading around players who move**.  `design/world.md`.
+- **The world's part two**: saving changed chunks.  **Loading around players who move**.  **An all-air
+  chunk that costs nothing**, now that most of a player's 891 are air.  **A mountain**, once the client is
+  up.  `design/world.md`, LONGTERM_TODO.md.
 - **What goes in each of the GameClock's checks**: an input packet, a brain, movement, the broadcast.
   `design/gameclock.md`.
 - **Saving primlib's copies** with their UUIDs and internal names (and the snapshot's cost when they join
