@@ -35,8 +35,8 @@ changing any of this locks everybody out, so it changes only with every account 
 - **The salt**: the UTF-8 bytes of `Opus login v1:` followed by the username with A to Z made lowercase and
   nothing else touched (Conductor's `to_ascii_lowercase()`).  So `Jacob_01` and `jacob_01` make the same key.
 - **600,000 rounds**, 32 bytes out.  The rounds are a guess until SUBMIT's log line has timed them in Unity
-  (Python took 0.15 s in a quick try; Unity's .NET may be slower).  The checks passed without the time
-  being pasted back, so it's still unknown; the rounds are settled before any account is made again.
+  (Python took 0.15 s in a quick try; Unity's .NET may be slower).  Timed in the Unity editor: **2852 ms**.
+  Jacob picks the number before any account is made again.
 - **Written as 64 lowercase hex characters**, and that string is what goes in the Login packet where the
   password was.
 - **Worked example**: username `jacob_01`, password `Correct horse 1!` (PROTOCOL.md's example) makes

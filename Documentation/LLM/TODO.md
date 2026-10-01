@@ -310,7 +310,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     `persistentDataPath`).
   - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256, 600,000 rounds: built
     into Unity's .NET and Python's standard library.  **The rounds are settled once SUBMIT has timed
-    them** in Unity, before any account is made again (the time wasn't pasted back with the checks).
+    them** in Unity, before any account is made again: 600,000 took 2852 ms in the Unity editor.
   - **The Accounts tab: Conductor makes the key** from what the admin types (Jacob: "we'll have conductor
     do it"); the page doesn't.
   - **The Remember Me file is readable by other users on the same Linux machine**: Unity's .NET can't set

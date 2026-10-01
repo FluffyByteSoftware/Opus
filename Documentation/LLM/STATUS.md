@@ -79,7 +79,8 @@ client... then the conversation after that is the net code... then the next UI e
 the whole thing together"**.  His to change.
 
 At this hand-off (2026-10-01): **"next one is going to be brutal we'll start the net code for the
-client"**.  His to change.
+client"**, then, told Conductor doesn't take the key yet: **"we'll do netcode update on server next
+then"**.  So Conductor's half of the password's key comes first.  His to change.
 
 ## Last session -- 2026-10-01, security in the client: the password's key
 
@@ -90,9 +91,9 @@ client"**.  His to change.
   text!"  The password never crosses the internet or lands on a disk as typed.
 - **The key**: PBKDF2 with HMAC-SHA256, the salt `Opus login v1:` plus the username with A to Z made
   lowercase, 600,000 rounds, 32 bytes as 64 lowercase hex.  `jacob_01` / `Correct horse 1!` makes
-  `fc71f0c9...8855`, and Unity's key matched Python's to the byte.  **The rounds aren't settled**: SUBMIT
-  logs how long the key took, and that time wasn't pasted back with the checks.  Ask for it before
-  any account is made again.
+  `fc71f0c9...8855`, and Unity's key matched Python's to the byte.  **The rounds aren't settled**:
+  600,000 took **2852 ms** in the Unity editor (Python: 150 ms).  Jacob picks the number before any
+  account is made again (the question was asked at the hand-off).
 - **In `Assets/Code/`**: `Security/PasswordKey.cs` (makes the key, on a worker thread),
   `Security/RememberedLogin.cs` (`remembered_login.json` in Unity's `persistentDataPath`: the server, the
   port, the username and the key), and `Hud/Widgets/LoginForm.cs` (where the login's widgets meet; SUBMIT's
@@ -111,16 +112,31 @@ client"**.  His to change.
 
 ## Where the next session starts
 
-**The net code for the client** (Jacob: "next one is going to be brutal").  Ensemble talking to Conductor
-over the login (TLS on TCP, PROTOCOL.md) and then UDP.  Things to settle with him before planning:
+**Conductor's half of the password's key** (Jacob: "we'll do netcode update on server next then"), as
+written in `design/client-security.md`, "Conductor's half": protocol version 7, a login that isn't a key
+refused without a hash, the account desk making the key, `test_client.py` making it with `hashlib`, every
+account deleted.  Before planning:
 
-- **The login sends the key, and Conductor doesn't take one yet.**  Either Conductor's half
-  (`design/client-security.md`) is built first or alongside, or the client's first login can't get in.
-  His call.
-- The client checking the server's certificate (`Content/certs/conductor.crt`): TODO.md.
-- How much of the protocol the first step covers (the login and ticket only, or on into UDP and character
-  select), given character select has no layout yet.
-- Check the `.meta` commit (above) is in before anything else in Ensemble.
+- **The rounds**: 600,000 took 2852 ms in the Unity editor.  Jacob's number, if he hasn't given it.
+- **The `pbkdf2` and `sha2` crates** need his OK.
+- **Where Remember Me's file goes** (below, "Found at the hand-off"), if it wasn't settled.
+- Check the `.meta` commit (above) is in.
+
+Then the client's net code: the login over TLS (PROTOCOL.md), the client checking the server's
+certificate (TODO.md), and how far into UDP the first step goes.
+
+### Found at the hand-off
+
+Jacob's Console put the file at `/home/froggy/.config/unity3d/FluffyByte/Opus_Ensemble/`.  Two things:
+
+- **`RememberedLogin.cs` uses `persistentDataPath` straight**, and `design/ensemble-hud.md` already says
+  our files go in our own folder under the company's (`LayoutLoader.PlayerFolder`, ".../Opus.Ensemble/Unity/",
+  "the folder we're stuck with for now").  It should use that folder.  A one-line fix, held because the
+  hand-off makes no code changes without Jacob's say.
+- **Unity's Company Name and Product Name on Jacob's machine aren't what the docs say** (FluffyByte Studios,
+  Forgotten Legends): the folder says FluffyByte and Opus_Ensemble, and the committed
+  `ProjectSettings.asset` says DefaultCompany and Opus.Ensemble.  Player Settings, then File > Save Project,
+  then commit `ProjectSettings/`.
 
 ## What's waiting
 
