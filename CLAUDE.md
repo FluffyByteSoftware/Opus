@@ -12,6 +12,11 @@ Author:     Jacob Chacko
 Opus is the codename for this project: a multiplayer game made of a server and a
 client. When I say "Opus" I mean this project, not the Claude model.
 
+**The game's name is Forgotten Legends** (2026-10-01): it's what players see
+(Unity's Product Name, under Company Name FluffyByte Studios).  The project,
+its folders, its crates and its code stay Opus ("its the games name but not
+the directory path").
+
 Opus is a separate project from Stratum and Mantle. Do not pull code from them
 unless I explicitly ask. Their *workflow* carried over; their code did not.
 

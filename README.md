@@ -6,7 +6,8 @@ Author:     Jacob Chacko
 
 # Opus
 
-Opus is a multiplayer game I'm building as a hobby.  It's two programs: **Conductor**, the server, and
+Opus is a multiplayer game I'm building as a hobby.  Opus is the project's codename; the game itself is
+**Forgotten Legends**.  It's two programs: **Conductor**, the server, and
 **Ensemble**, the client players run.  Conductor is authoritative -- it owns the game state, clients ask,
 and Conductor decides.
 
