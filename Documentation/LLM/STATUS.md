@@ -107,9 +107,7 @@ then"**.  So Conductor's half of the password's key comes first.  His to change.
   account desk making the key from what the admin types (Jacob: "we'll have conductor do it"), which needs
   the `pbkdf2` and `sha2` crates, to be OKed then; and every account deleted (Jacob: "we'll delete all
   accounts then").  **Until it's built, a key sent as the password matches no account.**
-- **The `.meta` commit for the four new files hadn't reached GitHub at the hand-off**: `unstable` and
-  `testing` were both still at the session's `28ce8b3`.  If Jacob's `git status` still shows them, the
-  commit and push go out from his machine (the hand-off reply had the commands).
+- **The `.meta` files** went in from Jacob's machine (`caaafdf`), with Unity's Player Settings.
 
 ## Where the next session starts
 
@@ -121,7 +119,7 @@ account deleted.  Before planning:
 - **"In the background while the player moves forward in login"**, Jacob on the key: what it means is
   open (TODO.md, Security in the client).
 - **The `pbkdf2` and `sha2` crates** need his OK.
-- Check the `.meta` commit (above) is in.
+- **`PlayerFiles.cs` needs its `.meta`** from Jacob's machine, if it isn't in.
 
 Then the client's net code: the login over TLS (PROTOCOL.md), the client checking the server's
 certificate (TODO.md), and how far into UDP the first step goes.
