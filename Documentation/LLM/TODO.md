@@ -293,8 +293,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     with the game, never the player's.  **The login is built and tested** (2026-10-01,
     `design/ensemble-hud.md`, "The login, as written"); character select's layout is still to come.
 - **Security in the client** (Jacob, 2026-10-01, at the login's hand-off: "next conversation we start
-  building security into the client").  **The client's half is built** (2026-10-01, waiting on Jacob's
-  Unity run); `design/client-security.md` has the contract and **Conductor's half, to build in a session of
+  building security into the client").  **The client's half is built and tested** (2026-10-01, every check
+  passed); `design/client-security.md` has the contract and **Conductor's half, to build in a session of
   its own** (protocol version 7, the key refused if it isn't one, the account desk making the key from what
   the admin types, with the `pbkdf2` and `sha2` crates to be OKed then, and every account deleted).  What it
   covers, Jacob's answers:
@@ -310,7 +310,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     `persistentDataPath`).
   - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256, 600,000 rounds: built
     into Unity's .NET and Python's standard library.  **The rounds are settled once SUBMIT has timed
-    them** in Unity, before any account is made again.
+    them** in Unity, before any account is made again (the time wasn't pasted back with the checks).
   - **The Accounts tab: Conductor makes the key** from what the admin types (Jacob: "we'll have conductor
     do it"); the page doesn't.
   - **The Remember Me file is readable by other users on the same Linux machine**: Unity's .NET can't set

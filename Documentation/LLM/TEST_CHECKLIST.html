@@ -197,49 +197,7 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>2026-10-01, Ensemble: the password's key and Remember Me</h2>
-<p class="soft">In the Unity editor, after the pull, on the login in Play mode.  Use the username <code>jacob_01</code> and the password <code>Correct horse 1!</code> (no account needed: it doesn't log in yet).</p>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Once Unity has compiled: no errors in the Console.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      With Remember Me ticked, SUBMIT puts the password back to dots at once, the screen keeps drawing while the key is
-      made, and the Console says "the password became its key in N ms (600000 rounds)" (paste N back), then
-      "remembered for next time" with the file's path, then "the key is ready".  The key itself is in no log line.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The remembered file holds the server, the port, jacob_01 and the Key
-      fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855 (the same key Python makes), and the password
-      appears nowhere in it:
-    </span></label>
-    <pre class="cmd">cat "$HOME/.config/unity3d/FluffyByte Studios/Forgotten Legends/remembered_login.json"</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Stop and Play again: Server IP, Server Port and Username are filled from the file, Remember Me is ticked, and
-      Password shows dots.  SUBMIT says "using the remembered key" straight away, with no wait.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Clicking in the remembered Password box empties it, and clicking out without typing brings the dots back.
-      Typing a new password and pressing SUBMIT makes a new key (the "N ms" line again).  Changing the username
-      empties the dots.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Remember Me unticked, SUBMIT says the remembered login was forgotten, the cat above says there's no such file,
-      and the next Play starts with the boxes as they were before (10.0.0.84, 9997, empty name and password).
-    </span></label>
-  </li>
-</ul>
+<p class="soft">Nothing to check on testing right now.</p>
 
 </div>
 <aside class="message" id="message-panel">

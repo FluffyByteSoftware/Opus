@@ -51,7 +51,10 @@ Project root: `/opt/storage/Coding/Opus`
 - **Shared contracts** -- whatever both sides need to agree on is written down
   once: the packets in `Documentation/LLM/PROTOCOL.md`, the world's
   `region.map` in `Documentation/LLM/REGION_MAP.md`, the HUD's layout and
-  catalog files in `Documentation/LLM/HUD_FORMATS.md`.
+  catalog files in `Documentation/LLM/HUD_FORMATS.md`, the password's key
+  in `Documentation/LLM/design/client-security.md`.  A recipe both sides
+  compute gets a worked example (an input and the exact output) that each
+  side is checked against; the key's matched Python's to the byte.
 
 If a future piece appears (tools, admin console, test client), ask me what
 to call it before creating it.
@@ -162,6 +165,10 @@ by creating `./Content` when neither works.
   file, under Parked, and the page's count includes it.  Whether one
   becomes a GitHub issue instead is my call, not the session's (the
   Windows-with-a-database check became issue #10 on 2026-10-01).
+  A number the session needs back (a timing, say) is asked for under
+  the QUESTIONS header too, not only inside a check: on 2026-10-01 the
+  key's "N ms" was in a check, the check was ticked, and the number
+  never came back.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another
@@ -780,6 +787,15 @@ When I say we're wrapping up:
   had nothing to commit (the new files weren't on the disk yet); the
   `git status --short` before the commit says what to expect (new
   `.meta`s with an `A`), so an empty one is noticed.
+- **The password never leaves the client as typed** (Jacob, 2026-10-01:
+  "we don't want to save it to their local disk as plain text!").  On
+  SUBMIT it's turned into a key (`Assets/Code/Security/PasswordKey.cs`,
+  PBKDF2-SHA256, salted with the username), and the key is what's sent
+  and what Remember Me keeps (`remembered_login.json` in Unity's
+  `persistentDataPath`).  `design/client-security.md` is the recipe, and
+  Conductor makes the same key from what the admin types on the Accounts
+  tab.  Any change to the recipe locks every account out.  Conductor's
+  half isn't built yet (it's written down there).
 - An editor plugin is a menu item under **Tools > Opus** (the first,
   2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
 - **Jacob runs Unity**, the same as Conductor: the session writes the C#, he

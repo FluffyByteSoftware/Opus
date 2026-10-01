@@ -28,7 +28,9 @@ Ensemble is Unity 6000.6: its project settings and our four folders under `Asset
 `Scripts/`, `Data/`) are committed, the rest is on Jacob's machine, the purchased art in
 `Assets/Purchased/`.  It has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and two screens built
 from layout files by our own builder: **the login** and the HUD (`design/ensemble-hud.md`).  ScreenRoot,
-beside the UI Document component, owns both and starts on the login.  No networking yet.  **The
+beside the UI Document component, owns both and starts on the login.  **The login turns the password into
+a key** on SUBMIT, and Remember Me keeps the key, never the password (`design/client-security.md`).  No
+networking yet.  **The
 game's name is Forgotten Legends** (Unity's Product Name); the project, its folders and code stay Opus.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
@@ -41,8 +43,8 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 when Jacob says.
 
 **Built and tested on Linux**: all of Conductor, `world_size` included.  **In Unity**: Copy
-Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1 and the login, every check passed.
-TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now (Jacob opened
+Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1, the login, and the password's key with
+Remember Me, every check passed.  TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now (Jacob opened
 it, "Windows x86/x64 Untested").  **On Windows**: Conductor builds and runs, START SERVER included, without
 a database; the world, the characters, character select, the world save and the spawn haven't been tried
 there.
@@ -76,41 +78,56 @@ At the login's hand-off (2026-10-01): **"next conversation we start building sec
 client... then the conversation after that is the net code... then the next UI element, then stitching
 the whole thing together"**.  His to change.
 
-## Last session -- 2026-10-01, the login screen
+At this hand-off (2026-10-01): **"next one is going to be brutal we'll start the net code for the
+client"**.  His to change.
 
-**Built and tested in Unity**, every check passed (Jacob: "That was smooth!").  Nothing in it waits on a
-build.  `design/ensemble-hud.md`, "The login, as written", has the details.
+## Last session -- 2026-10-01, security in the client: the password's key
 
-- **Eight widgets**, all `"screens": ["login"]`: a background (black for now, a picture later), a logo
-  (a box that says LOGO), Server IP and Server Port side by side, filled with `10.0.0.84` and `9997`,
-  Username, Password (dots), Remember Me (only ticks) and SUBMIT (presses down and says so in the
-  Console; it doesn't log in).  The four text boxes share `LoginField.cs`.
-- **The background is a widget that fills the screen** (Jacob's answer to "the screen's own, or a
-  widget?").  The catalog's new `fillsScreen` (catalog version 2, `HUD_FORMATS.md`): the builder
-  stretches it over the whole real screen, whatever shape, and ignores its anchor, offset and size.
-- **`login_default.json`** at 1920 x 1080, a column in the middle; **`login.uss`** its look.
-- **ScreenRoot replaced HudRoot**, moved with its `.meta`, so the component in Jacob's scene turned into
-  ScreenRoot by itself and the HUD's slots kept their files.  Its slots: Login Layout, Login Style,
-  **Login Text Color and Login Text Font** (Jacob's pick over variables in `login.uss`; they live in the
-  scene, which isn't committed), Hud Layout, Hud Style.  Show Login, Show HUD and Reset HUD To Default
-  on its ⋮ menu.  Each screen carries its own style sheet, so the HUD's and the login's never meet.
-- **Remember Me, later**: Jacob, "when we write our hash in it will hash the password and I think we may
-  rewrite the server to accept a hash instead of plaintext".  Told with it: a hash the server takes as
-  the login is as good as the password to whoever copies the file.  TODO.md.
-- **The `.meta` commit was run before the pull** the first time, and committed nothing: the new files
-  weren't on the disk yet, and Unity hadn't made their `.meta`s.  Done in the right order after
-  (`30a72d6`).  CLAUDE.md has the lesson.
+**Built and tested in Unity**, all six checks passed.  Nothing in it waits on a build.
+`design/client-security.md` has all of it.
+
+- **Jacob's ask**: "even though its going over TLS we don't want to save it to their local disk as plain
+  text!"  The password never crosses the internet or lands on a disk as typed.
+- **The key**: PBKDF2 with HMAC-SHA256, the salt `Opus login v1:` plus the username with A to Z made
+  lowercase, 600,000 rounds, 32 bytes as 64 lowercase hex.  `jacob_01` / `Correct horse 1!` makes
+  `fc71f0c9...8855`, and Unity's key matched Python's to the byte.  **The rounds aren't settled**: SUBMIT
+  logs how long the key took, and that time wasn't pasted back with the checks.  Ask for it before
+  any account is made again.
+- **In `Assets/Code/`**: `Security/PasswordKey.cs` (makes the key, on a worker thread),
+  `Security/RememberedLogin.cs` (`remembered_login.json` in Unity's `persistentDataPath`: the server, the
+  port, the username and the key), and `Hud/Widgets/LoginForm.cs` (where the login's widgets meet; SUBMIT's
+  work).  The six login widgets hand their boxes to it.
+- **SUBMIT**: the password comes out of the box at once (dots stand in), the key is made, then Remember Me
+  ticked saves the file and unticked deletes it.  It still doesn't log in.  **A remembered login** fills
+  the boxes and shows stand-in dots; typing a password or changing the username drops the remembered key.
+- **Conductor's half is written down, not built** (`design/client-security.md`, "Conductor's half"):
+  protocol version 7 with the key in the Login; anything that isn't a key refused without a hash; the
+  account desk making the key from what the admin types (Jacob: "we'll have conductor do it"), which needs
+  the `pbkdf2` and `sha2` crates, to be OKed then; and every account deleted (Jacob: "we'll delete all
+  accounts then").  **Until it's built, a key sent as the password matches no account.**
+- **The `.meta` commit for the four new files hadn't reached GitHub at the hand-off**: `unstable` and
+  `testing` were both still at the session's `28ce8b3`.  If Jacob's `git status` still shows them, the
+  commit and push go out from his machine (the hand-off reply had the commands).
 
 ## Where the next session starts
 
-**Security in the client**, Jacob's next (his map, above).  Nothing about it is designed: ask him what
-it covers before planning.  TODO.md, "Security in the client", lists what's already written down that
-touches it (the password hashed on the client, the client checking the server's certificate, Soundcheck
-further off).
+**The net code for the client** (Jacob: "next one is going to be brutal").  Ensemble talking to Conductor
+over the login (TLS on TCP, PROTOCOL.md) and then UDP.  Things to settle with him before planning:
+
+- **The login sends the key, and Conductor doesn't take one yet.**  Either Conductor's half
+  (`design/client-security.md`) is built first or alongside, or the client's first login can't get in.
+  His call.
+- The client checking the server's certificate (`Content/certs/conductor.crt`): TODO.md.
+- How much of the protocol the first step covers (the login and ticket only, or on into UDP and character
+  select), given character select has no layout yet.
+- Check the `.meta` commit (above) is in before anything else in Ensemble.
 
 ## What's waiting
 
-- **Ensemble's client code**: security in the client, the network client, character select's layout,
+- **Conductor's half of the password's key**: protocol version 7, the account desk making the key, every
+  account deleted, the rounds settled.  `design/client-security.md`.
+- **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
+- **Ensemble's client code**: the network client, character select's layout,
   stitching the login, character select and the world together, and the HUD's Phases 2 and 3 (the
   catalog's export, the web layout editor).  **Ensemble's project files in git** (Packages/, the .csproj
   files, LFS for scenes): TODO.md.

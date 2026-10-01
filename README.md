@@ -13,7 +13,8 @@ and Conductor decides.
 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
 game loop ticking over it, and a player can pick a character and stand in that world, though nothing moves
-yet.  Ensemble has an editor tool for the art, and a login screen and a HUD built from layout files, so far.  Things will change and things will
+yet.  Ensemble has an editor tool for the art, and a login screen and a HUD built from layout files, so far; the
+login turns the password into a key before it's sent or kept.  Things will change and things will
 break.
 
 **The first goal, 0.0.1, is a player spawned in the world and able to chat.**
@@ -36,6 +37,7 @@ break.
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Movement, chat                                   | Not started                                            |
 | Ensemble                                         | An editor tool; the login and the HUD, from layouts    |
+| The password's key, made on the client           | Client half tested; Conductor's half still to build    |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.

@@ -152,8 +152,7 @@ Every check passed (Jacob: "That was smooth!").
   differ.
 - **Each screen carries its own style sheet** (HudBuilder puts it on the screen, not the root), so
   `hud.uss`'s `.widget` never touches the login and `login.uss`'s never touches the HUD.
-- **SUBMIT and Remember Me do something now** (2026-10-01, security in the client, waiting on Jacob's Unity
-  run): SUBMIT turns the password into its key and keeps or forgets the login; a remembered login fills the
+- **SUBMIT and Remember Me do something now** (2026-10-01, security in the client, built and tested): SUBMIT turns the password into its key and keeps or forgets the login; a remembered login fills the
   boxes in.  `LoginForm.cs` beside the widgets is where they meet.  `design/client-security.md` has it.
 - **The colour and font are set on each piece of text**, not once on the screen: Unity's theme gives the
   text in a box and on a button colours of their own, and only a style on the element itself beats it.

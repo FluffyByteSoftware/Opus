@@ -12,7 +12,8 @@ client turns it into a **key** the moment SUBMIT is pressed, and the key is what
 keeps.  "I suppose there will be a few moments where its in memory": the typed string sits in the client's
 memory until it's reused, since C# can't wipe a string.
 
-**The client's half is built** (Ensemble, 2026-10-01, waiting on Jacob's Unity run).  **Conductor's half is
+**The client's half is built and tested** (Ensemble, 2026-10-01, all six checks passed; the key matched
+Python's to the byte).  **Conductor's half is
 written down below and not built**: it's a session of its own, and until it's in, a key sent as the password
 won't match any account.  Nothing sends one yet (there's no network client).
 
@@ -34,15 +35,15 @@ changing any of this locks everybody out, so it changes only with every account 
 - **The salt**: the UTF-8 bytes of `Opus login v1:` followed by the username with A to Z made lowercase and
   nothing else touched (Conductor's `to_ascii_lowercase()`).  So `Jacob_01` and `jacob_01` make the same key.
 - **600,000 rounds**, 32 bytes out.  The rounds are a guess until SUBMIT's log line has timed them in Unity
-  (Python took 0.15 s in a quick try; Unity's .NET may be slower).  They're settled before any account is
-  made again.
+  (Python took 0.15 s in a quick try; Unity's .NET may be slower).  The checks passed without the time
+  being pasted back, so it's still unknown; the rounds are settled before any account is made again.
 - **Written as 64 lowercase hex characters**, and that string is what goes in the Login packet where the
   password was.
 - **Worked example**: username `jacob_01`, password `Correct horse 1!` (PROTOCOL.md's example) makes
   `fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855`.  Ensemble, `test_client.py` and Conductor
   are each checked against it.
 
-## Ensemble's half (built)
+## Ensemble's half (built and tested)
 
 In `Assets/Code/`:
 
