@@ -130,7 +130,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       "Players and the world save").  What's left is networking's: the pick packet, loading the row and
       the save into a blueprint off the GameClock's thread (turning an unplayable character away), calling
       `enter()` and `leave()`, and what the client is sent.
-      **Networking's half, Jacob's answers (2026-10-01)**, written and not yet built by Jacob
+      **Networking's half, Jacob's answers (2026-10-01)**, built and tested, every check passed
       (`design/conductor-networking.md`, "The spawn"):
       - **The loop** is login, character select, the pick, the character in the world at its last save,
         and the session ending whichever way it ends, with the character saved and taken out.
@@ -155,8 +155,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         asked: "do we have any way to force a save on the connection being kicked before the new one pops
         in?"  The GameClock marks a leaving character "saving" until its save lands, and the login that
         kicked it waits for that before handing out its ticket: up to 5 seconds (Jacob: "5 seconds"), and
-        past that Login Unavailable (proposed with it; his "yes" to the plan).  Written, not yet built by
-        Jacob; `design/conductor-networking.md`, "The spawn", has it.
+        past that Login Unavailable (proposed with it; his "yes" to the plan).  Built and tested;
+        `design/conductor-networking.md`, "The spawn", has it.
       - **The character goes beside the account on the Connections tab's UDP list** now ("yes").
 - **The GameClock's checks**: an input packet (the mailbox is there, for entering and leaving), a brain for
   the AI, movement into `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.

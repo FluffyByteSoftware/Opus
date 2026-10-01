@@ -58,12 +58,14 @@ His order for step 3 (2026-10-01): "building the network infrastructure up then 
 be testing wtih a py script then we're on to building the client".  And at this hand-off: "Next session we
 complete the loop and then we're ready to start testing it with a real client".
 
-## This session -- 2026-10-01, networking's half of the spawn (written, NOT YET BUILT by Jacob)
+## This session -- 2026-10-01, networking's half of the spawn (built and tested)
 
 Jacob: "CLAUDE its TIME to BUILD".  The loop: login, character select, UserPressPlay, the character in the
 world, and out again with its player, saved.  Protocol version 6.  Jacob's answers are in TODO.md under
 "Picking a character to play"; `design/conductor-networking.md`, "The spawn", has how it's built; the
-checks are in TEST_CHECKLIST.html.  **Expect compile fixes**: nothing of it has been through cargo yet.
+checks passed, every one.  It built with no warnings and every test passed first time (22 in the
+GameClock, 75 in networking, 39 in the web admin).  A player logs in, picks a character, and it's in the
+world at its last save; it leaves with its player, saved.
 
 ## Last session -- 2026-10-01, the game library ready for the spawn
 
