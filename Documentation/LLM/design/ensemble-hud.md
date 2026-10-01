@@ -86,3 +86,18 @@ Phases 2 and 3 are in TODO.md.
     fitting (Expand), so nothing falls off.  Jacob, on that reading: "yes now you got the picture".
   - **The editor's canvas starts at 2560 x 1440**, Jacob's monitor, not 1080 (his "b"), and the maker
     can change it.
+
+## The login and character select screens (2026-10-01, being settled)
+
+Jacob: "we need to build our HUD up for login and char select".  Settled so far:
+
+- **Fixed at first, made for 1080p**: "I think we're gonna build it as fixed docs at first assuming a 1080p
+  resolution".  So the login and character select start as fixed screens on a 1920 x 1080 reference, not
+  layouts of widgets; being layouts (above) is for later.
+- **Switching between screens, "with cool ass effects if we can"**: one screen showing at a time, and an
+  effect on the way from one to the next.
+- **No networking yet, and the login first**: "no networking yet just the login submit screen first".
+  Character select comes after.
+
+Open: what "fixed docs" are made of (a UXML file or C#), what SUBMIT leads to with no server behind it,
+which effects, whether HudRoot turns into a ScreenRoot, and what else is on the login screen.
