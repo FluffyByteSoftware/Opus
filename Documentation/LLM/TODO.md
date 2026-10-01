@@ -311,9 +311,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256, **600,000 rounds,
     settled** (Jacob: "Make this the full 600,000"), timed at 2852 ms in the Unity editor.
   - **The key made "in the background while the player moves forward in login"** (Jacob, 2026-10-01).
-    It already runs on a worker thread.  Open: whether that means starting the key when the player
-    leaves the Password box, so it's ready by SUBMIT, or making it while the client connects to the
-    server after SUBMIT (the net code), or both.
+    It already runs on a worker thread.  **Jacob picked: after SUBMIT, the client connects to the server
+    (TCP, TLS) while the key is still being made, and sends the Login the moment the key's ready.**
+    Part of the client's net code; not started when the player leaves the Password box.
   - **The Accounts tab: Conductor makes the key** from what the admin types (Jacob: "we'll have conductor
     do it"); the page doesn't.
   - **The Remember Me file is readable by other users on the same Linux machine**: Unity's .NET can't set

@@ -116,13 +116,13 @@ written in `design/client-security.md`, "Conductor's half": protocol version 7, 
 refused without a hash, the account desk making the key, `test_client.py` making it with `hashlib`, every
 account deleted.  Before planning:
 
-- **"In the background while the player moves forward in login"**, Jacob on the key: what it means is
-  open (TODO.md, Security in the client).
 - **The `pbkdf2` and `sha2` crates** need his OK.
 - **`PlayerFiles.cs` needs its `.meta`** from Jacob's machine, if it isn't in.
 
 Then the client's net code: the login over TLS (PROTOCOL.md), the client checking the server's
-certificate (TODO.md), and how far into UDP the first step goes.
+certificate (TODO.md), and how far into UDP the first step goes.  **SUBMIT connects while the key is
+made** (Jacob's pick, "in the background while the player moves forward in login"): the TLS connection
+goes up as the key is worked out, and the Login goes the moment it's ready.
 
 ### Changed at the hand-off
 
