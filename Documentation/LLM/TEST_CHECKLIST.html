@@ -197,7 +197,54 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<p class="soft">Nothing to check on testing right now.</p>
+<h2>Ensemble: the login screen</h2>
+<p class="soft">In the Unity editor, after the pull: the UI Document's GameObject, ScreenRoot on it, the login's two files dragged in (the reply says where), and Play.</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Once Unity has compiled: no errors in the Console, and the component beside the UI Document reads Screen Root,
+      its Hud Layout and Hud Style still holding hud_default.json and hud.uss.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      With login_default.json in Login Layout and login.uss in Login Style, Play shows the login: black edge to
+      edge, a LOGO box at the top, Server IP 10.0.0.84 and Server Port 9997 side by side, Username, Password, Remember
+      Me and SUBMIT down the middle, and no warnings in the Console.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Game view at 16:9, 16:10 and 21:9 (a custom 2560 x 1080): the black covers the whole view every time, and
+      the column stays in the middle without stretching.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      What's typed in Password shows as dots, Server Port takes five characters at most, and Remember Me ticks and
+      unticks.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      SUBMIT lights up under the mouse and sinks while it's held down, and each press puts "Login: SUBMIT pressed.
+      It doesn't log in yet." in the Console.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      In Play mode, a new Login Text Color on ScreenRoot changes every word on the login at once (the names, what's
+      typed, LOGO, Remember Me, SUBMIT); a font dragged into Login Text Font changes them all to it, and emptying
+      the slot puts Unity's own back.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Right-click ScreenRoot in the Inspector, Show HUD: the HUD as it was (health, minimap, chat), with no
+      warnings.  Show Login brings the login back.
+    </span></label>
+  </li>
+</ul>
 
 </div>
 <aside class="message" id="message-panel">

@@ -1,8 +1,9 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/HudBuilder.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// Turns the checked widgets into the HUD on screen: a stack of layers, a box
-// per widget in its layer, and each box placed from its anchor.
+// Turns the checked widgets into a screen (the HUD, the login): a stack of
+// layers, a box per widget in its layer, and each box placed from its
+// anchor.
 
 using System.Collections.Generic;
 using UnityEngine;
@@ -12,18 +13,25 @@ namespace Opus.Hud
 {
     public class HudBuilder
     {
-        VisualElement hud;
+        VisualElement screen;
         readonly List<PlacedWidget> placed = new List<PlacedWidget>();
         readonly List<VisualElement> boxes = new List<VisualElement>();
 
-        // Build the HUD under root.  Anything this builder built before goes
-        // first.
-        public void Build(VisualElement root, List<PlacedWidget> widgets)
+        // The screen this builder built last, or null.
+        public VisualElement Screen { get { return screen; } }
+
+        // Build a screen under root, with its own style sheet.  The sheet
+        // goes on the screen, not the root, so the HUD's look and the
+        // login's never meet.  Anything this builder built before goes first.
+        public void Build(VisualElement root, List<PlacedWidget> widgets, string name, StyleSheet styleSheet)
         {
             Clear();
 
-            hud = FullScreen("hud");
-            root.Add(hud);
+            screen = FullScreen("screen");
+            screen.AddToClassList("screen-" + name);
+            if (styleSheet != null)
+                screen.styleSheets.Add(styleSheet);
+            root.Add(screen);
 
             // UI Toolkit has no z-index: what's later in the tree draws on
             // top.  So each layer in use is a full-screen container, added
@@ -34,10 +42,10 @@ namespace Opus.Hud
             foreach (PlacedWidget p in widgets)
             {
                 if (!layers.ContainsKey(p.Layer))
-                    layers[p.Layer] = FullScreen("hud-layer");
+                    layers[p.Layer] = FullScreen("screen-layer");
             }
             foreach (VisualElement layer in layers.Values)
-                hud.Add(layer);
+                screen.Add(layer);
 
             // Within a layer, the file's order is the drawing order.
             foreach (PlacedWidget p in widgets)
@@ -56,16 +64,16 @@ namespace Opus.Hud
             // The boxes are placed once UI Toolkit knows how big the screen
             // is, and again every time that changes (a window resized, a
             // monitor switched), so an anchored widget stays with its corner.
-            hud.RegisterCallback<GeometryChangedEvent>(ScreenChanged);
+            screen.RegisterCallback<GeometryChangedEvent>(ScreenChanged);
         }
 
         public void Clear()
         {
-            if (hud != null)
+            if (screen != null)
             {
-                hud.UnregisterCallback<GeometryChangedEvent>(ScreenChanged);
-                hud.RemoveFromHierarchy();
-                hud = null;
+                screen.UnregisterCallback<GeometryChangedEvent>(ScreenChanged);
+                screen.RemoveFromHierarchy();
+                screen = null;
             }
             placed.Clear();
             boxes.Clear();
@@ -76,16 +84,27 @@ namespace Opus.Hud
             // The screen in the layout's own pixels.  The panel's scaled to
             // the layout's reference, so this is at least the reference both
             // ways, and bigger on a screen of another shape.
-            var screen = new Vector2(e.newRect.width, e.newRect.height);
-            if (screen.x <= 0f || screen.y <= 0f)
+            var size = new Vector2(e.newRect.width, e.newRect.height);
+            if (size.x <= 0f || size.y <= 0f)
                 return;
 
             for (int i = 0; i < boxes.Count; i++)
-                Place(boxes[i], placed[i], screen);
+                Place(boxes[i], placed[i], size);
         }
 
         static void Place(VisualElement box, PlacedWidget p, Vector2 screen)
         {
+            // A background and the like: the whole real screen, which on a
+            // screen of another shape is more than the layout's reference.
+            if (p.Widget.Info.FillsScreen)
+            {
+                box.style.left = 0f;
+                box.style.top = 0f;
+                box.style.width = screen.x;
+                box.style.height = screen.y;
+                return;
+            }
+
             // LayoutChecker already made everything fit the reference, and
             // the screen is never smaller.  This is only a guard, so it's
             // quiet: it would run again on every resize.

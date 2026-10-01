@@ -157,19 +157,22 @@ Opus/
 │           │                          #   EVERY CLIP and CLASHES views
 │           ├── Code/                  # the plain C#
 │           │   ├── InputSystem.cs     # Unity's Input System actions, generated (Jacob's), and its .inputactions
-│           │   └── Hud/               # the HUD from a layout, namespace Opus.Hud (design/ensemble-hud.md)
+│           │   └── Hud/               # every screen from a layout, namespace Opus.Hud (design/ensemble-hud.md)
 │           │       ├── Widget.cs      # what every widget is, and WidgetInfo, its catalog entry
 │           │       ├── WidgetRegistry.cs # every widget there is, a line each
 │           │       ├── HudLayout.cs   # a layout file's classes, and the nine anchors
-│           │       ├── LayoutLoader.cs # the player's file or the shipped default; the player's folder
+│           │       ├── LayoutLoader.cs # a screen's shipped layout; the HUD's can be the player's file instead
 │           │       ├── LayoutChecker.cs # the load rules: skipped, clamped, moved back on
-│           │       ├── HudBuilder.cs  # the layers and a box per widget, placed from its anchor
-│           │       └── Widgets/       # health, minimap, chat: placeholders
+│           │       ├── HudBuilder.cs  # a screen: the layers and a box per widget, placed from its anchor
+│           │       └── Widgets/       # the HUD's health, minimap, chat (placeholders); the login's eight
 │           ├── Scripts/
-│           │   └── Hud/HudRoot.cs     # beside the UI Document: loads, checks and builds the HUD
+│           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the login, the HUD) and
+│           │                          #   which is showing; the login's text colour and font
 │           └── Data/                  # our own data files
 │               ├── Layouts/hud_default.json # the HUD's default layout, 2560 x 1440
-│               └── Styles/hud.uss     # the HUD's look
+│               ├── Layouts/login_default.json # the login's layout, 1920 x 1080
+│               ├── Styles/hud.uss     # the HUD's look
+│               └── Styles/login.uss   # the login's look
 ├── Content/                           # committed, except Assets/, logs/ and world/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)

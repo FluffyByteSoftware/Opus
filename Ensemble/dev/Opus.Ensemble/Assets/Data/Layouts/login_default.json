@@ -1,0 +1,41 @@
+{
+  "format": "opus-hud-layout",
+  "version": 1,
+  "screen": "login",
+  "name": "Default",
+  "reference": { "width": 1920, "height": 1080 },
+  "widgets": [
+    {
+      "id": "login_background", "anchor": "TopLeft",
+      "offset": { "x": 0, "y": 0 }, "size": { "width": 1920, "height": 1080 }, "layer": 0
+    },
+    {
+      "id": "login_logo", "anchor": "Center",
+      "offset": { "x": 0, "y": -300 }, "size": { "width": 600, "height": 160 }, "layer": 1
+    },
+    {
+      "id": "login_server_ip", "anchor": "Center",
+      "offset": { "x": -90, "y": -150 }, "size": { "width": 380, "height": 72 }, "layer": 1
+    },
+    {
+      "id": "login_server_port", "anchor": "Center",
+      "offset": { "x": 200, "y": -150 }, "size": { "width": 160, "height": 72 }, "layer": 1
+    },
+    {
+      "id": "login_username", "anchor": "Center",
+      "offset": { "x": 0, "y": -50 }, "size": { "width": 560, "height": 72 }, "layer": 1
+    },
+    {
+      "id": "login_password", "anchor": "Center",
+      "offset": { "x": 0, "y": 50 }, "size": { "width": 560, "height": 72 }, "layer": 1
+    },
+    {
+      "id": "login_remember_me", "anchor": "Center",
+      "offset": { "x": 0, "y": 130 }, "size": { "width": 560, "height": 40 }, "layer": 1
+    },
+    {
+      "id": "login_submit", "anchor": "Center",
+      "offset": { "x": 0, "y": 210 }, "size": { "width": 240, "height": 56 }, "layer": 1
+    }
+  ]
+}

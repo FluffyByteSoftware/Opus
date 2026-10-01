@@ -45,7 +45,7 @@ namespace Opus.Hud
                 LayoutEntry entry = layout.widgets[i];
                 if (entry == null)
                     continue;
-                string which = "HUD: widget " + (i + 1) + " (\"" + entry.id + "\")";
+                string which = "Layout \"" + layout.screen + "\": widget " + (i + 1) + " (\"" + entry.id + "\")";
 
                 // 1. An id we don't have.
                 Widget widget = WidgetRegistry.Make(entry.id);
@@ -72,6 +72,22 @@ namespace Opus.Hud
                     continue;
                 }
                 count[info.Id] = already + 1;
+
+                // A widget that fills the screen takes no anchor, offset or
+                // size from the file, so the rules below don't apply to it.
+                // HudBuilder stretches it over the real screen.
+                if (info.FillsScreen)
+                {
+                    placed.Add(new PlacedWidget
+                    {
+                        Widget = widget,
+                        Anchor = Anchor.TopLeft,
+                        Offset = Vector2.zero,
+                        Size = screen,
+                        Layer = entry.layer,
+                    });
+                    continue;
+                }
 
                 // 4. An anchor that isn't one of the nine.
                 Anchor anchor;

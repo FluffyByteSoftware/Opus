@@ -1,8 +1,9 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/Widget.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// What every widget is: a piece of the HUD (the health bar, the chat, the
-// minimap) that draws its own insides and knows nothing about where it sits.
+// What every widget is: a piece of a screen (the HUD's health bar, the
+// login's username box) that draws its own insides and knows nothing about
+// where it sits.
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -37,6 +38,11 @@ namespace Opus.Hud
         public bool Resizable = true;
         public Anchor DefaultAnchor = Anchor.TopLeft;
         public int MaxCount = 1;
+
+        // Covers the whole real screen, whatever the layout says about its
+        // anchor, offset and size: a background, say.  The layout still
+        // places it, for its layer and its place in the drawing order.
+        public bool FillsScreen;
 
         public bool GoesOn(string screen)
         {

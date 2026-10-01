@@ -23,6 +23,7 @@ Phases 2 and 3 are in TODO.md.
 - `Assets/Scripts/Hud/HudRoot.cs`, the MonoBehaviour beside the UI Document, with two slots, Default
   Layout and Style Sheet.  It sets Scale With Screen Size, Expand and the layout's reference on **a copy**
   of the UI Document's Panel Settings, since a change to the asset in Play mode would stay in it.
+  It's ScreenRoot now (below, "The login, as written").
 - `Assets/Data/Layouts/hud_default.json` (2560 x 1440: health top-left, minimap top-right, chat
   bottom-left on layer 1) and `Assets/Data/Styles/hud.uss`.
 - **Where the off-screen rule runs**: LayoutChecker moves a widget back on against the layout's reference,
@@ -87,7 +88,7 @@ Phases 2 and 3 are in TODO.md.
   - **The editor's canvas starts at 2560 x 1440**, Jacob's monitor, not 1080 (his "b"), and the maker
     can change it.
 
-## The login and character select screens (2026-10-01, being settled)
+## The login and character select screens (2026-10-01; the login written)
 
 Jacob: "we need to build our HUD up for login and char select".  Settled so far:
 
@@ -120,3 +121,33 @@ Jacob: "we need to build our HUD up for login and char select".  Settled so far:
   `9997`, Conductor's TCP port, as `networking.cfg` has them.
 - **Remember Me doesn't work yet.**  Once it does, Jacob: "when we write our hash in it will hash the
   password and I think we may rewrite the server to accept a hash instead of plaintext".  TODO.md has it.
+- **The background is a widget that fills the screen** (Jacob, asked whether it was the screen's own
+  colour or a widget: "fills the screen background always is a widget too?  placed behind the other in
+  layer order?").  `login_background`, on layer 0 with everything else on layer 1.  Its catalog entry says
+  `FillsScreen` (`fillsScreen` in the catalog, its version 2, `../HUD_FORMATS.md`), so HudBuilder stretches
+  it over the whole real screen, whatever shape, and the layout's anchor, offset and size for it are
+  ignored.  Black from `login.uss` for now; a picture later, as `background-image` there.
+- **The text's colour and font are slots on ScreenRoot** (Jacob: "oooo slots on ScreenRoot"): Login Text
+  Color and Login Text Font, in the Inspector, on every word of the login, changeable in Play mode.
+  Told with it: those values live in the scene, and the scene isn't committed, so git never sees them.
+
+### The login, as written (2026-10-01, not run in Unity yet)
+
+- **Eight widgets** in `Assets/Code/Hud/Widgets/`, all `"screens": ["login"]`: `login_background`,
+  `login_logo` (a box that says LOGO), `login_server_ip` (`10.0.0.84`), `login_server_port` (`9997`, five
+  characters at most), `login_username`, `login_password` (dots), `login_remember_me` (only ticks) and
+  `login_submit` (presses down, and says so in the Console).  The four text ones share `LoginField.cs`, a
+  name over a box.  Their catalog sizes are the login's sizes over 0.75, since the catalog's are for
+  2560 x 1440.
+- **`login_default.json`**: 1920 x 1080, everything anchored to the middle; the logo, then IP and port
+  side by side, Username, Password, Remember Me and SUBMIT down a column 560 wide.
+- **`ScreenRoot.cs`** is `HudRoot.cs` moved, its `.meta` with it, so the GUID is the same and the
+  component in Jacob's scene turns into ScreenRoot by itself; the HUD's two slots keep what was in them
+  (`FormerlySerializedAs`).  Its slots: Login Layout, Login Style, Login Text Color, Login Text Font, Hud
+  Layout, Hud Style.  It starts on the login; the right-click has Show Login, Show HUD (Play mode only)
+  and Reset HUD To Default.  The scale is set again on every switch, since the two layouts' references
+  differ.
+- **Each screen carries its own style sheet** (HudBuilder puts it on the screen, not the root), so
+  `hud.uss`'s `.widget` never touches the login and `login.uss`'s never touches the HUD.
+- **The colour and font are set on each piece of text**, not once on the screen: Unity's theme gives the
+  text in a box and on a button colours of their own, and only a style on the element itself beats it.

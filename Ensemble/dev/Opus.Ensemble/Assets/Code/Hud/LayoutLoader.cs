@@ -1,9 +1,10 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/LayoutLoader.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// Finds the HUD's layout: the player's own file if there's a good one, the
-// default that ships with the game if not.  Whatever it turns away, it says
-// why in the log.
+// Finds a screen's layout.  The HUD's is the player's own file if there's a
+// good one, the default that ships with the game if not; every other screen
+// (the login) only ever has the one that ships.  Whatever it turns away, it
+// says why in the log.
 
 using System;
 using System.Collections.Generic;
@@ -17,6 +18,7 @@ namespace Opus.Hud
         public const string LayoutFormat = "opus-hud-layout";
         public const int LayoutVersion = 1;
         public const string HudScreen = "hud";
+        public const string LoginScreen = "login";
 
         // The biggest and smallest reference a layout can have.  8K at the
         // top; anything outside this is a broken file, not a screen.
@@ -66,18 +68,26 @@ namespace Opus.Hud
                 Debug.Log("HUD: no layout of yours at " + path + ", so it's the default.");
             }
 
-            if (defaultLayout == null)
+            return LoadShipped(defaultLayout, HudScreen, "Hud Layout");
+        }
+
+        // A layout that ships with the game, for this screen.  Null when it's
+        // missing or broken, which is ours to fix, so that's an error.  The
+        // slot is ScreenRoot's, as the Inspector names it, for the message.
+        public static LayoutFile LoadShipped(TextAsset file, string screen, string slot)
+        {
+            if (file == null)
             {
-                Debug.LogError("HUD: there's no default layout.  Drag hud_default.json from Assets/Data/Layouts "
-                    + "onto HudRoot's Default Layout.");
+                Debug.LogError("Screens: there's no layout for the \"" + screen + "\" screen.  Drag " + screen
+                    + "_default.json from Assets/Data/Layouts onto ScreenRoot's " + slot + ".");
                 return null;
             }
 
-            string whyNot;
-            LayoutFile layout = Read(defaultLayout.text, HudScreen, out whyNot);
+            string why;
+            LayoutFile layout = Read(file.text, screen, out why);
             if (layout == null)
-                Debug.LogError("HUD: the default layout (" + defaultLayout.name + ") can't be used, since " + whyNot
-                    + ".");
+                Debug.LogError("Screens: the \"" + screen + "\" screen's layout (" + file.name + ") can't be used, "
+                    + "since " + why + ".");
             return layout;
         }
 

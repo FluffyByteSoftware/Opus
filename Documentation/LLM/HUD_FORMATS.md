@@ -109,12 +109,16 @@ the sizes above.
 6. A size under the widget's `minSize` (scaled to the reference): raised to it.  A size bigger than the reference: cut to it.
 7. A widget off the reference screen, wholly or partly: moved back on, by changing its offset.
 
+**A widget whose catalog entry says `fillsScreen`** (the login's background) covers the whole real screen,
+whatever its shape, and its `anchor`, `offset` and `size` are ignored, so rules 4 to 7 don't apply to it.
+Its `layer` and its place in the file still count.
+
 ## The catalog
 
 ```json
 {
   "format": "opus-hud-catalog",
-  "version": 1,
+  "version": 2,
   "widgets": [
     {
       "id": "chat",
@@ -126,7 +130,8 @@ the sizes above.
       "minSize": { "width": 320, "height": 160 },
       "resizable": true,
       "defaultAnchor": "BottomLeft",
-      "maxCount": 1
+      "maxCount": 1,
+      "fillsScreen": false
     }
   ]
 }
@@ -135,7 +140,7 @@ the sizes above.
 | Field         | Kind   | What it is |
 |---------------|--------|------------|
 | `format`      | string | Always `"opus-hud-catalog"`. |
-| `version`     | number | `1`. |
+| `version`     | number | `2`. |
 | `widgets`     | array  | Every widget the game has. |
 
 Each widget:
@@ -151,8 +156,10 @@ Each widget:
 | `minSize`       | object  | The smallest it can be, the same way. |
 | `resizable`     | boolean | `false` means it's always its `defaultSize`. |
 | `defaultAnchor` | string  | The anchor it gets when it's first dropped. |
-| `maxCount`      | number  | How many times it can be placed on one screen.  `1` for every widget in version 1. |
+| `maxCount`      | number  | How many times it can be placed on one screen.  `1` for every widget so far. |
+| `fillsScreen`   | boolean | `true` means it always covers the whole screen, behind or over the rest by its layer (a background); the layout's anchor, offset and size for it are ignored.  The web editor draws it over the whole canvas.  Missing is `false`. |
 
 ## Version history
 
 - **Layout 1, catalog 1** (2026-10-01): the first.
+- **Catalog 2** (2026-10-01): `fillsScreen`, for the login's background.  The layout is still version 1.

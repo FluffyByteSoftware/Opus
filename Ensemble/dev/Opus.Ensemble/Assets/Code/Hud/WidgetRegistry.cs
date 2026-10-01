@@ -18,6 +18,14 @@ namespace Opus.Hud
             () => new HealthBarWidget(),
             () => new ChatWidget(),
             () => new MinimapWidget(),
+            () => new LoginBackgroundWidget(),
+            () => new LoginLogoWidget(),
+            () => new LoginServerIpWidget(),
+            () => new LoginServerPortWidget(),
+            () => new LoginUsernameWidget(),
+            () => new LoginPasswordWidget(),
+            () => new LoginRememberMeWidget(),
+            () => new LoginSubmitWidget(),
         };
 
         // A new widget for this id, or null when there's no widget called
