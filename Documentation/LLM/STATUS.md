@@ -22,8 +22,10 @@ ledger of every connection, and the access lists.
 loop: five checks of 50 ms to a 250 ms cycle; it owns primlib's `World` and GameWorld's `Terrain`, takes
 players' characters in and out through a mailbox, and saves the world.  `conductor-wgui` (lib) is the web
 admin at `http://127.0.0.1:9996/Opus`.  `conductor-launcher` (bin) boots the program and waits on the web
-admin's Server tab.  Ensemble is Unity 6000.6; its first project settings are on `main` (Jacob's commit),
-the rest on his machine.
+admin's Server tab.  Ensemble is Unity 6000.6: its project settings and our three folders under `Assets/`
+(`Editor/`, `Code/`, `Scripts/`) are committed, the rest is on Jacob's machine, the purchased art in
+`Assets/Purchased/`.  So far it has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and no game
+code.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -31,13 +33,15 @@ Lua, GameWorld, the GameClock, the monitor, and networking last) only runs betwe
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
 **The branches**: `main` is still at `8bf9f70`, released at the hand-off of 2026-09-30.  `unstable` and
-`testing` are level with each other and carry the last two sessions on top (the game library ready for the
-spawn, and the spawn), Jacob's `Cargo.lock` commits and his merge included.  `main` moves when Jacob says.
+`testing` are level with each other and carry everything since, this session included (and Jacob's commit of
+Unity's `.meta` files and `ProjectSettings.asset`).  `main` moves when Jacob says.
 
-**Built and tested on Linux**: everything, the last session's code included.  The only check left on
-TEST_CHECKLIST.html is the Parked Windows one.  **On Windows**: built and runs, START SERVER included,
-without a database; the world, the characters, character select, the world save and the spawn haven't been
-tried there.
+**Built and tested on Linux**: all of Conductor.  **Ensemble's editor tool** compiled and ran in Unity
+(653 clips copied from `Male`, the Console clean), all but its last change: **the CLASHES view hasn't been
+compiled yet**, so expect a fix there first if Unity complains.  None of the plugin's checks on
+TEST_CHECKLIST.html have been ticked off yet; Jacob says which passed.  **On Windows**: Conductor builds and
+runs, START SERVER included, without a database; the world, the characters, character select, the world
+save and the spawn haven't been tried there.
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -56,53 +60,49 @@ now)".  His to change.
 
 His order after that (2026-10-01): "building the network infrastructure up then the chapter after that will
 be testing wtih a py script then we're on to building the client", and "then we're ready to start testing
-it with a real client".  At this hand-off: **"roll this session up and next one we start work on
-Ensemble"**.  Chat, the other half of 0.0.1, isn't designed yet.
+it with a real client".  Chat, the other half of 0.0.1, isn't designed yet.
 
-## Last session -- 2026-10-01, networking's half of the spawn
+On Ensemble (2026-10-01): "first things first" was the animation tool.  At this hand-off: **"we're going to
+move on to setting up the client code (the underlying logic that's going to drive our dynamic UI
+generation)"**.
 
-Jacob: "CLAUDE its TIME to BUILD".  The loop, as he OKed it: login, character select, the pick, the
-character in the world at its last save, and out again with its player however the session ends, saved.
-Planned, talked through, built and checked.  `design/conductor-networking.md`, "The spawn", has all of it;
-TODO.md, "Picking a character to play", has his answers in the order they came.
+## Last session -- 2026-10-01, Ensemble's first: Copy Anims From FBX Pack
 
-- **Protocol version 6.**  `UserPressPlay` (`0x27`, the ask and the uuid) and `CharacterEnteredWorld`
-  (`0x28`, the ask, the uuid, the name, x, y, z as f32s): Jacob's names.  A pick that can't be played gets
-  a CommandRefused.  Kicked reason `6`, "character locked for a moment".
-- **Protogame does the slow part** (`play()`, `bring_in()` in `protogame.rs`): the row and the save, an
-  unplayable character turned away, the save laid over the Character template (a save that won't load
-  marks it unplayable), then `conductor_gameclock::enter()`.  Only then is the character written on the
-  player in the book; a player who left meanwhile has it taken straight back out.
-- **Every way out of the book takes the character out**, through `remove_player_in()` and `with_book()`
-  calling `conductor_gameclock::leave()`, and `clear()` on STOP SERVER.
-- **No way back to character select from the world**: "you log out back to log in screen every time", and
-  "Even if you camp out, you go back to login screen not char select."  Character select's asks are
-  refused once the character is in.
-- **The race, and Jacob's fix for it.**  A second login could read a character's row before the last
-  session's save of it landed.  After a misunderstanding (I read his first "lockout" as a leaving lock; he
-  meant a load lock), the answer was **the lock both ways** ("we lock it when it does that"): 1 second on
-  loading, 1 second on leaving and as long after as its save is on its way; a pick of a locked character
-  gets Kicked 6 and logs in again.  And his "do we have any way to force a save on the connection being
-  kicked before the new one pops in?": the GameClock marks a leaving character **"saving"** until its save
-  lands (`saving()`, `wait_until_saved()`, a Condvar), and the login that logged the other session out
-  waits for it before its ticket goes out, **up to 5 seconds** (his number), past that Login Unavailable.
-- **The Connections tab** has the character beside the account on the UDP list ("character select",
-  greyed, until there is one), and the log says "at character select" on the Connect and "is in the world
-  as Spawny" once the character is.
-- **The test client**: `--play NAME`.  The checklist's account is now `testuser123` / `Testpass1!`, with
-  `--host 10.0.0.84` (Jacob's `bind_address`).
+Jacob: "it is time to start working on Opus::Ensemble!", then "first things first", the animation data: the
+animation packs come as one FBX per animation (`RPG-Character@Unarmed-Attack-L1`, `HumanM@...`) with the
+clip inside it, and he wanted a plugin to find them all under a folder and pull them out.
 
-**What fought back**: nothing in the code; it built with no warnings and every test passed first time (22 in
-the GameClock, 75 in networking, 39 in the web admin).  What took three goes was understanding the lock,
-which is why CLAUDE.md's "ask before building" earned its keep: a Kicked can mean "back to the login" or
-"try again", and a lock can sit on loading or on leaving.
+- **Tools > Opus > Copy Anims From FBX Pack** (`Assets/Editor/CopyAnimsFromFbxPack.cs`, an EditorWindow,
+  plain IMGUI).  A source and a destination folder (a path box and BROWSE each; the first version's object
+  fields read as asking for a GameObject).  FIND lists every clip in every model file under the source and
+  its subfolders, all ticked, grouped by folder, Unity's `__preview__` clips left out.  A box per prefix
+  (the file name up to and including the `@`): whatever's typed replaces it in every file that has it,
+  blank drops it (Jacob's `HumanM@` -> `Male_Humanoid_`).  COPY writes the ticked ones as `.anim` under the
+  destination in the same folders as the source's.
+- **A copy, not a move**: a clip in an FBX is made fresh from it on every import and can't be taken out.
+  Jacob: "Yes the copy is what I would do".  A second COPY overwrites in place (his pick), into the `.anim`
+  already there, so its GUID stays and whatever uses it keeps it.
+- Two rules of mine, not objected to: an FBX with several clips names each copy after its clip, and two
+  ticked clips landing on the same file show in red and hold COPY.  Jacob hit that once with the whole
+  `Assets/Purchased/` (about 1000 clips) and asked for **a CLASHES view** of only the red ones ("a bitch
+  scrolling through 300+ to find it"); it didn't come back on `Male`.  TODO.md has it.
+- **Our folders under `Assets/`**, Jacob's names: `Assets/Editor/` for the plugins, `Assets/Code/` for the
+  plain C# ("more our raw C# stuff for net I imagine"), `Assets/Scripts/` for the scripts.  The root
+  `.gitignore` keeps all of `Assets/` out but those three and their `.meta`s; the nested
+  `Ensemble/dev/Opus.Ensemble/.gitignore` (a lone `Assets/`, which beat the root's exceptions) is gone.
+  The copies can't go in the three (they're the packs' art) and the window refuses a destination there.
+- CLAUDE.md's "Client rules (Ensemble)" isn't a FILL IN any more: the folders, where `.meta` files come
+  from, Tools > Opus, Jacob runs Unity.
 
-**Tested by Jacob, all passed**: the build and the tests; into the world and out; the Connections tab and
-the Services tab's player count; character select only; logging the other session out (the wait for the
-save, the lock's Kicked, then in on the next try); KICK and STOP SERVER taking the character out; a save
-broken in DataGrip refused, on the bell and UNPLAYABLE.
+**What fought back**: git, not the code.  The `.meta` commit went round twice: the commit ran without the
+`git add` before it, so it committed nothing, and the push said everything was up to date.  CLAUDE.md now
+says the add comes first, by full path, every time.
 
 ## What Ensemble has to speak
+
+The session before this one finished networking's half of the spawn (protocol version 6, UserPressPlay and
+CharacterEnteredWorld, the character's lock both ways, no way back to character select from the world);
+`design/conductor-networking.md`, "The spawn", has all of it, and it was all tested by Jacob.
 
 PROTOCOL.md is the whole contract, written for somebody building a client who has never seen Conductor's
 code: TLS 1.3 against the one certificate (`Content/certs/conductor.crt`, the copy the client keeps), the
@@ -115,17 +115,20 @@ CharacterEnteredWorld the server sends nothing yet: no chunks, no other players,
 
 ## Where the next session starts
 
-Jacob: "next one we start work on Ensemble".  What that first step is, is his to say; ask before planning.
-What's known (TODO.md and the list below): its project settings are committed, including
-`Assembly-CSharp*.csproj` and `Opus.Ensemble.slnx`, which Unity rewrites on every open and usually stay out
-of git, and the nested `Ensemble/dev/Opus.Ensemble/.gitignore` has no header.  Before more of it goes in, a
-look together at what a Unity project commits, where the purchased art goes, and LFS.  CLAUDE.md's "Client
-rules (Ensemble)" section is still a FILL IN.  Ensemble has no way to find `Content/` yet.  A new folder,
-a new piece or a new name goes past Jacob first (CLAUDE.md).
+Jacob: **"setting up the client code (the underlying logic that's going to drive our dynamic UI
+generation)"**.  What that means is his to say; ask before planning.  "Dynamic UI generation" could be UI
+built from code at run time (UI Toolkit or uGUI made by script) or screens driven by what the server sends,
+and "the underlying logic" could be the screens' state (login, character select, the world) or the network
+client under them; each reads differently in practice.  What's known: the plain C# goes in `Assets/Code/`,
+scripts in `Assets/Scripts/` (CLAUDE.md); `Packages/` is ignored, so the first package the client needs
+makes the manifest question real (TODO.md, "Ensemble's project files in git"); Conductor speaks TLS 1.3 only,
+and whether Unity's TLS does 1.3 is unchecked, so the first login from Unity should be the handshake alone.
+The CLASHES view is still to compile.
 
 ## What's waiting
 
-- **Ensemble**: above.
+- **Ensemble's client code**: above.  **Ensemble's project files in git** (Packages/, the .csproj files,
+  LFS for scenes): TODO.md.
 - **Chat**, the rest of the 0.0.1 goal.  Not designed (TODO.md).
 - **What the client is sent after CharacterEnteredWorld**: the world around it (chunks, `region.map`),
   other players, movement.  `design/world.md`, `design/gameclock.md`.

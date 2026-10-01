@@ -32,8 +32,9 @@ Project root: `/opt/storage/Coding/Opus`
     code stays wired in but can sit untested. macOS isn't a target. See
     "Linux and Windows" under the Rust rules.
 - **Ensemble** -- the game client that players run.
-  - Engine / language: Unity 6000.6 (C#).  Its project settings are
-    committed; the rest is on Jacob's machine.
+  - Engine / language: Unity 6000.6 (C#).  Its project settings and our
+    three folders under `Assets/` are committed; the rest is on Jacob's
+    machine.
   - Folder: `Ensemble/`
 - **Soundcheck** (`Opus.Soundcheck`) -- the patcher, not started.  It runs
   before the game and hands each client a certificate of its own, so the
@@ -724,12 +725,18 @@ When I say we're wrapping up:
   are the only part of `Assets/` that's committed (the root `.gitignore`);
   everything else in `Assets/` is the purchased art and what Unity makes
   from it, and stays on Jacob's machine.  So purchased art, and anything
-  copied out of it, never goes in those three.  A new folder of ours under
+  copied out of it, never goes in those three.  Jacob keeps the purchased
+  art in `Assets/Purchased/`, and art copied out of it (the animations)
+  under `Assets/Art/`.  A new folder of ours under
   `Assets/` goes past Jacob first, and into the `.gitignore` with its
   `.meta`.
 - Unity makes a `.meta` beside every file and folder.  A session can't run
   Unity, so a new file's `.meta` comes from Jacob's machine: the reply gives
-  him the `git add` / `git commit` / `git push` for it once Unity's made it.
+  him the `git add` (by full path, never skipped: a commit without it
+  commits nothing), `git commit`, `git pull --no-rebase --no-edit` and
+  `git push origin HEAD:testing HEAD:unstable` once Unity's made it.  Unity
+  also rewrites `ProjectSettings.asset` now and then, which goes in with
+  them.
 - An editor plugin is a menu item under **Tools > Opus** (the first,
   2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
 - **Jacob runs Unity**, the same as Conductor: the session writes the C#, he

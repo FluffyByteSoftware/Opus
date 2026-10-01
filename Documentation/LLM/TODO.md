@@ -246,9 +246,26 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   as each player leaves.  A new table, so its own session.
 - **Where the test client lives** and what it's called, once it outgrows `networking/`.
 - Monitor on macOS: `proc_pidinfo` / `proc_pid_rusage` from libproc.  Waits on a Mac to test on.
-- Ensemble has no way to find `Content/` yet.  Ensemble's first session's call.
-- Where the purchased art lives, and whether it goes in the repo through LFS.  `Content/Assets/` is
-  ignored for now.  Jacob's call when the client needs it.
+- Ensemble has no way to find `Content/` yet, if it ever needs to (it needs the certificate,
+  `Content/certs/conductor.crt`, to check the server).  Whichever Ensemble session first needs it.
+- **The purchased art lives in Ensemble** (2026-10-01): `Assets/Purchased/` in the Unity project, ignored
+  like the rest of `Assets/` but our three folders.  It isn't in the repo at all, LFS or not.  Whether
+  `Content/Assets/` (ignored, empty) still has a use is open; nothing reads it.
+- **Ensemble's project files in git**, still to look at together:
+  - `Packages/` is ignored, so `Packages/manifest.json` (which packages the project uses) and
+    `packages-lock.json` aren't committed.  A Unity project usually commits both, and the first package
+    the client code needs (the Input System, say) makes it matter.
+  - `Assembly-CSharp*.csproj` and `Opus.Ensemble.slnx` are committed, but Unity rewrites them on every
+    open and they usually stay out.
+  - `.gitattributes` sends `.unity` scenes and `.anim` through LFS.  Both are text Unity can merge;
+    asked on 2026-10-01, not answered yet.
+- **Copy Anims From FBX Pack** (`Assets/Editor/CopyAnimsFromFbxPack.cs`), small things if they bite:
+  - The red "would land on the same file" showed up once with the whole `Assets/Purchased/` as the
+    source (about 1000 clips), and not again on `Male`.  With several packs at once, two packs' files
+    can come out with the same name in a folder of the same name, or an FBX holding several clips names
+    each copy after its clip.  The CLASHES view shows which, the next time.
+  - Unticking is the only way to sort out one clip; a prefix renames every file that has it.  A rename
+    box per clip, or the FBX's name in a several-clip copy's name, if that's not enough.
 - **Stale words in the code**, for whichever session next touches each file:
   - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and
     Blacklist), and a comment the same.

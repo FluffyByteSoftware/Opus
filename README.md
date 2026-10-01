@@ -12,7 +12,8 @@ and Conductor decides.
 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
 game loop ticking over it, and a player can pick a character and stand in that world, though nothing moves
-yet.  Ensemble is only its project settings.  Things will change and things will break.
+yet.  Ensemble is its project settings and one editor tool so far.  Things will change and things will
+break.
 
 **The first goal, 0.0.1, is a player spawned in the world and able to chat.**
 
@@ -33,7 +34,7 @@ yet.  Ensemble is only its project settings.  Things will change and things will
 | The world (GameWorld)                            | Made and loaded; nothing changes a block yet           |
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Movement, chat                                   | Not started                                            |
-| Ensemble                                         | Unity project settings only                            |
+| Ensemble                                         | Project settings, and an editor tool for the art       |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.
@@ -182,7 +183,7 @@ Opus/
 │   ├── dev/                       the Cargo workspace, one folder per crate (above)
 │   └── build/                     compiled output, never committed
 ├── Ensemble/
-│   └── dev/Opus.Ensemble/         the Unity 6000.6 project (its project settings, for now)
+│   └── dev/Opus.Ensemble/         the Unity 6000.6 project: its settings, and Assets/Editor, Code and Scripts
 ├── Content/                       what both programs read and write
 │   ├── cfg/                       the config files and the two access lists
 │   ├── certs/                     the TLS certificate (committed) and its key (never)

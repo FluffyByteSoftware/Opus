@@ -149,9 +149,11 @@ Opus/
 ├── Ensemble/                          # the client
 │   └── dev/Opus.Ensemble/             # the Unity 6000.6 project: its ProjectSettings/ are committed; Packages/
 │       │                              #   and UserSettings/ are gitignored, the rest on Jacob's machine
-│       └── Assets/                    # gitignored (the purchased art), all but our three folders and their .metas
+│       └── Assets/                    # gitignored, all but our three folders and their .metas; the purchased
+│           │                          #   art is in Assets/Purchased/, copies of it in Assets/Art/
 │           ├── Editor/                # editor plugins, under Tools > Opus
-│           │   └── CopyAnimsFromFbxPack.cs # copies an animation pack's clips out of its FBXs into .anim files
+│           │   └── CopyAnimsFromFbxPack.cs # copies an animation pack's clips out of its FBXs into .anim files;
+│           │                          #   EVERY CLIP and CLASHES views
 │           ├── Code/                  # the plain C#, the networking say (none yet)
 │           └── Scripts/               # the scripts (none yet)
 ├── Content/                           # committed, except Assets/, logs/ and world/; made on first run if missing
@@ -209,7 +211,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Name                 | What it is                                              | State                            |
 |----------------------|---------------------------------------------------------|----------------------------------|
 | Conductor            | The server.  It owns the game state.                    | Tested on Linux; runs on Windows |
-| Ensemble             | The client players run.  Unity 6000.6, C#.              | Project settings committed       |
+| Ensemble             | The client players run.  Unity 6000.6, C#.              | Settings and one editor tool     |
 | Soundcheck           | The patcher: hands each client a certificate.           | Named, not started               |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
