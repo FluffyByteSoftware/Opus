@@ -735,11 +735,20 @@ When I say we're wrapping up:
   `.meta`.
 - Unity makes a `.meta` beside every file and folder.  A session can't run
   Unity, so a new file's `.meta` comes from Jacob's machine: the reply gives
-  him the `git add` (by full path, never skipped: a commit without it
-  commits nothing), `git commit`, `git pull --no-rebase --no-edit` and
-  `git push origin HEAD:testing HEAD:unstable` once Unity's made it.  Unity
-  also rewrites `ProjectSettings.asset` now and then, which goes in with
-  them.
+  him the `git add` (never skipped: a commit without it commits nothing),
+  `git status --short` to look at before committing, `git commit`,
+  `git pull --no-rebase --no-edit` and
+  `git push origin HEAD:testing HEAD:unstable`, once Unity has compiled
+  (it imports, and makes the `.meta`s, when its window gets focus).  The
+  add is always the two folders, never a list of files:
+  `git add -A /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/ProjectSettings`.
+  The `.gitignore` keeps out all of `Assets/` but our four folders, so
+  that's exactly ours.  A list of files fails whole when one isn't there
+  yet (2026-10-01), and `-A` on the whole project swept in what Unity
+  makes beside `Assets/` (`UIElementsSchema/`, the `.sln`).  Unity
+  rewrites `ProjectSettings.asset` now and then, and writes it only on
+  File > Save Project or on closing, which is why a setting changed in
+  Player Settings can be missing from a commit.
 - An editor plugin is a menu item under **Tools > Opus** (the first,
   2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
 - **Jacob runs Unity**, the same as Conductor: the session writes the C#, he
