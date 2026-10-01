@@ -52,7 +52,9 @@ Phases 2 and 3 are in TODO.md.
     **The stylesheets in `Assets/Data/Styles/`** (Jacob), `hud.uss` the first.
   - **The player's layout in Unity's per-user folder** ("per user folder yep"):
     `persistentDataPath/hud_layout.json`, `~/.config/unity3d/<Company>/<Product>/` on Linux,
-    `AppData\LocalLow\<Company>\<Product>\` on Windows.
+    `AppData\LocalLow\<Company>\<Product>\` on Windows.  The two names are Player Settings' Company Name
+    and Product Name: on Jacob's machine `FluffyByte Studios` and `Forgotten Legends`, so
+    `~/.config/unity3d/FluffyByte Studios/Forgotten Legends/hud_layout.json`.
 - **Every screen is built with the tool, and only the player's HUD is dynamic** (Jacob: "we are going to
   use the tool to build layouts but the only dynamic one is the player hud").  The login and character
   select are layouts too, made in the editor and shipped with the game, but never read from the player's
