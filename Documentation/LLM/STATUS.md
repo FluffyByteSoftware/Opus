@@ -38,8 +38,8 @@ Unity's `.meta` files and `ProjectSettings.asset`).  `main` moves when Jacob say
 
 **Built and tested on Linux**: all of Conductor.  **Ensemble's editor tool** compiled and ran in Unity
 (653 clips copied from `Male`, the Console clean), all but its last change: **the CLASHES view hasn't been
-compiled yet**, so expect a fix there first if Unity complains.  None of the plugin's checks on
-TEST_CHECKLIST.html have been ticked off yet; Jacob says which passed.  **On Windows**: Conductor builds and
+confirmed compiled yet**, so expect a fix there first if Unity complains.  Five of the plugin's six checks
+passed and are out of TEST_CHECKLIST.html; the CLASHES one is left (Jacob's tab predated it).  **On Windows**: Conductor builds and
 runs, START SERVER included, without a database; the world, the characters, character select, the world
 save and the spawn haven't been tried there.
 

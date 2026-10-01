@@ -202,39 +202,8 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      Unity compiles Assets/Editor/CopyAnimsFromFbxPack.cs with nothing in the Console, and
-      Tools &gt; Opus &gt; Copy Anims From FBX Pack opens the window.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      FIND on the pack's folder lists every clip under it and its subfolders, grouped by folder, all
-      ticked, with no __preview__ clips, and one line under Prefixes for each prefix (RPG-Character@).
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      With the prefix blanked, a few clips unticked and a destination outside Assets/Editor, Code and
-      Scripts, COPY makes Unarmed-Attack-L1.anim and the rest in the same folders as the pack's, and none
-      of the unticked ones.  Each .anim plays in the Inspector's preview.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      COPY a second time says they were overwritten, not new, and an Animator using one of the copies
-      still has its clip.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       With clips in red, CLASHES (and its count) lists only those, under the file each group would land on;
       unticking one of a pair drops both off it, and with none left it says No clashes.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A destination inside Assets/Editor is refused with a warning, and git status shows the .cs and
-      Unity's .meta files under Assets/Editor, but nothing from the pack and none of the copies.
     </span></label>
   </li>
 </ul>
