@@ -64,10 +64,16 @@
 //! book notes it, and `with_book()` asks the GameClock to save it and take
 //! it out once the lock is let go.
 //!
-//! A character that just left can't be picked again for a second
-//! (`LEAVING_LOCKOUT`), so a quick second login can't read its row before
-//! its leaving save lands.  Jacob's fix, 2026-10-01: "a lockout on a
-//! character being instantiated for like 1 second".
+//! A character is locked for a second (`LOCK_FOR`) whenever it moves
+//! between the database and the world: when Protogame starts loading it
+//! (`lock_for_loading()`), and when it leaves.  One that left stays locked
+//! after that for as long as the GameClock says its save is on its way to
+//! the database.  A pick of a locked character isn't read at all.  So two
+//! copies of one character are never brought in at once, and a quick
+//! second login never reads a row before its last save is in it.  Jacob,
+//! 2026-10-01: "a temporary 'load' lock on a character as its pulled from
+//! database to memory... and loaded in the world", then, shown the leaving
+//! side, "we lock it when it does that", both ways.
 //!
 //! The work is done by functions on a `Book` handed to them, so the tests
 //! run on books of their own and never touch the real one.
@@ -85,12 +91,10 @@ use conductor_tools::scribe::{self, Channel};
 
 use crate::ledger::{self, Gone};
 
-/// How long a character that left the world can't be picked again, so its
-/// leaving save lands before anybody reads its row.  The GameClock takes
-/// the note within a cycle (250 ms) and Archivist writes it after; a
-/// second covers both with room to spare.  Fixed in code: a setting
-/// would only be a way to get it wrong.
-pub const LEAVING_LOCKOUT: Duration = Duration::from_secs(1);
+/// How long a character is locked when it starts loading or leaves the
+/// world.  Jacob's second.  Fixed in code: a setting would only be a way
+/// to get it wrong.
+pub const LOCK_FOR: Duration = Duration::from_secs(1);
 
 /// A ticket handed out and not yet used.
 struct Ticket {
@@ -155,15 +159,35 @@ struct Book {
     /// Characters to take out of the world, by their row's id, from the
     /// last change to the book.  Emptied by `with_book()` each time.
     leaving: Vec<i64>,
-    /// Characters that left the world, by uuid, and when: the lockout.
-    /// The sweep forgets them once it's over.
-    left: HashMap<String, Instant>,
+    /// Characters locked for a moment, by uuid (lowercase, as the
+    /// database gives it).
+    locks: HashMap<String, Lock>,
+}
+
+/// A character's lock: when it started, and its row's id once the book
+/// knows it (a character that left the world), so the GameClock can be
+/// asked whether its save is still on its way.  A loading lock is
+/// forgotten by the sweep once its second is over; a leaving one stays,
+/// one per character that left this run, overwritten if it leaves again,
+/// until STOP SERVER.  A few bytes each, for not keeping a list of which
+/// saves to go back and ask about.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Lock {
+    since: Instant,
+    character_id: Option<i64>,
+}
+
+impl Lock {
+    /// Whether its second is still running at `now`.
+    fn fresh(&self, now: Instant) -> bool {
+        now.saturating_duration_since(self.since) < LOCK_FOR
+    }
 }
 
 impl Book {
     fn new() -> Book {
         Book { tickets: HashMap::new(), players: HashMap::new(), accounts: HashMap::new(), gone: Vec::new(),
-               leaving: Vec::new(), left: HashMap::new() }
+               leaving: Vec::new(), locks: HashMap::new() }
     }
 }
 
@@ -358,28 +382,41 @@ pub fn entered(from: SocketAddr, account: &str, ask: u32, character: InWorld, an
 }
 
 /// Takes a character out of the world that no player in the book holds:
-/// the one whose player left while it was being brought in.  The lockout
-/// starts for it all the same.
+/// the one whose player left while it was being brought in.  It's locked
+/// on the way out all the same.
 pub fn leave_world(character_id: i64, uuid: &str) {
     with_book(|book| {
         book.leaving.push(character_id);
-        book.left.insert(uuid.to_string(), Instant::now());
+        lock_leaving_in(book, uuid, character_id, Instant::now());
     });
 }
 
-/// True while the character `uuid` is in its lockout: it left the world
-/// less than LEAVING_LOCKOUT ago.
-pub fn just_left(uuid: &str) -> bool {
-    just_left_in(&book(), uuid, Instant::now())
+/// Locks the character `uuid` for loading, for Protogame, before it reads
+/// the row.  False if it's locked already: it started loading or left the
+/// world less than a second ago, or its save from leaving is still on its
+/// way to the database.  Then it isn't to be read at all.
+pub fn lock_for_loading(uuid: &str) -> bool {
+    let now = Instant::now();
+    let left_as = match book().locks.get(&uuid.to_ascii_lowercase()) {
+        Some(lock) if lock.fresh(now) => return false,
+        Some(lock) => lock.character_id,
+        None => None,
+    };
+    // Asked with the book's lock let go: the GameClock has its own.
+    if left_as.is_some_and(conductor_gameclock::saving) {
+        return false;
+    }
+    lock_loading_in(&mut book(), uuid, now);
+    true
 }
 
-/// Sends the player at `from` back to the login: they picked a character
-/// still in its lockout.  True if they were there to send back; the
-/// caller tells them with a Kicked.
+/// Sends the player at `from` back to the login: they picked a locked
+/// character.  True if they were there to send back; the caller tells
+/// them with a Kicked.
 pub fn turn_away(from: SocketAddr, account: &str) -> bool {
     with_book(|book| {
         if book.players.get(&from).is_some_and(|player| player.account == account) {
-            remove_player_in(book, from, Gone::CharacterLeaving).is_some()
+            remove_player_in(book, from, Gone::CharacterLocked).is_some()
         } else {
             false
         }
@@ -392,9 +429,11 @@ pub fn leave(from: SocketAddr) -> Option<String> {
 }
 
 /// An account's player is being logged out by a second login from `by`.
-/// Their address, so the UDP side can tell them, and any unused ticket the
-/// account had dies too.
-pub fn kick(account: &str, by: SocketAddr) -> Option<SocketAddr> {
+/// Their address, so the UDP side can tell them, and their character's
+/// row id if it was in the world: it's been asked out by the time this
+/// comes back, and the login waits for its save before handing out its
+/// ticket.  Any unused ticket the account had dies too.
+pub fn kick(account: &str, by: SocketAddr) -> Option<(SocketAddr, Option<i64>)> {
     with_book(|book| kick_in(book, account, by))
 }
 
@@ -546,13 +585,19 @@ fn entered_in(book: &mut Book, from: SocketAddr, account: &str, ask: u32, charac
     true
 }
 
-fn just_left_in(book: &Book, uuid: &str, now: Instant) -> bool {
+/// Starts a character's loading lock.  A leaving lock it already has
+/// keeps its row id.
+fn lock_loading_in(book: &mut Book, uuid: &str, now: Instant) {
     // A uuid comes out of the database in lowercase, and a client could
     // send it back in capitals and still find the row.
-    match book.left.get(&uuid.to_ascii_lowercase()) {
-        Some(&when) => now.saturating_duration_since(when) < LEAVING_LOCKOUT,
-        None => false,
-    }
+    book.locks.entry(uuid.to_ascii_lowercase())
+        .and_modify(|lock| lock.since = now)
+        .or_insert(Lock { since: now, character_id: None });
+}
+
+/// Starts a character's leaving lock.
+fn lock_leaving_in(book: &mut Book, uuid: &str, character_id: i64, now: Instant) {
+    book.locks.insert(uuid.to_ascii_lowercase(), Lock { since: now, character_id: Some(character_id) });
 }
 
 fn players_in(book: &Book, now: Instant) -> Vec<PlayerView> {
@@ -584,7 +629,7 @@ fn remove_player_in(book: &mut Book, from: SocketAddr, how: Gone) -> Option<Stri
     let player = book.players.remove(&from)?;
     if let Some(character) = player.character {
         book.leaving.push(character.id);
-        book.left.insert(character.uuid, Instant::now());
+        lock_leaving_in(book, &character.uuid, character.id, Instant::now());
     }
     let name = player.account;
     if book.accounts.get(&name) == Some(&Whereabouts::Playing(from)) {
@@ -606,11 +651,14 @@ fn remove_ticket_in(book: &mut Book, token: &str, how: Gone) -> Option<String> {
     Some(name)
 }
 
-fn kick_in(book: &mut Book, account: &str, by: SocketAddr) -> Option<SocketAddr> {
+fn kick_in(book: &mut Book, account: &str, by: SocketAddr) -> Option<(SocketAddr, Option<i64>)> {
     match book.accounts.get(account).cloned() {
         Some(Whereabouts::Playing(address)) => {
+            let character = book.players.get(&address)
+                .and_then(|player| player.character.as_ref())
+                .map(|character| character.id);
             remove_player_in(book, address, Gone::Replaced { by });
-            Some(address)
+            Some((address, character))
         }
         Some(Whereabouts::Ticket(token)) => {
             remove_ticket_in(book, &token, Gone::TicketTaken);
@@ -677,8 +725,9 @@ fn sweep_in(book: &mut Book, now: Instant, udp_timeout: Duration, token_deadline
         }
     }
 
-    // Lockouts that are over are nothing to keep.
-    book.left.retain(|_, when| now.saturating_duration_since(*when) < LEAVING_LOCKOUT);
+    // A loading lock whose second is over is nothing to keep.  A leaving
+    // one stays (see Lock).
+    book.locks.retain(|_, lock| lock.fresh(now) || lock.character_id.is_some());
 
     swept
 }
@@ -797,21 +846,60 @@ mod tests {
         connect_in(&mut book, "abc", home, now);
         begin_ask_in(&mut book, home, 1, now);
         assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
-        assert!(!just_left_in(&book, &uuid, now), "in the world, not left");
+        assert!(book.locks.is_empty(), "in the world, not leaving");
 
         assert_eq!(remove_player_in(&mut book, home, Gone::SaidGoodbye), Some("jacob".to_string()));
         assert_eq!(book.leaving, vec![42]);
         let left = Instant::now();
-        assert!(just_left_in(&book, &uuid, left));
-        assert!(just_left_in(&book, &uuid.to_ascii_uppercase(), left), "whatever the capitals");
-        assert!(!just_left_in(&book, &uuid, left + LEAVING_LOCKOUT), "a second on, it can be picked");
-        assert!(!just_left_in(&book, "0199aaaa-0000-7000-8000-000000000002", left), "only that character");
+        let lock = book.locks[&uuid];
+        assert_eq!(lock.character_id, Some(42), "so the GameClock can be asked about its save");
+        assert!(lock.fresh(left));
+        assert!(!lock.fresh(left + LOCK_FOR), "a second on, only its save can hold it");
 
-        // The sweep forgets a lockout that's over, and keeps one that isn't.
-        sweep_in(&mut book, left, Duration::from_secs(40), Duration::from_secs(30));
-        assert_eq!(book.left.len(), 1);
-        sweep_in(&mut book, left + LEAVING_LOCKOUT, Duration::from_secs(40), Duration::from_secs(30));
-        assert!(book.left.is_empty());
+        // The sweep keeps a leaving lock past its second, for its save.
+        sweep_in(&mut book, left + LOCK_FOR, Duration::from_secs(40), Duration::from_secs(30));
+        assert_eq!(book.locks.len(), 1);
+    }
+
+    #[test]
+    fn a_loading_lock_lasts_a_second_whatever_the_capitals() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let uuid = jacob().uuid;
+        lock_loading_in(&mut book, &uuid.to_ascii_uppercase(), now);
+        assert!(book.locks[&uuid].fresh(now));
+        assert_eq!(book.locks[&uuid].character_id, None);
+        assert!(!book.locks.contains_key("0199aaaa-0000-7000-8000-000000000002"), "only that character");
+
+        // The sweep keeps it through its second, and forgets it after.
+        sweep_in(&mut book, now, Duration::from_secs(40), Duration::from_secs(30));
+        assert_eq!(book.locks.len(), 1);
+        sweep_in(&mut book, now + LOCK_FOR, Duration::from_secs(40), Duration::from_secs(30));
+        assert!(book.locks.is_empty());
+    }
+
+    #[test]
+    fn loading_a_character_that_left_keeps_its_row_id() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let uuid = jacob().uuid;
+        lock_leaving_in(&mut book, &uuid, 42, now);
+        let later = now + Duration::from_secs(5);
+        lock_loading_in(&mut book, &uuid, later);
+        assert_eq!(book.locks[&uuid], Lock { since: later, character_id: Some(42) });
+    }
+
+    #[test]
+    fn a_kick_hands_back_the_character_in_the_world() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "abc", 1, now);
+        connect_in(&mut book, "abc", home, now);
+        begin_ask_in(&mut book, home, 1, now);
+        assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
+        assert_eq!(kick_in(&mut book, "jacob", address("10.0.0.84:44194")), Some((home, Some(42))));
+        assert_eq!(book.leaving, vec![42]);
     }
 
     #[test]
@@ -823,7 +911,7 @@ mod tests {
         connect_in(&mut book, "abc", home, now);
         remove_player_in(&mut book, home, Gone::WentQuiet);
         assert!(book.leaving.is_empty());
-        assert!(book.left.is_empty());
+        assert!(book.locks.is_empty());
     }
 
     #[test]
@@ -894,7 +982,7 @@ mod tests {
 
         issue_in(&mut book, "jacob", "abd", 7, now);
         connect_in(&mut book, "abd", home, now);
-        assert_eq!(kick_in(&mut book, "jacob", second_login), Some(home));
+        assert_eq!(kick_in(&mut book, "jacob", second_login), Some((home, None)));
         assert!(book.players.is_empty() && book.accounts.is_empty());
 
         assert_eq!(kick_in(&mut book, "nobody", second_login), None);

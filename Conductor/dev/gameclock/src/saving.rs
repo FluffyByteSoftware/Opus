@@ -20,7 +20,12 @@
 //!
 //! A write that fails comes back only in its `Pending`, so the saves on
 //! their way are kept here and looked at each housekeeping, never waited
-//! on, and a failure is an Error on the bell.
+//! on, and a failure is an Error on the bell.  Once a leaving save has its
+//! answer, landed or failed, its characters' "saving" marks come off
+//! (`players::saved()`), so a login waiting to bring one back in goes on.
+//! Only a leaving save does that: a world save sent just before a
+//! character asked to leave has its old copy, and the copy that counts is
+//! the one it left with.
 
 use std::time::{Duration, Instant};
 
@@ -28,6 +33,8 @@ use conductor_accounts::characters::{self, SavedCharacter};
 use conductor_tools::archivist::Pending;
 use conductor_tools::constellations::{self, GAME};
 use conductor_tools::scribe::{self, Channel};
+
+use crate::players;
 
 /// How long the GameClock waits for its last saves on the way out, once
 /// its thread is done beating, so the log can say whether they landed.
@@ -94,10 +101,12 @@ pub struct Writes {
     on_the_way: Vec<Write>,
 }
 
-/// One save on its way: what it was, how many characters, and its answer.
+/// One save on its way: what it was, how many characters, the row ids of
+/// the ones leaving the world (empty for a world save), and its answer.
 struct Write {
     what: &'static str,
     characters: usize,
+    leaving: Vec<i64>,
     pending: Pending<u64>,
 }
 
@@ -107,14 +116,25 @@ impl Writes {
     }
 
     /// Hands the characters to Archivist to be written in one transaction.
-    /// Comes straight back.
+    /// Comes straight back.  For a world save.
     pub fn send(&mut self, what: &'static str, saved: Vec<SavedCharacter>) {
+        self.send_with(what, saved, Vec::new());
+    }
+
+    /// The same, for characters leaving the world: when it has its answer,
+    /// their "saving" marks come off.
+    pub fn send_leaving(&mut self, saved: Vec<SavedCharacter>) {
+        let leaving: Vec<i64> = saved.iter().map(|character| character.character_id).collect();
+        self.send_with("save characters leaving the world", saved, leaving);
+    }
+
+    fn send_with(&mut self, what: &'static str, saved: Vec<SavedCharacter>, leaving: Vec<i64>) {
         if saved.is_empty() {
             return;
         }
-        let count = saved.len();
+        let characters = saved.len();
         let pending = characters::save_all(what, saved);
-        self.on_the_way.push(Write { what, characters: count, pending });
+        self.on_the_way.push(Write { what, characters, leaving, pending });
     }
 
     /// Looks at each save on its way, without waiting, and says so if one
@@ -125,6 +145,7 @@ impl Writes {
         self.on_the_way.retain(|write| match write.pending.check() {
             Some(answer) => {
                 report(write, answer);
+                players::saved(&write.leaving);
                 false
             }
             None => true,

@@ -55,7 +55,7 @@ use saving::{WorldSave, Writes};
 
 // Rust note: `pub use` hands these on, so networking can write
 // `conductor_gameclock::enter(...)`.
-pub use players::{enter, leave};
+pub use players::{enter, leave, saving, wait_until_saved};
 
 /// One check's share of a cycle, in milliseconds.
 const CHECK_MS: u64 = 50;
@@ -106,6 +106,7 @@ pub fn start() {
     }
 
     READY.store(false, Ordering::SeqCst);
+    players::forget_saving();
     services::set(services::GAMECLOCK, State::Starting, "Making a fresh world.");
     let (stop, stopped) = mpsc::channel();
     let notes = players::open_mailbox();
@@ -238,6 +239,9 @@ fn run(stopped: Receiver<()>, notes: Receiver<players::Note>) {
     READY.store(false, Ordering::SeqCst);
     let saved = save_world(&mut game);
     game.writes.finish();
+    // Whatever was marked saving has landed, failed, or been given up on
+    // above.  Nobody is to wait on it past here.
+    players::forget_saving();
     scribe::info(Channel::Game, &format!("The GameClock has stopped after {cycles} cycles, {late} of them late, \
         and saved the world on the way out ({saved} characters)."));
     services::set(services::GAMECLOCK, State::Stopped, "Shut down.");

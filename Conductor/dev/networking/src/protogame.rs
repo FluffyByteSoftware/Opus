@@ -15,10 +15,12 @@
 //! mailbox (`conductor_gameclock::enter()`).  Only then is the character
 //! written on the player in the book, so a player who left while it was
 //! being brought in leaves nothing standing: their character is taken
-//! straight back out.  A character that left the world under a second
-//! ago isn't read at all (`sessions::just_left()`): its player is sent
-//! back to the login to try again, Jacob's fix for a quick second login
-//! reading the row before the last session's save is in it.
+//! straight back out.  Before any of it the character is locked for a
+//! second (`sessions::lock_for_loading()`), and one that's locked already
+//! (loading, just out of the world, or its save still on its way) isn't
+//! read at all: its player is sent back to the login to try again.
+//! Jacob's lock, 2026-10-01, so no character is brought in twice at once
+//! or on the save before its last.
 //!
 //! Every one of those is a database job, and the UDP thread never waits on
 //! the database.  So the UDP thread hands each ask in here, through a
@@ -318,17 +320,17 @@ fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
 }
 
 /// Plays one of the account's characters: brings it into the world and
-/// tells the player where it stands, or tells them why not.  A character
-/// in its lockout sends the player back to the login instead, with
-/// nothing read.
+/// tells the player where it stands, or tells them why not.  A locked
+/// character sends the player back to the login instead, with nothing
+/// read.
 fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str) {
-    // Before the row is read: the point is not to read it until the last
-    // session's save is in it.
-    if sessions::just_left(uuid) {
+    // Before the row is read: the point is not to read it while another
+    // copy is being brought in, or before the last session's save is in it.
+    if !sessions::lock_for_loading(uuid) {
         if sessions::turn_away(from, account) {
-            udp::tell(from, &protocol::kicked(KickReason::CharacterLeaving));
-            scribe::info(Channel::Security, &format!("{account} at {from} picked a character that left the \
-                world under a second ago.  Sent back to the login to try again."));
+            udp::tell(from, &protocol::kicked(KickReason::CharacterLocked));
+            scribe::info(Channel::Security, &format!("{account} at {from} picked a character that's locked for \
+                a moment (loading, or just out of the world).  Sent back to the login to try again."));
         }
         return;
     }

@@ -17,10 +17,20 @@
 //! character's registered as quit out the game removes them"), and its
 //! save goes to the database on the way.  Nothing is left standing in the
 //! world for a reconnect.
+//!
+//! A character asked out is marked "saving" from the moment `leave()` is
+//! called, on the caller's thread, until its save has landed in the
+//! database (or failed, with the Error on the bell).  Networking asks
+//! `saving()` before it reads a character's row to play it, and a login
+//! that logged another session out waits on `wait_until_saved()` before
+//! it hands out its ticket, so nobody comes in on the save before last.
+//! Jacob, 2026-10-01: "do we have any way to force a save on the
+//! connection being kicked before the new one pops in?"
 
-use std::collections::BTreeMap;
-use std::sync::Mutex;
+use std::collections::{BTreeMap, HashSet};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
+use std::sync::{Condvar, LazyLock, Mutex};
+use std::time::Duration;
 
 use conductor_accounts::characters::SavedCharacter;
 use conductor_primlib::{Blueprint, Component, Entity, Kind, Save, World};
@@ -40,6 +50,15 @@ pub enum Note {
 /// it's stopped, so a note left then is turned away instead of waiting
 /// for a GameClock that isn't coming.
 static MAILBOX: Mutex<Option<Sender<Note>>> = Mutex::new(None);
+
+/// The characters asked out of the world whose save hasn't landed yet, by
+/// their row's id, and the bell that rings when one comes off.
+// Rust note: a Condvar is the OS's own "wait until somebody says so": a
+// thread waits on it with the lock let go, and `notify_all()` wakes it to
+// look again.  Nothing polls.  A HashSet can't be built before the
+// program starts, so LazyLock builds it the first time it's touched.
+static SAVING: LazyLock<Mutex<HashSet<i64>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
+static SAVED: Condvar = Condvar::new();
 
 /// A fresh mailbox, for a fresh start of the GameClock.  The receiving
 /// end goes to its thread.
@@ -66,9 +85,53 @@ pub fn enter(character: Blueprint) -> Result<(), String> {
 }
 
 /// Asks for a player's character to be taken out of the world and saved.
-/// Comes straight back.  An error means the GameClock isn't running.
+/// Comes straight back.  The character is marked "saving" until its save
+/// has landed.  An error means the GameClock isn't running, and then
+/// there's no mark: its last world save on the way down had it.
 pub fn leave(character_id: i64) -> Result<(), String> {
-    send(Note::Leave(character_id))
+    lock(&SAVING).insert(character_id);
+    let sent = send(Note::Leave(character_id));
+    if sent.is_err() {
+        saved(&[character_id]);
+    }
+    sent
+}
+
+/// Whether a character asked out of the world is still on its way to the
+/// database.  Its row isn't to be read to play it until this says false.
+pub fn saving(character_id: i64) -> bool {
+    lock(&SAVING).contains(&character_id)
+}
+
+/// Waits until a character asked out of the world has its save in the
+/// database, for up to `limit`.  True once it has (or it was never
+/// marked); false if `limit` ran out first.  For a login thread, never the
+/// GameClock's.
+pub fn wait_until_saved(character_id: i64, limit: Duration) -> bool {
+    let marks = lock(&SAVING);
+    let (marks, _) = SAVED.wait_timeout_while(marks, limit, |marks| marks.contains(&character_id))
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    !marks.contains(&character_id)
+}
+
+/// Takes the "saving" mark off these characters: their save landed, or
+/// failed, or there was nothing of them to save.  Wakes whoever waits.
+pub(crate) fn saved(character_ids: &[i64]) {
+    if character_ids.is_empty() {
+        return;
+    }
+    let mut marks = lock(&SAVING);
+    for character_id in character_ids {
+        marks.remove(character_id);
+    }
+    SAVED.notify_all();
+}
+
+/// Takes every mark off, for a GameClock starting or stopping: nothing is
+/// on its way any more, and nobody should wait on it.
+pub(crate) fn forget_saving() {
+    lock(&SAVING).clear();
+    SAVED.notify_all();
 }
 
 /// Leaves a note in the mailbox.
@@ -149,17 +212,22 @@ impl Players {
     }
 
     /// Saves a character and despawns it.  `None` if it wasn't in the
-    /// world.
+    /// world, and then its "saving" mark comes off at once, since there's
+    /// nothing of it to save.
     fn leave(&mut self, world: &mut World, character_id: i64) -> Option<SavedCharacter> {
         let Some(entity) = self.in_world.remove(&character_id) else {
             scribe::debug(Channel::Game, &format!("Character {character_id} was asked out of the world, and it \
                 wasn't in it."));
+            saved(&[character_id]);
             return None;
         };
-        let saved = saved_character(world, character_id, entity);
+        let save = saved_character(world, character_id, entity);
         scribe::debug(Channel::Game, &format!("Character {character_id} ({}) left the world.", name(world, entity)));
         world.despawn(entity);
-        saved
+        if save.is_none() {
+            saved(&[character_id]);
+        }
+        save
     }
 
     /// Every player's character in the world as it stands right now, for a
@@ -274,6 +342,46 @@ mod tests {
         assert_eq!(snapshot[1].character_id, 43);
         assert_eq!(snapshot[1].position, [0.0, 0.0, 0.0]);
         assert!(snapshot[0].save.to_lua().contains("x = 12.5"), "{}", snapshot[0].save.to_lua());
+    }
+
+    #[test]
+    fn the_saving_mark_is_waited_on_and_comes_off() {
+        // A row id of its own, so the other tests' marks don't touch it.
+        let id = 9_000_001;
+        assert!(!saving(id));
+        assert!(wait_until_saved(id, Duration::ZERO), "never marked: nothing to wait for");
+
+        lock(&SAVING).insert(id);
+        assert!(saving(id));
+        assert!(!wait_until_saved(id, Duration::from_millis(20)), "still saving when the limit runs out");
+
+        // Another thread lands the save while this one waits.
+        let lands = conductor_tools::threads::spawn("test-save-lands", move || {
+            std::thread::sleep(Duration::from_millis(20));
+            saved(&[id]);
+        });
+        assert!(lands.is_ok());
+        assert!(wait_until_saved(id, Duration::from_secs(5)));
+        assert!(!saving(id));
+    }
+
+    #[test]
+    fn leaving_when_the_gameclock_isnt_running_leaves_no_mark() {
+        let id = 9_000_002;
+        // No GameClock runs in the tests, so there's no mailbox.
+        assert!(leave(id).is_err());
+        assert!(!saving(id));
+    }
+
+    #[test]
+    fn leaving_a_character_that_isnt_in_the_world_takes_its_mark_off() {
+        let id = 9_000_003;
+        let (mailbox, mut players) = players();
+        let mut world = World::new();
+        lock(&SAVING).insert(id);
+        assert!(mailbox.send(Note::Leave(id)).is_ok());
+        players.take_notes(&mut world);
+        assert!(!saving(id));
     }
 
     #[test]

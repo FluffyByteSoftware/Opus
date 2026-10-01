@@ -73,7 +73,7 @@ LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
 DELETE_ANSWERS = {0: "approved", 1: "denied"}
 KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin",
-                5: "ACCOUNT TERMINATED", 6: "character still leaving the world; log in again"}
+                5: "ACCOUNT TERMINATED", 6: "character locked for a moment; log in again"}
 
 
 def put_string(text):

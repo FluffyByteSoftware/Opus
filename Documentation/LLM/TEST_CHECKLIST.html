@@ -203,13 +203,13 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      It builds with no warnings, and every test passes in networking and the web admin (the new ones: the
-      two packets and Kicked reason 6 in bytes, a character written only on the player who asked, character
-      select refused once in the world, a player leaving takes their character out and starts its one-second
-      lockout, and the Connections tab's character).  Cargo.lock changes: commit it (the commands are in the
-      reply).
+      It builds with no warnings, and every test passes in networking, the GameClock and the web admin (the
+      new ones: the two packets and Kicked reason 6 in bytes, a character written only on the player who
+      asked, character select refused once in the world, the locks both ways, a kick handing back the
+      character, the GameClock's saving mark waited on and taken off, and the Connections tab's character).
+      Cargo.lock changes: commit it (the commands are in the reply).
     </span></label>
-    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-networking -p conductor-wgui</pre>
+    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-networking -p conductor-gameclock -p conductor-wgui</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
@@ -238,11 +238,12 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      The one-second lockout: with Spawny in the world from the command above (no --leave-after), run the
-      same command in a second terminal and answer y to log the other out.  The first hears Kicked "logged in
-      elsewhere"; the second hears Kicked "character still leaving the world; log in again", and its TCP row
-      on the Connections tab reads "LINKDEAD: picked a character still leaving the world; logs in again".
-      Run it once more and Spawny comes in.
+      Log the other session out: with Spawny in the world from the command above (no --leave-after), run the
+      same command in a second terminal and answer y.  The first hears Kicked "logged in elsewhere".  The
+      second's Ticket comes once Spawny's save is in (a moment longer than a plain login), then its
+      UserPressPlay most likely lands inside Spawny's one-second leaving lock: Kicked "character locked for a
+      moment; log in again", its TCP row reading "LINKDEAD: picked a character locked for a moment; logs in
+      again".  Run it once more and Spawny comes in.  Nothing on the bell.
     </span></label>
     <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --play Spawny throwaway_01 'Throwaway 1!'</pre>
   </li>

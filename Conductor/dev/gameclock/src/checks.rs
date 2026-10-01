@@ -53,7 +53,7 @@ pub const ALL: [Check; 5] = [
 /// what each one actually does.
 fn input(game: &mut Game) {
     let leaving = game.players.take_notes(&mut game.world);
-    game.writes.send("save characters leaving the world", leaving);
+    game.writes.send_leaving(leaving);
 }
 
 /// The AI's brains: each NPC with a brain decides what it wants to do.

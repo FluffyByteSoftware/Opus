@@ -153,8 +153,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         lock alone doesn't stop the stale save on a quick re-login: **both ways** ("yeah... that's the
         solution we lock it when it does that"), so 1 second on loading and 1 second on leaving.  And he
         asked: "do we have any way to force a save on the connection being kicked before the new one pops
-        in?"  Proposed, waiting on his OK: the GameClock marks a leaving character "saving" until its save
-        lands, and the login that kicked it waits for that before handing out its ticket.
+        in?"  The GameClock marks a leaving character "saving" until its save lands, and the login that
+        kicked it waits for that before handing out its ticket: up to 5 seconds (Jacob: "5 seconds"), and
+        past that Login Unavailable (proposed with it; his "yes" to the plan).  Written, not yet built by
+        Jacob; `design/conductor-networking.md`, "The spawn", has it.
       - **The character goes beside the account on the Connections tab's UDP list** now ("yes").
 - **The GameClock's checks**: an input packet (the mailbox is there, for entering and leaving), a brain for
   the AI, movement into `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.

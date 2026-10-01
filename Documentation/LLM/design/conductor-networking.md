@@ -44,8 +44,9 @@ networking/
     │                    Play }; play() and bring_in(), the spawn's slow part
     ├── sessions.rs    the book: tickets by token, players by address, each account's whereabouts
     │                    and each player's character in the world (InWorld), the one-second lockout
-    │                    (LEAVING_LOCKOUT); playing(), issue(), connect(), heard(), begin_ask() -> Ask,
-    │                    finish_ask(), entered(), leave_world(), just_left(), turn_away(), leave(), kick(),
+    │                    and each character's lock (Lock, LOCK_FOR); playing(), issue(), connect(), heard(),
+    │                    begin_ask() -> Ask, finish_ask(), entered(), leave_world(), lock_for_loading(),
+    │                    turn_away(), leave(), kick() (with the kicked character's row id),
     │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), drop_where();
     │                    with_book(), which asks the GameClock to take out whoever left
     ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
@@ -57,7 +58,8 @@ networking/
     ├── dns/windows.rs the same around ws2_32's
     ├── dns/other.rs   macOS and the rest: no names
     ├── tcp.rs         the acceptor, the login threads, TLS, the login flow, the failure hold; kick(),
-    │                    close_where() for a ban, listening_on()
+    │                    close_where() for a ban, listening_on(); wait_for_save() after logging the other
+    │                    session out
     └── udp.rs         the one UDP thread: Connect, KeepAlive, Goodbye, character select's asks handed to
                          Protogame, the sweep; tell(), listening_on()
 ```
@@ -246,16 +248,35 @@ session before (`design/gameclock.md`).
   thread (`Ask::InWorld`), and the refusal kept like any answer.  So a reset home can never move a
   character that's in the world.  The same goes for logging out in game when it comes: "Even if you camp
   out, you go back to login screen not char select."  So a camp is a session ending, like a Goodbye.
-- **The one-second lockout** (Jacob: "let's set a lockout on a character being instantiated for like 1
-  second?  The player should get a reject disconnected packet but its so short they just reconnect").  The
-  race: a character leaves, and before the GameClock has taken the note (up to 250 ms) and Archivist written
-  its save, a second login picks it and reads the old row.  It can only happen after "log the other session
-  out", where the second login's hash is done before the first is kicked.  So the book keeps each character
-  that left, by uuid, for `LEAVING_LOCKOUT` (1 second, fixed in code), and a UserPressPlay for one of them
-  isn't read at all: the player is sent a Kicked, reason `6`, and goes back to the login; their row reads
-  "LINKDEAD: picked a character still leaving the world; logs in again".  The sweep forgets a lockout once
-  it's over.  A second covers the GameClock's cycle and Archivist's write with room to spare, unless
-  Archivist is backed up by more than that.
+- **The race**: a character leaves, and before the GameClock has taken the note (up to 250 ms) and
+  Archivist written its save, a second login picks it and reads the old row.  It bites after "log the other
+  session out", where the second login's hash is done before the first is kicked.  Jacob's answers, in
+  order: a lock ("a lockout on a character being instantiated for like 1 second?  The player should get a
+  reject disconnected packet but its so short they just reconnect"); what he meant, a load lock ("a
+  temporary 'load' lock on a character as its pulled from database to memory... and loaded in the world...
+  All that lock does is prevent another one from being instantiated"); shown that a load lock alone
+  doesn't stop the old row being read, the lock both ways ("we lock it when it does that"); and "do we have
+  any way to force a save on the connection being kicked before the new one pops in?"  So, three pieces:
+  - **The GameClock's "saving" mark** (`design/gameclock.md`): from the moment `leave()` is called until
+    the character's leaving save has landed (or failed).  `conductor_gameclock::saving(id)` asks;
+    `wait_until_saved(id, limit)` waits on a Condvar, the OS's own wait.
+  - **The login that logged the other session out waits for its save** before handing out its ticket
+    (`tcp.rs`, `wait_for_save()`): `sessions::kick()` hands back the old character's row id, by then asked
+    out, and the login thread waits up to `OLD_SAVE_WAIT` (Jacob's 5 seconds), a second at a time so a
+    STOP SERVER is heard.  Past that the database is stuck: a Warn, and the new login gets Login
+    Unavailable rather than come in on the save before.  The old session is out either way, and its save
+    lands when the database catches up.
+  - **The lock, both ways** (`sessions.rs`, `Lock`, `LOCK_FOR` of 1 second, fixed in code): Protogame locks
+    a character for a second before it reads the row (`lock_for_loading()`), and a character that leaves
+    the world is locked for a second, and after that for as long as the GameClock says it's saving.  A
+    UserPressPlay for a locked character isn't read at all: the player is sent a Kicked, reason `6`, and
+    goes back to the login screen (Jacob: "Yes, that's correct"); their row reads "LINKDEAD: picked a
+    character locked for a moment; logs in again".  This covers the other ways back in (Goodbye, gone
+    quiet, a kick from the page, then a fresh login), where no login is waiting.  The lock is by uuid,
+    lowercased.  A loading lock is swept once its second is over; a leaving one keeps the row id until STOP
+    SERVER (one per character that left this run), so a later pick can still ask the GameClock about its
+    save.  Today a load lock can't actually catch anything (Protogame is one thread, and an account has one
+    session); it's there if that ever changes.
 - **The log**: a Connect is "at character select" now (it said "in the world"), and "is in the world as
   Spawny" is its own Info line on the Security channel, once the character is in.
 - **The Connections tab's UDP list** has the character beside the account ("character select", greyed,

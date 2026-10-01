@@ -38,6 +38,12 @@
 //! address wait FAILURE_HOLD before its next connection is taken at all.
 //! The right password for an account already in the world gets asked what
 //! to do instead (sessions.rs); a right password otherwise gets a ticket.
+//! A login that logs the other session out waits, before its ticket, for
+//! that session's character to have its save in the database
+//! (`conductor_gameclock::wait_until_saved()`), so it can't come in on the
+//! save before (Jacob, 2026-10-01: "force a save on the connection being
+//! kicked before the new one pops in").  Up to OLD_SAVE_WAIT, a second at
+//! a time so a STOP SERVER is heard; past that it's Login Unavailable.
 //! The ticket has the account's name and nothing else: an account is
 //! never held in memory (Jacob, 2026-09-29), so the row is read when
 //! something needs it.
@@ -93,6 +99,13 @@ const FAILURE_HOLD: Duration = Duration::from_secs(2);
 
 /// How often a login waiting in Security's line is told its place.
 const PLACE_EVERY: Duration = Duration::from_secs(1);
+
+/// How long a login that logged the other session out waits for that
+/// session's character to have its save in the database (Jacob's 5
+/// seconds).  It's normally a fraction of a second; longer means the
+/// database is stuck, and the login gets Login Unavailable rather than
+/// bring the character in on the save before.
+const OLD_SAVE_WAIT: Duration = Duration::from_secs(5);
 
 /// How much we ask TLS for in one read.  Bigger than any packet we take,
 /// so one read can hold a whole one.
@@ -679,10 +692,25 @@ fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadli
         }
         match protocol::read_session_choice(&packet.payload) {
             Ok(Choice::LogTheOtherOut) => {
-                if let Some(address) = sessions::kick(&account, peer) {
+                let kicked = sessions::kick(&account, peer);
+                if let Some((address, _)) = kicked {
                     udp::tell(address, &protocol::kicked(KickReason::LoggedInElsewhere));
                 }
                 scribe::info(Channel::Security, &format!("{peer} logged the other session on {account} out."));
+                // Its character has been asked out of the world.  Its save
+                // lands before this login's ticket goes out.
+                if let Some((_, Some(character_id))) = kicked {
+                    if !wait_for_save(character_id, stopping) {
+                        if stopping.load(Ordering::SeqCst) {
+                            return End::Stopped;
+                        }
+                        scribe::warn(Channel::Game, &format!("{account}'s character still didn't have its save in \
+                            the database {} s after {peer} logged the other session out.  {peer} gets Login \
+                            Unavailable rather than come in on the save before.", OLD_SAVE_WAIT.as_secs()));
+                        let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
+                        return End::Unavailable;
+                    }
+                }
             }
             Ok(Choice::HangUp) => {
                 scribe::info(Channel::Security, &format!("{peer} left the other session on {account} alone and \
@@ -806,6 +834,24 @@ fn wait_in_line<T>(stream: &mut TlsStream, id: u64, ticket: Ticket<T>, stopping:
         ledger::set(id, Stage::InLine { ahead: place.ahead, wait: place.wait });
         if send(stream, &protocol::in_line(place.ahead, place.wait.as_millis())).is_err() {
             return None;
+        }
+    }
+}
+
+/// Waits up to OLD_SAVE_WAIT for a character this login logged out to
+/// have its save in the database, a second at a time so a STOP SERVER is
+/// heard.  True once it has; false if the time ran out or the server is
+/// stopping.  The GameClock rings when a save lands, so this wakes then,
+/// not at the end of a second.
+fn wait_for_save(character_id: i64, stopping: &AtomicBool) -> bool {
+    let until = Instant::now() + OLD_SAVE_WAIT;
+    loop {
+        let left = until.saturating_duration_since(Instant::now());
+        if conductor_gameclock::wait_until_saved(character_id, left.min(PLACE_EVERY)) {
+            return true;
+        }
+        if left <= PLACE_EVERY || stopping.load(Ordering::SeqCst) {
+            return false;
         }
     }
 }

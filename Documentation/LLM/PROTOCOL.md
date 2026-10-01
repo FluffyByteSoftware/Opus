@@ -13,8 +13,8 @@ speaks it; when either disagrees with this document, it is the code that gets fi
 
 Protocol version **6**.  The number goes up when a packet changes, and the server says it in the first
 thing it sends, so a client built against another version can stop right there.  Version 6 (2026-10-01)
-added the spawn: UserPressPlay and CharacterEnteredWorld (`0x27`, `0x28`), and reason `6`, character still
-leaving the world, to Kicked.  Version 5 (2026-09-30)
+added the spawn: UserPressPlay and CharacterEnteredWorld (`0x27`, `0x28`), and reason `6`, character
+locked for a moment, to Kicked.  Version 5 (2026-09-30)
 added character select (`0x20` to `0x26`) and the two general answers, CommandAccepted and CommandRefused
 (`0x35`, `0x36`).  Version 4 (2026-09-29)
 added reason `5`, account terminated, to Kicked.  Version 3 (the same day) added reason `4`, kicked by
@@ -37,7 +37,7 @@ to the login screen and starts over from TCP.  The reasons it ends: the client s
 went quiet past the server's UDP timeout (40 seconds by default), the account logged in from somewhere
 else and chose to log this session out, the server stopped, the admin banned the address (put it on
 the blacklist, or took it off the whitelist), the admin kicked the player, the admin deleted the
-account, or the player picked a character that left the world less than a second ago.  For the last six
+account, or the player picked a character locked for a moment (below).  For the last six
 the client hears a Kicked first; for the timeout it hears nothing, and knows from its own silence.  A
 character in the world leaves it with its player's session, saved on the way out; there's no going back
 to character select from the world but logging out and in again.
@@ -128,7 +128,9 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
    - **LoginResult** with answer `2`, "This account is already logged in.": the password was right, and the
      account is in the world from somewhere else.  Only ever sent after the right password.  The
      connection stays open, and the client has 30 seconds to answer with a **SessionChoice**: `0` logs the
-     other session out (it hears a Kicked) and this login carries on to a Ticket; `1` hangs this one up and
+     other session out (it hears a Kicked) and this login carries on to a Ticket, once the other session's
+     character, if it had one in the world, has its save in the database (normally a fraction of a second;
+     if that takes over 5 seconds, this login gets a LoginResult `4` instead); `1` hangs this one up and
      leaves the other alone.  (So a shared account doesn't kick your brother off because you wanted to
      play.)
    - **LoginResult** with answer `3`, "Outdated Client Failure": the client's version isn't on the server's
@@ -168,7 +170,7 @@ can't are short labels with no period.
    blacklist, or took it off the whitelist; its next login is closed at the door), `4` the admin kicked
    them (nothing stops them logging in again), `5` the admin deleted the account (the client says
    ACCOUNT TERMINATED; the account is gone, so logging in again fails), `6` the character picked with
-   UserPressPlay left the world less than a second ago (nothing is wrong; logging in again gets it).  The
+   UserPressPlay is locked for a moment (nothing is wrong; logging in again gets it).  The
    client goes back to the login screen.
 
 Anything else from an address the server knows counts as hearing from that player (the game's packets go
@@ -213,9 +215,12 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
 - **UserPressPlay** with a character's uuid brings it into the world, where its last save left it, and gets
   a **CharacterEnteredWorld**: its uuid and name, and where it stands, x, y and z (y up).  Or a
   **CommandRefused** saying why not: no such character on the account, the character is unplayable, its
-  save won't load (it's marked unplayable then, and the admin told), or the server can't right now.  A
-  character that left the world less than a second ago (its last save may still be on its way to the
-  database) gets a **Kicked** with reason `6` instead, and the client logs in again.
+  save won't load (it's marked unplayable then, and the admin told), or the server can't right now.
+- **A character is locked for a moment** whenever it moves between the database and the world: for 1
+  second from the moment the server starts loading it, and for 1 second after it leaves the world, longer
+  if its save from leaving hasn't reached the database yet.  A UserPressPlay for a locked character isn't
+  looked at: it gets a **Kicked** with reason `6`, and the client logs in again.  So one character is
+  never brought in twice at once, or on the save before its last.
 - **Once the character is in the world, character select is behind the player.**  Any of the asks above
   gets a **CommandRefused**, "Your character is in the world.  Log out to get back to character select."
   The way back is logging out, to the login screen, every time (Jacob: "you log out back to log in screen

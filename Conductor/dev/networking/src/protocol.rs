@@ -260,11 +260,13 @@ pub enum KickReason {
     /// tab.  The client says ACCOUNT TERMINATED (Jacob's words).  Version
     /// 4 of the protocol, 2026-09-29.
     AccountTerminated = 5,
-    /// They picked a character that left the world less than a second
-    /// ago, so its last save may not have landed yet (Jacob: "a lockout
-    /// on a character being instantiated for like 1 second").  Nothing is
-    /// wrong: they log in again.  Version 6 of the protocol, 2026-10-01.
-    CharacterLeaving = 6,
+    /// They picked a character that's locked for a moment: it started
+    /// loading or left the world less than a second ago, or its last save
+    /// is still on its way to the database (Jacob: "a temporary 'load'
+    /// lock on a character ... locked for 1 second and then released").
+    /// Nothing is wrong: they log in again.  Version 6 of the protocol,
+    /// 2026-10-01.
+    CharacterLocked = 6,
 }
 
 /// What became of a CreateCharacter: the first byte of a
@@ -735,7 +737,7 @@ mod tests {
         assert_eq!(kicked(KickReason::Banned), vec![0x34, 3, 0, 0, 0]);
         assert_eq!(kicked(KickReason::KickedByAdmin), vec![0x34, 4, 0, 0, 0]);
         assert_eq!(kicked(KickReason::AccountTerminated), vec![0x34, 5, 0, 0, 0]);
-        assert_eq!(kicked(KickReason::CharacterLeaving), vec![0x34, 6, 0, 0, 0]);
+        assert_eq!(kicked(KickReason::CharacterLocked), vec![0x34, 6, 0, 0, 0]);
     }
 
     #[test]

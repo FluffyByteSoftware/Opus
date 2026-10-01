@@ -35,10 +35,11 @@ gameclock/
     │                terrain, the players, the world save, the saves on their way); the GameClock's thread, the
     │                schedule, the tallies, the Warn; save_world()
     ├── checks.rs  the five checks, in order, each a function that gets the Game
-    ├── players.rs the mailbox (Note: Enter, Leave; enter(), leave()); Players, the characters in the world by
-    │                their row's id: take_notes(), snapshot(), count()
+    ├── players.rs the mailbox (Note: Enter, Leave; enter(), leave()); the "saving" marks (saving(),
+    │                wait_until_saved()); Players, the characters in the world by their row's id: take_notes(),
+    │                snapshot(), count()
     └── saving.rs  world_save_every(); WorldSave (when the next is due); Writes (the saves on their way to the
-                     database, looked at every housekeeping)
+                     database, looked at every housekeeping; send() and send_leaving())
 ```
 
 ## Decided
@@ -96,6 +97,14 @@ Jacob's answers, 2026-09-30 and 2026-10-01, preparing the game library for the s
 - **The players' list**: each character in the world by its row's id, to its entity.  A character asked in
   while it's already there is a Warn, and the one there stands.
 - **Leaving takes the copy out**: saved, then despawned at once.  Asked out while not in is a Debug line.
+- **The "saving" mark** (2026-10-01, Jacob: "do we have any way to force a save on the connection being
+  kicked before the new one pops in?").  `leave()` marks the character on the caller's thread, before its
+  note goes in the mailbox, so there's no gap; the mark comes off when its leaving save has its answer
+  (landed, or failed with the Error), at once if it wasn't in the world, and all of them on START SERVER and
+  when the GameClock stops.  Only a leaving save takes marks off: a world save sent just before has the
+  old copy.  `saving(id)` asks, and `wait_until_saved(id, limit)` waits on a Condvar (no polling) for a
+  login thread; the GameClock itself never waits on it.  Networking uses both
+  (`design/conductor-networking.md`, "The spawn").
 - **The world save**: every `world_save_seconds` (`game.cfg`, 150 by default, 30 to 1800), counted from
   the moment the ground is in, housekeeping copies every player's character as it stands (`Save::of()`
   and the position), in one cycle, so it's the world at one moment.  The copies go to
