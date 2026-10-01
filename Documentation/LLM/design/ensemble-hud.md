@@ -95,11 +95,16 @@ Jacob: "we need to build our HUD up for login and char select".  Settled so far:
   resolution", then, turned round: "honestly actually let's just build a default layout for these using
   our UI builder".  So the login and character select are shipped layouts like the HUD's
   (`"screen": "login"` and `"character_select"`), built by our own HudBuilder from widgets, on a
-  1920 x 1080 reference.  "Our UI builder" read as our layout system, not Unity's UI Builder tool.
-- **Switching between screens, "with cool ass effects if we can"**: one screen showing at a time, and an
-  effect on the way from one to the next.
-- **No networking yet, and the login first**: "no networking yet just the login submit screen first".
-  Character select comes after.
-
-Open: how big a widget is on these screens (a panel or a piece), what SUBMIT leads to with no server behind it,
-which effects, whether HudRoot turns into a ScreenRoot, and what else is on the login screen.
+  1920 x 1080 reference.
+- **"Our UI builder" is the layout system we built for the HUD** (Jacob: "The one we built earlier").
+- **A widget per piece** (Jacob: "A widget per piece honestly... its more work up front but may make it
+  more mutatable later"): every box, checkbox and button on the screen is a widget of its own, placed on
+  its own in the layout.
+- **SUBMIT does nothing yet but press down** ("Right now it just presses down we want to get a feel for
+  the HUD").  No networking, no switch to another screen.
+- **Effects aren't decided** ("I don't know yet, don't worry about it").  Switching between screens
+  "with cool ass effects if we can" waits for that.
+- **HudRoot becomes ScreenRoot** (Jacob: "Yes"), the one component that owns every screen and which
+  one is showing.
+- **What's on the login screen, "just for now"**: Server IP and Server Port side by side, Username,
+  Password, a Remember Me checkbox, and SUBMIT.
