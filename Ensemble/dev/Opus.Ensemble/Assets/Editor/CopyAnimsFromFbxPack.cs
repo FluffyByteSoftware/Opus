@@ -50,6 +50,12 @@ public class CopyAnimsFromFbxPack : EditorWindow
     // blank one drops the prefix.
     Dictionary<string, string> prefixes = new Dictionary<string, string>();
 
+    // Which list is showing: every clip, or only the ones that clash (in
+    // red), so they can be found without scrolling through all 600.
+    int view;
+    const int EveryClip = 0;
+    const int OnlyClashes = 1;
+
     Vector2 scroll;
     string report = "";
 
@@ -117,7 +123,22 @@ public class CopyAnimsFromFbxPack : EditorWindow
         // write over the first, so they're shown in red and COPY waits.
         HashSet<string> clashes = Clashes();
 
+        int before = view;
+        view = GUILayout.Toolbar(view, new[] { "EVERY CLIP", "CLASHES (" + ClashingClips(clashes) + ")" });
+        if (view != before)
+            scroll = Vector2.zero;
+
         scroll = EditorGUILayout.BeginScrollView(scroll);
+        if (view == EveryClip)
+            DrawEveryClip(clashes);
+        else
+            DrawClashes(clashes);
+        EditorGUILayout.EndScrollView();
+    }
+
+    // Every clip found, under the folder it's in.
+    void DrawEveryClip(HashSet<string> clashes)
+    {
         string folder = null;
         foreach (Found f in found)
         {
@@ -126,24 +147,58 @@ public class CopyAnimsFromFbxPack : EditorWindow
                 folder = f.SubFolder;
                 EditorGUILayout.LabelField(folder == "" ? "(top of the source)" : folder, EditorStyles.miniBoldLabel);
             }
-
-            string output = OutputName(f) + ".anim";
-            string from = Path.GetFileName(f.ModelPath) + (f.OnlyClip ? "" : "  [" + f.ClipName + "]");
-
-            Color before = GUI.color;
-            if (f.Ticked && clashes.Contains(OutputPath(f)))
-                GUI.color = Color.red;
-            f.Ticked = EditorGUILayout.ToggleLeft(from + "  ->  " + output, f.Ticked);
-            GUI.color = before;
+            DrawRow(f, clashes);
         }
-        EditorGUILayout.EndScrollView();
+    }
+
+    // Only the clips that clash, under the file they'd all land on.  Once a
+    // clash is sorted out (one of them unticked, or a prefix changed), its
+    // clips drop off this list.
+    void DrawClashes(HashSet<string> clashes)
+    {
+        if (clashes.Count == 0)
+        {
+            EditorGUILayout.LabelField("No clashes.");
+            return;
+        }
+
+        string destinationPath = FolderPath(destination);
+        foreach (IGrouping<string, Found> clash in found.Where(f => f.Ticked && clashes.Contains(OutputPath(f)))
+                     .GroupBy(OutputPath))
+        {
+            string landsOn = destinationPath != null && clash.Key.StartsWith(destinationPath + "/")
+                ? clash.Key.Substring(destinationPath.Length + 1)
+                : clash.Key;
+            EditorGUILayout.LabelField(landsOn, EditorStyles.miniBoldLabel);
+            foreach (Found f in clash)
+                DrawRow(f, clashes);
+        }
+    }
+
+    void DrawRow(Found f, HashSet<string> clashes)
+    {
+        string output = OutputName(f) + ".anim";
+        string from = Path.GetFileName(f.ModelPath) + (f.OnlyClip ? "" : "  [" + f.ClipName + "]");
+
+        Color before = GUI.color;
+        if (f.Ticked && clashes.Contains(OutputPath(f)))
+            GUI.color = Color.red;
+        f.Ticked = EditorGUILayout.ToggleLeft(from + "  ->  " + output, f.Ticked);
+        GUI.color = before;
+    }
+
+    // How many ticked clips are in a clash, for the CLASHES button.
+    int ClashingClips(HashSet<string> clashes)
+    {
+        return found.Count(f => f.Ticked && clashes.Contains(OutputPath(f)));
     }
 
     void DrawCopyButton()
     {
         string problem = DestinationProblem();
         if (problem == null && Clashes().Count > 0)
-            problem = "The clips in red would land on the same file. Untick or rename until they don't.";
+            problem = "The clips in red would land on the same file. Untick or rename until they don't. "
+                + "CLASHES lists only those.";
 
         if (problem != null)
             EditorGUILayout.HelpBox(problem, MessageType.Warning);
