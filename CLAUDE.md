@@ -156,7 +156,10 @@ by creating `./Content` when neither works.
   words, so rewording a check drops its tick.  A tab left open from an earlier
   session shows that session's checks until it's reloaded: if a message names
   checks the file no longer has, say so and ask for a reload before touching
-  anything.  The page's count ("8 of 9 passed") includes the Parked checks.
+  anything.  A check there's nothing to run on yet is a GitHub issue
+  instead (2026-10-01: Windows with a database is issue #10, "Windows
+  x86/x64 Untested", which Jacob opened; it sat Parked in the file until
+  then).
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another

@@ -100,5 +100,5 @@ straight from its own thread; reading a few `/proc` files takes microseconds.
 ## What's open
 
 - **The Windows probe builds** (2026-09-30), but its numbers haven't been seen: the laptop has no Postgres,
-  and the System and Conductor tabs stay locked without a database.  TEST_CHECKLIST.html has the check.
+  and the System and Conductor tabs stay locked without a database.  GitHub issue #10 has the check.
 - macOS isn't measured.  It would be `proc_pidinfo` and friends from libproc.  Waiting on a Mac to test it.

@@ -41,7 +41,7 @@ Jacob says.
 
 **Built and tested on Linux**: all of Conductor, this session's 1 m blocks included.  **In Unity**: Copy
 Anims From FBX Pack, its CLASHES view included, and the HUD's Phase 1, every check passed.
-TEST_CHECKLIST.html has nothing left but the Parked Windows check.  **On Windows**: Conductor builds and
+TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now.  **On Windows**: Conductor builds and
 runs, START SERVER included, without a database; the world, the characters, character select, the world
 save and the spawn haven't been tried there.
 
@@ -138,7 +138,7 @@ Jacob wants, which is new code (more `region.map`, more heights, nothing moved).
   in TODO.md.
 - Archivist retrying on its own while disconnected; the Debug switch in `conductor_globals.cfg`; catching
   Ctrl-C.
-- The server on Windows with a database.  Parked in TEST_CHECKLIST.html.
+- The server on Windows with a database.  GitHub issue #10, "Windows x86/x64 Untested" (Jacob opened it).
 - **Soundcheck**, the patcher, and a certificate for every client.  LONGTERM_TODO.md.
 - **A GDD**: Jacob is writing one with another chat.  What it settles comes in through him and goes into
   these docs.
