@@ -14,6 +14,19 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 
 ### The game
 
+- **Blocks 1 m a side, Minecraft's size** (Jacob, 2026-10-01: "revise conductor voxels so that they are
+  more in line with the size of a Minecraft voxel").  Being settled; `design/world.md` still says 50 cm
+  until it's built.  The code counts in blocks only, so most of it is what the numbers mean.
+  - **1 m, cubes**: "it will be simpler to start there for now and then we may make different non cubed
+    voxels".
+  - **Chunks stay 32 a side**, so 32 m.
+  - **The world**: "same as before".  Whether that's 8 km (blocks -4096 to 4095, 256 by 256 chunks) or the
+    same 16,384 blocks (16 km) is being asked.
+  - **Up and down**: open.  Jacob is picturing "how tall a mountain needs to be to seem significant or a
+    watch tower".  The ceiling, the stone's depth, Omega's hills and how many chunk rows tall the world is
+    all follow from it.
+  - **Other blocks-to-metres numbers to recheck**: a player 2 blocks tall, `view_chunks` 4 is now 128 m.
+
 - **Chat** (Jacob, 2026-09-30: the 0.0.1 goal is "get a player spawned in the world and able to chat").
   Nothing designed: who hears whom (everybody, or those nearby), what the packets are (a protocol bump),
   whether the web admin sees it.
