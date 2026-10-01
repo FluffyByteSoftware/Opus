@@ -25,13 +25,18 @@
 //! instead of rushing through checks to make up the time.
 //!
 //! The world and the terrain are only ever touched on this thread, so they
-//! need no lock.  The world is made fresh on every START SERVER; saving it
-//! on STOP SERVER and loading it back comes later (design/primlib.md).
-//! The terrain starts empty, and the GameClock asks GameWorld for the
-//! chunks around 0,0,0, where every player starts for now.  They come in
-//! over the first cycles, in housekeeping.
+//! need no lock.  The world is made fresh on every START SERVER.  Players'
+//! characters come into it and leave it through a mailbox (`players.rs`:
+//! `enter()` and `leave()`), and the world is saved every
+//! `world_save_seconds` and as the thread ends on STOP SERVER
+//! (`saving.rs`).  Primlib's other copies aren't saved yet
+//! (design/primlib.md).  The terrain starts empty, and the GameClock asks
+//! GameWorld for the chunks around 0,0,0, where every player starts for
+//! now.  They come in over the first cycles, in housekeeping.
 
 mod checks;
+mod players;
+mod saving;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
@@ -44,6 +49,13 @@ use conductor_primlib::World;
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
+
+use players::Players;
+use saving::{WorldSave, Writes};
+
+// Rust note: `pub use` hands these on, so networking can write
+// `conductor_gameclock::enter(...)`.
+pub use players::{enter, leave};
 
 /// One check's share of a cycle, in milliseconds.
 const CHECK_MS: u64 = 50;
@@ -72,6 +84,17 @@ static GAMECLOCK: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 /// have ground to stand on.  The launcher waits on it to open the door.
 static READY: AtomicBool = AtomicBool::new(false);
 
+/// Everything the checks work on, owned by the GameClock's thread: the
+/// world, the terrain, the players' characters in the world, when the
+/// next world save is due, and the saves on their way to the database.
+pub(crate) struct Game {
+    pub(crate) world: World,
+    pub(crate) terrain: Terrain,
+    pub(crate) players: Players,
+    pub(crate) world_save: WorldSave,
+    pub(crate) writes: Writes,
+}
+
 /// Starts the GameClock's thread, with a fresh world.  It comes straight
 /// back.  The launcher calls this every time the server starts, and
 /// `stop()` every time it stops.
@@ -85,13 +108,15 @@ pub fn start() {
     READY.store(false, Ordering::SeqCst);
     services::set(services::GAMECLOCK, State::Starting, "Making a fresh world.");
     let (stop, stopped) = mpsc::channel();
-    match threads::spawn("gameclock", move || run(stopped)) {
+    let notes = players::open_mailbox();
+    match threads::spawn("gameclock", move || run(stopped, notes)) {
         Ok(handle) => {
             *lock(&STOP) = Some(stop);
             *lock(&GAMECLOCK) = Some(handle);
             scribe::info(Channel::Game, "The GameClock is up: five checks of 50 ms, a 250 ms cycle.");
         }
         Err(e) => {
+            players::close_mailbox();
             scribe::error_with(Channel::Game, &e, "The GameClock couldn't start its thread.  \
                 Nothing in the world moves this run.");
             services::set(services::GAMECLOCK, State::Stopped, &format!("Couldn't start its thread: {e}"));
@@ -101,9 +126,12 @@ pub fn start() {
 
 /// Stops the GameClock and waits for its thread to end.  It stops at the
 /// next wait between two checks, so it's never cut off halfway through
-/// one.  The world goes with it.
+/// one, saves the world one last time, and waits for its saves to land.
+/// The world goes with it.  Archivist has to still be running, so the
+/// launcher stops the GameClock before it.
 pub fn stop() {
     READY.store(false, Ordering::SeqCst);
+    players::close_mailbox();
     lock(&STOP).take();
 
     let handle = lock(&GAMECLOCK).take();
@@ -130,10 +158,15 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 
 /// The GameClock's thread: a cycle of five checks, each at its time, and
 /// again, until `stop()` drops the Sender.
-fn run(stopped: Receiver<()>) {
-    let mut world = World::new();
-    let mut terrain = Terrain::new();
-    terrain.ask_around(SPAWN.0, SPAWN.2, conductor_gameworld::view_chunks());
+fn run(stopped: Receiver<()>, notes: Receiver<players::Note>) {
+    let mut game = Game {
+        world: World::new(),
+        terrain: Terrain::new(),
+        players: Players::new(notes),
+        world_save: WorldSave::new(saving::world_save_every()),
+        writes: Writes::new(),
+    };
+    game.terrain.ask_around(SPAWN.0, SPAWN.2, conductor_gameworld::view_chunks());
 
     // Tallies since START SERVER, for the Services tab.
     let mut cycles: u64 = 0;
@@ -162,7 +195,7 @@ fn run(stopped: Receiver<()>) {
                 continue;
             }
             let began = Instant::now();
-            (check.run)(&mut world, &mut terrain);
+            (check.run)(&mut game);
             let took = began.elapsed();
             busy += took;
             if took > slowest.1 {
@@ -187,22 +220,44 @@ fn run(stopped: Receiver<()>) {
             }
         }
 
-        if !READY.load(Ordering::SeqCst) && terrain.asked() > 0 && terrain.held() == terrain.asked() {
+        if !READY.load(Ordering::SeqCst) && game.terrain.asked() > 0 && game.terrain.held() == game.terrain.asked() {
             READY.store(true, Ordering::SeqCst);
+            game.world_save.begin(finished);
             scribe::info(Channel::Game, &format!("The ground around 0,0,0 is in, {} chunks, after {cycles} \
-                cycles.  The door can open.", terrain.held()));
+                cycles.  The door can open.", game.terrain.held()));
         }
 
         services::set(services::GAMECLOCK, State::Running, &format!("Beating.  {cycles} cycles, {late} late.  \
-            The busiest spent {} ms of its 250 in the checks.  {}", ms(busiest), chunks(&terrain)));
+            The busiest spent {} ms of its 250 in the checks.  {}  {} players in the world.  {}", ms(busiest),
+            chunks(&game.terrain), game.players.count(), game.world_save.summary()));
         services::seen(services::GAMECLOCK);
 
         cycle_start = next_start(cycle_start, finished);
     }
 
     READY.store(false, Ordering::SeqCst);
-    scribe::info(Channel::Game, &format!("The GameClock has stopped after {cycles} cycles, {late} of them late."));
+    let saved = save_world(&mut game);
+    game.writes.finish();
+    scribe::info(Channel::Game, &format!("The GameClock has stopped after {cycles} cycles, {late} of them late, \
+        and saved the world on the way out ({saved} characters)."));
     services::set(services::GAMECLOCK, State::Stopped, "Shut down.");
+}
+
+/// A world save: every player's character copied as it stands, in this
+/// cycle, and handed to Archivist to turn into text and write, while the
+/// GameClock beats on.  How many characters it saved.
+pub(crate) fn save_world(game: &mut Game) -> usize {
+    let began = Instant::now();
+    let snapshot = game.players.snapshot(&game.world);
+    let took = began.elapsed();
+    let count = snapshot.len();
+    game.writes.send("save the world", snapshot);
+    game.world_save.record(count, took);
+    if count > 0 {
+        scribe::debug(Channel::Game, &format!("Saved the world: {count} characters, the snapshot took {} ms.  \
+            Archivist writes them now.", ms(took)));
+    }
+    count
 }
 
 /// Waits until `when`, or until `stop()` is called.  False means stop.

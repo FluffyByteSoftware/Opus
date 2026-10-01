@@ -7,8 +7,9 @@
 # its row when it's needed and never held; a change goes straight back to the
 # row.  The account desk, the web admin's jobs that need a password hashed, is
 # here too, on a thread of its own.  A lib crate.  No dependencies but our own
-# tools: the database goes through Archivist, the hash through Security, and
-# the UUID comes from Fingerprinter.
+# crates: the database goes through Archivist, the hash through Security, and
+# the UUID comes from Fingerprinter, all in tools; primlib is here for the
+# world save, whose copies are turned into Lua text on Archivist's thread.
 
 [package]
 name = "conductor-accounts"
@@ -16,4 +17,5 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+conductor-primlib = { path = "../primlib" }
 conductor-tools = { path = "../tools" }

@@ -339,9 +339,10 @@ pub static NETWORKING: ConfigFile = ConfigFile {
     ],
 };
 
-/// `Content/cfg/game.cfg`: the game world's settings.  GameWorld reads it
-/// on every START SERVER, so it's soft: "the world should need a reboot so
-/// the voxel engine or service restarts and rebuilds" (Jacob, 2026-09-30).
+/// `Content/cfg/game.cfg`: the game world's settings.  GameWorld and the
+/// GameClock read it on every START SERVER, so it's soft: "the world
+/// should need a reboot so the voxel engine or service restarts and
+/// rebuilds" (Jacob, 2026-09-30).
 pub static GAME: ConfigFile = ConfigFile {
     name: "game.cfg",
     reboot: Reboot::Soft,
@@ -356,6 +357,15 @@ pub static GAME: ConfigFile = ConfigFile {
             about: "How many chunks each way around a player the server loads.  A chunk\n\
                     is 16 m, so 4 is 64 m.  Every player starts at 0,0,0 for now, so\n\
                     today it's the chunks around there.",
+        },
+        Setting {
+            key: "world_save_seconds",
+            kind: Kind::Number { low: 30, high: 1800 },
+            default: "150",
+            about: "How often the world is saved, in seconds: every player's character as\n\
+                    it stands at one moment, written to the database behind the game\n\
+                    loop.  The first comes this long after the ground is in.  30 seconds\n\
+                    to 30 minutes.  Leaving the world and STOP SERVER save too.",
         },
     ],
 };

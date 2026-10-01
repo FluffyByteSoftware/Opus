@@ -124,10 +124,12 @@ Opus/
 │       │       ├── terrain.rs         # Terrain: the chunks in memory, held by the GameClock's thread
 │       │       └── bytes.rs           # reading the binary files a number at a time, little-endian
 │       ├── gameclock/                 # lib, conductor-gameclock -- the GameClock, the game loop; a server piece
-│       │   ├── Cargo.toml             # depends on conductor-tools, conductor-primlib and conductor-gameworld
+│       │   ├── Cargo.toml             # depends on conductor-tools, -primlib, -gameworld and -accounts
 │       │   └── src/
-│       │       ├── lib.rs             # start(), stop(), ready(); five checks of 50 ms to a 250 ms cycle; the Terrain
-│       │       └── checks.rs          # the five checks in order; only housekeeping runs until the ground is in
+│       │       ├── lib.rs             # start(), stop(), ready(); five checks of 50 ms to a 250 ms cycle; the Game
+│       │       ├── checks.rs          # the five checks in order; only housekeeping runs until the ground is in
+│       │       ├── players.rs         # the mailbox (enter(), leave()) and the players' characters in the world
+│       │       └── saving.rs          # the world save every world_save_seconds; the saves on their way
 │       ├── wgui/                      # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -monitor and -networking
 │       │   └── src/
@@ -209,7 +211,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | conductor-lua-parser | Lib: runs the Lua scripts, locked down.                 | Tested                           |
 | conductor-primlib    | Lib: the game library, an ECS.                          | Tested; nothing spawns yet       |
 | conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested                  |
-| conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; the checks are empty     |
+| conductor-gameclock  | Lib: the GameClock, the game loop.                      | Players and world save not built |
 | conductor-wgui       | Lib: the web admin on 127.0.0.1.                        | Tested                           |
 | conductor-launcher   | Bin: the program.  Boots, then waits on the Server tab. | Tested                           |
 | DiskMan              | Every file read and write, one worker thread.           | Tested                           |

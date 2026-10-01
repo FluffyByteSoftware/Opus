@@ -125,8 +125,13 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     - **Picking a character to play** is the spawn, step 3 of Jacob's map, and not this.  When it comes:
       the Connections tab and the log say "in the world" for a player who is only at character select, and
       a reset home for a character already in the world would need the world's copy moved, not the row.
-- **The GameClock's checks**: an input mailbox and an input packet, a brain for the AI, movement into
-  `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
+      **The game library's half is written** (2026-10-01, not built yet): `conductor_gameclock::enter()`
+      and `leave()`, the players' list, saving on leaving and the world save (`design/gameclock.md`,
+      "Players and the world save").  What's left is networking's: the pick packet, loading the row and
+      the save into a blueprint off the GameClock's thread (turning an unplayable character away), calling
+      `enter()` and `leave()`, and what the client is sent.
+- **The GameClock's checks**: an input packet (the mailbox is there, for entering and leaving), a brain for
+  the AI, movement into `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their
   blueprint when a kind runs low ("when the number of goblin_as is growing low").  So a copy needs to know
   its blueprint.  It goes in the housekeeping check and has to wait for `conductor_gameclock::ready()`.

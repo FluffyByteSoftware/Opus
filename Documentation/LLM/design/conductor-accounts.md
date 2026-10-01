@@ -15,13 +15,14 @@ one crate writes them, in one transaction); see "Characters" below.  Everything 
 
 ```
 accounts/
-├── Cargo.toml     depends on conductor-tools, nothing else
+├── Cargo.toml     depends on conductor-tools, and conductor-primlib for the world save
 └── src/
     ├── lib.rs     struct Account (Account::new(), save()); enum Created, enum Edited
     │                load(), list(), password_hash(), taken(), create(), edit(), stamp_login(),
     │                set_password(), delete(); the field checks (username_allowed(), check_*())
     ├── characters.rs  struct CharacterSnapshot, struct CharacterSave, enum CharacterCreated;
-    │                list(), list_all(), load(), create(), save(), delete(); mark_unplayable(), is_unplayable(),
+    │                list(), list_all(), load(), create(), save(), save_all(), delete(); struct SavedCharacter;
+    │                mark_unplayable(), is_unplayable(),
     │                forget_unplayable(); character_name_allowed(), check_character_name()
     └── desk.rs    the account desk: start(), stop(), hand_in(Job) -> Result<number, words>,
                      outcome(number) -> Option<Outcome { progress, text }>
@@ -143,7 +144,14 @@ Lua and never reads what's in it: the game writes the text (primlib's `to_lua()`
   nothing, so the text can be written before the row has an `id`.  Fails before sending only if the OS
   won't give random bytes.
 - **`save(character_id, position, save_lua)`**: the text and the position columns together, and
-  `saved_at`.  By the row's `id`, since that's what `PlayerCharacter` carries in the world.
+  `saved_at`.  By the row's `id`, since that's what `PlayerCharacter` carries in the world.  A write that
+  fails says so in the `Pending` and nowhere else (Archivist doesn't log a job's failure), so the caller
+  looks.
+- **`save_all(what, characters)`** (2026-10-01, for the GameClock): a list of `SavedCharacter` (the row's
+  `id`, the position, and primlib's `Save`, not yet text), written in one transaction, so a world save
+  lands whole or not at all.  Each `Save` is turned into Lua text here, on Archivist's thread, as it's
+  written, so the GameClock only copies.  It's why this crate depends on primlib.  `what` names the job
+  ("save the world", "save characters leaving the world").
 - **`delete(username, uuid)`**: only a character on that account.  **Only the player deletes a character**
   (Jacob: "Player can delete their character from their account that's it"), not the admin.  The slot
   empties on its own (`ON DELETE SET NULL`).

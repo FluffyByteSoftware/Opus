@@ -181,9 +181,10 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
     real time lol whatever that is in ticks"), then, once the snapshot was shown to cost the tick almost
     nothing, "let's make it every 2.5 minutes over all".  (Before either, every 50th cycle, 12.5 seconds:
     the wrong number, not the idea.)
-  - **It's a setting**: `world_save_seconds` in `game.cfg`, 150 by default (Jacob: "setting!"), from 30 seconds to 30 minutes (1800; Jacob: "a minimum of 30 seconds and a maximum of 30 minutes").  Seconds,
-    since Constellations' numbers are whole ones and 2.5 minutes isn't.  Soft, like the rest of
-    `game.cfg`: it takes at the next START SERVER.
+  - **It's a setting**: `world_save_seconds` in `game.cfg`, 150 by default (Jacob: "setting!"), from 30
+    seconds to 30 minutes (Jacob: "a minimum of 30 seconds and a maximum of 30 minutes").  Seconds, since
+    Constellations' numbers are whole ones and 2.5 minutes isn't.  Soft, like the rest of `game.cfg`: it
+    takes at the next START SERVER.
   - **The first comes 2.5 minutes after the world is ready**: "after the world is loaded and ready and the
     gameclock starts processing game ticks", so counted from `conductor_gameclock::ready()` turning true,
     not from START SERVER.
@@ -201,6 +202,8 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
     spreading it over several loses the one moment, so it comes back to Jacob then.
 - **Leaving takes the copy out**: "when the character's registered as quit out the game removes them".
   Saved, then despawned at once; no linkdead body left standing in the world.
+- **Written, not built yet** (2026-10-01): the GameClock's mailbox, its list of players and the world save,
+  `design/gameclock.md`, "Players and the world save"; `save_all()` in conductor-accounts.
 
 ## Lua, part two
 

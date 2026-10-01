@@ -24,8 +24,8 @@
 //!
 //! The player's side names an account by its username (that's all
 //! networking's book has) and a character by its uuid (the game's name
-//! for it).  `save()` names it by the row's id, since that's what the
-//! character's `PlayerCharacter` carries in the world.
+//! for it).  `save()` and `save_all()` name it by the row's id, since
+//! that's what the character's `PlayerCharacter` carries in the world.
 //!
 //! A character whose save won't load is unplayable for the rest of the
 //! run: `mark_unplayable()`.  That's kept in memory only, and STOP SERVER
@@ -38,6 +38,7 @@ use std::io;
 use std::sync::Mutex;
 use std::time::SystemTime;
 
+use conductor_primlib::Save;
 use conductor_tools::archivist::{self, Pending, Row};
 use conductor_tools::fingerprinter;
 use conductor_tools::scribe::{self, Channel};
@@ -306,13 +307,42 @@ pub fn create(username: &str, name: &str, save_lua: String) -> io::Result<Pendin
 
 /// Writes a character's save back to its row: the Lua text, and the
 /// position it was at, from the same GameObject so the two agree.  How
-/// many rows it changed: 0 if the row has gone.  Not waited on by the
-/// game; Archivist logs a write that fails.
+/// many rows it changed: 0 if the row has gone.  A write that fails comes
+/// back in the `Pending`, and only there, so whoever asked looks.
 pub fn save(character_id: i64, position: [f32; 3], save_lua: String) -> Pending<u64> {
     let [x, y, z] = position;
     let params: Vec<archivist::Param> = vec![Box::new(save_lua), Box::new(x), Box::new(y), Box::new(z),
                                              Box::new(character_id)];
     archivist::execute(SAVE_SQL, params)
+}
+
+/// One character as the GameClock copied it out of the world, for
+/// `save_all()`: its row's id, where it stood, and its save, not yet
+/// turned into Lua text.
+#[derive(Debug, Clone)]
+pub struct SavedCharacter {
+    pub character_id: i64,
+    pub position: [f32; 3],
+    pub save: Save,
+}
+
+/// Writes every character handed in back to its row, in one transaction,
+/// so they all land or none do: a world save is the world at one moment,
+/// and the database keeps the last whole one.  Each save is turned into
+/// Lua text here, on Archivist's thread, one after another as it's
+/// written, so the GameClock only ever copies (Jacob, 2026-09-30: "I'm
+/// just worried about blocking or lagging the regular tick").  `what`
+/// names the job for Archivist's status.  How many rows it changed.
+pub fn save_all(what: &str, characters: Vec<SavedCharacter>) -> Pending<u64> {
+    archivist::transaction(what, move |tx| {
+        let mut written = 0;
+        for character in characters {
+            let [x, y, z] = character.position;
+            let save_lua = character.save.to_lua();
+            written += tx.execute(SAVE_SQL, &[&save_lua, &x, &y, &z, &character.character_id])?;
+        }
+        Ok(written)
+    })
 }
 
 /// Deletes one of an account's characters, for the player at character
