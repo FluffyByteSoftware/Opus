@@ -73,7 +73,11 @@ Opus/
 │   └── build/             # compiled output -- never committed
 ├── Ensemble/              # client
 │   ├── dev/
-│   │   └── Opus.Ensemble/ # the Unity project.  Its Assets/, Packages/ and UserSettings/ are gitignored
+│   │   └── Opus.Ensemble/ # the Unity project.  Its Packages/ and UserSettings/ are gitignored
+│   │       └── Assets/    # gitignored (the purchased art), all but our three:
+│   │           ├── Editor/    # editor plugins, under Tools > Opus
+│   │           ├── Code/      # the plain C#: the networking, say
+│   │           └── Scripts/   # the scripts
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/, logs/ and world/
 │   ├── Assets/            # purchased art -- never committed
@@ -714,7 +718,23 @@ When I say we're wrapping up:
 
 ## Client rules (Ensemble)
 
-- [FILL IN engine-specific conventions once Ensemble is set up]
+- **Our folders under `Assets/`** (Jacob, 2026-10-01): `Assets/Editor/` for
+  the editor plugins, `Assets/Code/` for the plain C# (the networking, say),
+  `Assets/Scripts/` for the scripts.  Those three, and their `.meta` files,
+  are the only part of `Assets/` that's committed (the root `.gitignore`);
+  everything else in `Assets/` is the purchased art and what Unity makes
+  from it, and stays on Jacob's machine.  So purchased art, and anything
+  copied out of it, never goes in those three.  A new folder of ours under
+  `Assets/` goes past Jacob first, and into the `.gitignore` with its
+  `.meta`.
+- Unity makes a `.meta` beside every file and folder.  A session can't run
+  Unity, so a new file's `.meta` comes from Jacob's machine: the reply gives
+  him the `git add` / `git commit` / `git push` for it once Unity's made it.
+- An editor plugin is a menu item under **Tools > Opus** (the first,
+  2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
+- **Jacob runs Unity**, the same as Conductor: the session writes the C#, he
+  opens the editor and pastes back the Console.
+- [More conventions as Ensemble grows]
 
 ---
 

@@ -147,8 +147,13 @@ Opus/
 │           └── src/
 │               └── main.rs            # boots, starts and stops the server; opens the door once the world is ready
 ├── Ensemble/                          # the client
-│   └── dev/Opus.Ensemble/             # the Unity 6000.6 project: its ProjectSettings/ are committed; Assets/,
-│                                      #   Packages/ and UserSettings/ are gitignored, the rest on Jacob's machine
+│   └── dev/Opus.Ensemble/             # the Unity 6000.6 project: its ProjectSettings/ are committed; Packages/
+│       │                              #   and UserSettings/ are gitignored, the rest on Jacob's machine
+│       └── Assets/                    # gitignored (the purchased art), all but our three folders and their .metas
+│           ├── Editor/                # editor plugins, under Tools > Opus
+│           │   └── CopyAnimsFromFbxPack.cs # copies an animation pack's clips out of its FBXs into .anim files
+│           ├── Code/                  # the plain C#, the networking say (none yet)
+│           └── Scripts/               # the scripts (none yet)
 ├── Content/                           # committed, except Assets/, logs/ and world/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)

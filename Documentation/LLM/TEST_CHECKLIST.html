@@ -197,6 +197,42 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>Ensemble: Copy Anims From FBX Pack</h2>
+<p class="soft">In the Unity editor, on the machine with the animation pack.</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Unity compiles Assets/Editor/CopyAnimsFromFbxPack.cs with nothing in the Console, and
+      Tools &gt; Opus &gt; Copy Anims From FBX Pack opens the window.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      FIND on the pack's folder lists every clip under it and its subfolders, grouped by folder, all
+      ticked, with no __preview__ clips, and one line under Prefixes for each prefix (RPG-Character@).
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      With the prefix blanked, a few clips unticked and a destination outside Assets/Editor, Code and
+      Scripts, COPY makes Unarmed-Attack-L1.anim and the rest in the same folders as the pack's, and none
+      of the unticked ones.  Each .anim plays in the Inspector's preview.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      COPY a second time says they were overwritten, not new, and an Animator using one of the copies
+      still has its clip.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A destination inside Assets/Editor is refused with a warning, and git status shows the .cs and
+      Unity's .meta files under Assets/Editor, but nothing from the pack and none of the copies.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">

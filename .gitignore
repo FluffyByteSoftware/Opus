@@ -18,7 +18,19 @@ Ensemble/build/
 Content/Assets/
 Content/logs/
 Content/world/
-Ensemble/dev/Opus.Ensemble/Assets/
+# Ensemble's Assets/ is mostly the purchased art and what Unity makes from
+# it, so it stays out, all but the three folders that are ours: Editor/ for
+# the editor plugins, Code/ for the plain C# (the networking, say) and
+# Scripts/ for the scripts.  Unity keeps a .meta beside every folder, so
+# each folder's .meta comes in with it.  Purchased art never goes in those
+# three.
+Ensemble/dev/Opus.Ensemble/Assets/*
+!Ensemble/dev/Opus.Ensemble/Assets/Editor/
+!Ensemble/dev/Opus.Ensemble/Assets/Editor.meta
+!Ensemble/dev/Opus.Ensemble/Assets/Code/
+!Ensemble/dev/Opus.Ensemble/Assets/Code.meta
+!Ensemble/dev/Opus.Ensemble/Assets/Scripts/
+!Ensemble/dev/Opus.Ensemble/Assets/Scripts.meta
 Ensemble/dev/Opus.Ensemble/Packages/
 Ensemble/dev/Opus.Ensemble/UserSettings/
 # A change saved from the web admin, waiting for its reboot.  It's this
