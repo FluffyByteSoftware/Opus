@@ -157,6 +157,7 @@ Opus/
 │           │                          #   EVERY CLIP and CLASHES views
 │           ├── Code/                  # the plain C#
 │           │   ├── InputSystem.cs     # Unity's Input System actions, generated (Jacob's), and its .inputactions
+│           │   ├── PlayerFiles.cs     # the one folder every player file goes in: ~/.config/unity3d/FluffyByte/Opus.Ensemble/
 │           │   ├── Hud/               # every screen from a layout, namespace Opus.Hud (design/ensemble-hud.md)
 │           │   │   ├── Widget.cs      # what every widget is, and WidgetInfo, its catalog entry
 │           │   │   ├── WidgetRegistry.cs # every widget there is, a line each

@@ -34,9 +34,10 @@ changing any of this locks everybody out, so it changes only with every account 
   already keep it to printable ASCII, so there's only one way to write it.
 - **The salt**: the UTF-8 bytes of `Opus login v1:` followed by the username with A to Z made lowercase and
   nothing else touched (Conductor's `to_ascii_lowercase()`).  So `Jacob_01` and `jacob_01` make the same key.
-- **600,000 rounds**, 32 bytes out.  The rounds are a guess until SUBMIT's log line has timed them in Unity
-  (Python took 0.15 s in a quick try; Unity's .NET may be slower).  Timed in the Unity editor: **2852 ms**.
-  Jacob picks the number before any account is made again.
+- **600,000 rounds**, 32 bytes out, **settled** (Jacob, 2026-10-01: "Make this the full 600,000").  Timed in
+  the Unity editor at **2852 ms** (Python: 150 ms).  It already runs on a worker thread, so the screen keeps
+  drawing; Jacob: "it should happen in the background while the player moves forward in login" (what that
+  means is open: TODO.md).
 - **Written as 64 lowercase hex characters**, and that string is what goes in the Login packet where the
   password was.
 - **Worked example**: username `jacob_01`, password `Correct horse 1!` (PROTOCOL.md's example) makes
@@ -51,9 +52,10 @@ In `Assets/Code/`:
   thread so the screen keeps drawing; `LooksLikeKey()`; `AsciiLower()`.  The bytes it makes are wiped after;
   the strings can't be.
 - **`Security/RememberedLogin.cs`**: Remember Me's file, `remembered_login.json` in Unity's
-  `persistentDataPath` (Jacob: "we'll make our own file and save it in the preferred users directory"):
-  `~/.config/unity3d/FluffyByte Studios/Forgotten Legends/` on Linux,
-  `%USERPROFILE%\AppData\LocalLow\FluffyByte Studios\Forgotten Legends\` on Windows.  It holds the server IP,
+  folder every player file goes in (Jacob: "we'll make our own file and save it in the preferred users
+  directory"), `PlayerFiles.cs`: `~/.config/unity3d/FluffyByte/Opus.Ensemble/` on Linux,
+  `%USERPROFILE%\AppData\LocalLow\FluffyByte\Opus.Ensemble\` on Windows.  (It was Unity's
+  `persistentDataPath` at first, `.../FluffyByte/Opus_Ensemble/`; moved at the hand-off.)  It holds the server IP,
   the port, the username and the key, never the password.  Written to a temp file and swapped in.  A file
   that doesn't hold up (no username, a key that isn't 64 hex) is ignored with a warning.
 - **`Hud/Widgets/LoginForm.cs`**: where the login's widgets meet.  Each hands its box over as it's built, so

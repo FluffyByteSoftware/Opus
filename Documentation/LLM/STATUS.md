@@ -31,7 +31,9 @@ from layout files by our own builder: **the login** and the HUD (`design/ensembl
 beside the UI Document component, owns both and starts on the login.  **The login turns the password into
 a key** on SUBMIT, and Remember Me keeps the key, never the password (`design/client-security.md`).  No
 networking yet.  **The
-game's name is Forgotten Legends** (Unity's Product Name); the project, its folders and code stay Opus.
+game's name is Forgotten Legends**; the project, its folders and code stay Opus.  Unity's Company Name is
+FluffyByte and its Product Name Opus.Ensemble.  Every file the game keeps for a player goes in
+`~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -91,11 +93,10 @@ then"**.  So Conductor's half of the password's key comes first.  His to change.
   text!"  The password never crosses the internet or lands on a disk as typed.
 - **The key**: PBKDF2 with HMAC-SHA256, the salt `Opus login v1:` plus the username with A to Z made
   lowercase, 600,000 rounds, 32 bytes as 64 lowercase hex.  `jacob_01` / `Correct horse 1!` makes
-  `fc71f0c9...8855`, and Unity's key matched Python's to the byte.  **The rounds aren't settled**:
-  600,000 took **2852 ms** in the Unity editor (Python: 150 ms).  Jacob picks the number before any
-  account is made again (the question was asked at the hand-off).
+  `fc71f0c9...8855`, and Unity's key matched Python's to the byte.  **600,000 rounds, settled**
+  (Jacob: "Make this the full 600,000"), 2852 ms in the Unity editor (Python: 150 ms).
 - **In `Assets/Code/`**: `Security/PasswordKey.cs` (makes the key, on a worker thread),
-  `Security/RememberedLogin.cs` (`remembered_login.json` in Unity's `persistentDataPath`: the server, the
+  `Security/RememberedLogin.cs` (`remembered_login.json` in the player's folder: the server, the
   port, the username and the key), and `Hud/Widgets/LoginForm.cs` (where the login's widgets meet; SUBMIT's
   work).  The six login widgets hand their boxes to it.
 - **SUBMIT**: the password comes out of the box at once (dots stand in), the key is made, then Remember Me
@@ -117,26 +118,23 @@ written in `design/client-security.md`, "Conductor's half": protocol version 7, 
 refused without a hash, the account desk making the key, `test_client.py` making it with `hashlib`, every
 account deleted.  Before planning:
 
-- **The rounds**: 600,000 took 2852 ms in the Unity editor.  Jacob's number, if he hasn't given it.
+- **"In the background while the player moves forward in login"**, Jacob on the key: what it means is
+  open (TODO.md, Security in the client).
 - **The `pbkdf2` and `sha2` crates** need his OK.
-- **Where Remember Me's file goes** (below, "Found at the hand-off"), if it wasn't settled.
 - Check the `.meta` commit (above) is in.
 
 Then the client's net code: the login over TLS (PROTOCOL.md), the client checking the server's
 certificate (TODO.md), and how far into UDP the first step goes.
 
-### Found at the hand-off
+### Changed at the hand-off
 
-Jacob's Console put the file at `/home/froggy/.config/unity3d/FluffyByte/Opus_Ensemble/`.  Two things:
-
-- **`RememberedLogin.cs` uses `persistentDataPath` straight**, and `design/ensemble-hud.md` already says
-  our files go in our own folder under the company's (`LayoutLoader.PlayerFolder`, ".../Opus.Ensemble/Unity/",
-  "the folder we're stuck with for now").  It should use that folder.  A one-line fix, held because the
-  hand-off makes no code changes without Jacob's say.
-- **Unity's Company Name and Product Name on Jacob's machine aren't what the docs say** (FluffyByte Studios,
-  Forgotten Legends): the folder says FluffyByte and Opus_Ensemble, and the committed
-  `ProjectSettings.asset` says DefaultCompany and Opus.Ensemble.  Player Settings, then File > Save Project,
-  then commit `ProjectSettings/`.
+**Every player file in one folder** (Jacob: "Please set all files to go to there",
+`~/.config/unity3d/FluffyByte/Opus.Ensemble`).  `Assets/Code/PlayerFiles.cs` (new) gives a path in it;
+Remember Me's file moved there from Unity's `persistentDataPath` (`.../FluffyByte/Opus_Ensemble/`, Unity
+makes the dot an underscore), and the HUD's layout from `.../Opus.Ensemble/Unity/`.  Unity's names are
+FluffyByte and Opus.Ensemble (Jacob's screenshot: "the screenshot is right"), so the docs that said
+FluffyByte Studios and Forgotten Legends were fixed.  **Not compiled yet**: the next session expects
+Jacob's Console from it.
 
 ## What's waiting
 

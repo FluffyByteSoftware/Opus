@@ -197,7 +197,27 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<p class="soft">Nothing to check on testing right now.</p>
+<h2>2026-10-01, Ensemble: every player file in one folder</h2>
+<p class="soft">In the Unity editor, after the pull, on the login in Play mode.</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Once Unity has compiled: no errors in the Console.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Remember Me ticked and SUBMIT: the Console's "remembered for next time" names
+      /home/froggy/.config/unity3d/FluffyByte/Opus.Ensemble/remembered_login.json, and the file is there:
+    </span></label>
+    <pre class="cmd">ls -la /home/froggy/.config/unity3d/FluffyByte/Opus.Ensemble/</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Stop and Play again: the login fills from the remembered file, as before.
+    </span></label>
+  </li>
+</ul>
 
 </div>
 <aside class="message" id="message-panel">

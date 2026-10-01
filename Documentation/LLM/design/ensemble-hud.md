@@ -52,15 +52,13 @@ Phases 2 and 3 are in TODO.md.
     layout, the login's and character select's when they come, dragged onto HudRoot in the Inspector.
     **The stylesheets in `Assets/Data/Styles/`** (Jacob), `hud.uss` the first.
   - **The player's layout in a per-user folder** ("per user folder yep"): `hud_layout.json` in
-    `~/.config/unity3d/FluffyByte Studios/Opus.Ensemble/Unity/` on Linux,
-    `AppData\LocalLow\FluffyByte Studios\Opus.Ensemble\Unity\` on Windows (`LayoutLoader.PlayerFolder`).
-    Unity's own folder for a player is named after the Product Name, which is the game's name, Forgotten
-    Legends, and the game's name isn't the directory path (Jacob: "its the games name but not the
-    directory path", then "change it to /home/froggy/.config/unity3d/FluffyByte Studios/Opus.Ensemble/Unity").
-    It's "the folder we're stuck with for now" (Jacob, asked whether the `Unity` at the end was meant).
-    So the code takes the company's folder above Unity's (`persistentDataPath`'s parent, Company Name from
-    Player Settings) and names its own under it.  Unity's own per-player files stay in the Product Name
-    folder.
+    `~/.config/unity3d/FluffyByte/Opus.Ensemble/` on Linux, `AppData\LocalLow\FluffyByte\Opus.Ensemble\` on
+    Windows, the folder every player file goes in (`PlayerFiles.cs`).  It was `.../Opus.Ensemble/Unity/`
+    until 2026-10-01, when Remember Me's file came and Jacob said "Please set all files to go to there"
+    (`~/.config/unity3d/FluffyByte/Opus.Ensemble`).  The code takes the company's folder above Unity's
+    `persistentDataPath` and names its own under it, since Unity names its folder after the Product Name
+    and makes the dot an underscore (`Opus_Ensemble`).  Nothing writes the player's layout yet (that's the
+    web editor, Phase 3), so moving it cost nothing.
 - **Every screen is built with the tool, and only the player's HUD is dynamic** (Jacob: "we are going to
   use the tool to build layouts but the only dynamic one is the player hud").  The login and character
   select are layouts too, made in the editor and shipped with the game, but never read from the player's

@@ -12,10 +12,11 @@ Author:     Jacob Chacko
 Opus is the codename for this project: a multiplayer game made of a server and a
 client. When I say "Opus" I mean this project, not the Claude model.
 
-**The game's name is Forgotten Legends** (2026-10-01): it's what players see
-(Unity's Product Name, under Company Name FluffyByte Studios).  The project,
-its folders, its crates and its code stay Opus ("its the games name but not
-the directory path").
+**The game's name is Forgotten Legends** (2026-10-01): it's what players see.
+The project, its folders, its crates and its code stay Opus ("its the games
+name but not the directory path").  Unity's Player Settings say Company Name
+**FluffyByte** and Product Name **Opus.Ensemble** (Jacob's screenshot,
+2026-10-01: "the screenshot is right").
 
 Opus is a separate project from Stratum and Mantle. Do not pull code from them
 unless I explicitly ask. Their *workflow* carried over; their code did not.
@@ -791,8 +792,8 @@ When I say we're wrapping up:
   "we don't want to save it to their local disk as plain text!").  On
   SUBMIT it's turned into a key (`Assets/Code/Security/PasswordKey.cs`,
   PBKDF2-SHA256, salted with the username), and the key is what's sent
-  and what Remember Me keeps (`remembered_login.json` in Unity's
-  `persistentDataPath`).  `design/client-security.md` is the recipe, and
+  and what Remember Me keeps (`remembered_login.json`, in the player's
+  folder, below).  `design/client-security.md` is the recipe, and
   Conductor makes the same key from what the admin types on the Accounts
   tab.  Any change to the recipe locks every account out.  Conductor's
   half isn't built yet (it's written down there).
@@ -807,9 +808,17 @@ When I say we're wrapping up:
   `HUD_FORMATS.md` is the layouts' and the catalog's contract, the same way
   PROTOCOL.md is the packets': a format change bumps its `version`, and the
   code and the document change together.  `design/ensemble-hud.md` has the
-  rest.  Only the HUD's layout is ever the player's (in
-  `FluffyByte Studios/Opus.Ensemble/Unity/`); every other screen's is
-  shipped.
+  rest.  Only the HUD's layout is ever the player's; every other screen's
+  is shipped.
+- **Every file the game keeps for a player goes in one folder**:
+  `~/.config/unity3d/FluffyByte/Opus.Ensemble/` on Linux,
+  `AppData\LocalLow\FluffyByte\Opus.Ensemble\` on Windows, the user's own
+  folder on that computer (Jacob, 2026-10-01: "Please set all files to go to
+  there").  `PlayerFiles.PathOf()` (`Assets/Code/PlayerFiles.cs`) gives a
+  path in it; nothing builds one of its own.  It isn't Unity's
+  `persistentDataPath`, which is named after the Product Name with the dot
+  made an underscore (`Opus_Ensemble`): we take the company's folder above
+  it and name ours.
 - **ScreenRoot** (`Assets/Scripts/Hud/ScreenRoot.cs`, on the GameObject
   beside the UI Document component) owns every screen and which one is
   showing; a new screen gets its slots there.  It starts on the login.

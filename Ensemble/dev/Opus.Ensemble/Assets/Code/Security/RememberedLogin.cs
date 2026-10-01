@@ -3,9 +3,8 @@
 // Author:     Jacob Chacko
 // What Remember Me keeps between runs: the server, the username and the
 // password's key (PasswordKey.cs), never the password.  One small file in
-// the player's own folder for the game:
-//   Linux:   ~/.config/unity3d/FluffyByte Studios/Forgotten Legends/
-//   Windows: %USERPROFILE%\AppData\LocalLow\FluffyByte Studios\Forgotten Legends\
+// the folder every player file goes in (PlayerFiles.cs), in the user's own
+// folder on that computer.
 // The key logs in as well as the password would, so the file is worth as
 // much as a saved password to whoever copies it.  What it doesn't give them
 // is the password itself, to try anywhere else.
@@ -29,7 +28,7 @@ namespace Opus.Security
 
         public static string FilePath
         {
-            get { return Path.Combine(Application.persistentDataPath, FileName); }
+            get { return PlayerFiles.PathOf(FileName); }
         }
 
         // The remembered login, or null when there isn't one or the file

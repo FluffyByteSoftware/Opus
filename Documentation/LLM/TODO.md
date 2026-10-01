@@ -306,11 +306,14 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     key where it took the password); Conductor's half is built in a session of its own.
   - **Every account is deleted** when the switch comes, rather than carried over (their stored hashes
     are of the password, not the key).
-  - **Remember Me is a file of our own** in the player's own folder for the game (Unity's
-    `persistentDataPath`).
-  - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256, 600,000 rounds: built
-    into Unity's .NET and Python's standard library.  **The rounds are settled once SUBMIT has timed
-    them** in Unity, before any account is made again: 600,000 took 2852 ms in the Unity editor.
+  - **Remember Me is a file of our own** in the folder every player file goes in,
+    `~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).
+  - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256, **600,000 rounds,
+    settled** (Jacob: "Make this the full 600,000"), timed at 2852 ms in the Unity editor.
+  - **The key made "in the background while the player moves forward in login"** (Jacob, 2026-10-01).
+    It already runs on a worker thread.  Open: whether that means starting the key when the player
+    leaves the Password box, so it's ready by SUBMIT, or making it while the client connects to the
+    server after SUBMIT (the net code), or both.
   - **The Accounts tab: Conductor makes the key** from what the admin types (Jacob: "we'll have conductor
     do it"); the page doesn't.
   - **The Remember Me file is readable by other users on the same Linux machine**: Unity's .NET can't set
