@@ -156,10 +156,10 @@ by creating `./Content` when neither works.
   words, so rewording a check drops its tick.  A tab left open from an earlier
   session shows that session's checks until it's reloaded: if a message names
   checks the file no longer has, say so and ask for a reload before touching
-  anything.  A check there's nothing to run on yet is a GitHub issue
-  instead (2026-10-01: Windows with a database is issue #10, "Windows
-  x86/x64 Untested", which Jacob opened; it sat Parked in the file until
-  then).
+  anything.  A check there's nothing to run on yet still goes in the
+  file, under Parked, and the page's count includes it.  Whether one
+  becomes a GitHub issue instead is my call, not the session's (the
+  Windows-with-a-database check became issue #10 on 2026-10-01).
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another
