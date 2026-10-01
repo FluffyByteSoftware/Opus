@@ -774,6 +774,12 @@ When I say we're wrapping up:
   rewrites `ProjectSettings.asset` now and then, and writes it only on
   File > Save Project or on closing, which is why a setting changed in
   Player Settings can be missing from a commit.
+  **The steps go in the order they're run, numbered**: the pull first,
+  then Unity's focus and its Console, then the `.meta` commit last.  On
+  2026-10-01 the add and the commit were run before the pull, so they
+  had nothing to commit (the new files weren't on the disk yet); the
+  `git status --short` before the commit says what to expect (new
+  `.meta`s with an `A`), so an empty one is noticed.
 - An editor plugin is a menu item under **Tools > Opus** (the first,
   2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
 - **Jacob runs Unity**, the same as Conductor: the session writes the C#, he
@@ -788,6 +794,12 @@ When I say we're wrapping up:
   rest.  Only the HUD's layout is ever the player's (in
   `FluffyByte Studios/Opus.Ensemble/Unity/`); every other screen's is
   shipped.
+- **ScreenRoot** (`Assets/Scripts/Hud/ScreenRoot.cs`, on the GameObject
+  beside the UI Document component) owns every screen and which one is
+  showing; a new screen gets its slots there.  It starts on the login.
+  Each screen carries its own style sheet.  A widget that has to cover the
+  whole screen whatever its shape (the login's background) says
+  `FillsScreen` in its catalog entry.
 - **Unity calls two things a "UI Document"**: a UXML file (Create > UI
   Toolkit > UI Document) and the component on a GameObject.  We use only the
   component, with no Source Asset.  A reply that sends Jacob into the editor

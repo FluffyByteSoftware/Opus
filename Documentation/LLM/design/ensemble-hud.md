@@ -131,7 +131,10 @@ Jacob: "we need to build our HUD up for login and char select".  Settled so far:
   Color and Login Text Font, in the Inspector, on every word of the login, changeable in Play mode.
   Told with it: those values live in the scene, and the scene isn't committed, so git never sees them.
 
-### The login, as written (2026-10-01, not run in Unity yet)
+### The login, as written (2026-10-01, built and tested in Unity)
+
+Every check passed (Jacob: "That was smooth!").
+
 
 - **Eight widgets** in `Assets/Code/Hud/Widgets/`, all `"screens": ["login"]`: `login_background`,
   `login_logo` (a box that says LOGO), `login_server_ip` (`10.0.0.84`), `login_server_port` (`9997`, five

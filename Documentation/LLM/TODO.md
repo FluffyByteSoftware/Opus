@@ -290,8 +290,14 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     new piece of the project, so it needs a name from Jacob, and a home (a new folder at the repo root is
     his call).
   - The login and character select as layouts (`screen` `"login"` and `"character_select"`), shipped
-    with the game, never the player's.  **The login screen is settled and its plan waits on Jacob's OK**
-    (`design/ensemble-hud.md`, "The login and character select screens").
+    with the game, never the player's.  **The login is built and tested** (2026-10-01,
+    `design/ensemble-hud.md`, "The login, as written"); character select's layout is still to come.
+- **Security in the client** (Jacob, 2026-10-01, at the login's hand-off: "next conversation we start
+  building security into the client").  Not designed; what it covers is his to say at the start of that
+  session.  What's already written down that touches it: the password hashed on the client, and the
+  server taking the hash (the Remember Me entry below); the client checking the server's TLS certificate,
+  `Content/certs/conductor.crt` (the entry on Ensemble finding `Content/`); and, further off, Soundcheck
+  handing each client a certificate of its own (LONGTERM_TODO.md).
 - **The login screen, later** (2026-10-01): what SUBMIT does once there's a network client; what
   Remember Me remembers and where it's kept: Jacob, "when we write our hash in it will hash the password
   and I think we may rewrite the server to accept a hash instead of plaintext" (so the client would keep

@@ -26,8 +26,9 @@ admin's Server tab.
 
 Ensemble is Unity 6000.6: its project settings and our four folders under `Assets/` (`Editor/`, `Code/`,
 `Scripts/`, `Data/`) are committed, the rest is on Jacob's machine, the purchased art in
-`Assets/Purchased/`.  It has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and the HUD's Phase
-1: widgets placed on the screen from a layout file (`design/ensemble-hud.md`).  No networking yet.  **The
+`Assets/Purchased/`.  It has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and two screens built
+from layout files by our own builder: **the login** and the HUD (`design/ensemble-hud.md`).  ScreenRoot,
+beside the UI Document component, owns both and starts on the login.  No networking yet.  **The
 game's name is Forgotten Legends** (Unity's Product Name); the project, its folders and code stay Opus.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
@@ -36,11 +37,11 @@ Lua, GameWorld, the GameClock, the monitor, and networking last) only runs betwe
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
 **The branches**: `main` is still at `8bf9f70`, released at the hand-off of 2026-09-30.  `unstable` and
-`testing` are level with each other and carry everything since, this session's docs included.  `main`
-moves when Jacob says.
+`testing` are level with each other and carry everything since, this hand-off included.  `main` moves
+when Jacob says.
 
 **Built and tested on Linux**: all of Conductor, `world_size` included.  **In Unity**: Copy
-Anims From FBX Pack, its CLASHES view included, and the HUD's Phase 1, every check passed.
+Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1 and the login, every check passed.
 TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now (Jacob opened
 it, "Windows x86/x64 Untested").  **On Windows**: Conductor builds and runs, START SERVER included, without
 a database; the world, the characters, character select, the world save and the spawn haven't been tried
@@ -71,68 +72,48 @@ At the `world_size` hand-off (2026-10-01): **"wrap up and prepare to go back to 
 the client: **"we need to build our HUD up for login and char select"**, "just the login submit screen
 first".
 
-## Last session -- 2026-10-01, the login screen settled (no code)
+At the login's hand-off (2026-10-01): **"next conversation we start building security into the
+client... then the conversation after that is the net code... then the next UI element, then stitching
+the whole thing together"**.  His to change.
 
-The HUD's Phase 1 session carried on after the `world_size` one, so this is its tail.  **Nothing in this
-session needs building**: it tidied up and settled the login screen's design, and its plan waits on Jacob's
-OK.
+## Last session -- 2026-10-01, the login screen
 
-- **Tidied**: `UIElementsSchema/` (UI Builder's schemas, which Unity writes beside `Assets/`) is gitignored
-  and out of the repo; `Assets/Data/Ui/` (one empty UXML file) is gone.  The player's layout folder,
-  `FluffyByte Studios/Opus.Ensemble/Unity/`, is "the folder we're stuck with for now".  **The game's name
-  is Forgotten Legends** (CLAUDE.md, README.md); the project stays Opus.
-- **The login screen** (`design/ensemble-hud.md`, "The login and character select screens"), Jacob's
-  answers: built as a shipped layout by our own builder ("The one we built earlier"), on a 1920 x 1080
-  reference; **a widget per piece** ("its more work up front but may make it more mutatable later"); SUBMIT
-  only presses down for now ("we want to get a feel for the HUD"); effects not decided ("don't worry
-  about it"); **HudRoot becomes ScreenRoot**; on the screen "just for now": Server IP and Server Port side
-  by side, Username, Password, Remember Me, and SUBMIT.
-- **The plan put to him** (not OK'd yet; the chat ran out): six widgets, `login_server_ip`,
-  `login_server_port`, `login_username`, `login_password` (dots), `login_remember_me` and `login_submit`,
-  each its label and its box together, `"screens": ["login"]`, the four text ones sharing one helper;
-  `Assets/Data/Layouts/login_default.json` (`"screen": "login"`, 1920 x 1080, a column in the middle, IP
-  and port side by side); `Assets/Scripts/Hud/ScreenRoot.cs` in place of `HudRoot.cs`, with slots for the
-  login and HUD layouts and the stylesheets, starting on the login, and Show Login, Show HUD and Reset HUD
-  To Default on its right-click menu; `LayoutLoader` loading any screen (only the HUD reads the player's
-  file); `Assets/Data/Styles/login.uss`.  No networking, no switching on SUBMIT, no effects, Remember Me
-  only ticks.  In Unity he'd swap HudRoot for ScreenRoot and drag the four files in.
-- **Still to ask with it**: whether the boxes start filled (`9997`, Conductor's TCP port; `10.0.0.84`) or
-  empty, and what Remember Me remembers (a guess: the IP, the port and the username, never the password).
+**Built and tested in Unity**, every check passed (Jacob: "That was smooth!").  Nothing in it waits on a
+build.  `design/ensemble-hud.md`, "The login, as written", has the details.
 
-**On Jacob's side**: the HUD's `.meta` files and the company name (FluffyByte Studios, set in Player
-Settings) still aren't committed.  File > Save Project in Unity, then the `git add -A` of the `Assets` and
-`ProjectSettings` folders (CLAUDE.md, Client rules), `git status --short`, commit, pull, push.
-
-## The session before -- 2026-10-01, the world's size in game.cfg
-
-`world_size` in `game.cfg`, 2 to 32, 16 to start, 1024 blocks a side per step; a change deletes the world
-and makes a new one on the next START SERVER (`design/world.md`, "The shape").  At 32, all of Conductor
-sat around 800 MB: "I have so much room to work with.  I think I'm really just CPU limited."  Every check
-passed.
-
-## Earlier -- 2026-10-01, the HUD's Phase 1
-
-Not handed off at the time, so here.  Jacob's brief (`HUD_LAYOUT_SYSTEM.md`) answered in
-`design/ensemble-hud.md`, the two file formats' contract in `HUD_FORMATS.md`.  Phase 1 is the HUD built
-from a layout file: `Assets/Code/Hud/` (the widgets, the registry, the loader, the checker, the builder),
-`Assets/Scripts/Hud/HudRoot.cs`, the default layout in `Assets/Data/Layouts/`, the stylesheet in
-`Assets/Data/Styles/`.  The player's own layout lives in `FluffyByte Studios/Opus.Ensemble/Unity/` beside
-Unity's per-player folder, not under the game's name.  Every screen is made with the tool, and only the
-player's HUD is the player's to change.  Sizes are reference pixels, scaled to the real screen.  All its
-checks passed.  Phases 2 and 3 are in TODO.md.
+- **Eight widgets**, all `"screens": ["login"]`: a background (black for now, a picture later), a logo
+  (a box that says LOGO), Server IP and Server Port side by side, filled with `10.0.0.84` and `9997`,
+  Username, Password (dots), Remember Me (only ticks) and SUBMIT (presses down and says so in the
+  Console; it doesn't log in).  The four text boxes share `LoginField.cs`.
+- **The background is a widget that fills the screen** (Jacob's answer to "the screen's own, or a
+  widget?").  The catalog's new `fillsScreen` (catalog version 2, `HUD_FORMATS.md`): the builder
+  stretches it over the whole real screen, whatever shape, and ignores its anchor, offset and size.
+- **`login_default.json`** at 1920 x 1080, a column in the middle; **`login.uss`** its look.
+- **ScreenRoot replaced HudRoot**, moved with its `.meta`, so the component in Jacob's scene turned into
+  ScreenRoot by itself and the HUD's slots kept their files.  Its slots: Login Layout, Login Style,
+  **Login Text Color and Login Text Font** (Jacob's pick over variables in `login.uss`; they live in the
+  scene, which isn't committed), Hud Layout, Hud Style.  Show Login, Show HUD and Reset HUD To Default
+  on its ⋮ menu.  Each screen carries its own style sheet, so the HUD's and the login's never meet.
+- **Remember Me, later**: Jacob, "when we write our hash in it will hash the password and I think we may
+  rewrite the server to accept a hash instead of plaintext".  Told with it: a hash the server takes as
+  the login is as good as the password to whoever copies the file.  TODO.md.
+- **The `.meta` commit was run before the pull** the first time, and committed nothing: the new files
+  weren't on the disk yet, and Unity hadn't made their `.meta`s.  Done in the right order after
+  (`30a72d6`).  CLAUDE.md has the lesson.
 
 ## Where the next session starts
 
-**The login screen's plan, above, waits on Jacob's OK**, with the two questions (the boxes filled or empty,
-what Remember Me remembers).  Put it back to him short, then build it.  Expect him to need the Unity steps
-spelled out window by window (Hierarchy, Project, Inspector); "add HudRoot to it" didn't land the first
-time.
+**Security in the client**, Jacob's next (his map, above).  Nothing about it is designed: ask him what
+it covers before planning.  TODO.md, "Security in the client", lists what's already written down that
+touches it (the password hashed on the client, the client checking the server's certificate, Soundcheck
+further off).
 
 ## What's waiting
 
-- **Ensemble's client code**: the login screen (above), then character select's layout, the network
-  client, and the HUD's Phases 2 and 3 (the catalog's export, the web layout editor).  **Ensemble's project
-  files in git** (Packages/, the .csproj files, LFS for scenes): TODO.md.
+- **Ensemble's client code**: security in the client, the network client, character select's layout,
+  stitching the login, character select and the world together, and the HUD's Phases 2 and 3 (the
+  catalog's export, the web layout editor).  **Ensemble's project files in git** (Packages/, the .csproj
+  files, LFS for scenes): TODO.md.
 - **Chat**, the rest of the 0.0.1 goal.  Not designed (TODO.md).
 - **What the client is sent after CharacterEnteredWorld**: the world around it (chunks, `region.map`),
   other players, movement.  `design/world.md`, `design/gameclock.md`.
