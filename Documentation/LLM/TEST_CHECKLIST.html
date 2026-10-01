@@ -203,16 +203,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      It builds with no warnings, and every test passes in networking, the GameClock and the web admin (the
-      new ones: the two packets and Kicked reason 6 in bytes, a character written only on the player who
-      asked, character select refused once in the world, the locks both ways, a kick handing back the
-      character, the GameClock's saving mark waited on and taken off, and the Connections tab's character).
-      Cargo.lock changes: commit it (the commands are in the reply).
-    </span></label>
-    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-networking -p conductor-gameclock -p conductor-wgui</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       Into the world and out: the Hello says protocol version 6, the CharacterEnteredWorld says Spawny is in
       the world at 0, 0, 0, the list asked for after it is refused ("Your character is in the world.  Log
       out to get back to character select."), the keep-alives are answered, and the Goodbye goes after 5
