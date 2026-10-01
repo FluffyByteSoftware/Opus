@@ -231,6 +231,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - `tcp.rs`'s header says a stop has no deadline (it has 2 seconds).
   - `json.rs`'s notes and the Server tab's note on the page leave out the Settings tab and networking.
   - The header of `constellations.rs` names only `postgres.cfg` as soft.
+  - The launcher's boot line (`main.rs:69`) says a changed postgres.cfg or networking.cfg needs STOP SERVER
+    and START SERVER, and leaves out game.cfg (seen 2026-10-01, with `world_save_seconds` in it).
   - The monitor's `Cargo.toml` header leaves out the process list.
   - `json.rs` and the web admin's `Cargo.toml` say "the Network Admin tabs", and `json.rs` says the page
     shows "the Control Panel" while the server is stopped (the Server tab).
