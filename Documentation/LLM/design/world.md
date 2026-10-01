@@ -133,7 +133,10 @@ out there.
 - **What the size costs in memory**: Omega's heights file is held whole for the server's run, half the
   world's columns at a byte each, so it goes with the square: 2 MB at 2, 34 MB at 8, 134 MB at 16, 537 MB
   at 32.  `region.map` is held too, 2.9 MB at 16.  The chunks around the players don't change with it.
-  Making the world takes longer the same way.
+  Making the world takes longer the same way.  **Measured** (Jacob, 2026-10-01, on Linux): tried at 2, 4, 8, 16 and 32, and at 32 the whole of
+  Conductor sat around 800 MB with the server up, "which is great... I have so much room to work with.
+  I think I'm really just CPU limited".  (The 800 is right after making the world; a STOP SERVER and START
+  SERVER that only reads it may sit a little lower.)
 - **0,0,0 is the middle of the world**: "I want it to span -8096 to 8096 and at 0, 0 its gold", taken at
   50 cm as -8192 to 8191 blocks.  At 1 m and `world_size` 16 it's **-8192 to 8191** blocks each way, chunks
   -256 to 255.

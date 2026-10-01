@@ -197,55 +197,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>Conductor: world_size</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The tests pass, the new one on world_size's steps included.
-    </span></label>
-    <pre class="cmd">cargo test -p conductor-gameworld -p conductor-tools</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Before START SERVER, the Conductor tab's memory for the old 8192-block world, written down.  Then START
-      SERVER: game.cfg gains world_size = 16, the log says (Info) the world on disk is 8192 blocks a side and
-      world_size 16 asks for 16384, so it's being deleted and made again, then that a new world is being made,
-      16384 blocks a side (world_size 16); the door opens once the ground is in, with no Warn or Error.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The new world on disk: region.map is 2,883,626 bytes and omega.heights 134,217,754.
-    </span></label>
-    <pre class="cmd">ls -l /opt/storage/Coding/Opus/Content/world/region.map /opt/storage/Coding/Opus/Content/world/Regions/Omega/omega.heights</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The Conductor tab's memory with the server up at world_size 16, against the 8192-block world's: about
-      100 MB more (Omega's heights, 134 MB against 34), the chunks around 0,0,0 the same.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      STOP SERVER and START SERVER with nothing changed: no new world (no "making a new world" in the log), and
-      the seed the same as before.
-    </span></label>
-    <pre class="cmd">python3 -c "import struct;d=open('/opt/storage/Coding/Opus/Content/world/region.map','rb').read();print('seed',struct.unpack_from('<Q',d,10)[0],'chunks across',struct.unpack_from('<H',d,22)[0])"</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The Settings tab shows world_size under game.cfg with its comment, and turns away 1 and 33.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      world_size 2 from the Settings tab, STOP SERVER and START SERVER: the old world is deleted and a 2048-block
-      one made, region.map 45,098 bytes, omega.heights 2,097,178, and the ground around 0,0,0 comes in as
-      before.  Then back to 16 the same way.
-    </span></label>
-  </li>
-</ul>
-
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">
