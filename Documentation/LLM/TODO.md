@@ -17,9 +17,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **Chat** (Jacob, 2026-09-30: the 0.0.1 goal is "get a player spawned in the world and able to chat").
   Nothing designed: who hears whom (everybody, or those nearby), what the packets are (a protocol bump),
   whether the web admin sees it.
-- **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Today
-  `sessions.rs` in networking has the account's name and the UDP side only keeps the player alive.
-  Messages to and from a character are protogame's.  Settled for its database side, the first step:
+- **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
+  character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
+  kept below.  Settled for its database side, the first step:
   - **`player_characters`**, a new table (its own schema file, `id` and `uuid` like every table).  Each
     row has its account's `id` (`account_id`, `ON DELETE CASCADE`, so deleting an account wipes its
     characters).
@@ -122,14 +122,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       (protocol version 5), the ask number in the book, primlib's `new_character()` and
       `Save::of_blueprint()`, and the test client's `--create`, `--delete`, `--delete-word` and
       `--reset-home`.  `design/conductor-networking.md`, "Character select and Protogame", has it.
-    - **Picking a character to play** is the spawn, step 3 of Jacob's map, and not this.  When it comes:
-      the Connections tab and the log say "in the world" for a player who is only at character select, and
-      a reset home for a character already in the world would need the world's copy moved, not the row.
+    - **Picking a character to play** is the spawn, step 3 of Jacob's map.  **Done, both halves.**
       **The game library's half is built and tested** (2026-10-01): `conductor_gameclock::enter()`
       and `leave()`, the players' list, saving on leaving and the world save (`design/gameclock.md`,
-      "Players and the world save").  What's left is networking's: the pick packet, loading the row and
-      the save into a blueprint off the GameClock's thread (turning an unplayable character away), calling
-      `enter()` and `leave()`, and what the client is sent.
+      "Players and the world save").
       **Networking's half, Jacob's answers (2026-10-01)**, built and tested, every check passed
       (`design/conductor-networking.md`, "The spawn"):
       - **The loop** is login, character select, the pick, the character in the world at its last save,
@@ -158,6 +154,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         past that Login Unavailable (proposed with it; his "yes" to the plan).  Built and tested;
         `design/conductor-networking.md`, "The spawn", has it.
       - **The character goes beside the account on the Connections tab's UDP list** now ("yes").
+      - **Still open**: what the client is sent after CharacterEnteredWorld (the world around it, other
+        players, movement: the game's packets, to come).
 - **The GameClock's checks**: an input packet (the mailbox is there, for entering and leaving), a brain for
   the AI, movement into `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their

@@ -11,8 +11,8 @@ Opus is a multiplayer game I'm building as a hobby.  It's two programs: **Conduc
 and Conductor decides.
 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
-game loop ticking over it, but nobody can stand in that world yet, and Ensemble is only its project
-settings.  Things will change and things will break.
+game loop ticking over it, and a player can pick a character and stand in that world, though nothing moves
+yet.  Ensemble is only its project settings.  Things will change and things will break.
 
 **The first goal, 0.0.1, is a player spawned in the world and able to chat.**
 
@@ -26,12 +26,13 @@ settings.  Things will change and things will break.
 | Accounts, made by the admin                      | Built and tested                                       |
 | The monitor: CPU, memory, disk, threads          | Built and tested                                       |
 | Lua scripting                                    | First step: scripts run on START SERVER, locked down   |
-| The game library (entities and components)       | Built and tested; ready for characters to come in      |
+| The game library (entities and components)       | Built and tested; players' characters come and go      |
 | The character: its template, its save, its table | Built and tested                                       |
 | Character select: list, make, delete, reset home | Built and tested with the test client                  |
+| Spawning in the world, and leaving it, saved     | Built and tested with the test client                  |
 | The world (GameWorld)                            | Made and loaded; nothing changes a block yet           |
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
-| Spawning in the world, movement, chat            | Not started                                            |
+| Movement, chat                                   | Not started                                            |
 | Ensemble                                         | Unity project settings only                            |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
@@ -60,9 +61,10 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
 - **monitor** -- once a second, CPU, memory, disk and threads for Conductor and the machine.
 - **networking** -- the front door.  TCP is only the login: TLS 1.3, a username and password, and the
   player gets a ticket for UDP, where everything after happens, starting with character select (list,
-  make, delete, reset home), answered by Protogame on a thread of its own.  A whitelist and a blacklist,
-  which take at once without a reboot, because a ban that waited for a STOP SERVER wouldn't be much of a
-  ban.
+  make, delete, reset home), answered by Protogame on a thread of its own, and then the pick: the
+  character is loaded from its save and put in the world, and taken out and saved when the player goes.
+  A whitelist and a blacklist, which take at once without a reboot, because a ban that waited for a STOP
+  SERVER wouldn't be much of a ban.
 - **lua-parser** -- the game's content is going to be written in Lua 5.4.  For now every script under
   `Content/scripts/` runs once on START SERVER, with no way to reach the disk, the network or the
   database, and a time limit, a memory limit and a cap on its log lines, so a bad quest can't be a bad
@@ -161,9 +163,9 @@ running on.
 
 Until Ensemble can, `Conductor/dev/networking/test_client.py` stands in for it: Python 3, standard library
 only.  It logs in, takes the ticket to UDP, lists the account's characters, keeps alive, and prints every
-packet both ways.  `--create Name`, `--delete Name` and `--reset-home Name` do the rest of character
-select.  Make a test account on the web admin's Accounts tab first (players can't make one), then, from the
-`Opus` folder:
+packet both ways.  `--create Name`, `--delete Name` and `--reset-home Name` do the rest of character select,
+and `--play Name` brings that character into the world.  Make a test account on the web admin's Accounts tab
+first (players can't make one), then, from the `Opus` folder:
 
 ```
 python3 Conductor/dev/networking/test_client.py some_account 'Its password 1!'

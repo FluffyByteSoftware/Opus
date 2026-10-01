@@ -129,7 +129,10 @@ by creating `./Content` when neither works.
 - **How we work.** I steer: I say what I want Opus to do. Your job is to make
   sure you understand what I mean, then write it out. When something I ask for
   could mean more than one thing, ask before building, and say what each
-  reading would mean in practice. Don't fill gaps with guesses.
+  reading would mean in practice. Don't fill gaps with guesses.  (2026-10-01:
+  "a lockout on a character for like 1 second" was built as a lock on
+  leaving, and I meant a lock on loading.  Say back where a thing sits and
+  what it does to whom before writing it.)
 - **The test checklist.** `Documentation/LLM/TEST_CHECKLIST.html` is the rolling
   list of what to check on `testing`, so that once game features come there's a
   reminder of what changed and what to look at in game.  Every session that
@@ -473,7 +476,9 @@ When I say we're wrapping up:
   with a finished blueprint (the slow part, the row and the save, done on
   the caller's thread) and `leave()`, which saves the character and
   despawns it at once.  Nothing is left standing in the world for a
-  reconnect.
+  reconnect.  `leave()` marks the character "saving" until its leaving
+  save has landed (`saving()`, `wait_until_saved()`), so nobody brings it
+  back in on the save before.
 - **The world save is global** (Jacob, 2026-10-01): every
   `world_save_seconds` (`game.cfg`, 150, from 30 to 1800), counted from
   `ready()`, one cycle copies every player's character (`Save::of()`, plain
@@ -509,6 +514,19 @@ When I say we're wrapping up:
   carries a u32 ask number, and the book keeps the last answer, so a lost
   answer is sent again, never the ask done twice.  CommandAccepted and
   CommandRefused are the general answers, for reuse.
+- **The spawn is Protogame's too** (2026-10-01, protocol version 6):
+  `UserPressPlay` picks a character, Protogame reads its row and save and
+  hands it to `conductor_gameclock::enter()`, and the client gets
+  `CharacterEnteredWorld`.  Every way a player leaves the book takes their
+  character out of the world and saves it.  **There's no way back to
+  character select from the world**: "you log out back to log in screen
+  every time", camping out included.
+- **A character is locked both ways** (`sessions.rs`): for 1 second when
+  it starts loading, and for 1 second when it leaves the world and as long
+  after as its save is on its way.  A pick of a locked character gets
+  Kicked, reason 6, and the client logs in again.  A login that logs the
+  other session out waits for that session's character's save before its
+  ticket goes out, up to 5 seconds, then Login Unavailable.
 - **The TLS pair is made by hand** with the openssl command in README.md, in
   `Content/certs/`.  The key is gitignored, the certificate committed.
   Conductor never makes one and never crashes without one: the Services tab
@@ -589,9 +607,9 @@ When I say we're wrapping up:
   has left the world, or never came, reads LINKDEAD and why) and a three-dot
   menu for `admin` (KICK, add the address to the whitelist, add it to the
   blacklist), in two views, Recent (the newest five) and Historical (the
-  whole run); then every player in the world over UDP, by account, with when
-  they connected and how quiet they are.  The character goes there once
-  there is one.
+  whole run); then every player over UDP, by account, with the character
+  they're playing ("character select", greyed, until they pick one), when
+  they connected and how quiet they are.
 - **The Characters tab** (2026-09-30) is every player's character, look
   only, for `admin` and `user` both: name, UUID, x, y, z (as of its last
   save) and account.  Asked for when the tab opens and on REFRESH, never
