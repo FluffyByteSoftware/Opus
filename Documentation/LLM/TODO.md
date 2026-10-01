@@ -130,6 +130,21 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       "Players and the world save").  What's left is networking's: the pick packet, loading the row and
       the save into a blueprint off the GameClock's thread (turning an unplayable character away), calling
       `enter()` and `leave()`, and what the client is sent.
+      **Networking's half, Jacob's answers (2026-10-01)**, being built:
+      - **The loop** is login, character select, the pick, the character in the world at its last save,
+        and the session ending whichever way it ends, with the character saved and taken out.
+      - **The packets are `UserPressPlay`** (client to server: the ask and the character's uuid) **and
+        `CharacterEnteredWorld`** (server to client: the ask, the uuid, the name, and x, y, z).  A pick that
+        can't be played gets a CommandRefused.  Protocol version 6.
+      - **No way back to character select from the world**: "you log out back to log in screen every
+        time".  Once a player is in the world, character select's asks are refused.
+      - **The race on a quick re-login** (the pick reading the row before the last session's leaving save
+        lands): "let's set a lockout on a character being instantiated for like 1 second?  The player
+        should get a reject disconnected packet but its so short they just reconnect".  So a character
+        that left the world can't be picked for 1 second, and a pick inside that second gets a Kicked
+        (a new reason, 6) and the client goes back to the login screen.  It can only bite after "log the
+        other session out", where the second login's hash is done before the first is kicked.
+      - **The character goes beside the account on the Connections tab's UDP list** now ("yes").
 - **The GameClock's checks**: an input packet (the mailbox is there, for entering and leaving), a brain for
   the AI, movement into `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their
