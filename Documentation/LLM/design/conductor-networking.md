@@ -244,7 +244,8 @@ session before (`design/gameclock.md`).
 - **No way back to character select from the world** (Jacob: "you log out back to log in screen every
   time").  Any character select ask from a player whose character is in the world is refused from the UDP
   thread (`Ask::InWorld`), and the refusal kept like any answer.  So a reset home can never move a
-  character that's in the world.
+  character that's in the world.  The same goes for logging out in game when it comes: "Even if you camp
+  out, you go back to login screen not char select."  So a camp is a session ending, like a Goodbye.
 - **The one-second lockout** (Jacob: "let's set a lockout on a character being instantiated for like 1
   second?  The player should get a reject disconnected packet but its so short they just reconnect").  The
   race: a character leaves, and before the GameClock has taken the note (up to 250 ms) and Archivist written

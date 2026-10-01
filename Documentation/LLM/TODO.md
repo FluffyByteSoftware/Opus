@@ -138,13 +138,15 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
         `CharacterEnteredWorld`** (server to client: the ask, the uuid, the name, and x, y, z).  A pick that
         can't be played gets a CommandRefused.  Protocol version 6.
       - **No way back to character select from the world**: "you log out back to log in screen every
-        time".  Once a player is in the world, character select's asks are refused.
+        time".  Once a player is in the world, character select's asks are refused.  And when there's a
+        way to log out in game: "Even if you camp out, you go back to login screen not char select."
       - **The race on a quick re-login** (the pick reading the row before the last session's leaving save
         lands): "let's set a lockout on a character being instantiated for like 1 second?  The player
         should get a reject disconnected packet but its so short they just reconnect".  So a character
         that left the world can't be picked for 1 second, and a pick inside that second gets a Kicked
         (a new reason, 6) and the client goes back to the login screen.  It can only bite after "log the
-        other session out", where the second login's hash is done before the first is kicked.
+        other session out", where the second login's hash is done before the first is kicked.  Jacob
+        confirmed the reading (a Kicked and the login screen, not a CommandRefused): "Yes, that's correct."
       - **The character goes beside the account on the Connections tab's UDP list** now ("yes").
 - **The GameClock's checks**: an input packet (the mailbox is there, for entering and leaving), a brain for
   the AI, movement into `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
