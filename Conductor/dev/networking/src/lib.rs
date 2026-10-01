@@ -10,11 +10,12 @@
 //! UDP session ends, for any reason, the player is gone, and the client
 //! starts over at the login screen.  Jacob's design, 2026-09-29.
 //!
-//! A server piece: the launcher calls `start()` on START SERVER and
-//! `stop()` on STOP SERVER, and it has to come up again after that.
-//! Nothing in here touches the game (there isn't one yet).  When there
-//! is, the UDP side hands it messages through a queue and never waits on
-//! it.
+//! A server piece: START SERVER calls `wait_for_world()`, and the
+//! launcher calls `start()` once the ground around 0,0,0 is in, and
+//! `stop()` on STOP SERVER.  It has to come up again after that.  Nothing
+//! in here touches the world itself: a character goes in and out through
+//! the GameClock's mailbox (`conductor_gameclock::enter()` and `leave()`),
+//! which never waits.
 //!
 //! Written with the CPU in mind and the RAM less so, Jacob's ask.  Logins
 //! run on a fixed handful of threads rather than one per connection, so a
@@ -61,7 +62,8 @@ pub struct Status {
     /// newest first, and where each one is (the oldest finished ones go
     /// past ten thousand).  Empty while the TCP side isn't running.
     pub connections: Vec<Connection>,
-    /// Every player in the world over UDP, newest first.
+    /// Every player connected over UDP, newest first, whether at
+    /// character select or with their character in the world.
     pub in_world: Vec<Player>,
     /// Which access list the door is checking, if either.
     pub access: AccessMode,

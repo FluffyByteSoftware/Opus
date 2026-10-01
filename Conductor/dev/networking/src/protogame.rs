@@ -5,9 +5,20 @@
 //! Protogame: what goes on between a player logging in and their
 //! character being in the world.  Jacob's word, 2026-09-30: "the character
 //! selection and character construction are proto game then become game
-//! objects after load."  Today that's character select: listing an
-//! account's characters, making one, deleting one, and putting one back at
-//! 0, 0, 0.
+//! objects after load."  That's character select: listing an account's
+//! characters, making one, deleting one, putting one back at 0, 0, 0, and
+//! the last step, playing one (protocol version 6).
+//!
+//! Playing one is the spawn's slow part, done here so the GameClock never
+//! waits on it: the row and the save are read, the save is laid over the
+//! Character template, and the finished blueprint goes in the GameClock's
+//! mailbox (`conductor_gameclock::enter()`).  Only then is the character
+//! written on the player in the book, so a player who left while it was
+//! being brought in leaves nothing standing: their character is taken
+//! straight back out.  A character that left the world under a second
+//! ago isn't read at all (`sessions::just_left()`): its player is sent
+//! back to the login to try again, Jacob's fix for a quick second login
+//! reading the row before the last session's save is in it.
 //!
 //! Every one of those is a database job, and the UDP thread never waits on
 //! the database.  So the UDP thread hands each ask in here, through a
@@ -32,15 +43,15 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use conductor_accounts::characters::{self, CharacterCreated};
+use conductor_accounts::characters::{self, CharacterCreated, CharacterSave};
 use conductor_primlib::gameobject;
-use conductor_primlib::{Component, Kind, Save, Transform, Vector3};
+use conductor_primlib::{Blueprint, Component, Kind, Save, Transform, Vector3};
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
-use crate::protocol::{self, CreateAnswer, DeleteAnswer, ListedCharacter};
-use crate::sessions;
+use crate::protocol::{self, CreateAnswer, DeleteAnswer, EnteredCharacter, KickReason, ListedCharacter};
+use crate::sessions::{self, InWorld};
 use crate::udp;
 
 /// How long Protogame waits on the database for one ask.  Past that the
@@ -62,6 +73,13 @@ const DELETE_WORD: &str = "DELETE";
 const LIST_UNAVAILABLE: &str = "Character List Unavailable";
 const DELETE_UNAVAILABLE: &str = "Character Deletion Unavailable";
 const RESET_UNAVAILABLE: &str = "Reset Home Unavailable";
+const PLAY_UNAVAILABLE: &str = "World Unavailable";
+
+/// What the player hears for a character that isn't on their account,
+/// and for one whose save won't load or that's been marked unplayable.
+const NO_SUCH_CHARACTER: &str = "There's no such character on this account.";
+const CANT_BE_LOADED: &str = "That character can't be loaded.  The admin has been told.";
+const UNPLAYABLE: &str = "That character can't be played until the admin has looked at it.";
 
 /// What a player asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,6 +92,8 @@ pub enum Work {
     Delete { uuid: String, typed: String },
     /// Put this character back at 0, 0, 0: a CharacterRequestResetHome.
     ResetHome { uuid: String },
+    /// Bring this character into the world: a UserPressPlay.
+    Play { uuid: String },
 }
 
 /// One ask in the mailbox.
@@ -139,6 +159,7 @@ fn unavailable(ask: u32, work: &Work) -> Vec<u8> {
         Work::Create { .. } => protocol::create_result(ask, CreateAnswer::Unavailable),
         Work::Delete { .. } => protocol::delete_result(ask, DeleteAnswer::Denied, DELETE_UNAVAILABLE),
         Work::ResetHome { .. } => protocol::command_refused(ask, RESET_UNAVAILABLE),
+        Work::Play { .. } => protocol::command_refused(ask, PLAY_UNAVAILABLE),
     }
 }
 
@@ -158,13 +179,15 @@ fn work(mailbox: Receiver<Job>) {
 }
 
 /// Works one ask out, keeps the answer in the book, and sends it, if the
-/// player who asked is still there.
+/// player who asked is still there.  Playing a character has its own way
+/// through (`play()`), since it changes more than the answer.
 fn answer(job: Job) {
     let answer = match &job.work {
         Work::List => list(&job.account, job.ask),
         Work::Create { name } => create(&job.account, job.ask, name),
         Work::Delete { uuid, typed } => delete(&job.account, job.ask, uuid, typed),
         Work::ResetHome { uuid } => reset_home(&job.account, job.ask, uuid),
+        Work::Play { uuid } => return play(job.from, &job.account, job.ask, uuid),
     };
     if sessions::finish_ask(job.from, &job.account, job.ask, &answer) {
         udp::tell(job.from, &answer);
@@ -255,7 +278,7 @@ fn delete(account: &str, ask: u32, uuid: &str, typed: &str) -> Vec<u8> {
 fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
     let loaded = match characters::load(account, uuid).wait_for(DATABASE_WAIT) {
         Some(Ok(Some(loaded))) => loaded,
-        Some(Ok(None)) => return protocol::command_refused(ask, "There's no such character on this account."),
+        Some(Ok(None)) => return protocol::command_refused(ask, NO_SUCH_CHARACTER),
         Some(Err(e)) => {
             scribe::warn(Channel::Game, &format!("{account}'s character {uuid} couldn't be loaded to reset it \
                 home: {e}."));
@@ -265,18 +288,10 @@ fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
     };
     let character = &loaded.snapshot;
     if character.unplayable() {
-        return protocol::command_refused(ask, "That character can't be played until the admin has looked at it.");
+        return protocol::command_refused(ask, UNPLAYABLE);
     }
-
-    let row = format!("player_characters row {}", character.id());
-    let blueprint = conductor_lua_parser::read_save(&row, &loaded.save_lua)
-        .and_then(|save| gameobject::character_from_save(character.account_id(), character.id(), &save));
-    let mut blueprint = match blueprint {
-        Ok(blueprint) => blueprint,
-        Err(why) => {
-            characters::mark_unplayable(character.id(), character.name(), &why);
-            return protocol::command_refused(ask, "That character can't be loaded.  The admin has been told.");
-        }
+    let Some(mut blueprint) = from_save(&loaded) else {
+        return protocol::command_refused(ask, CANT_BE_LOADED);
     };
 
     // Only the position changes: the way it faces and its size stay.
@@ -289,7 +304,7 @@ fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
     blueprint.set(Component::Transform(moved));
     let save_lua = Save::of_blueprint(&blueprint).to_lua();
     match characters::save(character.id(), [home.x, home.y, home.z], save_lua).wait_for(DATABASE_WAIT) {
-        Some(Ok(0)) => protocol::command_refused(ask, "There's no such character on this account."),
+        Some(Ok(0)) => protocol::command_refused(ask, NO_SUCH_CHARACTER),
         Some(Ok(_)) => {
             scribe::info(Channel::Game, &format!("{account} reset {} home to 0, 0, 0.", character.name()));
             protocol::command_accepted(ask)
@@ -299,6 +314,101 @@ fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
             protocol::command_refused(ask, RESET_UNAVAILABLE)
         }
         None => protocol::command_refused(ask, RESET_UNAVAILABLE),
+    }
+}
+
+/// Plays one of the account's characters: brings it into the world and
+/// tells the player where it stands, or tells them why not.  A character
+/// in its lockout sends the player back to the login instead, with
+/// nothing read.
+fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str) {
+    // Before the row is read: the point is not to read it until the last
+    // session's save is in it.
+    if sessions::just_left(uuid) {
+        if sessions::turn_away(from, account) {
+            udp::tell(from, &protocol::kicked(KickReason::CharacterLeaving));
+            scribe::info(Channel::Security, &format!("{account} at {from} picked a character that left the \
+                world under a second ago.  Sent back to the login to try again."));
+        }
+        return;
+    }
+
+    let (character, answer) = match bring_in(account, ask, uuid) {
+        Ok(entered) => entered,
+        Err(refused) => {
+            if sessions::finish_ask(from, account, ask, &refused) {
+                udp::tell(from, &refused);
+            }
+            return;
+        }
+    };
+    let name = character.name.clone();
+    let (id, character_uuid) = (character.id, character.uuid.clone());
+    if sessions::entered(from, account, ask, character, &answer) {
+        udp::tell(from, &answer);
+        scribe::info(Channel::Security, &format!("{account} is in the world as {name}, from {from}."));
+    } else {
+        // They left while it was being brought in.  Nobody is there to
+        // play it, so it comes straight back out.
+        sessions::leave_world(id, &character_uuid);
+        scribe::debug(Channel::Game, &format!("{account} left before {name} was in the world.  It's taken back \
+            out."));
+    }
+}
+
+/// The slow part of playing a character: its row and save read, made
+/// into the character, and handed to the GameClock.  The character and the
+/// CharacterEnteredWorld to send, or the CommandRefused saying why not.
+fn bring_in(account: &str, ask: u32, uuid: &str) -> Result<(InWorld, Vec<u8>), Vec<u8>> {
+    let loaded = match characters::load(account, uuid).wait_for(DATABASE_WAIT) {
+        Some(Ok(Some(loaded))) => loaded,
+        Some(Ok(None)) => return Err(protocol::command_refused(ask, NO_SUCH_CHARACTER)),
+        Some(Err(e)) => {
+            scribe::warn(Channel::Game, &format!("{account}'s character {uuid} couldn't be loaded to play it: \
+                {e}."));
+            return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
+        }
+        None => return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE)),
+    };
+    let character = &loaded.snapshot;
+    if character.unplayable() {
+        return Err(protocol::command_refused(ask, UNPLAYABLE));
+    }
+    let Some(blueprint) = from_save(&loaded) else {
+        return Err(protocol::command_refused(ask, CANT_BE_LOADED));
+    };
+
+    // Where it stands is where its save left it.
+    let position = match blueprint.get(Kind::Transform) {
+        Some(Component::Transform(transform)) => transform.position,
+        _ => Vector3::default(),
+    };
+    if let Err(why) = conductor_gameclock::enter(blueprint) {
+        scribe::warn(Channel::Game, &format!("{} couldn't be put in the world: {why}.", character.name()));
+        return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
+    }
+
+    let entered = EnteredCharacter { uuid: character.uuid().to_string(), name: character.name().to_string(),
+                                     position: [position.x, position.y, position.z] };
+    let answer = protocol::entered_world(ask, &entered);
+    Ok((InWorld { id: character.id(), uuid: entered.uuid, name: entered.name }, answer))
+}
+
+/// A loaded character's save, read back through lua-parser and laid over
+/// the Character template.  A save that won't load marks the character
+/// unplayable for the run, with the Error on the bell (the why is there),
+/// and comes back `None`.
+fn from_save(loaded: &CharacterSave) -> Option<Blueprint> {
+    let character = &loaded.snapshot;
+    let row = format!("player_characters row {}", character.id());
+    let blueprint = conductor_lua_parser::read_save(&row, &loaded.save_lua)
+        .and_then(|save| gameobject::character_from_save(character.account_id(), character.id(), &save));
+    match blueprint {
+        Ok(blueprint) => Some(blueprint),
+        Err(why) => {
+            characters::mark_unplayable(character.id(), character.name(), &why);
+            None
+        }
     }
 }
 
@@ -321,6 +431,8 @@ mod tests {
             .unwrap_err();
         let expected = [PacketType::CharacterCreateResult as u8, 4, 0, 0, 0, CreateAnswer::Unavailable as u8];
         assert_eq!(&answer[..6], &expected);
+        let answer = hand_in(from, "jacob_01".to_string(), 5, Work::Play { uuid: "u-1".to_string() }).unwrap_err();
+        assert_eq!(&answer[..5], &[PacketType::CommandRefused as u8, 5, 0, 0, 0]);
     }
 
     #[test]

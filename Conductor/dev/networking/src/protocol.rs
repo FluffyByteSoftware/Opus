@@ -25,7 +25,7 @@
 //! ```
 //!
 //! Numbers are little-endian (lowest byte first), because that's what C#'s
-//! BinaryWriter and BinaryReader do and the client will most likely be C#.
+//! BinaryWriter and BinaryReader do, and the client, Ensemble, is C#.
 //! A string is a u32 byte count and then that many bytes of UTF-8.
 //!
 //! Nothing in here logs or touches the network.  It turns packets into
@@ -39,10 +39,14 @@
 //! means the client didn't hear the answer, and it gets the one it missed
 //! rather than the ask done twice (a second CreateCharacter would find
 //! its own name taken).
+//!
+//! Version 6 (2026-10-01) is the spawn: UserPressPlay picks a character
+//! at character select, and CharacterEnteredWorld says it's in the world
+//! and where.  Jacob's names.
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 5;
+pub const PROTOCOL_VERSION: u8 = 6;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -112,6 +116,14 @@ pub enum PacketType {
     /// the character back at 0, 0, 0.  Answered with a CommandAccepted or
     /// a CommandRefused.
     CharacterRequestResetHome = 0x26,
+    /// Client to server.  The ask number, then the uuid of the character
+    /// to play.  Answered with a CharacterEnteredWorld, or a
+    /// CommandRefused saying why not.  Version 6, Jacob's name.
+    UserPressPlay = 0x27,
+    /// Server to client: the character is in the world.  The ask number,
+    /// its uuid and name (strings), then where it stands, x, y and z, an
+    /// f32 each, y up.  Version 6.
+    CharacterEnteredWorld = 0x28,
     /// Client to server, over UDP.  One string: the token from the
     /// Ticket.  The first UDP packet a client sends, and it sends it again
     /// every half second until it hears back.
@@ -156,6 +168,8 @@ impl PacketType {
             0x24 => Some(PacketType::DeleteCharacter),
             0x25 => Some(PacketType::CharacterDeleteResult),
             0x26 => Some(PacketType::CharacterRequestResetHome),
+            0x27 => Some(PacketType::UserPressPlay),
+            0x28 => Some(PacketType::CharacterEnteredWorld),
             0x30 => Some(PacketType::Connect),
             0x31 => Some(PacketType::ConnectResult),
             0x32 => Some(PacketType::KeepAlive),
@@ -233,7 +247,7 @@ pub enum KickReason {
     /// The account logged in from somewhere else and chose to log this
     /// session out.
     LoggedInElsewhere = 1,
-    /// STOP SERVER on the Control Panel.
+    /// STOP SERVER on the web admin's Server tab.
     ServerStopping = 2,
     /// The admin changed the access lists and this address is no longer
     /// let in: put on the blacklist, or taken off the whitelist.  Version
@@ -246,6 +260,11 @@ pub enum KickReason {
     /// tab.  The client says ACCOUNT TERMINATED (Jacob's words).  Version
     /// 4 of the protocol, 2026-09-29.
     AccountTerminated = 5,
+    /// They picked a character that left the world less than a second
+    /// ago, so its last save may not have landed yet (Jacob: "a lockout
+    /// on a character being instantiated for like 1 second").  Nothing is
+    /// wrong: they log in again.  Version 6 of the protocol, 2026-10-01.
+    CharacterLeaving = 6,
 }
 
 /// What became of a CreateCharacter: the first byte of a
@@ -305,6 +324,15 @@ pub struct ListedCharacter {
     /// False when its save wouldn't load this run: the client greys it
     /// out, and the server won't let it in.
     pub playable: bool,
+}
+
+/// A character that has come into the world, for a CharacterEnteredWorld.
+#[derive(Clone, Debug, PartialEq)]
+pub struct EnteredCharacter {
+    pub uuid: String,
+    pub name: String,
+    /// Where it stands: x, y and z, y up.
+    pub position: [f32; 3],
 }
 
 /// What the player picked when their account was already logged in.
@@ -535,6 +563,18 @@ pub fn delete_result(ask: u32, answer: DeleteAnswer, message: &str) -> Vec<u8> {
     bytes
 }
 
+/// The character picked with a UserPressPlay is in the world, and where.
+pub fn entered_world(ask: u32, character: &EnteredCharacter) -> Vec<u8> {
+    let mut bytes = vec![PacketType::CharacterEnteredWorld as u8];
+    bytes.extend_from_slice(&ask.to_le_bytes());
+    put_string(&mut bytes, &character.uuid);
+    put_string(&mut bytes, &character.name);
+    for axis in character.position {
+        bytes.extend_from_slice(&axis.to_le_bytes());
+    }
+    bytes
+}
+
 // ---------------------------------------------------------------------------
 // The packets the server reads
 // ---------------------------------------------------------------------------
@@ -605,6 +645,15 @@ pub fn read_delete(payload: &[u8]) -> Result<(u32, String, String), String> {
 /// The payload of a CharacterRequestResetHome: the ask number and the
 /// uuid.
 pub fn read_reset_home(payload: &[u8]) -> Result<(u32, String), String> {
+    let mut at = 0;
+    let ask = take_u32(payload, &mut at)?;
+    let uuid = take_string(payload, &mut at)?;
+    finished(payload, at)?;
+    Ok((ask, uuid))
+}
+
+/// The payload of a UserPressPlay: the ask number and the uuid.
+pub fn read_user_press_play(payload: &[u8]) -> Result<(u32, String), String> {
     let mut at = 0;
     let ask = take_u32(payload, &mut at)?;
     let uuid = take_string(payload, &mut at)?;
@@ -686,6 +735,7 @@ mod tests {
         assert_eq!(kicked(KickReason::Banned), vec![0x34, 3, 0, 0, 0]);
         assert_eq!(kicked(KickReason::KickedByAdmin), vec![0x34, 4, 0, 0, 0]);
         assert_eq!(kicked(KickReason::AccountTerminated), vec![0x34, 5, 0, 0, 0]);
+        assert_eq!(kicked(KickReason::CharacterLeaving), vec![0x34, 6, 0, 0, 0]);
     }
 
     #[test]
@@ -811,13 +861,14 @@ mod tests {
                      PacketType::KeepAlive, PacketType::Goodbye, PacketType::Kicked, PacketType::CommandAccepted,
                      PacketType::CommandRefused, PacketType::CharacterListRequest, PacketType::CharacterListDelivery,
                      PacketType::CreateCharacter, PacketType::CharacterCreateResult, PacketType::DeleteCharacter,
-                     PacketType::CharacterDeleteResult, PacketType::CharacterRequestResetHome];
+                     PacketType::CharacterDeleteResult, PacketType::CharacterRequestResetHome,
+                     PacketType::UserPressPlay, PacketType::CharacterEnteredWorld];
         for kind in every {
             assert_eq!(PacketType::from_byte(kind as u8), Some(kind));
         }
         assert_eq!(PacketType::from_byte(0x00), None);
         assert_eq!(PacketType::from_byte(0x16), None);
-        assert_eq!(PacketType::from_byte(0x27), None);
+        assert_eq!(PacketType::from_byte(0x29), None);
         assert_eq!(PacketType::from_byte(0x37), None);
     }
 
@@ -887,5 +938,29 @@ mod tests {
         put_string(&mut home, "u-1");
         assert_eq!(read_reset_home(&home), Ok((10, "u-1".to_string())));
         assert!(read_reset_home(&[]).is_err());
+
+        let mut play = 11u32.to_le_bytes().to_vec();
+        put_string(&mut play, "u-1");
+        assert_eq!(read_user_press_play(&play), Ok((11, "u-1".to_string())));
+        assert!(read_user_press_play(&play[..7]).is_err());
+        play.push(0);
+        assert!(read_user_press_play(&play).is_err());
+    }
+
+    #[test]
+    fn a_character_entering_the_world_in_bytes() {
+        // 1.5 is 0x3FC00000 as an f32, and -2.0 is 0xC0000000, lowest
+        // byte first.
+        let jacob = EnteredCharacter { uuid: "u-1".to_string(), name: "Jacob".to_string(),
+                                       position: [1.5, 0.0, -2.0] };
+        let mut expected = vec![0x28, 12, 0, 0, 0];
+        expected.extend_from_slice(&[3, 0, 0, 0]);
+        expected.extend_from_slice(b"u-1");
+        expected.extend_from_slice(&[5, 0, 0, 0]);
+        expected.extend_from_slice(b"Jacob");
+        expected.extend_from_slice(&[0x00, 0x00, 0xC0, 0x3F]);
+        expected.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+        expected.extend_from_slice(&[0x00, 0x00, 0x00, 0xC0]);
+        assert_eq!(entered_world(12, &jacob), expected);
     }
 }

@@ -37,7 +37,8 @@
 //!                                      "text": "In Security's line: 2 ahead, about 400 ms",
 //!                                      "queued_ahead": 0, "done": false, "logged_in": false } ],
 //!                   "in_world": [ { "address": "192.168.1.20:51235", "account": "jacob_01",
-//!                                   "connected": "...Z", "playing_seconds": 61, "quiet_seconds": 0 } ],
+//!                                   "character": "Jacob", "connected": "...Z", "playing_seconds": 61,
+//!                                   "quiet_seconds": 0 } ],
 //!                   "access": "off", "whitelisted": 0, "blacklisted": 2 },
 //!   "notices": { "open": 12, "newest": [ { "id", "when", "level", "source", "text" } ] },
 //!   "log": { "file": "...", "lines": [ { "number": 12, "priority": "Info", "text": "..." } ] } }
@@ -440,6 +441,7 @@ fn player(player: &Player) -> String {
     Object::new()
         .text("address", &player.address.to_string())
         .text("account", &player.account)
+        .raw("character", player.character.as_deref().map_or_else(null, text))
         .text("connected", &player.connected.line_stamp())
         .whole("playing_seconds", player.playing_for.as_secs())
         .whole("quiet_seconds", player.quiet_for.as_secs())
@@ -799,10 +801,15 @@ mod tests {
         use std::time::Duration;
 
         let jacob = Player { address: "192.168.1.20:51235".parse().unwrap(), account: "jacob_01".to_string(),
-                             connected: Utc::from_unix(1_790_000_000), playing_for: Duration::from_millis(61_900),
-                             quiet_for: Duration::from_millis(400) };
+                             character: Some("Jacob".to_string()), connected: Utc::from_unix(1_790_000_000),
+                             playing_for: Duration::from_millis(61_900), quiet_for: Duration::from_millis(400) };
         assert_eq!(player(&jacob), "{\"address\":\"192.168.1.20:51235\",\"account\":\"jacob_01\",\
-            \"connected\":\"02:13:20 PM - 09-21-26 Z\",\"playing_seconds\":61,\"quiet_seconds\":0}");
+            \"character\":\"Jacob\",\"connected\":\"02:13:20 PM - 09-21-26 Z\",\"playing_seconds\":61,\
+            \"quiet_seconds\":0}");
+
+        // At character select, there's no character yet.
+        let selecting = Player { character: None, ..jacob };
+        assert!(player(&selecting).contains("\"character\":null,"));
     }
 
     #[test]

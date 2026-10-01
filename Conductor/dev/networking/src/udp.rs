@@ -32,12 +32,14 @@
 //! keep-alive costs a map lookup and a send and nothing else.
 //!
 //! A player starts at character select (protocol version 5): their asks
-//! (the list of their characters, a new one, a delete, a reset home) are
-//! database jobs, so this thread hands each to Protogame through its
-//! mailbox and never waits on it; Protogame sends the answer.  An ask the
-//! book has already answered is answered again from here, straight from
-//! the book.  There's no world to step into yet, so after that a player
-//! just keeps alive until they leave one way or another.
+//! (the list of their characters, a new one, a delete, a reset home, and
+//! playing one, version 6) are database jobs, so this thread hands each
+//! to Protogame through its mailbox and never waits on it; Protogame
+//! sends the answer.  An ask the book has already answered is answered
+//! again from here, straight from the book.  Once their character is in
+//! the world, character select is behind them, and an ask from there is
+//! refused from here; they keep alive until they leave one way or
+//! another, and their character leaves with them.
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
@@ -59,6 +61,10 @@ use crate::{timed_out, wake_address};
 
 /// How long the thread waits on a receive before it sweeps and checks in.
 const SWEEP_EVERY: Duration = Duration::from_secs(1);
+
+/// What a player in the world hears for an ask from character select.
+const CHARACTER_SELECT_IS_BEHIND: &str = "Your character is in the world.  Log out to get back to character \
+    select.";
 
 /// How much we read in one go.  Bigger than MAX_UDP_BYTES on purpose: a
 /// packet that doesn't fit the buffer gets cut to fit without a word, and
@@ -128,8 +134,9 @@ pub fn start(settings: &Settings) -> Result<(), String> {
     Ok(())
 }
 
-/// Tells every player the server is stopping, forgets them all, stops the
-/// thread and waits for it.  Does nothing if the UDP side isn't running.
+/// Tells every player the server is stopping, forgets them all (their
+/// characters are asked out of the world, and saved), stops the thread
+/// and waits for it.  Does nothing if the UDP side isn't running.
 pub fn stop() {
     // Take the side out of the global first, so the lock isn't held while
     // we wait on the thread.
@@ -248,7 +255,8 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
             };
             match sessions::connect(&token, from) {
                 Connected::Accepted(account) => {
-                    scribe::info(Channel::Security, &format!("{account} is in the world, over UDP from {from}."));
+                    scribe::info(Channel::Security, &format!("{account} is at character select, over UDP from \
+                        {from}."));
                     send(socket, from, &REPLIES.accepted);
                 }
                 // Our answer got lost, and the client is asking again.
@@ -287,9 +295,15 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 sessions::heard(from);
             }
         },
-        // Anything else from a player counts as hearing from them, which
-        // is what the game's packets will do once there are some.  From a
-        // stranger, silence.
+        Some(PacketType::UserPressPlay) => match protocol::read_user_press_play(payload) {
+            Ok((ask, uuid)) => ask_protogame(socket, from, ask, Work::Play { uuid }),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
+        // Anything else from a player counts as hearing from them: there
+        // are no game packets past the spawn yet.  From a stranger,
+        // silence.
         _ => {
             sessions::heard(from);
         }
@@ -298,11 +312,18 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
 
 /// An ask from character select.  A stranger, or a player whose last ask
 /// is still being worked on, hears nothing; one asked again gets the
-/// answer it missed; a new one goes to Protogame, which answers it.
+/// answer it missed; one from a player in the world is refused here; a
+/// new one goes to Protogame, which answers it.
 fn ask_protogame(socket: &UdpSocket, from: SocketAddr, ask: u32, work: Work) {
     match sessions::begin_ask(from, ask) {
         Ask::Stranger | Ask::Busy => {}
         Ask::Again(answer) => send(socket, from, &answer),
+        Ask::InWorld(account) => {
+            let answer = protocol::command_refused(ask, CHARACTER_SELECT_IS_BEHIND);
+            if sessions::finish_ask(from, &account, ask, &answer) {
+                send(socket, from, &answer);
+            }
+        }
         Ask::New(account) => {
             // Protogame isn't running (which shouldn't happen while this
             // thread is): the answer is that it's unavailable, kept like

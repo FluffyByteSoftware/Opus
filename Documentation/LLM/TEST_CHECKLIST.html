@@ -196,6 +196,75 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>The spawn: networking's half (protocol version 6, 2026-10-01)</h2>
+<p class="soft">Login, character select, UserPressPlay, the character in the world, and out again with its
+  player.  Spawny is the test character; the first run makes it (later runs say the name is taken, which is
+  fine).</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      It builds with no warnings, and every test passes in networking and the web admin (the new ones: the
+      two packets and Kicked reason 6 in bytes, a character written only on the player who asked, character
+      select refused once in the world, a player leaving takes their character out and starts its one-second
+      lockout, and the Connections tab's character).  Cargo.lock changes: commit it (the commands are in the
+      reply).
+    </span></label>
+    <pre class="cmd">cargo build &amp;&amp; cargo test -p conductor-networking -p conductor-wgui</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Into the world and out: the Hello says protocol version 6, the CharacterEnteredWorld says Spawny is in
+      the world at 0, 0, 0, the list asked for after it is refused ("Your character is in the world.  Log
+      out to get back to character select."), the keep-alives are answered, and the Goodbye goes after 5
+      seconds.  The Log tab says throwaway_01 "is at character select", then "is in the world as Spawny",
+      then logged out; nothing on the bell.
+    </span></label>
+    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --create Spawny --play Spawny --leave-after 5 throwaway_01 'Throwaway 1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Connections tab while in the world (leave it running, Ctrl-C after): the UDP list has a Character
+      column with Spawny in it, and the count says "1 in the world, 0 at character select".  The Services
+      tab's GameClock line says 1 player in the world, and 0 once Ctrl-C has said Goodbye.
+    </span></label>
+    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --play Spawny throwaway_01 'Throwaway 1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      At character select only (no --play): the Character column says "character select", greyed, and the
+      count says "0 in the world, 1 at character select".
+    </span></label>
+    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --leave-after 10 throwaway_01 'Throwaway 1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The one-second lockout: with Spawny in the world from the command above (no --leave-after), run the
+      same command in a second terminal and answer y to log the other out.  The first hears Kicked "logged in
+      elsewhere"; the second hears Kicked "character still leaving the world; log in again", and its TCP row
+      on the Connections tab reads "LINKDEAD: picked a character still leaving the world; logs in again".
+      Run it once more and Spawny comes in.
+    </span></label>
+    <pre class="cmd">python3 /opt/storage/Coding/Opus/Conductor/dev/networking/test_client.py --play Spawny throwaway_01 'Throwaway 1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Every way out takes the character out: KICK on the login's row on the Connections tab (Kicked "kicked
+      by the admin"), and STOP SERVER with Spawny in the world (Kicked "server stopping"; the Log tab says
+      the GameClock saved the world on the way out).  Each time the GameClock line goes back to 0 players,
+      and nothing goes on the bell.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A save that won't load (only if you want to break one in DataGrip: set Spawny's save_lua to
+      <code>junk</code>): --play Spawny is refused with "That character can't be loaded.  The admin has been
+      told.", an Error is on the bell, and the list shows Spawny UNPLAYABLE until STOP SERVER and START
+      SERVER.  Afterwards delete Spawny with --delete Spawny (a reset home reads the save too, so it's
+      refused the same way).
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">

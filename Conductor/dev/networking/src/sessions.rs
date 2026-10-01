@@ -54,6 +54,21 @@
 //! queue up a pile of database jobs.  The answer goes with the player
 //! when they leave.
 //!
+//! A player picks a character with a UserPressPlay (protocol version 6),
+//! and Protogame brings it into the world and writes it on the player
+//! here (`entered()`).  From then on the player is in the world, and
+//! character select's asks are refused: there's no way back to it but
+//! logging out (Jacob: "you log out back to log in screen every time").
+//! Every way a player leaves the book goes through `remove_player_in()`,
+//! so a character in the world is always taken out with its player: the
+//! book notes it, and `with_book()` asks the GameClock to save it and take
+//! it out once the lock is let go.
+//!
+//! A character that just left can't be picked again for a second
+//! (`LEAVING_LOCKOUT`), so a quick second login can't read its row before
+//! its leaving save lands.  Jacob's fix, 2026-10-01: "a lockout on a
+//! character being instantiated for like 1 second".
+//!
 //! The work is done by functions on a `Book` handed to them, so the tests
 //! run on books of their own and never touch the real one.
 
@@ -66,8 +81,16 @@ use std::time::{Duration, Instant};
 
 use conductor_tools::clock::Utc;
 use conductor_tools::fingerprinter;
+use conductor_tools::scribe::{self, Channel};
 
 use crate::ledger::{self, Gone};
+
+/// How long a character that left the world can't be picked again, so its
+/// leaving save lands before anybody reads its row.  The GameClock takes
+/// the note within a cycle (250 ms) and Archivist writes it after; a
+/// second covers both with room to spare.  Fixed in code: a setting
+/// would only be a way to get it wrong.
+pub const LEAVING_LOCKOUT: Duration = Duration::from_secs(1);
 
 /// A ticket handed out and not yet used.
 struct Ticket {
@@ -97,6 +120,19 @@ struct Player {
     /// The last ask answered, and the answer, to send again if the same
     /// ask comes in again.
     answered: Option<(u32, Vec<u8>)>,
+    /// Their character in the world, once they've picked one.  `None`
+    /// at character select.
+    character: Option<InWorld>,
+}
+
+/// A player's character in the world.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct InWorld {
+    /// Its row's id in `player_characters`, which is how the GameClock
+    /// knows it.
+    pub id: i64,
+    pub uuid: String,
+    pub name: String,
 }
 
 /// Where an account is right now.
@@ -116,11 +152,18 @@ struct Book {
     /// Ledger rows to mark LINKDEAD, and why, from the last change to the
     /// book.  Emptied by `with_book()` each time.
     gone: Vec<(u64, Gone)>,
+    /// Characters to take out of the world, by their row's id, from the
+    /// last change to the book.  Emptied by `with_book()` each time.
+    leaving: Vec<i64>,
+    /// Characters that left the world, by uuid, and when: the lockout.
+    /// The sweep forgets them once it's over.
+    left: HashMap<String, Instant>,
 }
 
 impl Book {
     fn new() -> Book {
-        Book { tickets: HashMap::new(), players: HashMap::new(), accounts: HashMap::new(), gone: Vec::new() }
+        Book { tickets: HashMap::new(), players: HashMap::new(), accounts: HashMap::new(), gone: Vec::new(),
+               leaving: Vec::new(), left: HashMap::new() }
     }
 }
 
@@ -148,6 +191,9 @@ pub enum Connected {
 pub struct PlayerView {
     pub address: SocketAddr,
     pub account: String,
+    /// The character they're playing.  `None` while they're at character
+    /// select.
+    pub character: Option<String>,
     /// When their Connect was accepted, UTC.
     pub connected: Utc,
     /// How long they've been in.
@@ -169,6 +215,10 @@ pub enum Ask {
     Again(Vec<u8>),
     /// A new ask, now theirs to be worked on.  The player's account.
     New(String),
+    /// A new ask from a player whose character is in the world, where
+    /// character select is behind them.  Theirs to be answered with a
+    /// refusal (`finish_ask()`), like any other.  The player's account.
+    InWorld(String),
 }
 
 /// What the admin's kick of a login's row found in the book.
@@ -210,22 +260,37 @@ fn book() -> std::sync::MutexGuard<'static, Book> {
 }
 
 /// Does `work` on the book, then marks the ledger rows it left LINKDEAD,
-/// with the book's lock let go first.
+/// and asks the GameClock to take out the characters it left, with the
+/// book's lock let go first.
 // Rust note: `impl FnOnce(&mut Book) -> T` takes any bit of code that
 // works on the book once and hands back a T, so every public function
 // below can share the same lock-then-mark steps.
 fn with_book<T>(work: impl FnOnce(&mut Book) -> T) -> T {
-    let (answer, gone) = {
+    let (answer, gone, leaving) = {
         let mut book = book();
         // Rust note: `&mut *book` is the book itself, out of the lock's
         // guard, which is the type `work` wants.
         let answer = work(&mut *book);
-        (answer, mem::take(&mut book.gone))
+        (answer, mem::take(&mut book.gone), mem::take(&mut book.leaving))
     };
     for (door, how) in gone {
         ledger::linkdead(door, how);
     }
+    for character_id in leaving {
+        take_out_of_the_world(character_id);
+    }
     answer
+}
+
+/// Asks the GameClock to save a character and take it out of the world.
+/// It comes straight back.  The GameClock stops after networking does,
+/// so it's there to ask; if it somehow isn't, its last world save on the
+/// way down has the character anyway.
+fn take_out_of_the_world(character_id: i64) {
+    if let Err(why) = conductor_gameclock::leave(character_id) {
+        scribe::debug(Channel::Game, &format!("Character {character_id} couldn't be asked out of the world: \
+            {why}."));
+    }
 }
 
 /// The address an account is playing from, if it's in the world.
@@ -282,6 +347,45 @@ pub fn finish_ask(from: SocketAddr, account: &str, ask: u32, answer: &[u8]) -> b
     finish_ask_in(&mut book(), from, account, ask, answer)
 }
 
+/// A player's character came into the world: Protogame put it there,
+/// for the ask `ask`, and `answer` is the CharacterEnteredWorld to keep
+/// for a repeat.  True if it's written on the player and the answer should
+/// go out.  False if the player at `from` has left (or somebody else is
+/// there now), and then the caller takes the character back out
+/// (`leave_world()`), since there's nobody left to play it.
+pub fn entered(from: SocketAddr, account: &str, ask: u32, character: InWorld, answer: &[u8]) -> bool {
+    entered_in(&mut book(), from, account, ask, character, answer)
+}
+
+/// Takes a character out of the world that no player in the book holds:
+/// the one whose player left while it was being brought in.  The lockout
+/// starts for it all the same.
+pub fn leave_world(character_id: i64, uuid: &str) {
+    with_book(|book| {
+        book.leaving.push(character_id);
+        book.left.insert(uuid.to_string(), Instant::now());
+    });
+}
+
+/// True while the character `uuid` is in its lockout: it left the world
+/// less than LEAVING_LOCKOUT ago.
+pub fn just_left(uuid: &str) -> bool {
+    just_left_in(&book(), uuid, Instant::now())
+}
+
+/// Sends the player at `from` back to the login: they picked a character
+/// still in its lockout.  True if they were there to send back; the
+/// caller tells them with a Kicked.
+pub fn turn_away(from: SocketAddr, account: &str) -> bool {
+    with_book(|book| {
+        if book.players.get(&from).is_some_and(|player| player.account == account) {
+            remove_player_in(book, from, Gone::CharacterLeaving).is_some()
+        } else {
+            false
+        }
+    })
+}
+
 /// The player at `from` said Goodbye.  Their account, if there was one.
 pub fn leave(from: SocketAddr) -> Option<String> {
     with_book(|book| remove_player_in(book, from, Gone::SaidGoodbye))
@@ -316,10 +420,19 @@ pub fn sweep(udp_timeout: Duration, token_deadline: Duration) -> Swept {
 
 /// Everyone out: the server is stopping.  The players' addresses and
 /// accounts, so each can be told.  No row is marked: STOP SERVER wipes the
-/// ledger anyway.  Nothing to save: an account is never held.
+/// ledger anyway.  An account is never held, so there's nothing of it to
+/// save; their characters are asked out of the world, and saved on the
+/// way.
 pub fn clear() -> Vec<(SocketAddr, String)> {
     let old = mem::replace(&mut *book(), Book::new());
-    old.players.into_iter().map(|(address, player)| (address, player.account)).collect()
+    let mut gone = Vec::with_capacity(old.players.len());
+    for (address, player) in old.players {
+        if let Some(character) = player.character {
+            take_out_of_the_world(character.id);
+        }
+        gone.push((address, player.account));
+    }
+    gone
 }
 
 /// How many players and how many unused tickets, for the status.
@@ -382,7 +495,7 @@ fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> C
     }
     book.players.insert(from, Player { account: name.clone(), token: token.to_string(), last_heard: now,
                                        connected_at: now, connected: Utc::now(), door, asking: None,
-                                       answered: None });
+                                       answered: None, character: None });
     book.accounts.insert(name.clone(), Whereabouts::Playing(from));
     Connected::Accepted(name)
 }
@@ -401,6 +514,9 @@ fn begin_ask_in(book: &mut Book, from: SocketAddr, ask: u32, now: Instant) -> As
         return Ask::Busy;
     }
     player.asking = Some(ask);
+    if player.character.is_some() {
+        return Ask::InWorld(player.account.clone());
+    }
     Ask::New(player.account.clone())
 }
 
@@ -416,10 +532,34 @@ fn finish_ask_in(book: &mut Book, from: SocketAddr, account: &str, ask: u32, ans
     true
 }
 
+fn entered_in(book: &mut Book, from: SocketAddr, account: &str, ask: u32, character: InWorld, answer: &[u8])
+    -> bool {
+    let Some(player) = book.players.get_mut(&from) else {
+        return false;
+    };
+    if player.account != account || player.asking != Some(ask) {
+        return false;
+    }
+    player.asking = None;
+    player.answered = Some((ask, answer.to_vec()));
+    player.character = Some(character);
+    true
+}
+
+fn just_left_in(book: &Book, uuid: &str, now: Instant) -> bool {
+    // A uuid comes out of the database in lowercase, and a client could
+    // send it back in capitals and still find the row.
+    match book.left.get(&uuid.to_ascii_lowercase()) {
+        Some(&when) => now.saturating_duration_since(when) < LEAVING_LOCKOUT,
+        None => false,
+    }
+}
+
 fn players_in(book: &Book, now: Instant) -> Vec<PlayerView> {
     let mut players: Vec<PlayerView> = book.players.iter().map(|(address, player)| PlayerView {
         address: *address,
         account: player.account.clone(),
+        character: player.character.as_ref().map(|character| character.name.clone()),
         connected: player.connected,
         playing_for: now.saturating_duration_since(player.connected_at),
         quiet_for: now.saturating_duration_since(player.last_heard),
@@ -437,9 +577,15 @@ fn drop_where_in(book: &mut Book, matches: impl Fn(SocketAddr) -> bool) -> Vec<(
 }
 
 /// Takes the player at `from` out of the world and notes their row as
-/// LINKDEAD for `how`.  Their account's name.
+/// LINKDEAD for `how`.  Their character, if they had one in the world,
+/// is noted to be taken out too, and its lockout starts.  Their account's
+/// name.
 fn remove_player_in(book: &mut Book, from: SocketAddr, how: Gone) -> Option<String> {
     let player = book.players.remove(&from)?;
+    if let Some(character) = player.character {
+        book.leaving.push(character.id);
+        book.left.insert(character.uuid, Instant::now());
+    }
     let name = player.account;
     if book.accounts.get(&name) == Some(&Whereabouts::Playing(from)) {
         book.accounts.remove(&name);
@@ -531,6 +677,9 @@ fn sweep_in(book: &mut Book, now: Instant, udp_timeout: Duration, token_deadline
         }
     }
 
+    // Lockouts that are over are nothing to keep.
+    book.left.retain(|_, when| now.saturating_duration_since(*when) < LEAVING_LOCKOUT);
+
     swept
 }
 
@@ -594,6 +743,87 @@ mod tests {
         assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::New("jacob".to_string()));
         assert!(finish_ask_in(&mut book, home, "jacob", 2, b"two"));
         assert_eq!(begin_ask_in(&mut book, home, 1, now), Ask::New("jacob".to_string()));
+    }
+
+    /// Jacob's character, as Protogame would write it on the player.
+    fn jacob() -> InWorld {
+        InWorld { id: 42, uuid: "0199aaaa-0000-7000-8000-000000000001".to_string(), name: "Jacob".to_string() }
+    }
+
+    #[test]
+    fn a_character_entering_is_written_only_on_the_player_who_asked() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "abc", 1, now);
+        connect_in(&mut book, "abc", home, now);
+
+        // Not the ask being worked on, not the account, nobody there.
+        assert!(!entered_in(&mut book, home, "jacob", 3, jacob(), b"in"));
+        assert_eq!(begin_ask_in(&mut book, home, 3, now), Ask::New("jacob".to_string()));
+        assert!(!entered_in(&mut book, home, "brother", 3, jacob(), b"in"));
+        assert!(!entered_in(&mut book, address("10.0.0.9:50000"), "jacob", 3, jacob(), b"in"));
+        assert!(entered_in(&mut book, home, "jacob", 3, jacob(), b"in"));
+        assert_eq!(players_in(&book, now)[0].character, Some("Jacob".to_string()));
+
+        // The answer is kept like any other, for a lost one.
+        assert_eq!(begin_ask_in(&mut book, home, 3, now), Ask::Again(b"in".to_vec()));
+    }
+
+    #[test]
+    fn character_select_is_behind_a_player_in_the_world() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "abc", 1, now);
+        connect_in(&mut book, "abc", home, now);
+        begin_ask_in(&mut book, home, 1, now);
+        assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
+
+        // A new ask is theirs to be refused, and the refusal is kept.
+        assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::InWorld("jacob".to_string()));
+        assert_eq!(begin_ask_in(&mut book, home, 3, now), Ask::Busy);
+        assert!(finish_ask_in(&mut book, home, "jacob", 2, b"no"));
+        assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::Again(b"no".to_vec()));
+    }
+
+    #[test]
+    fn a_player_leaving_takes_their_character_out_and_starts_its_lockout() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        let uuid = jacob().uuid;
+        issue_in(&mut book, "jacob", "abc", 1, now);
+        connect_in(&mut book, "abc", home, now);
+        begin_ask_in(&mut book, home, 1, now);
+        assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
+        assert!(!just_left_in(&book, &uuid, now), "in the world, not left");
+
+        assert_eq!(remove_player_in(&mut book, home, Gone::SaidGoodbye), Some("jacob".to_string()));
+        assert_eq!(book.leaving, vec![42]);
+        let left = Instant::now();
+        assert!(just_left_in(&book, &uuid, left));
+        assert!(just_left_in(&book, &uuid.to_ascii_uppercase(), left), "whatever the capitals");
+        assert!(!just_left_in(&book, &uuid, left + LEAVING_LOCKOUT), "a second on, it can be picked");
+        assert!(!just_left_in(&book, "0199aaaa-0000-7000-8000-000000000002", left), "only that character");
+
+        // The sweep forgets a lockout that's over, and keeps one that isn't.
+        sweep_in(&mut book, left, Duration::from_secs(40), Duration::from_secs(30));
+        assert_eq!(book.left.len(), 1);
+        sweep_in(&mut book, left + LEAVING_LOCKOUT, Duration::from_secs(40), Duration::from_secs(30));
+        assert!(book.left.is_empty());
+    }
+
+    #[test]
+    fn a_player_at_character_select_leaves_nothing_in_the_world() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "abc", 1, now);
+        connect_in(&mut book, "abc", home, now);
+        remove_player_in(&mut book, home, Gone::WentQuiet);
+        assert!(book.leaving.is_empty());
+        assert!(book.left.is_empty());
     }
 
     #[test]

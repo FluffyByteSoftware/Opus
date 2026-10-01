@@ -7,8 +7,9 @@
 # a real client.  It does what a client does and nothing more: TLS to the
 # TCP port, a Login, then the Ticket to the UDP port, then keep-alives
 # until Ctrl-C (which sends a Goodbye) or --leave-after runs out.  In
-# between, at character select, it asks for the account's characters, and
-# makes, deletes or resets home the ones the flags name.  Every
+# between, at character select, it asks for the account's characters,
+# makes, deletes or resets home the ones the flags name, and with --play
+# brings one into the world and stays there.  Every
 # packet in and out is printed, meaning first and raw bytes under it.  The
 # bytes are the ones in Documentation/LLM/PROTOCOL.md; when this and the
 # document disagree, the document wins.  To try "already logged in", leave
@@ -21,6 +22,7 @@
 #   python3 test_client.py --create Jacob jacob_01 'Correct horse 1!'   (makes a character, then lists again)
 #   python3 test_client.py --delete Jacob jacob_01 'Correct horse 1!'   (types DELETE; --delete-word to type another)
 #   python3 test_client.py --reset-home Jacob jacob_01 'Correct horse 1!'   (puts it back at 0, 0, 0)
+#   python3 test_client.py --play Jacob jacob_01 'Correct horse 1!'   (brings Jacob into the world)
 #
 # Standard library only.
 
@@ -32,7 +34,7 @@ import struct
 import sys
 import time
 
-PROTOCOL_VERSION = 5
+PROTOCOL_VERSION = 6
 
 HELLO = 0x10
 LOGIN = 0x11
@@ -47,6 +49,8 @@ CHARACTER_CREATE_RESULT = 0x23
 DELETE_CHARACTER = 0x24
 CHARACTER_DELETE_RESULT = 0x25
 CHARACTER_REQUEST_RESET_HOME = 0x26
+USER_PRESS_PLAY = 0x27
+CHARACTER_ENTERED_WORLD = 0x28
 CONNECT = 0x30
 CONNECT_RESULT = 0x31
 KEEP_ALIVE = 0x32
@@ -62,13 +66,14 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          CREATE_CHARACTER: "CreateCharacter", CHARACTER_CREATE_RESULT: "CharacterCreateResult",
          DELETE_CHARACTER: "DeleteCharacter", CHARACTER_DELETE_RESULT: "CharacterDeleteResult",
          CHARACTER_REQUEST_RESET_HOME: "CharacterRequestResetHome", COMMAND_ACCEPTED: "CommandAccepted",
-         COMMAND_REFUSED: "CommandRefused"}
+         COMMAND_REFUSED: "CommandRefused", USER_PRESS_PLAY: "UserPressPlay",
+         CHARACTER_ENTERED_WORLD: "CharacterEnteredWorld"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
 DELETE_ANSWERS = {0: "approved", 1: "denied"}
 KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin",
-                5: "ACCOUNT TERMINATED"}
+                5: "ACCOUNT TERMINATED", 6: "character still leaving the world; log in again"}
 
 
 def put_string(text):
@@ -239,7 +244,7 @@ class CharacterSelect:
                     say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
                     raise Kicked()
                 if data[0] in (CHARACTER_LIST_DELIVERY, CHARACTER_CREATE_RESULT, CHARACTER_DELETE_RESULT,
-                               COMMAND_ACCEPTED, COMMAND_REFUSED) and len(data) >= 5:
+                               COMMAND_ACCEPTED, COMMAND_REFUSED, CHARACTER_ENTERED_WORLD) and len(data) >= 5:
                     (answered,) = struct.unpack_from("<I", data, 1)
                     if answered == ask:
                         return data[0], data
@@ -307,11 +312,32 @@ class CharacterSelect:
             message, _ = take_string(data, 5)
             say("<-", kind, repr(message), data[1:])
 
+    def play(self, name):
+        """Brings the character into the world.  Its name if it's in, None
+        if it was refused."""
+        uuid = self.uuid_of(name)
+        if uuid is None:
+            return None
+        kind, data = self.ask(USER_PRESS_PLAY, put_string(uuid), name)
+        if kind == CHARACTER_ENTERED_WORLD:
+            entered_uuid, at = take_string(data, 5)
+            entered_name, at = take_string(data, at)
+            x, y, z = struct.unpack_from("<fff", data, at)
+            say("<-", kind, "%s (%s) is in the world at %g, %g, %g" % (entered_name, entered_uuid, x, y, z),
+                data[1:])
+            return entered_name
+        if kind == COMMAND_REFUSED:
+            message, _ = take_string(data, 5)
+            say("<-", kind, repr(message), data[1:])
+        return None
+
 
 def character_select(args, udp, server):
     """The list, then whatever the flags ask for, each followed by the list
-    again.  False if the server kicked us on the way."""
+    again, then --play last.  Hands back (still connected, the name of the
+    character in the world or None)."""
     select = CharacterSelect(udp, server)
+    playing = None
     try:
         select.list()
         if args.create:
@@ -323,10 +349,15 @@ def character_select(args, udp, server):
         if args.reset_home:
             select.reset_home(args.reset_home)
             select.list()
+        if args.play:
+            playing = select.play(args.play)
+            if playing:
+                # Character select is behind us now; the server says so.
+                select.list()
     except Kicked:
         print("Back to the login screen.")
-        return False
-    return True
+        return False, None
+    return True, playing
 
 
 def play(args, token, udp_port):
@@ -352,7 +383,8 @@ def play(args, token, udp_port):
         print("No answer to the Connect in 10 seconds.")
         return
 
-    if not character_select(args, udp, server):
+    connected, playing = character_select(args, udp, server)
+    if not connected:
         return
 
     if args.go_quiet:
@@ -367,8 +399,10 @@ def play(args, token, udp_port):
         except KeyboardInterrupt:
             return
 
-    print("Still at character select: there's no world to step into yet.  Keep-alives once a second; Ctrl-C to "
-          "say Goodbye.")
+    if playing:
+        print("In the world as %s.  Keep-alives once a second; Ctrl-C to say Goodbye." % playing)
+    else:
+        print("Still at character select.  Keep-alives once a second; Ctrl-C to say Goodbye.")
     started = time.monotonic()
     try:
         while True:
@@ -426,6 +460,8 @@ def main():
     parser.add_argument("--delete-word", default="DELETE",
                         help="the word typed to confirm a --delete (default: DELETE; anything else is denied)")
     parser.add_argument("--reset-home", metavar="NAME", help="put the account's character with this name at 0, 0, 0")
+    parser.add_argument("--play", metavar="NAME",
+                        help="bring the account's character with this name into the world, after the other flags")
     args = parser.parse_args()
 
     try:

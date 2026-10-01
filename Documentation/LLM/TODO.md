@@ -130,7 +130,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
       "Players and the world save").  What's left is networking's: the pick packet, loading the row and
       the save into a blueprint off the GameClock's thread (turning an unplayable character away), calling
       `enter()` and `leave()`, and what the client is sent.
-      **Networking's half, Jacob's answers (2026-10-01)**, being built:
+      **Networking's half, Jacob's answers (2026-10-01)**, written and not yet built by Jacob
+      (`design/conductor-networking.md`, "The spawn"):
       - **The loop** is login, character select, the pick, the character in the world at its last save,
         and the session ending whichever way it ends, with the character saved and taken out.
       - **The packets are `UserPressPlay`** (client to server: the ask and the character's uuid) **and
@@ -178,7 +179,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   whether Connections keeps its own lock.  CLAUDE.md's rule gets rewritten with it.
 - **`access_list` switchable from the page at once.**  Today it takes on the next START SERVER, while the
   lists take at once.  Jacob's call if the reboot is a bother.
-- The protocol version in the Hello is `4` and the client versions are a list in `networking.cfg`.
+- The protocol version in the Hello is `6` and the client versions are a list in `networking.cfg`.
   Whether Ensemble reports a version string or a number is Ensemble's call.
 - Reverse DNS on macOS: `dns/other.rs` hands back no name.  macOS has `getnameinfo` with its own
   `sockaddr` layout (a length byte first).  Waits on a Mac.
@@ -190,7 +191,6 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   longest and the latest, late cycles, maybe a graph of the last minute); the numbers the GameClock keeps
   for it (like the monitor's `latest()`); its read path under `/Opus/`, asked for when it's built.
   Nothing on it changes anything, so no `wwwhook` route.
-- **The character on the Connections tab's UDP list**, beside the account, once there are characters.
 - **A tab for the game's entities under GAME MANAGEMENT** (Jacob, 2026-09-30: "Yes let's build a tab for
   characters", then "this is going to be a heading under Game Management to edit player characters or
   NPCs since they're 'in game' entities").  So it edits, not only looks, and covers NPCs as well as
@@ -261,11 +261,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - The launcher's `main.rs`: `stop_server()` says networking goes first (the monitor does), and the header
     calls `start_server()` / `stop_server()` the list of what the server is (networking opens from
     `take_commands()`).  Its boot line names the soft files and leaves out `game.cfg`.
-  - Networking's `lib.rs` and `Cargo.toml` say it starts on START SERVER (it's once the ground is in), and
-    `lib.rs` and `udp.rs` say there's no game yet.
   - The monitor's `lib.rs` header leaves out the process list, per-core load and the machine's RAM.
-  - `protocol.rs` says the client will most likely be C# (it is), and `LoginAnswer::Unavailable`'s comment
-    leaves out Fingerprinter failing to make a token.
+  - `protocol.rs`: `LoginAnswer::Unavailable`'s comment leaves out Fingerprinter failing to make a token.
   - gameworld: `Ground::Flat`'s doc leaves out BEDROCK at -16; `lib.rs` says saving chunks "comes next".
   - `test_client.py`'s usage lines only work from inside `networking/` (the terminal sits in
     `Conductor/dev`), and its `--cert` example is relative to the working directory.

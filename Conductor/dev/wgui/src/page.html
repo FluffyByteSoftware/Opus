@@ -249,6 +249,7 @@ OUT, sit at the bottom of the side menu.
   .disk-big .meter .ours { min-width: 0; }
   .bad-ink { color: var(--red); }
   .warn-ink { color: var(--yellow); }
+  .faint-ink { color: var(--ink-faint); }
   /* The Connections tab: a finished connection is greyed like a thread we
      didn't start (a logged-in one stays green through that), and the
      three dots on a row open its menu: KICK, and the two lists. */
@@ -922,15 +923,16 @@ OUT, sit at the bottom of the side menu.
       <div class="tall-body" style="max-height: 50vh;">
         <table id="udp">
           <thead><tr>
-            <th>Address</th><th>Account</th><th>Connected</th><th class="num">Playing for</th>
+            <th>Address</th><th>Account</th><th>Character</th><th>Connected</th><th class="num">Playing for</th>
             <th class="num">Quiet for</th>
           </tr></thead>
           <tbody></tbody>
         </table>
-        <div class="note" id="udp-note">Every player in the world over UDP, newest first: their address, the
-          account they logged in as, when their Connect was accepted, how long they've been in, and how long
-          since their last packet (a client sends a keep-alive every second, so this stays at 0 or 1 unless
-          something is wrong).  The character they're playing goes here once there are characters.</div>
+        <div class="note" id="udp-note">Every player connected over UDP, newest first: their address, the
+          account they logged in as, the character they're playing (or "character select" until they've
+          picked one), when their Connect was accepted, how long they've been in, and how long since their
+          last packet (a client sends a keep-alive every second, so this stays at 0 or 1 unless something is
+          wrong).</div>
       </div>
     </div>
   </div>
@@ -2022,11 +2024,14 @@ function drawTcp(n) {
     const row = players.insertRow();
     cell(row, p.address, "nowrap");
     cell(row, p.account, "nowrap good-ink");
+    if (p.character === null) cell(row, "character select", "nowrap faint-ink");
+    else cell(row, p.character, "nowrap");
     cell(row, p.connected, "nowrap");
     cell(row, uptime(p.playing_seconds), "num mono");
     cell(row, p.quiet_seconds + " s", "num " + (p.quiet_seconds >= 5 ? "warn-ink" : ""));
   }
-  $("udp-count").textContent = n.in_world.length + " in the world";
+  const playing = n.in_world.filter(p => p.character !== null).length;
+  $("udp-count").textContent = playing + " in the world, " + (n.in_world.length - playing) + " at character select";
 
   // The two list tabs' tiles come from the status too, so they're right
   // the moment the tab opens; the lists themselves are asked for on

@@ -72,16 +72,17 @@ Opus/
 │       │           ├── windows.rs     # kernel32
 │       │           └── other.rs       # macOS and the rest: not measured yet
 │       ├── networking/                # lib -- a server piece
-│       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -primlib, -lua-parser and rustls
-│       │   │                          #   (ring, TLS 1.3 only)
+│       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -gameclock, -primlib, -lua-parser
+│       │   │                          #   and rustls (ring, TLS 1.3 only)
 │       │   ├── test_client.py         # the stand-in client, Python 3: logs in, connects over UDP, character
-│       │   │                          #   select (--create, --delete, --reset-home), keeps alive
+│       │   │                          #   select (--create, --delete, --reset-home), --play, keeps alive
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(), status(); the two helpers both sides share
 │       │       ├── settings.rs        # networking.cfg as networking reads it; the file itself is Constellations'
 │       │       ├── tls.rs             # reads the certificate and key, builds rustls's server settings
 │       │       ├── protocol.rs        # the packets, byte for byte; PROTOCOL.md is the other half
-│       │       ├── sessions.rs        # the book: tickets by token, players by address, accounts by name only
+│       │       ├── sessions.rs        # the book: tickets by token, players by address (and their character in
+│       │       │                      #   the world), accounts by name only; the one-second lockout
 │       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login, the failure hold, the kick
 │       │       ├── ledger.rs          # the ledger: every TCP connection since START SERVER, where it is, LINKDEAD
 │       │       ├── access.rs          # the whitelist and the blacklist: the files, the entries and ranges, the verdict
@@ -89,7 +90,8 @@ Opus/
 │       │       ├── dns/linux.rs       # getnameinfo from the C library
 │       │       ├── dns/windows.rs     # getnameinfo from ws2_32
 │       │       ├── dns/other.rs       # macOS and the rest: no names yet
-│       │       ├── protogame.rs       # Protogame: character select's asks, on their own thread, answered over UDP
+│       │       ├── protogame.rs       # Protogame: character select's asks, on their own thread, answered over UDP;
+│       │       │                      #   playing a character brings it into the world through the GameClock
 │       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; hands asks on
 │       ├── lua-parser/                # lib, conductor-lua-parser -- a server piece
 │       │   ├── Cargo.toml             # depends on conductor-tools, conductor-primlib and mlua (Lua 5.4)
@@ -225,5 +227,5 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | The server's switch  | Stopped / starting / running / stopping.                | Tested                           |
 | The clock            | UTC date and time.                                      | Tested                           |
 | The access lists     | The whitelist and the blacklist at the door.            | Tested                           |
-| The protocol         | What Conductor and a client say to each other.          | Version 5                        |
+| The protocol         | What Conductor and a client say to each other.          | Version 6                        |
 | region.map           | Which region every chunk is in, for server and client.  | Version 1                        |

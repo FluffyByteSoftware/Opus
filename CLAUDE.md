@@ -500,8 +500,8 @@ When I say we're wrapping up:
   the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`,
   and so does a new value in a packet's enum (each new Kicked reason did):
   `protocol.rs`, PROTOCOL.md and `test_client.py` all change together, and
-  the document gets a line saying what the version added.  It's at 5
-  (character select, 2026-09-30).
+  the document gets a line saying what the version added.  It's at 6
+  (the spawn, 2026-10-01).
 - **Character select is Protogame's** (`protogame.rs` in networking, its own
   thread and Services line): "the character selection and character
   construction are proto game then become game objects after load".  The

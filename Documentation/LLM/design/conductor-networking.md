@@ -21,10 +21,10 @@ anything a login leans on goes.  `stop()` is safe when the door never opened, an
 
 ```
 networking/
-├── Cargo.toml         conductor-accounts, conductor-lua-parser, conductor-primlib, conductor-tools,
-│                        rustls 0.23 ("ring", "std")
+├── Cargo.toml         conductor-accounts, conductor-gameclock, conductor-lua-parser, conductor-primlib,
+│                        conductor-tools, rustls 0.23 ("ring", "std")
 ├── test_client.py     the stand-in client: TLS, Login, Ticket, Connect, character select (--create,
-│                        --delete, --delete-word, --reset-home), keep-alives, Goodbye.  Python 3.
+│                        --delete, --delete-word, --reset-home), --play, keep-alives, Goodbye.  Python 3.
 └── src/
     ├── lib.rs         start(), wait_for_world(), stop(), status() -> Status { tcp, udp, players, tickets,
     │                    connections, in_world, access, whitelisted, blacklisted }, kick(id), terminate(account),
@@ -32,18 +32,22 @@ networking/
     │                    timed_out(), wake_address()
     ├── settings.rs    networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs         server_config(settings) -> Arc<ServerConfig>; make_pair(), the openssl command
-    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 5: PacketType, LoginAnswer, ConnectAnswer,
-    │                    KickReason, Choice, CreateAnswer, DeleteAnswer, ListedCharacter; frame(), take_packet(),
-    │                    take_datagram(); hello(), in_line(), login_result(), ticket(), connect_result(),
-    │                    keep_alive(), kicked(), command_accepted(), command_refused(), character_list(),
-    │                    create_result(), delete_result(); read_login(), read_session_choice(), read_connect(),
-    │                    read_list_request(), read_create(), read_delete(), read_reset_home()
+    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 6: PacketType, LoginAnswer, ConnectAnswer,
+    │                    KickReason, Choice, CreateAnswer, DeleteAnswer, ListedCharacter, EnteredCharacter;
+    │                    frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
+    │                    connect_result(), keep_alive(), kicked(), command_accepted(), command_refused(),
+    │                    character_list(), create_result(), delete_result(), entered_world(); read_login(),
+    │                    read_session_choice(), read_connect(), read_list_request(), read_create(),
+    │                    read_delete(), read_reset_home(), read_user_press_play()
     ├── protogame.rs   Protogame, thread protogame: start(), stop(), hand_in(from, account, ask, Work) -> the
-    │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome }
+    │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome,
+    │                    Play }; play() and bring_in(), the spawn's slow part
     ├── sessions.rs    the book: tickets by token, players by address, each account's whereabouts
-    │                    playing(), issue(), connect(), heard(), begin_ask() -> Ask, finish_ask(), leave(),
-    │                    kick(), terminate(), kick_login(), sweep(), clear(), counts(), players(), drop_where();
-    │                    with_book()
+    │                    and each player's character in the world (InWorld), the one-second lockout
+    │                    (LEAVING_LOCKOUT); playing(), issue(), connect(), heard(), begin_ask() -> Ask,
+    │                    finish_ask(), entered(), leave_world(), just_left(), turn_away(), leave(), kick(),
+    │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), drop_where();
+    │                    with_book(), which asks the GameClock to take out whoever left
     ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
     │                    start(), clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
     ├── access.rs      the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
@@ -215,6 +219,47 @@ played is a byte per character in the list ("just add a bool in it"), not a pack
 - **Bigger answers than asks**, unlike the Connect: a list is a few hundred bytes for a five-byte ask.  Only a
   known player's address ever gets one, so a faked sender address has to be a player's.
 
+## The spawn (2026-10-01)
+
+Jacob's packets and names, protocol version 6: **UserPressPlay** (`0x27`, the ask and the character's uuid)
+and **CharacterEnteredWorld** (`0x28`, the ask, the uuid, the name, and x, y, z as f32s).  A pick that can't
+be played gets a CommandRefused.  The GameClock's half (`enter()`, `leave()`, the world save) was built the
+session before (`design/gameclock.md`).
+
+- **Protogame does the slow part** (`play()`, `bring_in()`): the row and the save read through
+  conductor-accounts, an unplayable character turned away, the save read back through lua-parser and laid
+  over the Character template (a save that won't load marks it unplayable, the Error on the bell, the same
+  as a reset home), and the finished blueprint handed to `conductor_gameclock::enter()`.  The answer says
+  where the character stands, from its save's Transform.
+- **The character goes on the player in the book only after `enter()`** (`sessions::entered()`, with the
+  answer kept for a repeat, like any ask).  If the player left while it was being brought in, `entered()`
+  says so and Protogame takes it straight back out (`leave_world()`): the GameClock's mailbox is in order,
+  so the leave lands after the enter, and nothing is left standing.
+- **Every way out of the book takes the character out**, since all of them go through
+  `remove_player_in()`: Goodbye, gone quiet, logged out by a second login, banned, kicked by the admin,
+  account terminated.  The book notes the character's row id, and `with_book()` calls
+  `conductor_gameclock::leave()` once the lock is let go, which saves it and despawns it.  STOP SERVER's
+  `clear()` does the same for everybody; the GameClock stops after networking, so it's there to take them,
+  and its last world save on the way down has anybody whose note it didn't get to.
+- **No way back to character select from the world** (Jacob: "you log out back to log in screen every
+  time").  Any character select ask from a player whose character is in the world is refused from the UDP
+  thread (`Ask::InWorld`), and the refusal kept like any answer.  So a reset home can never move a
+  character that's in the world.
+- **The one-second lockout** (Jacob: "let's set a lockout on a character being instantiated for like 1
+  second?  The player should get a reject disconnected packet but its so short they just reconnect").  The
+  race: a character leaves, and before the GameClock has taken the note (up to 250 ms) and Archivist written
+  its save, a second login picks it and reads the old row.  It can only happen after "log the other session
+  out", where the second login's hash is done before the first is kicked.  So the book keeps each character
+  that left, by uuid, for `LEAVING_LOCKOUT` (1 second, fixed in code), and a UserPressPlay for one of them
+  isn't read at all: the player is sent a Kicked, reason `6`, and goes back to the login; their row reads
+  "LINKDEAD: picked a character still leaving the world; logs in again".  The sweep forgets a lockout once
+  it's over.  A second covers the GameClock's cycle and Archivist's write with room to spare, unless
+  Archivist is backed up by more than that.
+- **The log**: a Connect is "at character select" now (it said "in the world"), and "is in the world as
+  Spawny" is its own Info line on the Security channel, once the character is in.
+- **The Connections tab's UDP list** has the character beside the account ("character select", greyed,
+  until there is one), and its count says how many are in the world and how many at character select.
+
 ## What's open
 
 - **Client management** is all TODO: a player limit ("The server is full."), reconnecting with a token
@@ -224,4 +269,5 @@ played is a byte per character in the list ("just add a bool in it"), not a pack
 - **Windows**: it builds there (2026-09-30) but hasn't run networking yet (no world made, no certificate,
   no database).  The OS-specific parts are the three `dns/` files and the `ConnectionReset` line in
   `udp.rs`, Windows telling us about a bounced packet.  macOS gets no DNS names until there's a Mac.
-- **The character** goes beside the account on the Connections tab's player list once there is one.
+- **What the client is sent after CharacterEnteredWorld**: nothing yet.  The world around it (chunks,
+  `region.map`), other players and movement are the game's packets, to come.

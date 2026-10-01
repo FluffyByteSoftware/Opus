@@ -87,7 +87,9 @@ Jacob's answers, 2026-09-30 and 2026-10-01, preparing the game library for the s
   be put in the world, `leave(character_id)` for one to be taken out; both leave a note and come straight
   back, and say so if the GameClock isn't running.  `enter()` turns away a blueprint without a
   `PlayerCharacter` with a row behind it (an id above 0).  The input check empties the mailbox every cycle.
-  Nothing calls them yet: the spawn's network side is networking's (Jacob's map in STATUS.md).
+  Networking calls them (2026-10-01): Protogame's `enter()` when a player picks a character with
+  UserPressPlay, and the book's `leave()` whenever that player's session ends, however it ends
+  (`design/conductor-networking.md`, "The spawn").
 - **The slow part is done before the note.**  Whoever asks reads the row, reads the save through
   lua-parser and makes the blueprint with `character_from_save()` on its own thread; the GameClock only
   spawns it.

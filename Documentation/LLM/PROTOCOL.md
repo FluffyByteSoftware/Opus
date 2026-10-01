@@ -11,8 +11,10 @@ client who has never seen Conductor's code.  Conductor's half is `Conductor/dev/
 and the Python test client beside the crate (`networking/test_client.py`) is the other half until Ensemble
 speaks it; when either disagrees with this document, it is the code that gets fixed.
 
-Protocol version **5**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 5 (2026-09-30)
+Protocol version **6**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 6 (2026-10-01)
+added the spawn: UserPressPlay and CharacterEnteredWorld (`0x27`, `0x28`), and reason `6`, character still
+leaving the world, to Kicked.  Version 5 (2026-09-30)
 added character select (`0x20` to `0x26`) and the two general answers, CommandAccepted and CommandRefused
 (`0x35`, `0x36`).  Version 4 (2026-09-29)
 added reason `5`, account terminated, to Kicked.  Version 3 (the same day) added reason `4`, kicked by
@@ -27,15 +29,18 @@ A session is two halves, over two transports.
    server closes the connection.  Nothing else ever goes over TCP.
 2. **UDP is the game.**  The client sends the Ticket's token to the UDP port in a Connect, the server
    answers with a ConnectResult, and from then on everything goes over UDP: a KeepAlive each way once a
-   second, character select, and the game's packets once there is a game.
+   second, character select, the character picked coming into the world, and the game's packets as they
+   come.
 
 When the UDP session ends, for any reason, the player is gone.  There is no reconnect: the client goes back
 to the login screen and starts over from TCP.  The reasons it ends: the client sent a Goodbye, the client
 went quiet past the server's UDP timeout (40 seconds by default), the account logged in from somewhere
 else and chose to log this session out, the server stopped, the admin banned the address (put it on
-the blacklist, or took it off the whitelist), the admin kicked the player, or the admin deleted the
-account.  For the last five the client hears a Kicked first; for the timeout it hears nothing, and knows
-from its own silence.
+the blacklist, or took it off the whitelist), the admin kicked the player, the admin deleted the
+account, or the player picked a character that left the world less than a second ago.  For the last six
+the client hears a Kicked first; for the timeout it hears nothing, and knows from its own silence.  A
+character in the world leaves it with its player's session, saved on the way out; there's no going back
+to character select from the world but logging out and in again.
 
 ### TLS
 
@@ -45,7 +50,8 @@ Nothing in the login goes over the wire until TLS is up.
 
 ### Bytes
 
-Numbers are **little-endian** (lowest byte first).  A **string** is a u32 byte count and then that many
+Numbers are **little-endian** (lowest byte first).  An **f32** is a 4-byte IEEE 754 float (C#'s `float`,
+what `BinaryWriter` writes).  A **string** is a u32 byte count and then that many
 bytes of UTF-8, no terminator.  Bytes that aren't UTF-8, or anything left over after a packet's last
 field, make the packet one the server can't read.
 
@@ -91,6 +97,8 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 | `0x24` | DeleteCharacter | client to server | u32 ask, string uuid, string the typed word            |
 | `0x25` | CharacterDeleteResult | server to client | u32 ask, u8 answer, string message              |
 | `0x26` | CharacterRequestResetHome | client to server | u32 ask, string uuid                          |
+| `0x27` | UserPressPlay  | client to server | u32 ask, string uuid                                     |
+| `0x28` | CharacterEnteredWorld | server to client | u32 ask, string uuid, string name, f32 x, y, z  |
 | `0x30` | Connect        | client to server | string token                                             |
 | `0x31` | ConnectResult  | server to client | u8 answer, string message                                |
 | `0x32` | KeepAlive      | both ways        | nothing                                                  |
@@ -159,16 +167,17 @@ can't are short labels with no period.
    log this session out, `2` the server is stopping, `3` the address was banned (the admin put it on the
    blacklist, or took it off the whitelist; its next login is closed at the door), `4` the admin kicked
    them (nothing stops them logging in again), `5` the admin deleted the account (the client says
-   ACCOUNT TERMINATED; the account is gone, so logging in again fails).  The client goes back to the login
-   screen.
+   ACCOUNT TERMINATED; the account is gone, so logging in again fails), `6` the character picked with
+   UserPressPlay left the world less than a second ago (nothing is wrong; logging in again gets it).  The
+   client goes back to the login screen.
 
 Anything else from an address the server knows counts as hearing from that player (the game's packets go
 here later).  Anything at all from an address it doesn't know, other than a Connect, gets no answer.
 
 ## Character select, over UDP
 
-Once the ConnectResult says Welcome, the player is at character select.  There's no world to step into from
-there yet; that comes with the spawn.  A player only ever sees, makes and deletes characters on the account
+Once the ConnectResult says Welcome, the player is at character select, until a UserPressPlay puts their
+character in the world.  A player only ever sees, makes and deletes characters on the account
 they logged in as: the server goes by who logged in, never by anything in the packet.
 
 **The ask number.**  Every packet the client sends here starts with a u32 it picks, one higher for every new
@@ -201,6 +210,17 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
   **CommandAccepted**, or a **CommandRefused** saying why not (no such character on the account, the
   character is unplayable, its save won't load, or the server can't right now).
 
+- **UserPressPlay** with a character's uuid brings it into the world, where its last save left it, and gets
+  a **CharacterEnteredWorld**: its uuid and name, and where it stands, x, y and z (y up).  Or a
+  **CommandRefused** saying why not: no such character on the account, the character is unplayable, its
+  save won't load (it's marked unplayable then, and the admin told), or the server can't right now.  A
+  character that left the world less than a second ago (its last save may still be on its way to the
+  database) gets a **Kicked** with reason `6` instead, and the client logs in again.
+- **Once the character is in the world, character select is behind the player.**  Any of the asks above
+  gets a **CommandRefused**, "Your character is in the world.  Log out to get back to character select."
+  The way back is logging out, to the login screen, every time (Jacob: "you log out back to log in screen
+  every time").
+
 **CommandAccepted** (the ask number) and **CommandRefused** (the ask number and a message for the player)
 are general answers: any command that needs no more said than done or not done, here or in the game later,
 gets one of them.
@@ -220,6 +240,23 @@ and the answer, "Your character has been made." being 29 bytes:
 02 00 00 00                                   ask 2
 00                                            made
 1D 00 00 00  59 6F 75 72 20 ...               "Your character has been made."
+```
+
+A UserPressPlay as ask 3, and the answer for Jacob standing at 1.5, 0, -2 (the uuid shown short; it's 36
+characters):
+
+```text
+27                                            UserPressPlay
+03 00 00 00                                   ask 3
+24 00 00 00  30 31 39 39 ...                  the uuid, 36 bytes
+
+28                                            CharacterEnteredWorld
+03 00 00 00                                   ask 3
+24 00 00 00  30 31 39 39 ...                  the uuid
+05 00 00 00  4A 61 63 6F 62                   "Jacob"
+00 00 C0 3F                                   x 1.5
+00 00 00 00                                   y 0
+00 00 00 C0                                   z -2
 ```
 
 ## A worked example
