@@ -7,9 +7,10 @@
 //! every time.
 //!
 //! Every column is the same three layers (Jacob, 2026-09-30): one block of
-//! dirt at the ground's height, stone under it down to -15, and air over
-//! it, on a floor of BEDROCK at -16.  In Alpha the ground is at 0
-//! everywhere; in Omega it's wherever the heights file says, -5 to 5.
+//! dirt at the ground's height, stone under it down to -30, and air over
+//! it, on a floor of BEDROCK at -31 and -32 (2026-10-01).  In Alpha the
+//! ground is at 0 everywhere; in Omega it's wherever the heights file
+//! says, -5 to 5.
 //!
 //! The block at 0,0,0 is GOLD, whatever is around it.  It's on Omega's
 //! side of the line, and Omega's ground there can be up to 5 blocks
@@ -17,7 +18,7 @@
 //! air under it.
 
 use crate::block::Block;
-use crate::chunk::{BOTTOM_Y, Chunk, ChunkPos, SIDE};
+use crate::chunk::{Chunk, ChunkPos, FLOOR_Y, SIDE};
 use crate::heights::Heights;
 use crate::regionmap::{Ground, Region};
 
@@ -55,7 +56,7 @@ pub fn untouched(pos: ChunkPos, region: &Region, heights: Option<&Heights>) -> R
 
 /// What's at height `y` in a column whose dirt is at `ground`.
 fn layer(y: i32, ground: i32) -> Block {
-    if y == BOTTOM_Y {
+    if y <= FLOOR_Y {
         Block::BEDROCK
     } else if y < ground {
         Block::STONE
@@ -69,6 +70,7 @@ fn layer(y: i32, ground: i32) -> Block {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::chunk::{BOTTOM_Y, ROWS};
     use crate::heights;
     use std::sync::Arc;
 
@@ -80,27 +82,39 @@ mod tests {
         Region { name: "Omega".to_string(), ground: Ground::Heights }
     }
 
+    /// The block at world height `y` in column x,z (each 0 to 31) of the
+    /// chunks of one column, row 0 first.
+    fn at(rows: &[Chunk], x: i32, y: i32, z: i32) -> Block {
+        let from_bottom = y - BOTTOM_Y;
+        rows[(from_bottom / SIDE) as usize].block(x, from_bottom % SIDE, z)
+    }
+
+    /// Every row of the chunk column at x,z.
+    fn column(x: i32, z: i32, region: &Region, heights: Option<&heights::Heights>) -> Vec<Chunk> {
+        (0..ROWS).map(|row| untouched(ChunkPos { x, z, row }, region, heights).unwrap()).collect()
+    }
+
     #[test]
-    fn alpha_is_stone_to_minus_1_dirt_at_0_and_air_above() {
-        let pos = ChunkPos { x: -3, z: 5, row: 0 };
-        let chunk = untouched(pos, &alpha(), None).unwrap();
-        // In a chunk of the lower row, y 0 is the world's -16, so the
-        // world's 0 is y 16.
+    fn alpha_is_bedrock_stone_to_minus_1_dirt_at_0_and_air_above() {
+        let rows = column(-3, 5, &alpha(), None);
         for (x, z) in [(0, 0), (17, 30), (31, 31)] {
-            assert_eq!(chunk.block(x, 0, z), Block::BEDROCK, "the floor");
-            assert_eq!(chunk.block(x, 1, z), Block::STONE, "-15");
-            assert_eq!(chunk.block(x, 15, z), Block::STONE, "-1");
-            assert_eq!(chunk.block(x, 16, z), Block::DIRT, "0");
-            assert_eq!(chunk.block(x, 17, z), Block::AIR, "1");
-            assert_eq!(chunk.block(x, 31, z), Block::AIR, "15");
+            assert_eq!(at(&rows, x, -32, z), Block::BEDROCK, "-32");
+            assert_eq!(at(&rows, x, -31, z), Block::BEDROCK, "-31");
+            assert_eq!(at(&rows, x, -30, z), Block::STONE, "-30");
+            assert_eq!(at(&rows, x, -1, z), Block::STONE, "-1");
+            assert_eq!(at(&rows, x, 0, z), Block::DIRT, "0");
+            assert_eq!(at(&rows, x, 1, z), Block::AIR, "1");
+            assert_eq!(at(&rows, x, 319, z), Block::AIR, "319");
         }
     }
 
     #[test]
-    fn the_upper_row_starts_as_air() {
-        let chunk = untouched(ChunkPos { x: -3, z: 5, row: 1 }, &alpha(), None).unwrap();
-        for y in 0..SIDE {
-            assert_eq!(chunk.block(4, y, 9), Block::AIR);
+    fn the_rows_above_the_ground_start_as_air() {
+        for row in 2..ROWS {
+            let chunk = untouched(ChunkPos { x: -3, z: 5, row }, &alpha(), None).unwrap();
+            for y in 0..SIDE {
+                assert_eq!(chunk.block(4, y, 9), Block::AIR);
+            }
         }
     }
 
@@ -108,29 +122,31 @@ mod tests {
     fn the_block_at_0_0_0_is_gold_and_only_that_one() {
         let bytes = heights::make(3, 0, 0, 32, 32, |_| true).unwrap();
         let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
-        let chunk = untouched(ChunkPos { x: 0, z: 0, row: 0 }, &omega(), Some(&heights)).unwrap();
-        assert_eq!(chunk.block(0, 16, 0), Block::GOLD);
-        let golds = (0..SIDE).flat_map(|y| (0..SIDE).flat_map(move |z| (0..SIDE).map(move |x| (x, y, z))))
-            .filter(|&(x, y, z)| chunk.block(x, y, z) == Block::GOLD)
+        let rows = column(0, 0, &omega(), Some(&heights));
+        assert_eq!(at(&rows, 0, 0, 0), Block::GOLD);
+        let golds = rows.iter()
+            .flat_map(|chunk| (0..SIDE).flat_map(move |y| (0..SIDE).flat_map(move |z| (0..SIDE)
+                .map(move |x| chunk.block(x, y, z)))))
+            .filter(|&block| block == Block::GOLD)
             .count();
         assert_eq!(golds, 1);
 
-        let beside = untouched(ChunkPos { x: -1, z: 0, row: 0 }, &alpha(), None).unwrap();
-        assert_eq!(beside.block(31, 16, 0), Block::DIRT);
+        let beside = column(-1, 0, &alpha(), None);
+        assert_eq!(at(&beside, 31, 0, 0), Block::DIRT);
     }
 
     #[test]
     fn omega_puts_its_dirt_at_the_height_in_its_file() {
         let bytes = heights::make(11, 64, 64, 32, 32, |_| true).unwrap();
         let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
-        let chunk = untouched(ChunkPos { x: 2, z: 2, row: 0 }, &omega(), Some(&heights)).unwrap();
+        let rows = column(2, 2, &omega(), Some(&heights));
         for (x, z) in [(0, 0), (13, 21), (31, 31)] {
             let ground = heights.at(64 + x, 64 + z).unwrap();
-            let y = ground - BOTTOM_Y;
-            assert_eq!(chunk.block(x, y, z), Block::DIRT);
-            assert_eq!(chunk.block(x, y - 1, z), Block::STONE);
-            assert_eq!(chunk.block(x, y + 1, z), Block::AIR);
-            assert_eq!(chunk.block(x, 0, z), Block::BEDROCK);
+            assert_eq!(at(&rows, x, ground, z), Block::DIRT);
+            assert_eq!(at(&rows, x, ground - 1, z), Block::STONE);
+            assert_eq!(at(&rows, x, ground + 1, z), Block::AIR);
+            assert_eq!(at(&rows, x, -30, z), Block::STONE);
+            assert_eq!(at(&rows, x, -31, z), Block::BEDROCK);
         }
     }
 

@@ -8,13 +8,15 @@ Author:     Jacob Chacko
 
 The world is what the game is played in: the ground, what it's made of, and how it's cut up.  All of it was
 designed with Jacob on 2026-09-30, and part one (`conductor-gameworld`) was built and tested the same day, so
-every decision and quote below is his from that day unless it says otherwise.
+every decision and quote below is his from that day unless it says otherwise.  On 2026-10-01 the blocks went
+from 50 cm to 1 m, Minecraft's size, and the world from two rows of chunks to eleven, Minecraft's height
+(under "Blocks and chunks" and "The shape"); **that change hasn't been built by Jacob yet**.
 
 ## Where it stands
 
-**Part one is built and tested on Linux** (Jacob's first world took 19 seconds to make).  Every run check
-passed, the door waiting on the world, the sharp divide, BEDROCK and only housekeeping running until the
-ground is in included.
+**Part one is built and tested on Linux** (Jacob's first world took 19 seconds to make, at 50 cm blocks).
+Every run check passed, the door waiting on the world, the sharp divide, BEDROCK and only housekeeping
+running until the ground is in included.
 
 `conductor-gameworld` (lib, folder `gameworld`, `conductor_gameworld` in code; Jacob named it) is the world,
 not primlib.  It's a server piece with its own thread, `gameworld`, and a GameWorld line on the Services tab,
@@ -44,8 +46,8 @@ binary, not text: "its a summary that tells the chunks how to assemble themselve
 client".  **`Documentation/LLM/REGION_MAP.md`** has it, byte for byte, with a worked example, the checks a
 reader makes, a C# reader for Ensemble and a one-line Python look at a real file (Jacob's ask: "a thorough
 document that explains how to read our new binary map file").  That document is the contract with Ensemble,
-like PROTOCOL.md, so it isn't copied here, and a change to the layout bumps its version.  524,330 bytes for
-the first world.
+like PROTOCOL.md, so it isn't copied here, and a change to the layout bumps its version.  720,938 bytes for
+the first world (version 2).
 
 `Regions/<Region>/<region>.heights` (Omega's, today):
 
@@ -61,16 +63,16 @@ i8 x every column   the dirt's height, -5 to 5: the south line first,
                     in a line west to east.
 ```
 
-134,217,754 bytes for Omega.
+33,554,458 bytes for Omega.
 
-`Regions/<Region>/<region>_<x>_<z>_<row>.chunk` (`alpha_-015_003_0.chunk`), one per changed chunk:
+`Regions/<Region>/<region>_<x>_<z>_<row>.chunk` (`alpha_-015_003_01.chunk`), one per changed chunk:
 
 ```text
 8 bytes   OPUSCHNK
-u16       version, 1
+u16       version, 2
 i16       x, the chunk's place east-west
 i16       z, north-south
-u8        row, 0 (lower) or 1 (upper)
+u8        row, 0 (bottom, -32 to -1) to 10 (top, 288 to 319)
 u16 x 32768  the blocks, bottom layer first; in a layer, the south row
              first; in a row, west to east.  (y * 32 + z) * 32 + x.
 ```
@@ -99,41 +101,46 @@ out there.
 
 - **The world is blocky**: you see the cubes, the way Minecraft looks, not smooth ground drawn over the
   voxels.
-- **The blocks are smaller than Minecraft's, with high-res textures**: "our average block is smaller (1/4 the
-  size of a minecraft block should work)".
-- **A block is 50 cm a side**: "A player is to be 4 blocks tall at 2 meters."  Half a Minecraft block's
-  width, an eighth of its volume, eight blocks to a cubic metre.
+- **A block is 1 m a side, Minecraft's size** (2026-10-01): "revise conductor voxels so that they are more
+  in line with the size of a Minecraft voxel", and cubes "will be simpler to start there for now and then we
+  may make different non cubed voxels".  **A player is 2 blocks tall, 2 m.**  (Until then a block was 50 cm,
+  "1/4 the size of a minecraft block", a player 4 blocks tall.)
 - **A block holds what it's made of, and that's all, for now.**  The first kinds are **DIRT, STONE, AIR and
   WOOD**, then **GOLD** for the origin block and **BEDROCK** for the floor ("like bedrock type now").  The
   kind is one number per block, **two bytes, up to 65,536 kinds** ("I think 65k will be enough"): 64 KB a
   chunk before anything is squeezed.
-- **A chunk is a cube of 32 blocks a side, 16 m** ("we'll start with the 32 a side"), 32,768 blocks.  Chunks
-  stack up and down, not columns the world's full height.  Not 64 a side: that's eight times what Ensemble
-  redraws when one block changes, and biome steps 32 m wide.
+- **A chunk is a cube of 32 blocks a side, 32 m** ("we'll start with the 32 a side", and still 32 at 1 m),
+  32,768 blocks.  Chunks stack up and down, not columns the world's full height.  Not 64 a side: that's
+  eight times what Ensemble redraws when one block changes, and biome steps 64 m wide.
 
 ### The shape
 
-- **8 km by 8 km to start**, "it may _grow_ later".  16,384 blocks a side, 512 by 512 chunks across,
-  524,288 chunks in all with two rows.
-- **0,0,0 is the middle of the world**: "I want it to span -8096 to 8096 and at 0, 0 its gold".  **The span
-  is in blocks** ("voxels lol"), taken as **-8192 to 8191** each way, since 8096 isn't a whole number of
-  32-block chunks and 8192 is.  Chunks run -256 to 255.  File names take negative numbers.
+- **8 km by 8 km to start**, "it may _grow_ later", and still 8 km at 1 m ("I thought we bout 8k x 8k?").
+  8192 blocks a side, 256 by 256 chunks across, 720,896 chunks in all with eleven rows.
+- **0,0,0 is the middle of the world**: "I want it to span -8096 to 8096 and at 0, 0 its gold", taken at
+  50 cm as -8192 to 8191 blocks.  At 1 m it's **-4096 to 4095** blocks each way.  Chunks run -128 to 127.
+  File names take negative numbers.
 - **The origin block, 0,0,0, is GOLD**, so the middle of everything can be seen, whatever is around it.
 - **The world starts flat, in three layers, counted in blocks**: "blocks at 0 are all dirt, blocks at -1 thru
-  -15 are stone, blocks 1 and higher are air".  One block of dirt on top of 15 of stone (7.5 m), and air
-  above.
-- **The ceiling is +30, the floor below -15**: "you can go 30 voxels HIGH before you hit the ceiling; you can
-  go down to -15 voxels in the ground before its undiggable".  Read as: +30 is the last block that can be
-  built, -15 the last that can be dug, and -16 the floor nobody breaks ("-16 is undiggable"), all BEDROCK.
-  That's 46 blocks from -15 to +30, so **the world is two chunks tall**: a lower row from -16 to +15 (the
-  floor, the stone, the dirt and 15 of air) and an upper row from +16 to +47, all air at the start, with
-  nothing allowed above +30.
+  -15 are stone, blocks 1 and higher are air", with the stone going deeper at 1 m (below).  One block of dirt
+  on top of 30 of stone, and air above.
+- **Minecraft's height, Jacob's depth** (2026-10-01): "we're gonna squeeze more memory and go Minecraft
+  height and depth values for now", and "-31 is bedrock can dig to -30 and stand on top of -31".  So
+  **+319 is the last block that can be built** (Minecraft's top), **-30 the last that can be dug**, and
+  **-31 and -32 are the BEDROCK floor** nobody breaks.  The floor starts at -32 so the rows line up on 32s
+  (Jacob's yes): **the world is eleven chunks tall**, -32 to +319.  Row 0 is -32 to -1 (the floor and the
+  stone), row 1 is 0 to 31 (the dirt and air), and rows 2 to 10 are all air at the start.  (At 50 cm it was
+  two rows from -16, the ceiling +30.)  Asked while picturing "how tall a mountain needs to be to seem
+  significant or a watch tower": a watch tower is 15 to 25 m, a mountain that reads as one 100 m and up.
+  The first mountain is tried once the client is up: "we will test a mountain out after we get the client
+  up".
 - **Every player starts at 0,0,0, for now.**  So until there's movement, "the chunks near a player" is the
   chunks around 0,0,0, and that's what GameWorld loads on START SERVER.
-- **A player is sent the chunks 4 each way around them, to start**: 64 m, "but it might need to be 8"
-  (128 m).  With the world two chunks tall, that's a 9 by 9 square, both rows, 162 chunks a player.  **The 4
-  is `view_chunks` in `game.cfg`** (1 to 16), so trying 8 is the Settings tab and a STOP SERVER and START
-  SERVER.
+- **A player is sent the chunks 4 each way around them, to start**: 128 m at 1 m blocks (it was 64 m, "but
+  it might need to be 8").  With the world eleven chunks tall, that's a 9 by 9 square, every row, 891 chunks
+  a player, about 57 MB (it was 162).  An all-air chunk is still kept whole; most of those 891 are air.
+  **The 4 is `view_chunks` in `game.cfg`** (1 to 16), so trying another is the Settings tab and a STOP
+  SERVER and START SERVER.
 
 ### Regions
 
@@ -144,8 +151,8 @@ out there.
 - **The world starts with two regions, Alpha and Omega, split evenly**: **Alpha west, Omega east "from
   origin 0,0,0"**, with the gold block on the line between (on Omega's side).
 - **Alpha is purely flat**, the three layers above.  **Omega is bumpy**: "random noise with +/- 5 on the Y",
-  so its ground rises and falls up to 5 blocks (2.5 m) either side of 0, in **smooth rolling hills**, with
-  **one block of dirt on top and stone under it down to -15**, as in Alpha.  The noise is written by hand,
+  so its ground rises and falls up to 5 blocks (5 m at 1 m blocks) either side of 0, in **smooth rolling hills**, with
+  **one block of dirt on top and stone under it down to -30**, as in Alpha.  The noise is written by hand,
   no crate.  So the GOLD can sit inside a hill or with air under it.
 - **Where Alpha meets Omega is a sharp divide**: "it just suddenly becomes the other biome - in a real build
   and not this test, we'll have a blending technique".  So there can be a step of up to 5 blocks at x = 0.
@@ -161,11 +168,13 @@ out there.
 - **A changed chunk is saved as a file under `Content/world/`** (gitignored), through DiskMan, not in the
   database.  **Chunk files go in a folder named after their region**: "when we generate the world we are
   going to name regions and name the chunk folders after them then place that chunk in there".  **The
-  numbers are padded to three digits**: `alpha_-015_003_0.chunk`, east, north, then row.
+  numbers are padded to three digits**, and the row to two (2026-10-01, with eleven rows):
+  `alpha_-015_003_01.chunk`, east, north, then row.
 - **Omega's bumps are saved, not made again**: "Omega chunks will need to be saved with their bumpiness
   before server shuts down".  Made once, when the world is made, and kept, so a change to the noise code
-  later never reshapes hills already there.  **Kept as one heights file**: one number per 50 cm column, how
-  high the dirt is, -5 to +5, about 134 MB for half of 8 km (every Omega chunk whole would be about 8 GB).
+  later never reshapes hills already there.  **Kept as one heights file**: one number per column, how
+  high the dirt is, -5 to +5, about 34 MB for half of 8 km at 1 m blocks (every Omega chunk whole would be
+  about 23 GB).
 - **It's saved on STOP SERVER, and by a global save every 15 minutes.**  A chunk that changes is marked, and
   the GameClock hands copies of the changed ones to GameWorld to write, never waiting on it.
 - **The global save is the terrain only**: "whatever is in memory about the voxel states", dumped to disk.

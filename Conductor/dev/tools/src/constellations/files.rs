@@ -355,7 +355,7 @@ pub static GAME: ConfigFile = ConfigFile {
             kind: Kind::Number { low: 1, high: 16 },
             default: "4",
             about: "How many chunks each way around a player the server loads.  A chunk\n\
-                    is 16 m, so 4 is 64 m.  Every player starts at 0,0,0 for now, so\n\
+                    is 32 m, so 4 is 128 m.  Every player starts at 0,0,0 for now, so\n\
                     today it's the chunks around there.",
         },
         Setting {

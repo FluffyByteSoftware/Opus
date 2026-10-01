@@ -11,14 +11,14 @@ Conductor's code: whoever writes Ensemble's reader, or me in six months with a h
 half is `Conductor/dev/gameworld/src/regionmap.rs`.  This document is the contract, the same as
 PROTOCOL.md is for the packets: when the code and this disagree, it's the code that gets fixed.
 
-File version **1**.  The version goes up when anything about the layout changes, and it sits near the
+File version **2**.  The version goes up when anything about the layout changes, and it sits near the
 front of the file, so a reader built for another version can stop right there instead of reading garbage.
 
 ## What it is
 
 The world (8 km a side, 0,0,0 in the middle) is cut into **regions**.  A region is a zone is a biome, "a
 biome name / zone or collection of chunks" (Jacob, 2026-09-30).  The world is also cut into **chunks**,
-cubes of 32 blocks a side (16 m), and every chunk is in exactly one region, never across two.
+cubes of 32 blocks a side (32 m), and every chunk is in exactly one region, never across two.
 
 `region.map` is the list of regions, and then one byte for every chunk in the world saying which region
 it's in.  That's all.  In Jacob's words it's "a summary that tells the chunks how to assemble themselves
@@ -61,24 +61,24 @@ region names are, so a reader walks the region list to find where the grid start
 | Offset | Size | Type | What it is | First world |
 |---|---|---|---|---|
 | 0 | 8 | 8 ASCII bytes | The tag, `OPUSRMAP`.  Anything else isn't a region map. | `OPUSRMAP` |
-| 8 | 2 | u16 | The version.  This document is version 1. | 1 |
+| 8 | 2 | u16 | The version.  This document is version 2. | 2 |
 | 10 | 8 | u64 | The seed the world was made from.  Kept so a lost heights file can be made again, exactly as it was. | random |
-| 18 | 2 | i16 | **West**: the x of the westmost chunk. | -256 |
-| 20 | 2 | i16 | **South**: the z of the southmost chunk. | -256 |
-| 22 | 2 | u16 | **Width**: how many chunks east-west. | 512 |
-| 24 | 2 | u16 | **Depth**: how many chunks north-south. | 512 |
-| 26 | 1 | u8 | **Rows**: how many chunks are stacked up and down.  Has to be 2 today. | 2 |
+| 18 | 2 | i16 | **West**: the x of the westmost chunk. | -128 |
+| 20 | 2 | i16 | **South**: the z of the southmost chunk. | -128 |
+| 22 | 2 | u16 | **Width**: how many chunks east-west. | 256 |
+| 24 | 2 | u16 | **Depth**: how many chunks north-south. | 256 |
+| 26 | 1 | u8 | **Rows**: how many chunks are stacked up and down.  Has to be 11 today. | 11 |
 | 27 | 1 | u8 | **Count**: how many regions are in the list that follows.  1 to 255. | 2 |
 | 28 | varies | | The regions, one after another (below). | Alpha, Omega |
-| after them | width x depth x rows | u8 each | **The grid**: one byte per chunk, the region it's in (below). | 524,288 bytes |
+| after them | width x depth x rows | u8 each | **The grid**: one byte per chunk, the region it's in (below). | 720,896 bytes |
 
 **Each region** in the list is:
 
 | Size | Type | What it is |
 |---|---|---|
-| 1 | u8 | Its **ground**: how a chunk nobody has changed is built.  `0` is flat (dirt at 0, stone under it down to -15, BEDROCK at -16, air over it).  `1` is heights (the same layers, with the dirt at the height its heights file gives for each column).  Nothing else is allowed. |
+| 1 | u8 | Its **ground**: how a chunk nobody has changed is built.  `0` is flat (dirt at 0, stone under it down to -30, BEDROCK at -31 and -32, air over it).  `1` is heights (the same layers, with the dirt at the height its heights file gives for each column).  Nothing else is allowed. |
 | 1 | u8 | How many bytes its name takes.  1 to 255. |
-| that many | UTF-8 | Its name, `Alpha`.  The name is also its folder, `Content/world/Regions/Alpha/`, and, in lowercase, the front of its files' names, `alpha_-015_003_0.chunk`. |
+| that many | UTF-8 | Its name, `Alpha`.  The name is also its folder, `Content/world/Regions/Alpha/`, and, in lowercase, the front of its files' names, `alpha_-015_003_01.chunk`. |
 
 A region's **number** is its place in this list, counting from 0.  In the first world Alpha is 0 and
 Omega is 1.  That number is what the grid holds.
@@ -86,11 +86,11 @@ Omega is 1.  That number is what the grid holds.
 ## The grid
 
 After the last region comes one byte for every chunk the map covers: `width x depth x rows` of them,
-524,288 for the first world.  Each byte is the number of the region that chunk is in.
+720,896 for the first world.  Each byte is the number of the region that chunk is in.
 
 They go in this order:
 
-1. The **lower row** of chunks first (row 0), then the upper row (row 1).
+1. The **bottom row** of chunks first (row 0), then row 1 above it, and so on up to the top (row 10).
 2. Inside a row, the **southmost line** first, going north.
 3. Inside a line, **west to east**.
 
@@ -110,19 +110,20 @@ there.
 - **x** is east-west, bigger to the east.  **z** is north-south, bigger to the north.  **y** is up and down,
   bigger going up.  (Unity has y up and z forward too, so a Unity scene with north along +z lines up with no
   swapping.)
-- A **block** is 50 cm a side.  The world runs from block -8192 to block 8191 each way, with 0,0,0 (the GOLD
-  block) in the middle.
+- A **block** is 1 m a side, the same as Minecraft's.  The world runs from block -4096 to block 4095 each
+  way, with 0,0,0 (the GOLD block) in the middle.
 - A **chunk** is 32 blocks a side.  Chunk 0,0 has its south-west corner at block 0,0, so chunk `x` covers
-  blocks `32x` to `32x + 31`.  Chunks run -256 to 255 each way.
-- **Rows**: row 0 is y -16 to +15, row 1 is y +16 to +47.  (What can be dug and built in is -15 to +30; -16
-  is the BEDROCK floor.)
+  blocks `32x` to `32x + 31`.  Chunks run -128 to 127 each way.
+- **Rows**: eleven, from y -32 to +319, 32 blocks each.  Row 0 is y -32 to -1, row 1 is 0 to 31 (the
+  ground), and row `r` is `32r - 32` to `32r - 1`, up to row 10, 288 to 319.  -32 and -31 are the BEDROCK
+  floor; what can be dug and built in is -30 to +319, Minecraft's top.
 
 From a block to its chunk, divide by 32 and **round down**, toward minus infinity, not toward zero:
 
 ```text
 chunk x = floor(block x / 32)
 chunk z = floor(block z / 32)
-row     = floor((block y + 16) / 32)
+row     = floor((block y + 32) / 32)
 ```
 
 Rounding down matters for anything below 0.  Block x -1 is in chunk -1, not chunk 0.  In C#, `-1 / 32` is
@@ -134,7 +135,7 @@ this, and Python's `//` already rounds down.)
 Here are the first 42 bytes of a first world whose seed happened to be `0x0123456789ABCDEF`:
 
 ```text
-4f 50 55 53 52 4d 41 50  01 00  ef cd ab 89 67 45 23 01  00 ff  00 ff  00 02  00 02  02  02
+4f 50 55 53 52 4d 41 50  02 00  ef cd ab 89 67 45 23 01  80 ff  80 ff  00 01  00 01  0b  02
 00 05 41 6c 70 68 61  01 05 4f 6d 65 67 61
 ```
 
@@ -143,43 +144,43 @@ Read left to right:
 | Bytes | Means |
 |---|---|
 | `4f 50 55 53 52 4d 41 50` | `OPUSRMAP`, the tag |
-| `01 00` | version 1 |
+| `02 00` | version 2 |
 | `ef cd ab 89 67 45 23 01` | the seed, 0x0123456789ABCDEF (small end first, so it reads backwards) |
-| `00 ff` | west, -256 |
-| `00 ff` | south, -256 |
-| `00 02` | width, 512 |
-| `00 02` | depth, 512 |
-| `02` | rows, 2 |
+| `80 ff` | west, -128 |
+| `80 ff` | south, -128 |
+| `00 01` | width, 256 |
+| `00 01` | depth, 256 |
+| `0b` | rows, 11 |
 | `02` | 2 regions follow |
 | `00 05 41 6c 70 68 61` | region 0: ground 0 (flat), a name 5 bytes long, `Alpha` |
 | `01 05 4f 6d 65 67 61` | region 1: ground 1 (heights), a name 5 bytes long, `Omega` |
 
-The grid starts at byte 42, and the file is 42 + 524,288 = **524,330 bytes**.
+The grid starts at byte 42, and the file is 42 + 720,896 = **720,938 bytes**.
 
-**Which region is chunk -15, 3 in the lower row?**
+**Which region is chunk -15, 3 in row 1, the one with the ground in it?**
 
 ```text
-index  = (0 * 512 + (3 - -256)) * 512 + (-15 - -256)
-       = 259 * 512 + 241
-       = 132,849
-offset = 42 + 132,849 = 132,891
+index  = (1 * 256 + (3 - -128)) * 256 + (-15 - -128)
+       = 387 * 256 + 113
+       = 99,185
+offset = 42 + 99,185 = 99,227
 ```
 
-The byte at 132,891 is `00`: region 0, Alpha.  Its file, if anybody ever changes it, is
-`Content/world/Regions/Alpha/alpha_-015_003_0.chunk`.
+The byte at 99,227 is `00`: region 0, Alpha.  Its file, if anybody ever changes it, is
+`Content/world/Regions/Alpha/alpha_-015_003_01.chunk`.
 
-**Chunk 0, 0 in the upper row?**  `(1 * 512 + 256) * 512 + 256 = 393,472`, so byte 393,514.  It's `01`,
-Omega: 0 is east of the line, and Omega is everything east of it.
+**Chunk 0, 0 in the top row, 10?**  `(10 * 256 + 128) * 256 + 128 = 688,256`, so byte 688,298.  It's
+`01`, Omega: 0 is east of the line, and Omega is everything east of it.
 
 **The chunk a player standing at block -100, 7, 50 is in:** x is floor(-100 / 32) = -4 (not -3), z is
-floor(50 / 32) = 1, the row is floor((7 + 16) / 32) = 0.  So chunk -4, 1, row 0, which is Alpha.
+floor(50 / 32) = 1, the row is floor((7 + 32) / 32) = 1.  So chunk -4, 1, row 1, which is Alpha.
 
 ## Reading it, step by step
 
 1. Read 8 bytes.  If they aren't `OPUSRMAP`, stop: it isn't a region map.
 2. Read the version (u16).  If it isn't one you know, stop.  Don't guess at a newer layout.
 3. Read the seed (u64), west (i16), south (i16), width (u16), depth (u16) and rows (u8).  If rows isn't
-   2, stop.
+   11, stop.
 4. Read the count (u8), then that many regions: ground (u8, 0 or 1, anything else stop), name length (u8),
    the name (UTF-8, not empty).
 5. Read `width x depth x rows` bytes: the grid.  If the file runs out first, stop.
@@ -223,8 +224,8 @@ public sealed class RegionMap
         if (Encoding.ASCII.GetString(reader.ReadBytes(8)) != "OPUSRMAP")
             throw new InvalidDataException("not a region map");
         ushort version = reader.ReadUInt16();
-        if (version != 1)
-            throw new InvalidDataException($"version {version}, and this reads version 1");
+        if (version != 2)
+            throw new InvalidDataException($"version {version}, and this reads version 2");
 
         var map = new RegionMap();
         map.Seed = reader.ReadUInt64();
@@ -233,8 +234,8 @@ public sealed class RegionMap
         map.Width = reader.ReadUInt16();
         map.Depth = reader.ReadUInt16();
         map.Rows = reader.ReadByte();
-        if (map.Rows != 2)
-            throw new InvalidDataException($"{map.Rows} rows, and the world has 2");
+        if (map.Rows != 11)
+            throw new InvalidDataException($"{map.Rows} rows, and the world has 11");
 
         int count = reader.ReadByte();
         map.Names = new string[count];
@@ -275,7 +276,7 @@ public sealed class RegionMap
     /// The chunk a block is in.  Rounds down, so block -1 is in chunk -1.
     public static (int x, int z, int row) ChunkOf(int blockX, int blockY, int blockZ)
     {
-        return (FloorDiv(blockX, 32), FloorDiv(blockZ, 32), FloorDiv(blockY + 16, 32));
+        return (FloorDiv(blockX, 32), FloorDiv(blockZ, 32), FloorDiv(blockY + 32, 32));
     }
 
     static int FloorDiv(int a, int b) => (int)System.Math.Floor((double)a / b);
@@ -288,14 +289,14 @@ From `Conductor/dev`, this prints the header, the regions, and which region one 
 numbers at the end are the chunk's x, z and row).  Python 3, nothing to install:
 
 ```text
-python3 -c "import struct,sys;d=open(sys.argv[1],'rb').read();t,v,s,w,so,wd,dp,r,c=struct.unpack_from('<8sHQhhHHBB',d);p=[28];rs=[(d[p[0]+2:p[0]+2+d[p[0]+1]].decode(),['flat','heights'][d[p[0]]],p.__setitem__(0,p[0]+2+d[p[0]+1]))[:2] for _ in range(c)];print(t.decode(),'version',v,'seed',s,'| chunks x',w,'to',w+wd-1,'z',so,'to',so+dp-1,'rows',r,'| regions',rs,'| grid at byte',p[0],'| size',len(d),'should be',p[0]+wd*dp*r);x,z,row=map(int,sys.argv[2:5]);i=p[0]+(row*dp+z-so)*wd+x-w;print('chunk',x,z,'row',row,'-> byte',i,'-> region',d[i],rs[d[i]][0])" /opt/storage/Coding/Opus/Content/world/region.map -15 3 0
+python3 -c "import struct,sys;d=open(sys.argv[1],'rb').read();t,v,s,w,so,wd,dp,r,c=struct.unpack_from('<8sHQhhHHBB',d);p=[28];rs=[(d[p[0]+2:p[0]+2+d[p[0]+1]].decode(),['flat','heights'][d[p[0]]],p.__setitem__(0,p[0]+2+d[p[0]+1]))[:2] for _ in range(c)];print(t.decode(),'version',v,'seed',s,'| chunks x',w,'to',w+wd-1,'z',so,'to',so+dp-1,'rows',r,'| regions',rs,'| grid at byte',p[0],'| size',len(d),'should be',p[0]+wd*dp*r);x,z,row=map(int,sys.argv[2:5]);i=p[0]+(row*dp+z-so)*wd+x-w;print('chunk',x,z,'row',row,'-> byte',i,'-> region',d[i],rs[d[i]][0])" /opt/storage/Coding/Opus/Content/world/region.map -15 3 1
 ```
 
 For a first world it prints something like:
 
 ```text
-OPUSRMAP version 1 seed 81985529216486895 | chunks x -256 to 255 z -256 to 255 rows 2 | regions [('Alpha', 'flat'), ('Omega', 'heights')] | grid at byte 42 | size 524330 should be 524330
-chunk -15 3 row 0 -> byte 132891 -> region 0 Alpha
+OPUSRMAP version 2 seed 81985529216486895 | chunks x -128 to 127 z -128 to 127 rows 11 | regions [('Alpha', 'flat'), ('Omega', 'heights')] | grid at byte 42 | size 720938 should be 720938
+chunk -15 3 row 1 -> byte 99227 -> region 0 Alpha
 ```
 
 (Your seed will be different.)  For the raw bytes, this shows the first 64:
@@ -310,7 +311,8 @@ xxd -l 64 /opt/storage/Coding/Opus/Content/world/region.map
 - **The world's size is in the header**, not fixed in the format, so a bigger world ("it may _grow_ later",
   Jacob) is the same version with bigger numbers.  Width and depth can go to 65,535 chunks, and west and
   south anywhere from -32,768 to 32,767.
-- **Rows is 2** because the world is two chunks tall.  A taller world means a new version.
+- **Rows is 11** because the world is eleven chunks tall, -32 to +319.  A taller world, or rows that start
+  somewhere else, means a new version.
 - **Anything else** (more than 255 regions, a region per block column instead of per chunk, a new kind of
   ground, something new in the header) means the version goes up, `regionmap.rs` and this document change
   together, and this document gets a line saying what the new version added.  A reader then turns an old
@@ -330,4 +332,7 @@ xxd -l 64 /opt/storage/Coding/Opus/Content/world/region.map
 
 ## Version history
 
-- **1** (2026-09-30): the first.
+- **1** (2026-09-30): the first.  Blocks 50 cm, 512 by 512 chunks, two rows from -16.
+- **2** (2026-10-01): blocks 1 m, Minecraft's size (Jacob: "more in line with the size of a Minecraft
+  voxel").  The layout is the same; the numbers in it changed: 256 by 256 chunks (still 8 km), eleven rows
+  from -32 to +319, BEDROCK at -31 and -32.  A version 1 map is turned away, and the world made again.

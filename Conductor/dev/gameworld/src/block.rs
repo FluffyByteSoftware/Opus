@@ -2,7 +2,7 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! What a block is made of.  A block is 50 cm a side, and for now all it
+//! What a block is made of.  A block is 1 m a side, and for now all it
 //! holds is its kind: one number, two bytes, so there's room for 65,536
 //! kinds ("I think 65k will be enough", Jacob, 2026-09-30).
 
@@ -22,7 +22,7 @@ impl Block {
     pub const WOOD: Block = Block(3);
     /// The block at 0,0,0, so the middle of the world can be seen.
     pub const GOLD: Block = Block(4);
-    /// The floor at -16, the one layer nobody can dig through.
+    /// The floor at -31 and -32, the layers nobody can dig through.
     pub const BEDROCK: Block = Block(5);
 
     /// The kind's name, for the log and the web admin.  A number from a

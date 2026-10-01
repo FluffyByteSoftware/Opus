@@ -23,8 +23,8 @@
 //!                     in a line west to east.
 //! ```
 //!
-//! Omega is 8192 by 16384 columns, a byte each, so about 134 MB.  Saving
-//! every Omega chunk whole instead would have been about 8 GB.
+//! Omega is 4096 by 8192 columns, a byte each, so about 34 MB.  Saving
+//! every Omega chunk whole instead would be about 23 GB.
 
 use std::sync::Arc;
 
@@ -38,7 +38,7 @@ const VERSION: u16 = 1;
 const HEADER: usize = 8 + 2 + 8 + 2 + 2 + 2 + 2;
 
 /// A heights file, read.  The bytes are shared with DiskMan's copy, so
-/// holding this costs no second 134 MB.
+/// holding this costs no second 34 MB.
 pub struct Heights {
     seed: u64,
     west: i32,
@@ -87,7 +87,7 @@ impl Heights {
 }
 
 /// Makes the heights file for the box west, south, width by depth, from
-/// `seed`, as the bytes to write.  It's 134 million columns for Omega, so
+/// `seed`, as the bytes to write.  It's 34 million columns for Omega, so
 /// it takes a while: `after_line` is called after each line of columns,
 /// south to north, with how many are done, and makes it give up (`None`)
 /// by answering false.

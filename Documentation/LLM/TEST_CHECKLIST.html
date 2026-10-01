@@ -260,6 +260,49 @@ slots, and Play.  The Console says each thing below.</p>
   </li>
 </ul>
 
+<h2>Conductor: blocks 1 m, Minecraft's height</h2>
+<p class="soft">On Linux, in order: the old world first, then a new one.</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      GameWorld's tests pass, and the build has no warnings.
+    </span></label>
+    <pre class="cmd">cargo test -p conductor-gameworld &amp;&amp; cargo build</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      START SERVER with the old world still there: an Error on the bell, and GameWorld in trouble on the
+      Services tab, saying region.map is version 1 and this Conductor reads version 2, and to stop the server
+      and delete Content/world/.  The door stays shut.  Then STOP SERVER.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Old world deleted (the command), START SERVER: the log says GameWorld is making a new world, it's done in
+      well under the old 19 seconds, the door opens, and GameWorld's line on the Services tab says 891 chunks
+      handed over.
+    </span></label>
+    <pre class="cmd">rm -rf /opt/storage/Coding/Opus/Content/world</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The new files' sizes: region.map is 720938 bytes and omega.heights 33554458.
+    </span></label>
+    <pre class="cmd">ls -l /opt/storage/Coding/Opus/Content/world/region.map /opt/storage/Coding/Opus/Content/world/Regions/Omega/omega.heights</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      REGION_MAP.md's Python look ("Looking at a real one") prints version 2, chunks x -128 to 127, z -128 to
+      127, rows 11, the size the same as it should be, and chunk -15 3 row 1 in Alpha.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The test client logs in, picks a character and spawns at 0,0,0 as before.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <p class="soft">Nothing to run these on yet.</p>
 <ul class="checks">

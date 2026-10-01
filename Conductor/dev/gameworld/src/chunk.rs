@@ -2,22 +2,23 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! A chunk: a cube of blocks, 32 a side, so 16 m a side and 32,768 blocks.
+//! A chunk: a cube of blocks, 32 a side, so 32 m a side and 32,768 blocks.
 //! Chunks sit side by side east-west (x) and north-south (z), and stack in
-//! two rows up and down (y): the lower row from -16 to +15, the upper from
-//! +16 to +47.  Chunk 0,0 has its south-west corner at block 0,0.
+//! eleven rows up and down (y), from -32 to +319: row 0 is -32 to -1, row 1
+//! is 0 to 31, and so on up to row 10, 288 to 319.  Chunk 0,0 has its
+//! south-west corner at block 0,0.
 //!
 //! A chunk somebody has changed is kept as a file of its own:
-//! `Content/world/Regions/<Region>/<region>_<x>_<z>_<row>.chunk`, the
-//! numbers padded to three digits so a folder lists them in order
-//! (`alpha_-015_003_0.chunk`).  The file is:
+//! `Content/world/Regions/<Region>/<region>_<x>_<z>_<row>.chunk`, x and z
+//! padded to three digits and the row to two, so a folder lists them in
+//! order (`alpha_-015_003_01.chunk`).  The file is:
 //!
 //! ```text
 //! 8 bytes   OPUSCHNK
-//! u16       version, 1
+//! u16       version, 2
 //! i16       x, the chunk's place east-west
 //! i16       z, north-south
-//! u8        row, 0 (lower) or 1 (upper)
+//! u8        row, 0 (bottom) to 10 (top)
 //! u16 x 32768  the blocks, bottom layer first; in a layer, the south row
 //!              first; in a row, west to east.  (y * 32 + z) * 32 + x.
 //! ```
@@ -35,17 +36,26 @@ pub const SIDE: i32 = 32;
 /// How many blocks are in a chunk.
 pub const BLOCKS: usize = (SIDE * SIDE * SIDE) as usize;
 
-/// The lowest block in the world, the bottom of the lower row.  It's the
-/// floor nobody can dig through (Jacob, 2026-09-30: "-16 is undiggable"),
-/// all BEDROCK.
-pub const BOTTOM_Y: i32 = -16;
+/// The lowest block in the world, the bottom of row 0.  It and the layer
+/// over it are the floor nobody can dig through, all BEDROCK (Jacob,
+/// 2026-10-01: "-31 is bedrock can dig to -30 and stand on top of -31").
+/// The floor starts at -32 so the rows line up on 32s: block 0 is the
+/// bottom of row 1.
+pub const BOTTOM_Y: i32 = -32;
 
-/// How many rows of chunks the world has, stacked up and down.  -15 to +30
-/// is what can be dug and built in, 46 blocks, which takes two.
-pub const ROWS: u8 = 2;
+/// The highest BEDROCK block.  Everything from `BOTTOM_Y` to here is
+/// floor.
+pub const FLOOR_Y: i32 = -31;
+
+/// How many rows of chunks the world has, stacked up and down: -32 to
+/// +319, 352 blocks.  +319 is the highest anything goes, Minecraft's top
+/// (Jacob, 2026-10-01: "go Minecraft height and depth values for now").
+pub const ROWS: u8 = 11;
 
 const TAG: &[u8; 8] = b"OPUSCHNK";
-const VERSION: u16 = 1;
+/// Version 2 (2026-10-01): blocks went to 1 m and the rows to eleven from
+/// -32, so a row number in a version 1 file means another place.
+const VERSION: u16 = 2;
 
 /// Where a chunk is: its place east-west and north-south, counted in
 /// chunks from 0,0, and its row.
@@ -85,9 +95,9 @@ impl ChunkPos {
     }
 
     /// The chunk's file name, for the region it's in:
-    /// `alpha_-015_003_0.chunk`.  The region's name goes in lowercase.
+    /// `alpha_-015_003_01.chunk`.  The region's name goes in lowercase.
     pub fn file_name(&self, region: &str) -> String {
-        format!("{}_{}_{}_{}.chunk", region.to_lowercase(), padded(self.x), padded(self.z), self.row)
+        format!("{}_{}_{}_{:02}.chunk", region.to_lowercase(), padded(self.x), padded(self.z), self.row)
     }
 }
 
@@ -133,8 +143,8 @@ impl Chunk {
         let mut bytes = Vec::with_capacity(8 + 2 + 2 + 2 + 1 + BLOCKS * 2);
         bytes.extend_from_slice(TAG);
         bytes.extend_from_slice(&VERSION.to_le_bytes());
-        // The positions fit in an i16: the world is 512 chunks across,
-        // -256 to 255.
+        // The positions fit in an i16: the world is 256 chunks across,
+        // -128 to 127.
         bytes.extend_from_slice(&(self.pos.x as i16).to_le_bytes());
         bytes.extend_from_slice(&(self.pos.z as i16).to_le_bytes());
         bytes.push(self.pos.row);
@@ -186,27 +196,31 @@ mod tests {
 
     #[test]
     fn blocks_below_zero_are_in_the_chunks_below_zero() {
-        assert_eq!(ChunkPos::of_block(0, 0, 0), Some(ChunkPos { x: 0, z: 0, row: 0 }));
-        assert_eq!(ChunkPos::of_block(-1, 0, -1), Some(ChunkPos { x: -1, z: -1, row: 0 }));
-        assert_eq!(ChunkPos::of_block(31, 0, 32), Some(ChunkPos { x: 0, z: 1, row: 0 }));
-        assert_eq!(ChunkPos::of_block(-8192, 0, 8191), Some(ChunkPos { x: -256, z: 255, row: 0 }));
+        assert_eq!(ChunkPos::of_block(0, 0, 0), Some(ChunkPos { x: 0, z: 0, row: 1 }));
+        assert_eq!(ChunkPos::of_block(-1, 0, -1), Some(ChunkPos { x: -1, z: -1, row: 1 }));
+        assert_eq!(ChunkPos::of_block(31, 0, 32), Some(ChunkPos { x: 0, z: 1, row: 1 }));
+        assert_eq!(ChunkPos::of_block(-4096, 0, 4095), Some(ChunkPos { x: -128, z: 127, row: 1 }));
     }
 
     #[test]
-    fn the_rows_are_minus_16_to_15_and_16_to_47() {
-        assert_eq!(ChunkPos::of_block(0, -16, 0).map(|pos| pos.row), Some(0));
-        assert_eq!(ChunkPos::of_block(0, 15, 0).map(|pos| pos.row), Some(0));
-        assert_eq!(ChunkPos::of_block(0, 16, 0).map(|pos| pos.row), Some(1));
-        assert_eq!(ChunkPos::of_block(0, 47, 0).map(|pos| pos.row), Some(1));
-        assert_eq!(ChunkPos::of_block(0, -17, 0), None);
-        assert_eq!(ChunkPos::of_block(0, 48, 0), None);
-        assert_eq!(ChunkPos { x: 0, z: 0, row: 1 }.bottom_y(), 16);
+    fn the_rows_run_from_minus_32_to_319_in_32s() {
+        assert_eq!(ChunkPos::of_block(0, -32, 0).map(|pos| pos.row), Some(0));
+        assert_eq!(ChunkPos::of_block(0, -1, 0).map(|pos| pos.row), Some(0));
+        assert_eq!(ChunkPos::of_block(0, 0, 0).map(|pos| pos.row), Some(1));
+        assert_eq!(ChunkPos::of_block(0, 31, 0).map(|pos| pos.row), Some(1));
+        assert_eq!(ChunkPos::of_block(0, 288, 0).map(|pos| pos.row), Some(10));
+        assert_eq!(ChunkPos::of_block(0, 319, 0).map(|pos| pos.row), Some(10));
+        assert_eq!(ChunkPos::of_block(0, -33, 0), None);
+        assert_eq!(ChunkPos::of_block(0, 320, 0), None);
+        assert_eq!(ChunkPos { x: 0, z: 0, row: 0 }.bottom_y(), -32);
+        assert_eq!(ChunkPos { x: 0, z: 0, row: 1 }.bottom_y(), 0);
+        assert_eq!(ChunkPos { x: 0, z: 0, row: 10 }.bottom_y(), 288);
     }
 
     #[test]
-    fn file_names_are_padded_to_three_digits() {
-        assert_eq!(ChunkPos { x: -15, z: 3, row: 0 }.file_name("Alpha"), "alpha_-015_003_0.chunk");
-        assert_eq!(ChunkPos { x: 255, z: -256, row: 1 }.file_name("Omega"), "omega_255_-256_1.chunk");
+    fn file_names_are_padded_to_three_digits_and_the_row_to_two() {
+        assert_eq!(ChunkPos { x: -15, z: 3, row: 0 }.file_name("Alpha"), "alpha_-015_003_00.chunk");
+        assert_eq!(ChunkPos { x: 127, z: -128, row: 10 }.file_name("Omega"), "omega_127_-128_10.chunk");
     }
 
     #[test]

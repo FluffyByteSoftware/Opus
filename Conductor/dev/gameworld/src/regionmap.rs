@@ -18,29 +18,32 @@
 //!
 //! ```text
 //! 8 bytes   OPUSRMAP
-//! u16       version, 1
+//! u16       version, 2
 //! u64       the seed the world was made from
-//! i16       the westmost chunk's x (-256)
-//! i16       the southmost chunk's z (-256)
-//! u16       how many chunks east-west (512)
-//! u16       how many chunks north-south (512)
-//! u8        how many rows up and down (2)
+//! i16       the westmost chunk's x (-128)
+//! i16       the southmost chunk's z (-128)
+//! u16       how many chunks east-west (256)
+//! u16       how many chunks north-south (256)
+//! u8        how many rows up and down (11)
 //! u8        how many regions, then for each:
 //!             u8   its ground: 0 flat, 1 heights
 //!             u8   its name's length, then the name, UTF-8
 //! u8 x every chunk   the number of the region it's in, counted from 0 in
-//!                    the list above: the lower row first; in a row, the
-//!                    south line first; in a line, west to east.
+//!                    the list above: the bottom row first; in a row,
+//!                    the south line first; in a line, west to east.
 //! ```
 //!
-//! For the world as it is today that's 524,288 chunks, a byte each, about
-//! 512 KB.  Every number is little-endian.
+//! Row 0's bottom is block -32, and every row is 32 blocks.  For the world
+//! as it is today that's 720,896 chunks, a byte each, about 704 KB.  Every
+//! number is little-endian.
 
 use crate::bytes::Reader;
 use crate::chunk::{ChunkPos, ROWS, SIDE};
 
 const TAG: &[u8; 8] = b"OPUSRMAP";
-const VERSION: u16 = 1;
+/// Version 2 (2026-10-01): the same layout, with blocks 1 m and eleven rows
+/// from -32 where version 1 had 50 cm blocks and two rows from -16.
+const VERSION: u16 = 2;
 
 /// How an untouched chunk in a region is made.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -77,16 +80,17 @@ pub struct RegionMap {
 }
 
 /// The world as it's first made (Jacob, 2026-09-30): 8 km a side, chunks
-/// -256 to 255 each way, so 0,0,0 is the middle.  Alpha is everything west
-/// of 0, flat; Omega everything east of it, in rolling hills.
-pub const FIRST_WEST: i32 = -256;
-pub const FIRST_SOUTH: i32 = -256;
-pub const FIRST_WIDTH: i32 = 512;
-pub const FIRST_DEPTH: i32 = 512;
+/// -128 to 127 each way (blocks 1 m since 2026-10-01), so 0,0,0 is the
+/// middle.  Alpha is everything west of 0, flat; Omega everything east of
+/// it, in rolling hills.
+pub const FIRST_WEST: i32 = -128;
+pub const FIRST_SOUTH: i32 = -128;
+pub const FIRST_WIDTH: i32 = 256;
+pub const FIRST_DEPTH: i32 = 256;
 
 impl RegionMap {
     /// The world's first map, made from `seed`: Alpha west of 0, Omega
-    /// east, both rows the same.
+    /// east, every row the same.
     pub fn first(seed: u64) -> RegionMap {
         let regions = vec![
             Region { name: "Alpha".to_string(), ground: Ground::Flat },
@@ -228,19 +232,19 @@ mod tests {
         let map = RegionMap::first(7);
         let name = |x, z, row| map.region_at(ChunkPos { x, z, row }).map(|(_, region)| region.name.clone());
         assert_eq!(name(-1, 0, 0).as_deref(), Some("Alpha"));
-        assert_eq!(name(-256, -256, 1).as_deref(), Some("Alpha"));
+        assert_eq!(name(-128, -128, 10).as_deref(), Some("Alpha"));
         assert_eq!(name(0, 0, 0).as_deref(), Some("Omega"));
-        assert_eq!(name(255, 255, 1).as_deref(), Some("Omega"));
-        assert_eq!(name(256, 0, 0), None);
-        assert_eq!(name(-257, 0, 0), None);
-        assert_eq!(name(0, 0, 2), None);
+        assert_eq!(name(127, 127, 10).as_deref(), Some("Omega"));
+        assert_eq!(name(128, 0, 0), None);
+        assert_eq!(name(-129, 0, 0), None);
+        assert_eq!(name(0, 0, 11), None);
     }
 
     #[test]
     fn omegas_box_is_the_east_half() {
         let map = RegionMap::first(7);
-        assert_eq!(map.block_box(1), Some((0, -8192, 8192, 16384)));
-        assert_eq!(map.block_box(0), Some((-8192, -8192, 8192, 16384)));
+        assert_eq!(map.block_box(1), Some((0, -4096, 4096, 8192)));
+        assert_eq!(map.block_box(0), Some((-4096, -4096, 4096, 8192)));
         assert_eq!(map.block_box(2), None);
     }
 

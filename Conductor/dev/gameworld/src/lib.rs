@@ -5,10 +5,11 @@
 //! GameWorld: the ground the game is played on.  The world is the total
 //! sum of everything (Jacob, 2026-09-30), cut into regions (a region is a
 //! zone is a biome), regions into chunks, chunks into blocks.  A block is
-//! 50 cm a side, a player 4 blocks tall.  The world is 8 km a side, -8192
-//! to 8191 blocks each way with 0,0,0 in the middle, seamless, and starts
-//! as two regions: Alpha to the west, flat, and Omega to the east, in
-//! rolling hills.  `design/world.md` has the whole of it.
+//! 1 m a side, Minecraft's size, and a player 2 blocks tall.  The world is
+//! 8 km a side, -4096 to 4095 blocks each way with 0,0,0 in the middle, and
+//! -32 to +319 up and down, seamless, and starts as two regions: Alpha to
+//! the west, flat, and Omega to the east, in rolling hills.
+//! `design/world.md` has the whole of it.
 //!
 //! This is a server piece with a thread of its own, `gameworld`.  On START
 //! SERVER it reads `Content/world/region.map`, or makes the world if there
@@ -249,8 +250,11 @@ fn run(jobs: Receiver<Job>) {
 fn read_world() -> Result<Shape, String> {
     let map_path = region_map_path();
     let map = match diskman::read(&map_path).wait() {
+        // A world made by an older Conductor is turned away here too (its
+        // version is wrong), so the way out goes with it.
         Ok(bytes) => regionmap::RegionMap::from_bytes(&bytes)
-            .map_err(|why| format!("{} isn't right: {why}", map_path.display()))?,
+            .map_err(|why| format!("{} isn't right: {why}.  To make a new world, stop the server and delete {}",
+                                   map_path.display(), world_dir().display()))?,
         Err(e) if e.is_not_found() => make::world()?,
         Err(e) => return Err(format!("{} can't be read: {e}", map_path.display())),
     };

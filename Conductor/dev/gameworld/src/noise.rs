@@ -10,8 +10,8 @@
 //! every so many blocks, give each point a random height, and for every
 //! column in between blend the four points around it, easing in and out
 //! so there are no creases.  Two grids are added together: a wide one (a
-//! point every 64 blocks, 32 m) for the hills, and a tight one (every 16,
-//! 8 m) for the bumps on them.
+//! point every 64 blocks, 64 m) for the hills, and a tight one (every 16,
+//! 16 m) for the bumps on them.
 //!
 //! "Random" here means worked out from the seed and the point's place, so
 //! the same seed makes the same hills every time.  That's what lets a lost

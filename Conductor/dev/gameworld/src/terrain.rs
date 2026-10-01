@@ -43,7 +43,7 @@ impl Terrain {
     }
 
     /// Asks GameWorld for every chunk within `reach` chunks east, west,
-    /// north and south of block x,z, both rows, that isn't here already.
+    /// north and south of block x,z, every row, that isn't here already.
     /// Comes straight back.  Every player starts at 0,0,0 for now, so the
     /// GameClock asks around there.
     pub fn ask_around(&mut self, x: i32, z: i32, reach: i32) {
