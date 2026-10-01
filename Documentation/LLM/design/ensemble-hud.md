@@ -42,7 +42,7 @@ built yet.**
   widget found on a screen it doesn't belong on.  Phase 1 builds the HUD only.
 - **The two formats** (catalog and layout) are as proposed, `format` and `version` in each, `maxCount`
   and `defaultAnchor` in the catalog, `name` in the layout, and they'll be written down as a contract in
-  `../HUD_FORMATS.md` the way PROTOCOL.md is.  **Their units are open**, below.
+  `../HUD_FORMATS.md` the way PROTOCOL.md is.  Their units are reference pixels, below.
 
 ## Open
 
@@ -50,6 +50,13 @@ built yet.**
   "actually shouldn't most of these sizes be in pixels?"  So sizes, offsets and minimum sizes are pixels
   on a reference screen, and UI Toolkit scales the whole HUD to the real one (PanelSettings, Scale With
   Screen Size, Expand, so a layout made on the reference always fits).  His answer on the reference:
-  "You should pick your resolution with the default being 1080 yes".  **What "pick your resolution"
-  means is open**: the player's screen resolution setting, a choice of reference per layout, or a UI
-  scale for the player.
+  "You should pick your resolution with the default being 1080 yes".  Asked which reading, Jacob: "the
+  tool webpage defaults to a 1080p screen.  Player can pick their resolution and change it.  Then the
+  webpage rescales the projection so that it's pixel right and scrollable in the window."  And: "need a
+  default scaled off my monitor which is 1440".
+  - Read as: **each layout says the resolution it was made at** (`"reference"`, width and height), the
+    web editor's canvas is that many pixels, shown one for one and scrolled when it's bigger than the
+    window, 1920 x 1080 unless the maker picks another, and the game scales from the file's reference
+    to the real screen.  Not yet confirmed.
+  - **Open**: whether the 1440 is the default HUD layout made on Jacob's 2560 x 1440 monitor, or the
+    editor's default canvas moving from 1080 to 1440.
