@@ -10,7 +10,7 @@ The world is what the game is played in: the ground, what it's made of, and how 
 designed with Jacob on 2026-09-30, and part one (`conductor-gameworld`) was built and tested the same day, so
 every decision and quote below is his from that day unless it says otherwise.  On 2026-10-01 the blocks went
 from 50 cm to 1 m, Minecraft's size, and the world from two rows of chunks to eleven, Minecraft's height
-(under "Blocks and chunks" and "The shape"); **that change hasn't been built by Jacob yet**.
+(under "Blocks and chunks" and "The shape"), built and tested on Linux the same day.
 
 ## Where it stands
 
