@@ -40,8 +40,9 @@ public class CopyAnimsFromFbxPack : EditorWindow
         public bool Ticked = true;
     }
 
-    DefaultAsset source;
-    DefaultAsset destination;
+    // Asset paths, Assets/Packs/RPG, as typed or picked with BROWSE.
+    string source = "";
+    string destination = "";
     string foundIn;                // the source folder the list was found in
     List<Found> found = new List<Found>();
 
@@ -60,10 +61,8 @@ public class CopyAnimsFromFbxPack : EditorWindow
 
     void OnGUI()
     {
-        EditorGUILayout.LabelField("Drag folders here from the Project window.", EditorStyles.miniLabel);
-        source = (DefaultAsset)EditorGUILayout.ObjectField("Source folder", source, typeof(DefaultAsset), false);
-        destination = (DefaultAsset)EditorGUILayout.ObjectField("Destination folder", destination,
-            typeof(DefaultAsset), false);
+        source = FolderField("Source folder", source);
+        destination = FolderField("Destination folder", destination);
 
         // A list found in another folder isn't this folder's list.
         string sourcePath = FolderPath(source);
@@ -355,13 +354,40 @@ public class CopyAnimsFromFbxPack : EditorWindow
         }
     }
 
-    // The folder's asset path, or null when nothing (or not a folder) is
-    // picked.
-    static string FolderPath(DefaultAsset folder)
+    // A folder's path, typed in or picked with BROWSE.  The folder picker
+    // hands back the whole path on the disk, and the AssetDatabase only
+    // knows paths starting at Assets/, so a folder outside the project's
+    // Assets/ is turned away.
+    string FolderField(string label, string path)
     {
-        if (folder == null)
-            return null;
-        string path = AssetDatabase.GetAssetPath(folder);
+        EditorGUILayout.BeginHorizontal();
+        path = EditorGUILayout.TextField(label, path);
+        if (GUILayout.Button("BROWSE", GUILayout.Width(70)))
+        {
+            string dataPath = Application.dataPath.Replace('\\', '/');
+            string start = FolderPath(path) != null ? Path.GetDirectoryName(dataPath) + "/" + path : dataPath;
+            string picked = EditorUtility.OpenFolderPanel(label, start, "").Replace('\\', '/');
+
+            if (picked == dataPath)
+                path = "Assets";
+            else if (picked.StartsWith(dataPath + "/"))
+                path = "Assets" + picked.Substring(dataPath.Length);
+            else if (picked != "")
+                report = picked + " isn't inside this project's Assets folder.";
+
+            // The folder picker steals the mouse, and the text field would
+            // otherwise keep showing what it had before.
+            GUI.FocusControl(null);
+        }
+        EditorGUILayout.EndHorizontal();
+        return path;
+    }
+
+    // The path tidied up, or null when it's empty or not a folder in the
+    // project.
+    static string FolderPath(string path)
+    {
+        path = path.Trim().Replace('\\', '/').TrimEnd('/');
         return AssetDatabase.IsValidFolder(path) ? path : null;
     }
 }
