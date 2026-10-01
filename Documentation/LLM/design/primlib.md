@@ -177,13 +177,28 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
 - **When a character is saved** (Jacob, 2026-09-30, preparing the game library for the spawn):
   - **When the player leaves the world**, for any reason, and STOP SERVER with it, since everybody leaves
     then.
-  - **And in a world save every 15 minutes** of real time ("every 15 minutes of real time lol whatever
-    that is in ticks"): a tick is a cycle, 250 ms, so 3,600 cycles.  First said as every 50th cycle (12.5
-    seconds), which was the wrong number, not the idea.
+  - **And in a world save every 2.5 minutes** of real time.  First every 15 minutes ("every 15 minutes of
+    real time lol whatever that is in ticks"), then, once the snapshot was shown to cost the tick almost
+    nothing, "let's make it every 2.5 minutes over all".  (Before either, every 50th cycle, 12.5 seconds:
+    the wrong number, not the idea.)
+  - **It's a setting**: `world_save_seconds` in `game.cfg`, 150 by default (Jacob: "setting!").  Seconds,
+    since Constellations' numbers are whole ones and 2.5 minutes isn't.  Soft, like the rest of
+    `game.cfg`: it takes at the next START SERVER.
+  - **The first comes 2.5 minutes after the world is ready**: "after the world is loaded and ready and the
+    gameclock starts processing game ticks", so counted from `conductor_gameclock::ready()` turning true,
+    not from START SERVER.
   - **The world save is global**, not each player on their own count: "its what I want is a global save
     to happen where the world state is pushed in a tick cycle".  One cycle takes every copy's save at once,
     so what's written is the world as it stood at one moment.  Players' characters today; primlib's other
     copies join it once they're saved (below).
+  - **The tick never waits on it** (Jacob: "I'm just worried about blocking or lagging the regular
+    tick"; "can it be streamed?").  The GameClock only copies: in housekeeping, `Save::of()` for every
+    copy, plain data, no Lua text and no database.  The rest streams behind it on Archivist's thread: each
+    copy turned into Lua text and its row written, one after another, all in one transaction, so a world
+    save lands whole or not at all and the database keeps the last whole one.  That ties up Archivist for
+    as long as the writing takes (a login's hash check waits behind it), never the GameClock.  A timing
+    test (`#[ignore]`, `--release`) puts a number on the snapshot.  If one ever grows too big for a cycle,
+    spreading it over several loses the one moment, so it comes back to Jacob then.
 - **Leaving takes the copy out**: "when the character's registered as quit out the game removes them".
   Saved, then despawned at once; no linkdead body left standing in the world.
 
