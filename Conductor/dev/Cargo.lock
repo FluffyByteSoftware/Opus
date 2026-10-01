@@ -188,6 +188,7 @@ name = "conductor-networking"
 version = "0.1.0"
 dependencies = [
  "conductor-accounts",
+ "conductor-gameclock",
  "conductor-lua-parser",
  "conductor-primlib",
  "conductor-tools",
