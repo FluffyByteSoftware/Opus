@@ -293,11 +293,23 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     with the game, never the player's.  **The login is built and tested** (2026-10-01,
     `design/ensemble-hud.md`, "The login, as written"); character select's layout is still to come.
 - **Security in the client** (Jacob, 2026-10-01, at the login's hand-off: "next conversation we start
-  building security into the client").  Not designed; what it covers is his to say at the start of that
-  session.  What's already written down that touches it: the password hashed on the client, and the
-  server taking the hash (the Remember Me entry below); the client checking the server's TLS certificate,
-  `Content/certs/conductor.crt` (the entry on Ensemble finding `Content/`); and, further off, Soundcheck
-  handing each client a certificate of its own (LONGTERM_TODO.md).
+  building security into the client").  **Being designed** (2026-10-01).  What it covers, Jacob's
+  answers:
+  - **The password is turned into a key on the client**, in `Assets/Code/`, on SUBMIT and for Remember
+    Me: "even though its going over TLS we don't want to save it to their local disk as plain text!"
+    The point is that the password never crosses the internet or lands on disk as typed; "I suppose
+    there will be a few moments where its in memory."
+  - **This session builds the client half** and writes down the change Conductor needs (it takes the
+    key where it took the password); Conductor's half is built in a session of its own.
+  - **Every account is deleted** when the switch comes, rather than carried over (their stored hashes
+    are of the password, not the key).
+  - **Remember Me is a file of our own** in the player's own folder for the game (Unity's
+    `persistentDataPath`).
+  - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256 is proposed: it's built
+    into Unity's .NET, Python's standard library and the browser, so nothing new to add.
+  - Still to come: the client checking the server's TLS certificate, `Content/certs/conductor.crt` (the
+    entry on Ensemble finding `Content/`); and, further off, Soundcheck handing each client a certificate
+    of its own (LONGTERM_TODO.md).
 - **The login screen, later** (2026-10-01): what SUBMIT does once there's a network client; what
   Remember Me remembers and where it's kept: Jacob, "when we write our hash in it will hash the password
   and I think we may rewrite the server to accept a hash instead of plaintext" (so the client would keep
