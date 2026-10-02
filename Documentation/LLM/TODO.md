@@ -137,8 +137,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   others", and "make that todo for next session that seems urgent to me before we get too deep in
   commands".  Today they're `networking/src/commands.rs` and `commands/` (`chat.rs`, `who.rs`): the table,
   the anti-flood, and each command.  By CLAUDE.md's naming that's a lib, folder `Conductor/dev/
-  player-commands/`, crate `conductor-player-commands`, `conductor_player_commands::` in code; the
-  names are Jacob's to settle.  To plan with him:
+  player-commands/`, crate `conductor-player-commands`, `conductor_player_commands::` in code (Jacob,
+  2026-10-02: "That's correct").  To plan with him:
   - **Which way the crates lean.**  The commands use networking's `sessions`, `udp` and `protocol` (the
     book, sending, the packets), and networking calls the commands, so one of the two can't name the
     other.  Like the GameClock's chat sender, networking could be handed the commands as a plain function
