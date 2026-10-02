@@ -105,7 +105,8 @@ Opus/
 │       └── migrations/    # every change to a table after that, numbered
 └── Documentation/
     ├── HowTo/             # how-tos for a person, public docs in my voice
-    │   └── WINDOWS_INSTALL.md # building Conductor on Windows; grows as Windows is tried
+    │   ├── WINDOWS_INSTALL.md # building Conductor on Windows; grows as Windows is tried
+    │   └── RELEASE.md         # testing to main, the tag, the two packages, the GitHub Release
     └── LLM/               # working docs
         ├── STATUS.md      # bridge between sessions
         ├── TODO.md        # pending work + future ideas

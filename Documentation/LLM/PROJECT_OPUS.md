@@ -236,7 +236,8 @@ Opus/
 │                                      #   three character slots on accounts
 └── Documentation/
     ├── HowTo/                         # how-tos for a person, not the sessions' working docs
-    │   └── WINDOWS_INSTALL.md         # building Conductor on Windows: MSVC and the Build Tools
+    │   ├── WINDOWS_INSTALL.md         # building Conductor on Windows: MSVC and the Build Tools
+    │   └── RELEASE.md                 # releasing a version: main, the tag, the packages
     └── LLM/
         ├── STATUS.md                  # the bridge between sessions
         ├── TODO.md                    # deferred work and ideas

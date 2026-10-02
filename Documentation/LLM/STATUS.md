@@ -51,9 +51,10 @@ is up from the moment the launcher runs.  The server (Fingerprinter, Security, A
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
-**The branches**: `main` is at `90f2e6f`, released 2026-10-02 (character select's buttons).  Chat passed on
-`testing` and Jacob kept it there ("Keep in testing for now").  `unstable` and `testing` are level at this
-hand-off.  `main` moves when Jacob says.
+**The branches**: `main` is at `7d85f1f`, released 2026-10-02 as **0.0.1** (a player in the world, chatting,
+from Ensemble): Jacob's "merge everything into main", before the clean-up rather than after.  The tag and
+the packages are his to make; `Documentation/HowTo/RELEASE.md` walks through it.  `unstable`, `testing` and
+`main` are level at that commit.  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor up to chat, `/who` and the anti-flood, and the commands' move
 into `conductor-player-commands` (built, 93 tests pass, chat works through it; its one run check with the test
@@ -176,8 +177,8 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 
 ## What's waiting
 
-- **0.0.1 to `main`** (a player in the world, chatting, from Ensemble; every check passed): after the
-  clean-up, Jacob's call ("then merge to main and release 0.0.1").
+- **The 0.0.1 release**: `main` is at the release commit; the `v0.0.1` tag, the version numbers (Unity's
+  `0.0.0.1`, the crates' `0.1.0`) and the two packages are still to do.  `Documentation/HowTo/RELEASE.md`.
 - **The clean-up** Jacob named for next.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class

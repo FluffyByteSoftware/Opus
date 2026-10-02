@@ -207,7 +207,7 @@ Opus/
 │   ├── logs/                      one log file per UTC day, never committed
 │   └── Assets/                    the purchased art, never committed
 └── Documentation/
-    ├── HowTo/                     how-tos, like building on Windows
+    ├── HowTo/                     how-tos, like building on Windows and releasing a version
     └── LLM/                       the working docs: status, TODOs, the protocol, region.map, the designs
 ```
 
