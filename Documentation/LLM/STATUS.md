@@ -59,10 +59,10 @@ hand-off.  `main` moves when Jacob says.
 into `conductor-player-commands` (built, 93 tests pass, chat works through it; its one run check with the test
 client is still in TEST_CHECKLIST.html).  **In Unity**: everything up to character select's PLAY passed; the
 chat window passed every check (the look on 1440p, chat both ways with the test client, the anti-flood's
-refusal, `/who`'s box in Retro, the 300 limit, `/camp`); the crate's run check passed too.  **Waiting on
-Unity**: EverQuest's keys for the chat field (Enter or `/` anywhere brings the keys to it, Escape drops them),
-one check in TEST_CHECKLIST.html with one Parked (Spans for real).  **On Windows**: Conductor builds and runs, START SERVER included, without a
-database; nothing since the world has been tried there (GitHub issue #10).
+refusal, `/who`'s box in Retro, the 300 limit, `/camp`, and EverQuest's keys); the crate's run check passed
+too.  Nothing waits on a build; TEST_CHECKLIST.html has one Parked check (Spans for real).  **On Windows**:
+Conductor builds and runs, START SERVER included, without a database; nothing since the world has been tried
+there (GitHub issue #10).
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -150,27 +150,32 @@ Two steps, each planned, OKed and pushed on its own.  `design/ensemble-hud.md` (
   launcher fills with `conductor_player_commands::wire()` in `start_server()`, with the GameClock's two
   senders.  Networking never names the crate.  "Commands Unavailable" with nothing in the slot.  Admin
   commands, when they come: "its a permissions difference but the commands will otherwise be the same".
-- **EverQuest's keys, after the hand-off** (written, waiting on Unity): with the field not focused, Enter
-  or `/` anywhere on the screen brings the keys to it (`/` already typed); Escape or a click away drops
-  them (`ChatWidget.cs`, `KeyAnywhere()`).  Jacob tested EQ for it: "we're mimicking their behavior after
-  all".  "The window I last used" with more than one window is in TODO.md.
-- Jacob's `Cargo.lock` and `WhoBox.cs.meta` commits may still be on his machine at this hand-off: the next
-  session fetches first.
+- **EverQuest's keys, built and tested** (after the first hand-off; Jacob tested EQ for it: "we're mimicking
+  their behavior after all").  `GameFocus` (`Assets/Code/Hud/GameFocus.cs`, Jacob's "focus place holder for
+  the game") is an invisible focusable element on the HUD that holds the keyboard whenever no widget does;
+  Enter or `/` on it shifts the keys to the chat field (`/` already typed); Enter in the field sends the line
+  and hands them back, and so do Escape and a click away.  Four rounds in Unity to get there: a plain
+  `Blur()` lasts one key (Unity's runtime panel hands the focus back to the last widget on the next key),
+  Enter off a text field comes as a NavigationSubmitEvent and not a key event, and one Enter is two events
+  with the focus moving between them, so each direction has a frame guard (`tookKeysFrame`,
+  `gaveKeysFrame`).  `GameFocus.Has`, `Taken` and `Lost` are for movement.  "The window I last used" with
+  more than one window is in TODO.md.
+- Jacob's `Cargo.lock`, `WhoBox.cs.meta` and `GameFocus.cs.meta` commits may still be on his machine at
+  this hand-off: the next session fetches first.
 
 ## Where the next session starts
 
 **"Major clean up of code and documentation"** (Jacob).  Nothing is planned for it yet; it's his to lay
 out.  Things seen along the way that a clean-up could take: TODO.md's "stale words in the code" entry;
 `design/conductor-networking.md` still describes networking as holding the commands in places (the "Chat"
-and "/who" sections were patched, not rewritten); STATUS.md's "Where things stand" has grown long; the
-checklist's chat checks are still to run, and a tick-back of them comes first.
+and "/who" sections were patched, not rewritten); STATUS.md's "Where things stand" has grown long;
+`design/ensemble-hud.md`'s "The chat window" grew by patches through the keys' four rounds.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
 ## What's waiting
 
-- **The chat window's Enter, `/` and Escape check** in TEST_CHECKLIST.html (every other check passed).  Then 0.0.1
-  (a player in the world, chatting, from Ensemble) can go to `main`, Jacob's call.
+- **0.0.1 to `main`** (a player in the world, chatting, from Ensemble; every check passed), Jacob's call.
 - **The clean-up** Jacob named for next.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class
