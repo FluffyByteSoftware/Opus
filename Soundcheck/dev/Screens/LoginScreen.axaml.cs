@@ -55,6 +55,12 @@ namespace Opus.Soundcheck.Screens
         DispatcherTimer countdown;
         DateTime choiceDeadline;
 
+        // For Avalonia's XAML loader and the designer, which want a
+        // constructor with nothing in it.  User mode.
+        public LoginScreen() : this(false)
+        {
+        }
+
         public LoginScreen(bool debug)
         {
             InitializeComponent();

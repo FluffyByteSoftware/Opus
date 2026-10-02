@@ -17,7 +17,9 @@ a patcher is that something.  The certificate half is still to come; this is the
 
 ## Settled (Jacob, 2026-10-02)
 
-- **C# on .NET 10 with Avalonia** for the window.  Jacob's `dotnet --version` is 10.0.111.  It's a plain
+- **C# on .NET 10 with Avalonia 11** (11.3.22, the newest of the 11 line; 12 is out and untried) for the
+  window.  Jacob's `dotnet --version` is 10.0.111.  **Built 2026-10-02**: the login works over TLS 1.3, the
+  key takes 208 ms.  It's a plain
   .NET program, not Unity, so it gets the current runtime: TLS 1.3 again (Unity's .NET has no
   `SslProtocols.Tls13`, which is why Conductor took 1.2 in the first place), a fast PBKDF2 for the password's
   key, and `System.Text.Json` built in.
@@ -60,7 +62,9 @@ a patcher is that something.  The certificate half is still to come; this is the
   this should save for the client"): `soundcheck_admin.json` in the player folder, beside
   `remembered_login.json`.
 - **A debug mode**, for Jacob: "we will need a way to locally enter debug mode and bypass the patcher because
-  I don't want to patch every time I test a fix in the game engine."  Below.
+  I don't want to patch every time I test a fix in the game engine", and, asked: "every time I make a change
+  to the client (Ensemble) I don't want to have to repatch!"  So it's about the check, not the editor: a
+  changed Ensemble, built or in the editor, plays without a new stamp.  Below.
 
 ## The flow, user mode
 
@@ -100,18 +104,19 @@ the folder, hashes every file, and writes `patch_manifest.json` where Jacob says
 ## Debug mode
 
 `--debug` on Soundcheck's command line.  The window says DEBUG MODE in its title and its corner, the login
-runs as it always does, and two things change:
+runs as it always does, and the point of it is the first of these:
 
 - **The file check is skipped.**  Once the check exists, debug mode tells the server it isn't going to send a
   manifest, and the server lets it through only if `patch.cfg` says debug clients are allowed (off by
   default, so nobody skips the check on a live server by typing `--debug`).  A server that doesn't allow it
   refuses the login with words that say so.
-- **The ticket goes to a file, not a started Ensemble.**  An Ensemble running inside Unity's editor is
-  already running, so there's nothing to start and no environment to put a ticket in.  Debug mode writes
-  `debug_ticket.json` in the player folder (the server's address, the UDP port, the token, when it was
-  issued; `Net/DebugTicket.cs`), and the editor's Ensemble reads it when PLAY is pressed there.  A token on
-  the disk is a token somebody else on the machine could read, which is fine for debug mode and for nothing
-  else; it's good once, for 30 seconds, so a stale file is harmless.
+- **The ticket also goes to a file.**  A built Ensemble is started by Soundcheck with the ticket in its
+  environment as always (once PLAY is built).  An Ensemble running inside Unity's editor is already running,
+  so there's nothing to start: for it, debug mode writes `debug_ticket.json` in the player folder (the
+  server's address, the UDP port, the token, when it was issued; `Net/DebugTicket.cs`), and the editor's
+  Ensemble reads it when PLAY is pressed there.  A token on the disk is a token somebody else on the machine
+  could read, which is fine for debug mode and for nothing else; it's good once, for 30 seconds, so a stale
+  file is harmless.  Today, with PLAY not built, the file is all debug mode does with the ticket.
 
 Debug mode is Soundcheck's switch, not Ensemble's: a built Ensemble started by Soundcheck never sees it.
 

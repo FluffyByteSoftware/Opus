@@ -35,7 +35,7 @@ changing any of this locks everybody out, so it changes only with every account 
 - **The salt**: the UTF-8 bytes of `Opus login v1:` followed by the username with A to Z made lowercase and
   nothing else touched (Conductor's `to_ascii_lowercase()`).  So `Jacob_01` and `jacob_01` make the same key.
 - **600,000 rounds**, 32 bytes out, **settled** (Jacob, 2026-10-01: "Make this the full 600,000").  Timed in
-  the Unity editor at **2852 ms** (Python: 150 ms).  It already runs on a worker thread, so the screen keeps
+  the Unity editor at **2852 ms** (Python: 150 ms; Soundcheck, on .NET 10, **208 ms**, 2026-10-02).  It already runs on a worker thread, so the screen keeps
   drawing; Jacob: "it should happen in the background while the player moves forward in login", meaning
   (his pick) that once the net code is in, SUBMIT connects to the server while the key is made, and the
   Login goes the moment the key's ready.

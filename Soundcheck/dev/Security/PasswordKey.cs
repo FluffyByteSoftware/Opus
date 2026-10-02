@@ -26,8 +26,8 @@ namespace Opus.Security
 
         // How many times PBKDF2 goes round.  More is slower for us and for
         // anybody trying to guess the password back out of a stolen key.
-        // Unity took 2852 ms over it; .NET proper should be well under a
-        // second, and SUBMIT logs what it took.
+        // Unity took 2852 ms over it; here it's 208 ms on Jacob's machine
+        // (2026-10-02).  SUBMIT logs what it took.
         public const int Rounds = 600000;
 
         // 32 bytes of key, sent as 64 lowercase hex characters.

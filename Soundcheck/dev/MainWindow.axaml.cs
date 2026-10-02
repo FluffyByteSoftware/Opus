@@ -12,6 +12,13 @@ namespace Opus.Soundcheck
 {
     public partial class MainWindow : Window
     {
+        // Avalonia's XAML loader and the designer look for a constructor
+        // with nothing in it, and warn when there isn't one.  Plain user
+        // mode; the program itself uses the one below.
+        public MainWindow() : this(false, false)
+        {
+        }
+
         public MainWindow(bool admin, bool debug)
         {
             InitializeComponent();
