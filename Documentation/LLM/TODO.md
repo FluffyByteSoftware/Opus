@@ -326,6 +326,20 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   the key and keeps or forgets it now; logging in, sending the key, comes with the network client).
   Remember Me is built (`design/client-security.md`).  The effects between screens ("cool ass
   effects if we can", "I don't know yet"); then character select's layout.
+- **The client's net code** (Jacob, 2026-10-02: "its time to build up the client to submit and move over
+  to character selection!").  Being built.  The plan: `Assets/Code/Net/` (the protocol, the login over
+  TLS, the server's certificate, UDP), a `login_status` line under SUBMIT, character select's screen.
+  Jacob's answers:
+  - **Get there this session**: character select shows the account's characters and LOG OUT.  CREATE,
+    DELETE and PLAY are a session of their own.
+  - **Already logged in elsewhere**: the client offers to log the other session out or to log off, for
+    30 seconds (the server's own wait); "if no answer it disconnects this session not the existing".
+    The server already holds the ticket until the other character's save is in (the "safety" lock).
+  - **The certificate**: the client carries a copy of `conductor.crt` and refuses any other server.
+  - **TLS 1.2**: if Unity can't do 1.3, Conductor takes 1.2 as well (rustls's `tls12`), "but I'm pretty
+    sure it will do 1.3".  Only if the first run says so.
+  - **The client version**: "we're not ready for 0.0.1 yet".  Ensemble sends Player Settings' Version,
+    `0.0.0.1`, and `networking.cfg`'s `client_versions` takes it.
 - **Stale words in the code**, for whichever session next touches each file:
   - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and
     Blacklist), and a comment the same.
