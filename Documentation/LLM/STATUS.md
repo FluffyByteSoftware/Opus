@@ -100,7 +100,7 @@ log in you get a chat box -- server doesn't support this yet so that will be the
 client's chat box first, then the server's side of chat.  His to change.
 
 On the milestones (2026-10-02, opening the server's side of chat): **"If we can get it where people can log
-in and chat with each other... that's release 0.0.1 then movement is 0.0.12"**.  His to change.
+in and chat with each other... that's release 0.0.1 then movement is 0.0.12"**, and then, asked: movement is **"0.0.0.12"**.  His to change.
 
 ## Last session -- 2026-10-02, character select's CREATE, DELETE, RESET HOME and PLAY (Ensemble)
 

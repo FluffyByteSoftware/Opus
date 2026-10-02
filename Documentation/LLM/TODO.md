@@ -36,14 +36,18 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     can chat.
   - **Who hears it: everybody in the world** (Jacob, 2026-10-02: "for now its going to be everyone this is
     our 0.0.1 release milestone").  Nearby chat waits on movement and positions.
-  - **The plan put to Jacob**: protocol version 8; a `PlayerCommand` packet (`0x37`, an ask number and the
-    line as typed) that the server reads `/chat` out of; CommandAccepted or CommandRefused back; a
-    `ChatMessage` packet (`0x38`) out to everybody in the world; done on the UDP thread straight from the
-    book (no database, no `World`), sent once (a lost line is lost); each line a Debug in the log;
-    Ensemble's `Protocol.cs` to 8 so it still logs in.
-  - **Still open**: the whole typed line or the message alone in the packet; the finished line or its
-    pieces (channel, name, text) going out; which characters a message may hold (printable ASCII, or
-    anything); whether the speaker hears their own line back from the server.
+  - **What the client sends** (Jacob, 2026-10-02): "the entire command is sent... we have a "chat window" in
+    the client and whatever is sent there is sent as a plaintext string to the server and the server goes
+    "oh hey that started with / that means look for a command"".
+  - **What goes out** (Jacob, 2026-10-02): "we send a packet to all users including the person who sent the
+    message on the next "chat" GameClock tick that carries chat (which should be every beat)", the line
+    reading `[Chat] Jacob: Yo yo yo!`.  So chat goes out from the GameClock's broadcast check, once a
+    250 ms cycle, and the speaker hears their own line back ("yes").
+  - **What a message may hold** (Jacob, 2026-10-02): "Plain english characters letters numbers special
+    characters, spaces."  Printable ASCII, up to 300.
+  - **A line without a `/`** (Jacob, 2026-10-02): "anything typed will default to being said -- something
+    we won't implement yet but TODO!"  Saying things (nearby, once there are positions) is still to come;
+    until then a line without a `/` is refused.
   - Later: a limit on how fast one player can chat, whether the web admin sees chat, nearby chat.
   - The client's box after: where "when you log in" puts it (in the world after PLAY, or the HUD with
     Phase 1's chat placeholder).
