@@ -30,7 +30,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 
 - **Chat** (Jacob, 2026-09-30: the 0.0.1 goal is "get a player spawned in the world and able to chat").
   Nothing designed: who hears whom (everybody, or those nearby), what the packets are (a protocol bump),
-  whether the web admin sees it.
+  whether the web admin sees it.  **The order** (Jacob, 2026-10-02): "next session we're gonna make it so
+  when you log in you get a chat box -- server doesn't support this yet so that will be thes ession after
+  next".  So the client's box first, the server's side after.  Open: where "when you log in" puts the box
+  (in the world after PLAY, or the HUD with Phase 1's chat placeholder), and what it does until the server
+  carries chat.
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
   kept below.  Settled for its database side, the first step:

@@ -579,7 +579,12 @@ When I say we're wrapping up:
   Conductor never makes one and never crashes without one: the Services tab
   says it's missing and the log says the command.  **A new certificate is
   copied to Ensemble too** (`Assets/Data/Certs/conductor_crt.txt`), or the
-  game refuses the server.
+  game refuses the server.  It's `.txt` because Unity only takes a text
+  asset from a name it knows; a `.crt` comes in as a plain file the slot
+  won't hold.  **No `.key` file goes in git, anywhere** (the `.gitignore`
+  says `*.key`): on 2026-10-02 the server's key went in under
+  `Data/Certs/` with a `.meta` commit, and a new pair was made.  A reply
+  giving the `git add` says to check `git status` for a `.key`.
 - **TLS 1.3 and 1.2** (2026-10-02): rustls's `tls12` feature is on, since
   Unity's .NET has no TLS 1.3 (`SslProtocols.Tls13` doesn't exist there).
   `test_client.py` still insists on 1.3.

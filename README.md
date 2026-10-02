@@ -14,8 +14,8 @@ and Conductor decides.
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
 game loop ticking over it, and a player can pick a character and stand in that world, though nothing moves
 yet.  Ensemble has an editor tool for the art, and screens built from layout files: it logs in over TLS,
-turning the password into a key before it's sent or kept, and shows the account's characters.  Picking one
-isn't in the game yet.  Things will change and things will break.
+turning the password into a key before it's sent or kept, and at character select makes, deletes and picks
+a character and puts it in the world, though there's no world on screen yet.  Things will change and things will break.
 
 **The first goal, 0.0.1, is a player spawned in the world and able to chat.**
 
@@ -37,7 +37,7 @@ isn't in the game yet.  Things will change and things will break.
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Movement, chat                                   | Not started                                            |
 | Ensemble                                         | An editor tool; the login and the HUD, from layouts    |
-| Ensemble logging in, to character select         | Built and tested; the list only, LOG OUT to leave      |
+| Ensemble logging in, character select, PLAY      | Built and tested; the world isn't on screen yet        |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
@@ -169,7 +169,7 @@ running on.
 
 ## Talking to it
 
-Ensemble logs in and lists the account's characters.  For the rest, and for poking at the server,
+Ensemble logs in and does all of character select.  For poking at the server without it,
 `Conductor/dev/networking/test_client.py` stands in for it: Python 3, standard library only.  It logs in, takes the ticket to UDP, lists the account's characters, keeps alive, and prints every
 packet both ways.  `--create Name`, `--delete Name` and `--reset-home Name` do the rest of character select,
 and `--play Name` brings that character into the world.  Make a test account on the web admin's Accounts tab
