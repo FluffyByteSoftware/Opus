@@ -13,8 +13,8 @@ keeps.  "I suppose there will be a few moments where its in memory": the typed s
 memory until it's reused, since C# can't wipe a string.
 
 **The client's half is built and tested** (Ensemble, 2026-10-01, all six checks passed; the key matched
-Python's to the byte).  **Conductor's half is written** (2026-10-02, protocol version 7) **and waiting on
-Jacob's build.**  Ensemble doesn't send one yet (there's no network client); `test_client.py` does.
+Python's to the byte).  **Conductor's half is written and built** (2026-10-02, protocol version 7; tests
+pass), its checks on `testing` to come.  Ensemble doesn't send one yet (there's no network client); `test_client.py` does.
 
 What a key does and doesn't do, said when it was planned: the key logs in as well as the password would, so
 whoever copies the Remember Me file can log in as that player.  What they can't do is learn the password and
@@ -69,7 +69,7 @@ In `Assets/Code/`:
     box puts it back.  Typing a password drops the remembered key, and so does changing the username, since
     the key was made from it.
 
-## Conductor's half (written 2026-10-02, not built yet)
+## Conductor's half (written and built 2026-10-02)
 
 1. **The Login carries the key**: `PROTOCOL_VERSION` 7.  The Login's fourth string is the password's key, 64
    lowercase hex, made as above.  `protocol.rs`, PROTOCOL.md (its example gets the key above) and
