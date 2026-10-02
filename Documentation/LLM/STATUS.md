@@ -117,7 +117,6 @@ refused without a hash, the account desk making the key, `test_client.py` making
 account deleted.  Before planning:
 
 - **The `pbkdf2` and `sha2` crates** need his OK.
-- **`PlayerFiles.cs` needs its `.meta`** from Jacob's machine, if it isn't in.
 
 Then the client's net code: the login over TLS (PROTOCOL.md), the client checking the server's
 certificate (TODO.md), and how far into UDP the first step goes.  **SUBMIT connects while the key is
@@ -131,7 +130,7 @@ goes up as the key is worked out, and the Login goes the moment it's ready.
 Remember Me's file moved there from Unity's `persistentDataPath` (`.../FluffyByte/Opus_Ensemble/`, Unity
 makes the dot an underscore), and the HUD's layout from `.../Opus.Ensemble/Unity/`.  Unity's names are
 FluffyByte and Opus.Ensemble (Jacob's screenshot: "the screenshot is right"), so the docs that said
-FluffyByte Studios and Forgotten Legends were fixed.  **Built and tested in Unity**, all three checks passed.
+FluffyByte Studios and Forgotten Legends were fixed.  **Built and tested in Unity**, all three checks passed; its `.meta` is in (`29ada86`).
 
 ## What's waiting
 
