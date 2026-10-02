@@ -191,8 +191,9 @@ version 10's PleaseWait (`0x3B`, the ask's number and words, general for any ask
 Protogame sends one for a locked pick and waits the lock out (`sessions::wait_for_loading_lock()`, up to
 `LOCK_WAIT` of 5 s), then plays; past that the Kicked as before.  Ensemble's `GameConnection.Waiting()`,
 `Session.AskWaiting()`, the words on character select's status line, `Protocol.Version` 10;
-`test_client.py` prints it.  PROTOCOL.md, CLAUDE.md and both networking design docs say so.  The next
-session starts by expecting compile fixes in Rust and in Unity.  Then `main` moves
+`test_client.py` prints it.  PROTOCOL.md, CLAUDE.md and both networking design docs say so.  **Conductor's
+half is built and tested** (`cargo build` clean, 365 tests); **Ensemble's half is waiting on Unity**, and
+the run checks (the double login from Ensemble, and with two test clients) are in TEST_CHECKLIST.html.  Then `main` moves
 to `testing`'s tip, the `v0.0.1` tag and the two packages (RELEASE.md).  The "major clean up" he named
 before is the rest of the review's list.
 
