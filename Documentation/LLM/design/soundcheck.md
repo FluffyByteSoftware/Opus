@@ -51,7 +51,7 @@ a patcher is that something.  The certificate half is still to come; this is the
   beside it.  `serde` and `serde_json` come in for reading the manifest (Jacob: "yes add it").
 - **PLAY is a second login.**  The first login patches; PLAY logs in again with the key still in memory, the
   check runs again (quick: nothing's wrong), and that Ticket starts Ensemble.  So no connection is ever held
-  open while a player sits at the launcher.  **Built 2026-10-02** (waiting on a build): SUBMIT's Ticket
+  open while a player sits at the launcher.  **Built and tested 2026-10-02**: SUBMIT's Ticket
   turns PLAY on; PLAY finds the game first (so a login never happens for nothing), logs in again, and its
   Ticket starts the game (`GameLauncher.cs`: `Process.Start` with the four variables in the game's
   environment, the working directory the game's folder) and closes the window, which ends Soundcheck.  The
@@ -205,7 +205,7 @@ on the downloader thread only.
 - **The version in the Login** becomes Soundcheck's: it and Ensemble ship as one package, and
   `client_versions` lists that number.
 
-## Ensemble's side (written 2026-10-02, waiting on Unity)
+## Ensemble's side (built and tested 2026-10-02)
 
 - **Lost the login screen and the TCP half of `Assets/Code/Net/`**: `LoginConnection.cs`,
   `ServerCertificate.cs`, the `Security/` folder, the login's eleven widget files, its layout and style, and

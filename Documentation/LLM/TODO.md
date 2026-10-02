@@ -418,7 +418,7 @@ step each:
   client folder); `Content/patch/` read and checked against its manifest at START SERVER, a Warn and no
   downloads on a mismatch; `serde` and `serde_json` (Jacob, 2026-10-02: "yes add it").  `PROTOCOL_VERSION`
   bumps; `test_client.py` gets a `--client-folder`.
-- **Ensemble's half is written** (2026-10-02, waiting on Unity; `design/soundcheck.md`, "Ensemble's side"):
+- **Ensemble's half is built and tested** (2026-10-02; `design/soundcheck.md`, "Ensemble's side"):
   the login screen and the TCP half of `Assets/Code/Net/` are gone; it starts on character select with the
   ticket read from its environment (`OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`, `OPUS_SOUNDCHECK`); no
   ticket is the start screen, saying to start the game from the launcher; when its session ends it starts
@@ -430,7 +430,7 @@ step each:
   insist on 1.3).  `networking/Cargo.toml`'s feature list and the comment in `tls.rs`; and `0.0.0.1` comes
   out of `client_versions` in `Content/cfg/networking.cfg` (Ensemble's old pre-release version; the Login's
   version is Soundcheck's now, `0.0.1`).  A small Conductor step.
-- **PLAY in Soundcheck is written** (2026-10-02, waiting on a build; `design/soundcheck.md`, "PLAY is a
+- **PLAY in Soundcheck is built and tested** (2026-10-02; `design/soundcheck.md`, "PLAY is a
   second login" and "Where the game is"): a second login, the game started with the ticket in its
   environment, Soundcheck closing.  The game is beside the launcher, or `--game <path>` (remembered).  The
   Ensemble package's name for the game is `Ensemble.x86_64` on Linux; a Unity build also leaves an
@@ -448,6 +448,12 @@ step each:
     Conductor's half above.
   - **Ensemble in the editor**: done with Ensemble's half (dev mode: the start screen watches for
     `debug_ticket.json` and joins the world when a fresh one lands, editor only).
+- **Shipping to a player on Windows** (Jacob, 2026-10-02: "get this all ready to ship to another person on
+  Windows... make sure soundcheck is set up properly to validate off the host"): Conductor's half and the
+  check in user mode (above) first, since today Soundcheck checks nothing against the server; then a Windows
+  build of Ensemble (`Ensemble.exe`) and of Soundcheck, neither tried yet; whether `Process.Start` and the
+  environment hand-off behave the same there; one package (below); the other person's server reachable
+  (`bind_address`, the firewall on TCP 9997 and UDP 9998, `client_versions`).
 - **A log file for Soundcheck**: on Windows a windowed program has no terminal, so `Log.cs` shows nothing
   there.  A file in the player folder, probably.
 - **Soundcheck patching itself**: a running program can't overwrite its own files on Windows.  The first
