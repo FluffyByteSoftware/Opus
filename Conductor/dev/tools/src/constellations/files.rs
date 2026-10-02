@@ -46,9 +46,12 @@ pub enum Kind {
     /// Anything but nothing: a name, an address.
     Text,
     /// Anything at all, empty included, and never echoed in a complaint
-    /// or a log line.  The Postgres password.  (It can still be shown on
-    /// the web admin's page: Postgres only listens on this machine.)
+    /// or a log line.  The Postgres password.  (Shown on the web admin's
+    /// page to `admin`, and blank to `user`.)
     Secret,
+    /// A `Secret` that can't be empty: the web admin's own two passwords,
+    /// since a login has to be a login.
+    Password,
     /// A folder.  A relative one is taken from the Content folder.
     Folder,
     /// 1 to 65535.
@@ -143,14 +146,14 @@ pub static WGUI: ConfigFile = ConfigFile {
     settings: &[
         Setting {
             key: "user_password",
-            kind: Kind::Text,
+            kind: Kind::Password,
             default: "user",
             about: "The password for \"user\", the account that can look and not touch.\n\
                     It can't be empty.",
         },
         Setting {
             key: "admin_password",
-            kind: Kind::Text,
+            kind: Kind::Password,
             default: "admin",
             about: "The password for \"admin\", the account that can start and stop the\n\
                     server, ACK notices, change settings and shut Conductor down.  It\n\

@@ -172,7 +172,7 @@
 //!                                "waiting": null } ] } ] }
 //! ```
 //!
-//! `kind` is text, secret, folder, port or number; `low` and `high` are
+//! `kind` is text, secret, password, folder, port or number; `low` and `high` are
 //! the range for a port or a number and `null` for the rest.  `running`
 //! is what Conductor is running on, or, for a file that isn't `loaded`
 //! yet this run (`postgres.cfg` before the first START SERVER), what the
@@ -552,11 +552,12 @@ fn setting_state(setting: &Setting, state: &FileState, secrets_shown: bool) -> S
     let (kind, range) = match setting.kind {
         Kind::Text => ("text", None),
         Kind::Secret => ("secret", None),
+        Kind::Password => ("password", None),
         Kind::Folder => ("folder", None),
         Kind::Port => ("port", Some((1, u64::from(u16::MAX)))),
         Kind::Number { low, high } => ("number", Some((low, high))),
     };
-    let hidden = setting.kind == Kind::Secret && !secrets_shown;
+    let hidden = matches!(setting.kind, Kind::Secret | Kind::Password) && !secrets_shown;
     let running = if hidden { "" } else { state.running.get(setting.key).map_or(setting.default, String::as_str) };
     let default = if hidden { "" } else { setting.default };
     let waiting = state.waiting.as_ref().and_then(|values| values.get(setting.key))
@@ -869,7 +870,7 @@ mod tests {
         let state = FileState { file: &WGUI, loaded: true, running: constellations::values(&WGUI),
                                 waiting: Some(waiting) };
         let admin = settings(&[state], Role::Admin);
-        assert!(admin.contains("{\"key\":\"admin_password\",\"kind\":\"secret\",\"low\":null,\"high\":null,"));
+        assert!(admin.contains("{\"key\":\"admin_password\",\"kind\":\"password\",\"low\":null,\"high\":null,"));
         assert!(admin.contains("\"default\":\"admin\",\"running\":\"admin\",\"waiting\":\"hunter2\"}"), "{admin}");
 
         let mut waiting = constellations::values(&WGUI);
@@ -877,7 +878,7 @@ mod tests {
         let state = FileState { file: &WGUI, loaded: true, running: constellations::values(&WGUI),
                                 waiting: Some(waiting) };
         let user = settings(&[state], Role::User);
-        assert!(user.contains("{\"key\":\"admin_password\",\"kind\":\"secret\",\"low\":null,\"high\":null,"));
+        assert!(user.contains("{\"key\":\"admin_password\",\"kind\":\"password\",\"low\":null,\"high\":null,"));
         assert!(user.contains("\"default\":\"\",\"running\":\"\",\"waiting\":\"\"}"), "{user}");
         assert!(!user.contains("hunter2") && !user.contains("\"admin\",\"running\""), "{user}");
     }

@@ -2923,6 +2923,7 @@ function kindWords(setting) {
     case "number": return "a number, " + setting.low + " to " + setting.high;
     case "folder": return "a folder, from Content unless it starts with /";
     case "secret": return "kept as it is, can be empty";
+    case "password": return "kept as it is, can't be empty";
     default: return "text";
   }
 }

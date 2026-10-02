@@ -332,8 +332,9 @@ The files today, with their defaults:
   (`9996`; moving to `wgui.cfg`, in TODO.md).
 - **`wgui.cfg`**, hard, loaded by the launcher at boot, read by the web admin's login: `user_password`
   (`user`), `admin_password` (`admin`).  Kept as they are, not hashed (Jacob, 2026-09-29): Security only
-  runs while the server does, and a login has to work before START SERVER.  `Text`, not `Secret`, so an
-  empty one is refused; a `Text` complaint never echoes the value either.
+  runs while the server does, and a login has to work before START SERVER.  `Password` (2026-10-02; it
+  was `Text`): a `Secret` that can't be empty, so an empty one is refused, the value is never echoed, and
+  the Settings tab shows it to `admin` only.
 - **`postgres.cfg`**, soft, loaded by Archivist's `start()`: `address` (`localhost`), `port` (`5432`),
   `database` (`opusdb`), `username` (`opus_game`), `password` (secret, empty), `query_time_limit_seconds`
   (0 to 3600, 10), `slow_job_ms` (1 to 600000, 250).

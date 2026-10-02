@@ -83,7 +83,8 @@ the `Pending` and kick when it lands.
 
 ### Worth fixing before the tag
 
-**R1. The read-only `user` can read every password.**  *Fixed 2026-10-02: a Secret goes out as `""` to `user`.*
+**R1. The read-only `user` can read every password.**  *Fixed 2026-10-02: a Secret goes out as `""` to `user`.  The web admin's two passwords were `Kind::Text`, not
+`Secret` (the review had that wrong), so they're a new `Kind::Password`, a Secret that can't be empty.*
 `wgui/src/lib.rs:345-347` serves `/Opus/settings` to any logged-in role, and `json.rs:546-566`
 `setting_state()` writes every `Kind::Secret` value as it is (`running`, `waiting`, `default`): `wgui.cfg`'s
 `admin_password` and `postgres.cfg`'s `password` among them.  The test at `lib.rs:780-800` pins it.  So

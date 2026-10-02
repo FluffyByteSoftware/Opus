@@ -92,6 +92,11 @@ pub fn check(setting: &Setting, value: &str) -> Result<(), String> {
             }
         }
         Kind::Secret => {}
+        Kind::Password => {
+            if value.is_empty() {
+                return Err(format!("{key} is empty."));
+            }
+        }
         Kind::Folder => {
             if value.is_empty() {
                 return Err(format!("{key} is empty, and it needs a folder, like logs or /var/log/opus."));
@@ -197,6 +202,7 @@ mod tests {
             let value = match setting.kind {
                 Kind::Text => format!("other-{}", setting.key),
                 Kind::Secret => "p@ss = word".to_string(),
+                Kind::Password => "p@ss word".to_string(),
                 Kind::Folder => "/tmp/somewhere else/logs".to_string(),
                 Kind::Port => "12345".to_string(),
                 Kind::Number { high, .. } => high.to_string(),

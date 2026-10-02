@@ -789,7 +789,7 @@ mod tests {
         assert!(body.contains("\"loaded\":false,\"waiting\":false,"));
         assert!(!body.contains("\"loaded\":true"));
         // The passwords are blank for user, and there for admin.
-        assert!(body.contains("\"key\":\"admin_password\",\"kind\":\"secret\",\"low\":null,\"high\":null,\"about\":"),
+        assert!(body.contains("\"key\":\"admin_password\",\"kind\":\"password\",\"low\":null,\"high\":null,\"about\":"),
                 "{body}");
         assert!(!body.contains("\"default\":\"admin\",\"running\":\"admin\""), "{body}");
         let admin = cookie_for("admin");
