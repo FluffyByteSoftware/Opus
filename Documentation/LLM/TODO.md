@@ -83,8 +83,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     --------------> There are seven players in the Realms right now. <-------------
     ```
 
-    Open: whether the Players part is that grid of names or a line each with the position; the date and
-    the UTC rule's `Z`; columns for names up to 20 letters.
+    **Both** (Jacob, 2026-10-02): "A but if they do /who list It shows [Aldric] is currently at [0, 0, 0]
+    and so on".  So `/who` is the grid of names, `/who list` the line each with the position.  Open: the
+    date and the UTC rule's `Z`; columns for names up to 20 letters; the count in words.
   - **Ensemble**: these lines only line up in a monospaced font, so the chat box needs one.
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
