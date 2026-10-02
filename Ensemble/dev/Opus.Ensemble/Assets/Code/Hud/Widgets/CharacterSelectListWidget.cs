@@ -3,7 +3,9 @@
 // Author:     Jacob Chacko
 // The account's characters at character select: a row for each of the
 // three slots, the character's name or "Empty", greyed when its save won't
-// load.  Filled by CharacterSelectForm.cs from what the server sent.
+// load.  A click on a character picks it.  Filled by CharacterSelectForm.cs
+// from what the server sent; once the character is in the world, it says
+// so instead.
 
 using UnityEngine;
 using UnityEngine.UIElements;

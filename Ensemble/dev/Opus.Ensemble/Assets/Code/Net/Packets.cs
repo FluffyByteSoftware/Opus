@@ -119,6 +119,14 @@ namespace Opus.Net
             return value;
         }
 
+        // A 32-bit float, its four bytes the same order as a u32's.  The
+        // bytes go back through BitConverter in this machine's own order,
+        // so it reads right on any machine.
+        public float F32()
+        {
+            return BitConverter.ToSingle(BitConverter.GetBytes(U32()), 0);
+        }
+
         public string String()
         {
             uint length = U32();

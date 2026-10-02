@@ -93,18 +93,22 @@ namespace Opus.Net
             return game;
         }
 
-        // An ask at character select, sent with the next ask number.  It
-        // replaces any ask still waiting.  From the main thread.  Only the
-        // asks with nothing after the number for now (the list); CREATE,
-        // DELETE and PLAY bring the ones with fields.
-        public void Ask(byte kind)
+        // An ask at character select, sent with the next ask number and then
+        // its fields, all of them strings (a name; a uuid and the typed
+        // word; a uuid).  It replaces any ask still waiting.  From the main
+        // thread.
+        public void Ask(byte kind, params string[] fields)
         {
+            var packet = new PacketWriter(kind);
             lock (gate)
             {
                 if (closed)
                     return;
                 lastAsk++;
-                askPacket = new PacketWriter(kind).U32(lastAsk).ForUdp();
+                packet.U32(lastAsk);
+                foreach (string field in fields)
+                    packet.String(field);
+                askPacket = packet.ForUdp();
                 askFirstSent = clock.ElapsedMilliseconds;
                 nextAsk = askFirstSent;
             }
@@ -350,6 +354,43 @@ namespace Opus.Net
                     packet.End();
                     Debug.Log("Game: the account has " + count + (count == 1 ? " character." : " characters."));
                     MainThread.Post(() => Session.CharactersCame(this, characters));
+                    return;
+                }
+
+                case Protocol.CharacterCreateResult:
+                case Protocol.CharacterDeleteResult:
+                {
+                    byte kind = packet.Kind;
+                    byte answer = packet.U8();
+                    string message = packet.String();
+                    packet.End();
+                    Debug.Log("Game: " + Protocol.NameOf(kind) + " " + answer + ", \"" + message + "\".");
+                    if (kind == Protocol.CharacterCreateResult)
+                        MainThread.Post(() => Session.CreateAnswered(this, answer, message));
+                    else
+                        MainThread.Post(() => Session.DeleteAnswered(this, answer, message));
+                    return;
+                }
+
+                case Protocol.CharacterEnteredWorld:
+                {
+                    string uuid = packet.String();
+                    string name = packet.String();
+                    float x = packet.F32();
+                    float y = packet.F32();
+                    float z = packet.F32();
+                    packet.End();
+                    Debug.Log("Game: " + name + " (" + uuid + ") is in the world at " + x + ", " + y + ", " + z
+                              + ".");
+                    MainThread.Post(() => Session.EnteredWorld(this, name));
+                    return;
+                }
+
+                case Protocol.CommandAccepted:
+                {
+                    packet.End();
+                    Debug.Log("Game: accepted.");
+                    MainThread.Post(() => Session.AskAccepted(this));
                     return;
                 }
 

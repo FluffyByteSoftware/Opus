@@ -30,6 +30,13 @@ namespace Opus.Hud
             () => new CharacterSelectBackgroundWidget(),
             () => new CharacterSelectListWidget(),
             () => new CharacterSelectLogOutWidget(),
+            () => new CharacterSelectStatusWidget(),
+            () => new CharacterSelectPlayWidget(),
+            () => new CharacterSelectCreateWidget(),
+            () => new CharacterSelectDeleteWidget(),
+            () => new CharacterSelectResetHomeWidget(),
+            () => new CharacterSelectCreateCardWidget(),
+            () => new CharacterSelectDeleteCardWidget(),
         };
 
         // A new widget for this id, or null when there's no widget called

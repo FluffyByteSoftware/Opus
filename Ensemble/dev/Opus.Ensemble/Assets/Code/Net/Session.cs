@@ -3,8 +3,9 @@
 // Author:     Jacob Chacko
 // The player's session with the server, from SUBMIT to the login screen
 // again.  It runs the two connections in turn (the login over TCP, then
-// the game over UDP), keeps where the player is, and tells the screens
-// through its events.  Main thread only: the connections' threads reach it
+// the game over UDP), keeps where the player is, makes the asks at
+// character select (the list, CREATE, DELETE, RESET HOME, PLAY), and tells
+// the screens through its events.  Main thread only: the connections' threads reach it
 // through MainThread.Post, and every message from a connection that's
 // already been dropped is ignored.
 //
@@ -24,6 +25,7 @@ namespace Opus.Net
         AskedAboutOtherSession,
         Connecting,
         AtCharacterSelect,
+        InWorld,
     }
 
     public static class Session
@@ -50,6 +52,24 @@ namespace Opus.Net
         // Why there's no list of characters, or null.
         public static string CharactersTrouble { get; private set; }
 
+        // The ask at character select waiting on its answer (its packet
+        // type), or 0.  The server takes one at a time, so the screen greys
+        // its buttons while there's one.
+        public static byte Asking { get; private set; }
+
+        public static bool Waiting
+        {
+            get { return Asking != 0; }
+        }
+
+        // What character select's status line says, and whether it's
+        // something gone wrong.
+        public static string Said { get; private set; }
+        public static bool SaidTrouble { get; private set; }
+
+        // The character's name once it's in the world, or null.
+        public static string InWorldAs { get; private set; }
+
         // What's happening, for the login's status line, and whether it's
         // something gone wrong.
         public static event Action<string, bool> StatusChanged;
@@ -68,8 +88,13 @@ namespace Opus.Net
         // The UDP side said Welcome: the player is at character select.
         public static event Action ReachedCharacterSelect;
 
-        // Characters or CharactersTrouble changed.
-        public static event Action CharactersChanged;
+        // Anything character select shows changed: the list, its trouble,
+        // an ask started or answered, the status line, the world.
+        public static event Action CharacterSelectChanged;
+
+        // An ask was answered (its packet type, and whether the server did
+        // it), rung before CharacterSelectChanged.  The cards close on a yes.
+        public static event Action<byte, bool> AskAnswered;
 
         // The session is over and the player is back at the login: why,
         // and whether it's something gone wrong.
@@ -77,6 +102,10 @@ namespace Opus.Net
 
         static LoginConnection login;
         static GameConnection game;
+
+        // The name of the character RESET HOME was asked for, for its
+        // answer (a CommandAccepted, which carries no name).
+        static string sentHome;
 
         // ---------------------------------------------------------------
         // From the screens
@@ -99,8 +128,7 @@ namespace Opus.Net
             }
 
             Stage = SessionStage.LoggingIn;
-            Characters = null;
-            CharactersTrouble = null;
+            ForgetCharacterSelect();
             // Player Settings' Version.  networking.cfg's client_versions has
             // to list it, or the server says Outdated Client Failure.
             login = LoginConnection.Start(host, port, carried, Application.version, username, key);
@@ -115,6 +143,136 @@ namespace Opus.Net
                 return;
             Stage = SessionStage.LoggingIn;
             login.Choose(logOtherOut);
+        }
+
+        // ---------------------------------------------------------------
+        // Character select's asks.  Each one returns false, with the reason
+        // on the status line, when it can't be sent; the screen's buttons
+        // are greyed in the same cases, so that's rare.
+        // ---------------------------------------------------------------
+
+        // A character's name is 4 to 20 letters, a to z, and only the first
+        // can be a capital: the server's own rule and its own words, checked
+        // here first so a name that can't work never costs the server an
+        // ask.  The server checks again either way.
+        public const string NameRule = "A character's name is 4 to 20 letters, a to z, and only the first can be "
+                                       + "a capital.";
+
+        public static bool NameFollowsRule(string name)
+        {
+            if (name == null || name.Length < 4 || name.Length > 20)
+                return false;
+            for (int i = 0; i < name.Length; i++)
+            {
+                char c = name[i];
+                bool small = c >= 'a' && c <= 'z';
+                bool capital = c >= 'A' && c <= 'Z';
+                if (!small && !(capital && i == 0))
+                    return false;
+            }
+            return true;
+        }
+
+        // The word that deletes a character, any capitals.  The server
+        // checks it again.
+        public const string DeleteWord = "DELETE";
+
+        public static bool CreateCharacter(string name)
+        {
+            if (!CanAsk())
+                return false;
+            if (!NameFollowsRule(name))
+            {
+                SayHere(NameRule, true);
+                return false;
+            }
+            if (Characters != null && Characters.Length >= 3)
+            {
+                SayHere("All three character slots are full.", true);
+                return false;
+            }
+            Debug.Log("Game: asking to make \"" + name + "\".");
+            AskServer(Protocol.CreateCharacter, name);
+            return true;
+        }
+
+        public static bool DeleteCharacter(string uuid, string typed)
+        {
+            if (!CanAsk())
+                return false;
+            if (typed == null || typed.Trim().ToUpperInvariant() != DeleteWord)
+            {
+                SayHere("Type DELETE to delete a character.", true);
+                return false;
+            }
+            Debug.Log("Game: asking to delete " + uuid + ".");
+            AskServer(Protocol.DeleteCharacter, uuid, typed.Trim());
+            return true;
+        }
+
+        public static bool ResetHome(string uuid)
+        {
+            if (!CanAsk())
+                return false;
+            Debug.Log("Game: asking to send " + uuid + " home.");
+            CharacterEntry character = Find(uuid);
+            sentHome = character != null ? character.Name : "Your character";
+            AskServer(Protocol.CharacterRequestResetHome, uuid);
+            return true;
+        }
+
+        public static bool Play(string uuid)
+        {
+            if (!CanAsk())
+                return false;
+            Debug.Log("Game: asking to play " + uuid + ".");
+            AskServer(Protocol.UserPressPlay, uuid);
+            SayHere("Entering the world...", false);
+            return true;
+        }
+
+        // The character in this slot, or null.
+        public static CharacterEntry InSlot(int slot)
+        {
+            if (Characters == null)
+                return null;
+            foreach (CharacterEntry character in Characters)
+            {
+                if (character.Slot == slot)
+                    return character;
+            }
+            return null;
+        }
+
+        public static CharacterEntry Find(string uuid)
+        {
+            if (Characters == null || uuid == null)
+                return null;
+            foreach (CharacterEntry character in Characters)
+            {
+                if (character.Uuid == uuid)
+                    return character;
+            }
+            return null;
+        }
+
+        static bool CanAsk()
+        {
+            if (Stage != SessionStage.AtCharacterSelect || game == null)
+                return false;
+            if (Waiting)
+            {
+                SayHere("Still waiting on the server.", false);
+                return false;
+            }
+            return true;
+        }
+
+        static void AskServer(byte kind, params string[] fields)
+        {
+            Asking = kind;
+            game.Ask(kind, fields);
+            Changed();
         }
 
         // LOG OUT: a Goodbye to the server, and back to the login.
@@ -210,8 +368,8 @@ namespace Opus.Net
             if (from != game)
                 return;
             Stage = SessionStage.AtCharacterSelect;
-            Characters = null;
-            CharactersTrouble = null;
+            ForgetCharacterSelect();
+            Asking = Protocol.CharacterListRequest;
             game.Ask(Protocol.CharacterListRequest);
             if (ReachedCharacterSelect != null)
                 ReachedCharacterSelect();
@@ -221,30 +379,89 @@ namespace Opus.Net
         {
             if (from != game)
                 return;
+            Asking = 0;
             Characters = characters;
             CharactersTrouble = null;
-            if (CharactersChanged != null)
-                CharactersChanged();
+            Answered(Protocol.CharacterListRequest, true);
         }
 
-        // Character select only asks for the list so far, so a refusal or
-        // no answer at all is about the list.
+        // CREATE's answer.  Made: the list is asked for again, since the
+        // answer doesn't say which slot it went in.
+        internal static void CreateAnswered(GameConnection from, byte answer, string message)
+        {
+            if (from != game)
+                return;
+            Asking = 0;
+            bool made = answer == 0;
+            SayHere(message, !made);
+            Answered(Protocol.CreateCharacter, made);
+            if (made)
+                AskForList();
+        }
+
+        // DELETE's answer.  Gone: the list again.
+        internal static void DeleteAnswered(GameConnection from, byte answer, string message)
+        {
+            if (from != game)
+                return;
+            Asking = 0;
+            bool deleted = answer == 0;
+            SayHere(message, !deleted);
+            Answered(Protocol.DeleteCharacter, deleted);
+            if (deleted)
+                AskForList();
+        }
+
+        // A CommandAccepted.  At character select only RESET HOME gets one.
+        internal static void AskAccepted(GameConnection from)
+        {
+            if (from != game)
+                return;
+            byte kind = Asking;
+            Asking = 0;
+            if (kind == Protocol.CharacterRequestResetHome)
+                SayHere(sentHome + " is back at 0, 0, 0.", false);
+            Answered(kind, true);
+        }
+
+        // A CommandRefused, for whichever ask was waiting: the list's goes
+        // in the list, anything else on the status line.
         internal static void AskRefused(GameConnection from, string why)
         {
             if (from != game)
                 return;
-            CharactersTrouble = why;
-            if (CharactersChanged != null)
-                CharactersChanged();
+            byte kind = Asking;
+            Asking = 0;
+            if (kind == Protocol.CharacterListRequest)
+                CharactersTrouble = why;
+            else
+                SayHere(why, true);
+            Answered(kind, false);
         }
 
         internal static void AskUnanswered(GameConnection from, byte kind)
         {
             if (from != game)
                 return;
-            CharactersTrouble = "The server didn't send the list of characters.";
-            if (CharactersChanged != null)
-                CharactersChanged();
+            Asking = 0;
+            if (kind == Protocol.CharacterListRequest)
+                CharactersTrouble = "The server didn't send the list of characters.";
+            else
+                SayHere("The server didn't answer.", true);
+            Answered(kind, false);
+        }
+
+        // PLAY's answer: the character is in the world.  Character select is
+        // behind the player now; the way out is LOG OUT, to the login.
+        internal static void EnteredWorld(GameConnection from, string name)
+        {
+            if (from != game)
+                return;
+            Asking = 0;
+            Stage = SessionStage.InWorld;
+            InWorldAs = name;
+            SayHere("", false);
+            Answered(Protocol.UserPressPlay, true);
         }
 
         internal static void GameEnded(GameConnection from, string why)
@@ -263,11 +480,48 @@ namespace Opus.Net
                 StatusChanged(words, trouble);
         }
 
+        // Character select's status line.
+        static void SayHere(string words, bool trouble)
+        {
+            Said = words;
+            SaidTrouble = trouble;
+            Changed();
+        }
+
+        static void AskForList()
+        {
+            Asking = Protocol.CharacterListRequest;
+            game.Ask(Protocol.CharacterListRequest);
+            Changed();
+        }
+
+        static void Answered(byte kind, bool done)
+        {
+            if (AskAnswered != null)
+                AskAnswered(kind, done);
+            Changed();
+        }
+
+        static void Changed()
+        {
+            if (CharacterSelectChanged != null)
+                CharacterSelectChanged();
+        }
+
+        static void ForgetCharacterSelect()
+        {
+            Characters = null;
+            CharactersTrouble = null;
+            Asking = 0;
+            Said = "";
+            SaidTrouble = false;
+            InWorldAs = null;
+        }
+
         static void Finish(string why, bool trouble)
         {
             Stage = SessionStage.LoggedOut;
-            Characters = null;
-            CharactersTrouble = null;
+            ForgetCharacterSelect();
             if (BackAtLogin != null)
                 BackAtLogin(why, trouble);
         }

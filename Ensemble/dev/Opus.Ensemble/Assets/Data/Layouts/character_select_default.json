@@ -11,11 +11,39 @@
     },
     {
       "id": "character_select_list", "anchor": "Center",
-      "offset": { "x": 0, "y": -60 }, "size": { "width": 640, "height": 420 }, "layer": 1
+      "offset": { "x": 0, "y": -110 }, "size": { "width": 720, "height": 420 }, "layer": 1
+    },
+    {
+      "id": "character_select_status", "anchor": "Center",
+      "offset": { "x": 0, "y": 140 }, "size": { "width": 720, "height": 56 }, "layer": 1
+    },
+    {
+      "id": "character_select_play", "anchor": "Center",
+      "offset": { "x": -276, "y": 216 }, "size": { "width": 168, "height": 56 }, "layer": 1
+    },
+    {
+      "id": "character_select_create", "anchor": "Center",
+      "offset": { "x": -92, "y": 216 }, "size": { "width": 168, "height": 56 }, "layer": 1
+    },
+    {
+      "id": "character_select_delete", "anchor": "Center",
+      "offset": { "x": 92, "y": 216 }, "size": { "width": 168, "height": 56 }, "layer": 1
+    },
+    {
+      "id": "character_select_reset_home", "anchor": "Center",
+      "offset": { "x": 276, "y": 216 }, "size": { "width": 168, "height": 56 }, "layer": 1
     },
     {
       "id": "character_select_log_out", "anchor": "Center",
-      "offset": { "x": 0, "y": 230 }, "size": { "width": 240, "height": 56 }, "layer": 1
+      "offset": { "x": 0, "y": 300 }, "size": { "width": 240, "height": 56 }, "layer": 1
+    },
+    {
+      "id": "character_select_create_card", "anchor": "Center",
+      "offset": { "x": 0, "y": -110 }, "size": { "width": 560, "height": 300 }, "layer": 2
+    },
+    {
+      "id": "character_select_delete_card", "anchor": "Center",
+      "offset": { "x": 0, "y": -110 }, "size": { "width": 560, "height": 300 }, "layer": 2
     }
   ]
 }

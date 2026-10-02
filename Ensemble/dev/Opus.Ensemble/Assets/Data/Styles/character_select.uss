@@ -74,6 +74,157 @@
     opacity: 0.35;
 }
 
+/* A character can be clicked to pick it: lighter under the mouse, and a
+   border round the one picked. */
+.character-row--pickable:hover {
+    background-color: rgb(44, 50, 64);
+}
+
+.character-row--picked {
+    background-color: rgb(46, 60, 90);
+    border-width: 2px;
+    border-color: rgb(110, 140, 200);
+}
+
+/* Once the character is in the world, the list is this one line. */
+.characters-in-world {
+    flex-grow: 1;
+    font-size: 30px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin: 0;
+    padding: 0;
+}
+
+/* The line under the list.  Trouble is a dark red band behind the words,
+   not a colour for them: the words' colour is ScreenRoot's. */
+.widget-character_select_status {
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.widget-character_select_status.character-select-status--trouble {
+    background-color: rgba(140, 32, 32, 0.45);
+}
+
+.character-select-status {
+    font-size: 18px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin: 0;
+    padding: 0;
+}
+
+/* PLAY, CREATE, DELETE and RESET HOME, the same look as LOG OUT.  Grey
+   (Unity dims a disabled button) when they can't be pressed. */
+.character-select-button {
+    flex-grow: 1;
+    margin: 0;
+    font-size: 20px;
+    -unity-font-style: bold;
+    background-color: rgb(58, 86, 140);
+    border-width: 0;
+    border-radius: 4px;
+}
+
+.character-select-button:hover {
+    background-color: rgb(72, 104, 166);
+}
+
+.character-select-button:active {
+    background-color: rgb(40, 62, 104);
+    translate: 0 2px;
+}
+
+.character-select-button:disabled {
+    background-color: rgb(50, 54, 62);
+}
+
+/* The two cards over the list, CREATE's and DELETE's. */
+.character-card {
+    padding: 20px 24px;
+    background-color: rgb(28, 30, 38);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.35);
+    border-radius: 6px;
+}
+
+.character-card-title {
+    font-size: 26px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    margin: 0 0 14px 0;
+    padding: 0;
+}
+
+.character-card-label {
+    font-size: 18px;
+    margin: 0 0 4px 2px;
+    padding: 0;
+}
+
+.character-card-note {
+    font-size: 16px;
+    white-space: normal;
+    margin: 8px 0 8px 2px;
+    padding: 0;
+}
+
+.character-card-box {
+    height: 40px;
+    margin: 0;
+}
+
+.character-card-box .unity-base-text-field__input {
+    flex-grow: 1;
+    font-size: 22px;
+    padding: 4px 10px;
+    background-color: rgb(20, 22, 28);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+}
+
+.character-card-box:focus .unity-base-text-field__input {
+    border-color: rgba(255, 255, 255, 0.6);
+}
+
+/* MAKE or DELETE, and CANCEL, side by side at the bottom of the card. */
+.character-card-buttons {
+    flex-direction: row;
+    justify-content: flex-end;
+    margin-top: 16px;
+}
+
+.character-card-button {
+    height: 44px;
+    margin: 0 0 0 12px;
+    padding: 0 20px;
+    font-size: 18px;
+    -unity-font-style: bold;
+    background-color: rgb(58, 86, 140);
+    border-width: 0;
+    border-radius: 4px;
+}
+
+.character-card-button:hover {
+    background-color: rgb(72, 104, 166);
+}
+
+.character-card-button:disabled {
+    background-color: rgb(50, 54, 62);
+}
+
+.character-card-button--danger {
+    background-color: rgb(140, 40, 40);
+}
+
+.character-card-button--danger:hover {
+    background-color: rgb(166, 52, 52);
+}
+
 /* LOG OUT, the same look as the login's SUBMIT. */
 .character-select-log-out {
     flex-grow: 1;
