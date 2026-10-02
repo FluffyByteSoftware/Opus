@@ -7,9 +7,9 @@ Author:     Jacob Chacko
 # Soundcheck -- the launcher
 
 Started 2026-10-02, the session after 0.0.1 went out.  Opus.Soundcheck is the program a player opens; the game
-(Ensemble) is what it starts.  It logs the player in, checks every file of the installed client against what
-we shipped, mends what's wrong, and hands Ensemble a ticket for UDP.  Nothing is built yet: this file is the
-design as it settles, and the open questions at the bottom are open.
+(Ensemble) is what it starts.  It logs the player in, checks every file of the installed client against the
+manifest we stamped, mends what's wrong, and hands Ensemble a ticket for UDP.  Nothing is built yet: this file
+is the design as it settles.
 
 Why it exists at all is in LONGTERM_TODO.md ("Soundcheck, the patcher, and a certificate for every client").
 The short of it: a certificate for every client (mutual TLS) needs something that runs before the game, and
@@ -20,106 +20,135 @@ a patcher is that something.  The certificate half is still to come; this is the
 - **C# on .NET 10 with Avalonia** for the window.  Jacob's `dotnet --version` is 10.0.111.  It's a plain
   .NET program, not Unity, so it gets the current runtime: TLS 1.3 again (Unity's .NET has no
   `SslProtocols.Tls13`, which is why Conductor took 1.2 in the first place), a fast PBKDF2 for the password's
-  key, and `System.Text.Json`.
+  key, and `System.Text.Json` built in.
+- **Where it lives**: `Soundcheck/dev/` for the project and `Soundcheck/build/` for what the compiler makes,
+  beside Conductor and Ensemble.  Linux and Windows both.
 - **The login moves out of the game and into the launcher**, "like Monsters and Memories did".  Soundcheck
   does everything that's TCP today: the TLS connection, Hello, the version, the Login with the key, the
   "already logged in elsewhere" choice, and the Ticket.  Ensemble never speaks TCP and never sees a password;
   it opens on character select with a ticket in hand.  The login screen, `LoginConnection.cs`, the server's
   certificate copy, `PasswordKey.cs` and Remember Me leave Ensemble for Soundcheck.  They're plain C# with no
   Unity in them, so they move as they are.
-- **After the login, before Ensemble, the manifest check.**  "This happens AFTER LOGIN ONLY BUT BEFORE WE GO
-  TO ENSEMBLE."  Soundcheck hashes every file of the installed client and sends the list; Conductor compares
-  it with the one we stamped at build time, names the files that are wrong, and sends them; Soundcheck
-  writes them and checks again.  A second failure is an error on Soundcheck's screen, not a third try.  A
-  pass puts PLAY on the screen, and PLAY starts Ensemble.
+- **Two modes, admin and user.**  Admin mode runs on the server's machine: Jacob points it at the "correct"
+  client folder and presses WRITE MANIFEST, which reads every file, takes its length and its checksum, and
+  writes `patch_manifest.json`.  That file goes to `Content/patch/patch_manifest.json`.  User mode is the
+  player's: it logs in, is handed that manifest, and checks itself against it.
+- **The check is the client's first, then the server's.**  "Most of the time its just gonna be a legit reason
+  and not a hacker."  After the login the player is made to download the manifest.  Soundcheck compares its
+  own files with it; whatever's off, it asks for; the server sends those files; Soundcheck compares again.
+  Then it sends its own manifest up as a report, and the server checks that against the stamp too.  A pass is
+  the Ticket.  A second fail on the client's side is an error the player reads, not a third try.
 - **The manifest covers the whole client**, not just the world: "it needs to validate more than just the
-  world... All of them."  A tool run at build time walks the built client, hashes every file, and writes
-  `manifest.json`; that file is the stamp, and Conductor gets a copy with the files it names.
-- **The world is the least of it**: the client carries a "broad stroke" map (region.map and the heights file,
-  the ground as Conductor would build it) so the distance doesn't vanish, and the chunks around the player
-  are streamed over UDP and override it.  So the world's files are two more lines in the manifest, and a
-  changed world is a new stamp.
+  world... All of them."  The world is the least of it: the client carries a "broad stroke" map (region.map
+  and the heights file, the ground as Conductor would build it) so the distance doesn't vanish, and the chunks
+  around the player are streamed over UDP and override it.  So the world's files are two more lines in the
+  manifest, and a changed world is a new stamp.
 - **The download is paced**: 15 Mbps, one client at a time, everybody else in line and told their place, "so
-  it doesn't choke the play for other users".
+  it doesn't choke the play for other users".  Files go in 3 MB pieces (below).
 - **Conductor serves the files itself**, over the same TLS connection the login came in on.  No file server
-  beside it.  (I asked about an HTTPS server; Jacob's sketch has Conductor do it.)
+  beside it.  `serde` and `serde_json` come in for reading the manifest (Jacob: "yes add it").
+- **PLAY is a second login.**  The first login patches; PLAY logs in again with the key still in memory, the
+  check runs again (quick: nothing's wrong), and that Ticket starts Ensemble.  So no connection is ever held
+  open while a player sits at the launcher.
+- **The hand-off is environment variables**, read by Ensemble at start.  On Linux a process's command line is
+  readable by every user on the machine for as long as it runs, while its environment is its own user's, and
+  a one-use token shouldn't sit in `ps`.
+- **Soundcheck closes once Ensemble is up**, and **Ensemble quits back to Soundcheck** when its session ends:
+  it starts Soundcheck again on its way out, so a kicked player is looking at the login.  Ensemble finds
+  Soundcheck through one more environment variable, its path.
 
-## The flow
+## The flow, user mode
 
-1. The player opens Soundcheck, types the username and password, or Remember Me fills them in.  The key is
-   made from the password the same way as today (`client-security.md`), on a worker thread.
+1. The player opens Soundcheck.  Server, port, username, password, Remember Me, SUBMIT: the login screen as
+   Ensemble had it.  The key is made from the password the same way as today (`client-security.md`), on a
+   worker thread.  Remember Me's file is the same `remembered_login.json` in the same player folder
+   (`~/.config/unity3d/FluffyByte/Opus.Ensemble/`, `PlayerFiles.cs`'s path), so there's one Remember Me, not
+   two.
 2. Soundcheck connects over TLS 1.3 to Conductor's TCP port, trusting its copy of `conductor.crt` byte for
    byte.  Hello, the version, the Login.  The server's answers are PROTOCOL.md's: Invalid Credentials, the
    other-session choice, Unavailable.
-3. **New**: the password passed, and instead of the Ticket the server asks for the manifest.  Soundcheck
-   sends it (every file: its path under the install folder, its size, its SHA-256).
-4. The server compares.  Every file matches: the Ticket, and on to 7.  Some don't: the server names them,
-   and Soundcheck goes in the download line.
-5. In line, Soundcheck hears its place now and then ("2 ahead of you").  At the front, the server sends the
-   named files, paced to the limit.  Soundcheck writes each to a temp file and swaps it in.
-6. Soundcheck hashes again and sends the manifest again.  A pass is the Ticket.  A second fail is an error
-   the player reads ("Couldn't repair the game: <file>"), the server closes, and that's that.
-7. PLAY.  Soundcheck starts Ensemble with the server's address, the UDP port and the token, and Ensemble
-   sends Connect.  From there nothing changes: character select, the world, the chat.
+3. **New**: the password passed, and instead of the Ticket the server sends the manifest.  Soundcheck hashes
+   every file under its install folder and compares.
+4. Everything matches: Soundcheck sends its manifest up as the report, the server compares it with the stamp,
+   and the Ticket comes.  On to 7.
+5. Something doesn't: Soundcheck asks for the files by name and goes in the download line.  In line it
+   hears its place now and then ("2 ahead of you", `PleaseWait`).  At the front, the server sends each file
+   in 3 MB pieces, paced to the limit.  Soundcheck writes the pieces to a temp file beside the real one and
+   swaps it in when the last piece lands, so a download that dies halfway leaves the old file whole.
+6. Soundcheck compares again.  A pass goes to 4.  A second fail is an error the player reads ("Couldn't
+   repair the game: <file>") and the connection closes.
+7. PLAY shows.  Pressing it logs in again (2 to 4, nothing to download) and the Ticket from that login
+   is the one Ensemble gets: Soundcheck starts Ensemble with the server's address, the UDP port, the token
+   and its own path in the environment, and closes.  Ensemble sends Connect.  From there nothing changes:
+   character select, the world, the chat.
 
-The Ticket's token is good once, for 30 seconds.  Since it comes after the files pass, Ensemble is started on
-a fresh token and nothing waits on a download.  Where PLAY sits against that clock is open (below).
+The token is good once, for 30 seconds, and it's issued after the files pass, so Ensemble is started on a
+fresh token and nothing waits on a download.
+
+## The flow, admin mode
+
+Started with `--admin` on the command line (it reads a folder on this machine and talks to no server, so
+there's nothing to log in to).  One screen: the client folder, WRITE MANIFEST, and where it wrote.  It walks
+the folder, hashes every file, and writes `patch_manifest.json` where Jacob says; he puts it in
+`Content/patch/`.  The manifest never sits inside the client folder, or it would have to list itself.
 
 ## The manifest
 
-`manifest.json`, at the root of the installed client.  One entry per file: its path (forward slashes, relative
-to the install folder, so the same file has the same name on Linux and Windows), its size in bytes, and its
-SHA-256 as 64 lowercase hex.  Plus the client's version, which is what the Login carries.  The exact shape is
-a contract between the stamp tool, Soundcheck and Conductor, and gets its own document the way the packets
-and region.map have one; it's written when the first one is made.
+`patch_manifest.json`.  The client's version (what the Login carries), then one entry per file: its path
+(forward slashes, relative to the install folder, so the same file has the same name on Linux and Windows),
+its size in bytes, and its SHA-256 as 64 lowercase hex.  The exact shape is a contract between admin mode,
+user mode and Conductor, and gets its own document the way the packets and region.map have one; it's written
+with the first one.
 
 SHA-256 rather than MD5: Conductor already has the `sha2` crate for the password's key, .NET has it built in,
 and MD5 buys nothing here.
 
-What's sent over TCP is the manifest in the protocol's own bytes (a count, then path, size and hash each),
-not the JSON text.  The JSON is the file on disk.  A TCP frame is capped at 4,096 bytes today
-(`MAX_PACKET_BYTES`), and a manifest of a Unity build is a few hundred files, so either the cap rises for
-these packets or the manifest goes in pieces the way Spans do.
+Over TCP the manifest goes as the protocol's own bytes (a count, then path, size and hash each), the same
+packet down (the stamp) and up (the report), not the JSON text.  The JSON is the file on disk.  A TCP frame is
+capped at 4,096 bytes today (`MAX_PACKET_BYTES`), and a Unity build is a few hundred files, so the manifest
+goes in pieces the way Spans do, or the cap rises for these packets.
+
+## The pieces
+
+Each file is sent as it is, in 3 MB pieces, each piece one frame with the file's path, the piece's number and
+how many there are.  Not zipped: a Unity build is mostly assets Unity has already compressed, so a zip would
+save little and cost a crate in Conductor (the `zip` crate) to make one.  Jacob had both ways in an earlier
+project ("one if its more than one file we zip them... Or we just chunk each file into 3 MB chunks"); this is
+the plain one, and it needs nothing new on either side.  A frame of 3 MB means the cap rises for a download,
+on the downloader thread only.
 
 ## Conductor's side
 
-- **The stamped client lives in `Content/`**, a copy of exactly what shipped (Soundcheck and Ensemble both)
-  with its `manifest.json` at the root, gitignored like the logs and the world.  The folder's name is open
-  (below).  At START SERVER the files are checked against the manifest once, so Conductor never sends a file
-  that wouldn't pass; a mismatch is a Warn and the downloads are refused until it's fixed.
+- **`Content/patch/`**: `patch_manifest.json`, and the correct client folder Conductor sends files from.
+  Whether the folder sits in `Content/patch/` too or is pointed at by a setting is open (below).  Either
+  way it's gitignored like the logs and the world.  At START SERVER the files are checked against the
+  manifest once, so Conductor never sends a file that wouldn't pass; a mismatch is a Warn and the downloads
+  are refused until it's fixed.  How long that check takes on a Unity build is a guess until it's measured.
 - **The download thread.**  The login pool is 8 threads (`login_threads`) with a 30-second deadline, and a
-  download holds a connection for minutes, so it can't run there.  The manifest check itself is quick and
-  stays on the login thread; a connection that needs files is handed, TLS and all, to one downloader thread
-  with a queue, and the login thread goes back to logins.  The 15 Mbps is that thread pacing its writes.
-  The limit and the queue's depth go in `networking.cfg` (soft).
-- **Reading `manifest.json`.**  Conductor has no JSON reader: the web admin's `json.rs` only writes.  Either
-  the `serde_json` crate (with `serde`), or a reader by hand for this one flat shape.  Jacob's call, below.
-- **The protocol**: three or four packets after the Login (the server's ask, the manifest, the verdict with
-  the files to replace, a file's bytes in pieces), `PleaseWait` reused for the place in line, and
-  `PROTOCOL_VERSION` bumps.  Conductor speaks the same bytes to Soundcheck as it did to Ensemble up to the
-  Login, so `test_client.py` keeps working with a `--manifest` of its own.
+  download holds a connection for minutes, so it can't run there.  Sending the manifest and reading the
+  report are quick and stay on the login thread; a connection that asks for files is handed, TLS and all, to
+  one downloader thread with a queue, and the login thread goes back to logins.  The 15 Mbps is that thread
+  pacing its writes; when the download's done the connection goes back for the report and the Ticket.
+- **`patch.cfg`** (soft), most likely: the limit in Mbps, the piece size, the client folder.  A new config
+  file is one entry in Constellations' table and shows up on the Settings tab on its own.
+- **The protocol**: the manifest packet (both ways), the ask for files, a file's piece, and the download's
+  end; `PleaseWait` reused for the place in line; `PROTOCOL_VERSION` bumps.  Conductor speaks the same bytes
+  to Soundcheck as it did to Ensemble up to the Login, so `test_client.py` keeps working with a
+  `--client-folder` of its own.
 - **The version in the Login** becomes Soundcheck's: it and Ensemble ship as one package, and
   `client_versions` lists that number.
 
 ## Ensemble's side
 
 - Loses the login screen and the TCP half of `Assets/Code/Net/`.  Starts on character select.
-- Reads the ticket Soundcheck hands it.  Environment variables, most likely: on Linux a process's command
-  line is readable by every user on the machine for as long as it runs, while its environment is its own
-  user's, and a one-use token shouldn't sit in `ps`.  Open, below.
-- **When the UDP session ends** (kicked, the server gone, `/camp`) there's no login screen to go back to.
-  Open, below: quit back to Soundcheck, or a "disconnected" screen with one button.
+- Reads the ticket, and Soundcheck's path, from the environment at start.  No ticket there is a screen
+  saying to start the game from the launcher, and a button that closes.
+- When the UDP session ends (kicked, the server gone, `/camp`), it starts Soundcheck and quits.  `/camp
+  desktop` quits without.
 - **The world's files** go in `Assets/StreamingAssets/World/`.  A Unity build packs everything under
   `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as loose files
   (`Opus.Ensemble_Data/StreamingAssets/`), and a patcher writes loose files.  That's a fifth folder of ours
   under `Assets/`, into the `.gitignore` with its `.meta`.
-
-## The stamp tool
-
-Run once per release on the built client folder, before it's zipped: walks it, hashes every file, writes
-`manifest.json`, and that folder goes to the players and to Conductor's `Content/`.  Whether it's a
-command-line mode of Soundcheck itself (`Opus.Soundcheck --stamp <folder>`, so there's one program and no
-new name) or a small program of its own is open, below.  RELEASE.md gets the step either way.
 
 ## What this is not, yet
 
@@ -134,16 +163,7 @@ new name) or a small program of its own is open, below.  RELEASE.md gets the ste
 
 ## Open
 
-- **Where PLAY sits.**  Between the files passing and PLAY, a player may sit for minutes, and holding that
-  connection open idle is a thread each (every wait is the OS's own, no polling).  The plain way: the Ticket
-  isn't issued at the pass; PLAY opens a new connection and logs in again with the key still in memory,
-  sends the manifest again (it's small, and it's the real check), and that pass gets the Ticket.  The cost is
-  a second Argon2 in Security's line per play.  The other way: the whole thing happens on PLAY, one login.
-- **The stamp tool's name**, or whether it's a mode of Soundcheck.
-- **`serde_json`** or a reader by hand.
-- **The folder in `Content/`** for the stamped client.  `Content/client/`?
-- **Soundcheck's folder**: `Soundcheck/dev/Opus.Soundcheck/` and `Soundcheck/build/`, beside the other two.
-- **The ticket's hand-off**: environment variables, or the command line.
-- **Ensemble when its session ends**: quit, or a "disconnected" screen.
-- **Soundcheck while the game runs**: stays open, or closes.
-- **Platforms**: Linux and Windows both, like Ensemble.
+- **Where the correct client folder is on the server**: inside `Content/patch/` beside the manifest, or
+  anywhere, pointed at by a setting in `patch.cfg`.
+- **Which comes first to build**: Soundcheck's user mode against today's Conductor (it logs in and gets the
+  Ticket, with no manifest yet), or Conductor's side.
