@@ -1,8 +1,9 @@
 // File:       Opus/Soundcheck/dev/GameLauncher.cs
 // Component:  Soundcheck
 // Author:     Jacob Chacko
-// Finds the game and starts it with the ticket.  The game lives beside this
-// program, since the two ship as one package; --game on the command line
+// Finds the game and starts it with the ticket, and says which folder the
+// file check looks at.  The game lives beside this program, since the two
+// ship as one package; --game on the command line
 // points at a build somewhere else (Jacob's, while Soundcheck runs out of
 // bin/Debug/), and that path is remembered in the player folder, since
 // Ensemble starts Soundcheck again on its way out and can't pass --game
@@ -100,6 +101,51 @@ namespace Opus.Soundcheck
             }
             Log.Say("Play: using the game --game pointed at last time, " + remembered + ".");
             return remembered;
+        }
+
+        // The install folder, for the file check: the game's folder, whether
+        // or not the game's program is in it yet (a missing program is what
+        // the patcher is for).  --game's folder (the path kept for next
+        // time), else the launcher's own folder when the game is beside it,
+        // else the folder of the path an earlier --game left, else the
+        // launcher's own folder, since that's where the game ships.  Null,
+        // with why, only when --game names a folder that isn't there.
+        public static string InstallFolder(string asked, out string why)
+        {
+            why = null;
+            if (!string.IsNullOrEmpty(asked))
+            {
+                string full = Path.GetFullPath(asked);
+                string folder = Path.GetDirectoryName(full);
+                if (string.IsNullOrEmpty(folder) || !Directory.Exists(folder))
+                {
+                    why = "there's no folder at " + folder + " for the game (--game)";
+                    return null;
+                }
+                Remember(full);
+                return folder;
+            }
+
+            string own = Path.GetFullPath(AppContext.BaseDirectory).TrimEnd(Path.DirectorySeparatorChar);
+            foreach (string name in Names)
+            {
+                if (File.Exists(Path.Combine(own, name)))
+                    return own;
+            }
+
+            string remembered = Remembered();
+            if (remembered != null)
+            {
+                string folder = Path.GetDirectoryName(remembered);
+                if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                {
+                    Log.Say("Check: using the game folder --game pointed at last time, " + folder + ".");
+                    return folder;
+                }
+            }
+            Log.Say("Check: no game beside the launcher and nothing remembered, so the install is the launcher's own "
+                    + "folder, " + own + ".");
+            return own;
         }
 
         // Starts the game with the ticket in its environment.  False, with

@@ -347,15 +347,17 @@ namespace Opus.Soundcheck.Screens
             string url = ManifestSource.ManifestUrl(www, here);
             try
             {
+                // The folder, not the program: a missing program is what
+                // the patcher is for (found out 2026-10-02, when a deleted
+                // Ensemble.x86_64 stopped the check at "can't find the game").
                 string why;
-                string game = GameLauncher.Find(gameAsked, out why);
-                if (game == null)
+                string install = GameLauncher.InstallFolder(gameAsked, out why);
+                if (install == null)
                 {
                     Log.Error("Check: " + why + ".");
-                    ShowStatus("Can't find the game to check: " + why + ".", true);
+                    ShowStatus("Can't find the game's folder to check: " + why + ".", true);
                     return;
                 }
-                string install = Path.GetDirectoryName(game);
                 Patcher.CleanUp(install);
 
                 Log.Say("Check: this is " + here + ", so the manifest is " + url + ".");
