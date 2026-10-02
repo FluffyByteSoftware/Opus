@@ -44,7 +44,16 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     reading `[Chat] Jacob: Yo yo yo!`.  So chat goes out from the GameClock's broadcast check, once a
     250 ms cycle, and the speaker hears their own line back ("yes").
   - **What a message may hold** (Jacob, 2026-10-02): "Plain english characters letters numbers special
-    characters, spaces."  Printable ASCII, up to 300.
+    characters, spaces."  Printable ASCII.
+  - **300 characters** (Jacob, 2026-10-02): "The server will just ignore everything after 300", so a longer
+    message is cut, not refused.  **Ensemble**: "I want the client to refuse to generate more than 300
+    characters": the chat box stops taking keys at 300.  For the chat box's session.
+  - **One fixed channel** (Jacob, 2026-10-02, asked whether the server sends the pieces): "nah a fixed chat
+    channel is sufficient like the way the old shit muds did it!"  The server sends the finished line.
+  - **The plan, OKed** (2026-10-02): protocol version 8; `PlayerCommand` (`0x37`, an ask number and the
+    line) answered with CommandAccepted or CommandRefused; the line into a chat mailbox in the GameClock;
+    the broadcast check sends `ChatDelivery` (`0x38`, a count and the lines) to everybody in the world,
+    through a function networking hands the GameClock at its start.
   - **A line without a `/`** (Jacob, 2026-10-02): "anything typed will default to being said -- something
     we won't implement yet but TODO!"  Saying things (nearby, once there are positions) is still to come;
     until then a line without a `/` is refused.
