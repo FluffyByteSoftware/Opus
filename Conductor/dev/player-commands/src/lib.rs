@@ -1,4 +1,4 @@
-//! File:       Opus/Conductor/dev/networking/src/commands.rs
+//! File:       Opus/Conductor/dev/player-commands/src/lib.rs
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
@@ -8,10 +8,21 @@
 //!
 //! Every command is one line in `COMMANDS`: its name, how long the player
 //! waits after it before the next, and the function that runs it, in a
-//! file of its own under `commands/`.  A new command is a new file and a
+//! file of its own beside this one.  A new command is a new file and a
 //! new line there, and nothing else changes.  The same shape as the
 //! GameClock's checks, and Jacob's ask: "make a command interface and
 //! then make it so we could easily stuff new commands in".
+//!
+//! A crate of its own since 2026-10-02 ("rip the commands out of
+//! networking and put them into their own crate... before we get too
+//! deep in commands").  It leans on networking, never the other way:
+//! networking's `typed.rs` has who typed the line (`Asker`) and what
+//! came of it (`Outcome`), and a slot for the function that runs it,
+//! which `wire()` fills.  The GameClock's chat and `/who list` senders
+//! are filled the same way.  The launcher calls `wire()` on every START
+//! SERVER; plain functions, so handing them over again does no harm.
+//! Admin commands, when they come, are "a permissions difference but the
+//! commands will otherwise be the same" (Jacob).
 //!
 //! **Anti-flood** (Jacob, 2026-10-02: "anti flood prevention on the
 //! server for any chat commands"): after a command goes through, the
@@ -32,16 +43,19 @@
 mod chat;
 mod who;
 
-use std::net::SocketAddr;
 use std::time::Duration;
 
-use crate::protocol;
-use crate::sessions;
+use conductor_networking::protocol;
+use conductor_networking::typed::{Asker, Outcome};
 
-// Rust note: these hand the two functions the GameClock calls on to
-// lib.rs, which gives them to it as networking starts.
-pub use chat::send_out;
-pub use who::send_list;
+/// Hands networking the function that runs a line, and the GameClock the
+/// two that send the chat out and answer `/who list`.  The launcher calls
+/// this on every START SERVER, after the GameClock is up.
+pub fn wire() {
+    conductor_networking::typed::set_runner(command);
+    conductor_gameclock::set_chat_sender(chat::send_out);
+    conductor_gameclock::set_who_sender(who::send_list);
+}
 
 /// How long a player waits after a command unless the command says
 /// otherwise.  Jacob's two game cycles.
@@ -50,25 +64,6 @@ pub const DEFAULT_WAIT: Duration = Duration::from_millis(500);
 const NOT_A_COMMAND: &str = "Saying things without a command isn't in yet.  Use /chat.";
 const NO_SUCH_COMMAND: &str = "There's no command by that name.  For now there's /chat and /who.";
 const TOO_SOON: &str = "You can't do that again so soon.";
-
-/// Who typed the line: where from, their account and character, and the
-/// ask number it came in as.
-pub struct Asker<'a> {
-    pub from: SocketAddr,
-    pub account: &'a str,
-    pub character: &'a str,
-    pub ask: u32,
-}
-
-/// What became of a command.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Outcome {
-    /// The answer, to keep in the book and send.
-    Answer(Vec<u8>),
-    /// The GameClock answers it, a cycle from now (`/who list`).  The ask
-    /// stays open in the book until then.
-    Later,
-}
 
 /// One command.
 struct Command {
@@ -89,13 +84,13 @@ static COMMANDS: [Command; 2] = [
     Command { name: "who", wait: Duration::from_secs(1), run: who::run },
 ];
 
-/// A line typed by a player whose character is in the world (the caller
-/// turns away the rest).
-pub fn command(asker: &Asker, line: &str) -> Outcome {
+/// A line typed by a player whose character is in the world (networking
+/// turns away the rest).  What networking's slot holds.
+fn command(asker: &Asker, line: &str) -> Outcome {
     let (word, rest) = split(line);
     let found = word.and_then(find);
     let wait = found.map_or(DEFAULT_WAIT, |command| command.wait);
-    if !sessions::may_command(asker.from, wait) {
+    if !conductor_networking::may_command(asker.from, wait) {
         return Outcome::Answer(protocol::command_refused(asker.ask, TOO_SOON));
     }
     match (word, found) {

@@ -1,4 +1,4 @@
-//! File:       Opus/Conductor/dev/networking/src/commands/chat.rs
+//! File:       Opus/Conductor/dev/player-commands/src/chat.rs
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
@@ -14,12 +14,9 @@
 //! character is dropped without a word ("The server will just ignore
 //! everything after 300").  The client stops at 300 itself.
 
+use conductor_networking::protocol;
+use conductor_networking::typed::{Asker, Outcome};
 use conductor_tools::scribe::{self, Channel};
-
-use super::{Asker, Outcome};
-use crate::protocol;
-use crate::sessions;
-use crate::udp;
 
 /// The most characters of a message that are kept.  Jacob's 300.
 pub const MOST_CHARACTERS: usize = 300;
@@ -40,11 +37,11 @@ pub fn run(asker: &Asker, message: &str) -> Outcome {
 }
 
 /// Sends a cycle's chat to everybody in the world.  The GameClock calls
-/// this from its broadcast check, on its own thread; networking hands it
-/// over as it starts (`conductor_gameclock::set_chat_sender()`).
+/// this from its broadcast check, on its own thread; `wire()` hands it
+/// over (`conductor_gameclock::set_chat_sender()`).
 pub fn send_out(lines: &[String]) {
     let packets = protocol::chat_deliveries(lines);
-    udp::tell_all(&sessions::in_world(), &packets);
+    conductor_networking::tell_all(&conductor_networking::in_world(), &packets);
 }
 
 fn chat(account: &str, character: &str, message: &str) -> Result<(), &'static str> {

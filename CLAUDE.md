@@ -79,6 +79,7 @@ Opus/
 │   │   ├── primlib/       # lib: the game library -- entities, components, templates, blueprints
 │   │   ├── gameworld/     # lib: the ground -- blocks, chunks, regions and their files
 │   │   ├── gameclock/     # lib: the GameClock, the game loop
+│   │   ├── player-commands/ # lib: what a player types in the world (/chat, /who), the table and the anti-flood
 │   │   ├── wgui/          # lib: the web admin on 127.0.0.1, and the only way to shut down
 │   │   └── launcher/      # bin: the program -- boots, then starts and stops the server on the Server tab's say
 │   └── build/             # compiled output -- never committed
@@ -564,6 +565,17 @@ When I say we're wrapping up:
   `Assets/Code/Net/Protocol.cs` all change together, and the document gets
   a line saying what the version added.  It's at 9
   (`/who` and the span, 2026-10-02).
+- **What a player types is `conductor-player-commands`** (2026-10-02, Jacob: "rip the
+  commands out of networking and put them into their own crate... before we get too
+  deep in commands").  A command is a file of its own in `player-commands/src/` and a
+  line in `COMMANDS` in its `lib.rs` (name, wait, `run()`); the anti-flood is there
+  too.  It leans on networking (the book, the packets, sending) and the GameClock,
+  and **networking never names it**: the launcher calls
+  `conductor_player_commands::wire()` in `start_server()`, which puts the dispatcher
+  in networking's slot (`typed.rs`: `Asker`, `Outcome`, `set_runner()`) and the two
+  senders in the GameClock's, the way networking used to.  No thread, no service,
+  nothing to stop.  Admin commands, when they come, are "a permissions difference but
+  the commands will otherwise be the same" (Jacob).
 - **Character select is Protogame's** (`protogame.rs` in networking, its own
   thread and Services line): "the character selection and character
   construction are proto game then become game objects after load".  The
@@ -598,12 +610,12 @@ When I say we're wrapping up:
 - **TLS 1.3 and 1.2** (2026-10-02): rustls's `tls12` feature is on, since
   Unity's .NET has no TLS 1.3 (`SslProtocols.Tls13` doesn't exist there).
   `test_client.py` still insists on 1.3.
-- **What a player types is a command** (`commands.rs`, protocol version
-  8): the client sends the line as typed in a PlayerCommand, and the
-  server finds the word after the `/` in `COMMANDS`, a table of name,
-  wait and `run()`, each command in a file of its own under `commands/`
-  ("make a command interface and then make it so we could easily stuff
-  new commands in").  A new command is a new file and a new line.  **The
+- **What a player types is a command** (`conductor-player-commands`,
+  protocol version 8): the client sends the line as typed in a
+  PlayerCommand, and the server finds the word after the `/` in
+  `COMMANDS`, a table of name, wait and `run()`, each command in a file of
+  its own in `player-commands/src/` ("make a command interface and then
+  make it so we could easily stuff new commands in").  A new command is a new file and a new line.  **The
   anti-flood is in that one lookup**: after a command, the player waits
   its wait before the next, `DEFAULT_WAIT` 500 ms ("two full game
   ticks"), longer for a command that costs more ("if we make a command

@@ -1,0 +1,22 @@
+# File:       Opus/Conductor/dev/player-commands/Cargo.toml
+# Component:  Conductor
+# Author:     Jacob Chacko
+#
+# The commands a player types in the world: /chat, /who, and whatever
+# comes next, each a file of its own, in one table with the anti-flood.
+# A lib crate.  It leans on conductor-networking (the book of players,
+# the packets, sending) and conductor-gameclock (the chat mailbox, where
+# everybody stands), and networking never names it back: the launcher
+# hands it to networking as a plain function (wire()).  Jacob,
+# 2026-10-02: "rip the commands out of networking and put them into
+# their own crate".
+
+[package]
+name = "conductor-player-commands"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+conductor-gameclock = { path = "../gameclock" }
+conductor-networking = { path = "../networking" }
+conductor-tools = { path = "../tools" }

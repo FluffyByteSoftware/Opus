@@ -84,10 +84,8 @@ Opus/
 │       │       ├── protocol.rs        # the packets, byte for byte; PROTOCOL.md is the other half
 │       │       ├── sessions.rs        # the book: tickets by token, players by address (and their character in
 │       │       │                      #   the world, their last command), accounts by name only; the lockout
-│       │       ├── commands.rs        # what a player types: the table of commands (name, wait, run), the
-│       │       │                      #   anti-flood; a command each in commands/
-│       │       ├── commands/chat.rs   # /chat: the line into the GameClock's chat mailbox, and out to everybody
-│       │       ├── commands/who.rs    # /who from the book, /who list through the GameClock
+│       │       ├── typed.rs           # a line a player typed: Asker, Outcome, and the slot player-commands' wire()
+│       │       │                      #   fills; "Commands Unavailable" with nothing in it
 │       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login, the failure hold, the kick
 │       │       ├── ledger.rs          # the ledger: every TCP connection since START SERVER, where it is, LINKDEAD
 │       │       ├── access.rs          # the whitelist and the blacklist: the files, the entries and ranges, the verdict
@@ -141,6 +139,13 @@ Opus/
 │       │       ├── who.rs             # /who list's mailbox; the broadcast check answers it through networking
 │       │       ├── players.rs         # the mailbox (enter(), leave()) and the players' characters in the world
 │       │       └── saving.rs          # the world save every world_save_seconds; the saves on their way
+│       ├── player-commands/           # lib, conductor-player-commands -- what a player types in the world
+│       │   ├── Cargo.toml             # depends on conductor-tools, -networking and -gameclock; networking never
+│       │   │                          #   names it back
+│       │   └── src/
+│       │       ├── lib.rs             # the table of commands (name, wait, run), the anti-flood, wire()
+│       │       ├── chat.rs            # /chat: the line into the GameClock's chat mailbox, and out to everybody
+│       │       └── who.rs             # /who from the book, /who list through the GameClock
 │       ├── wgui/                      # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -monitor and -networking
 │       │   └── src/
@@ -152,7 +157,7 @@ Opus/
 │       │       ├── json.rs            # every JSON answer the page reads; the shapes at its top
 │       │       └── page.html          # the page, baked in: the login card, five sections of tabs, the bell, the locks
 │       └── launcher/                  # bin -- the program
-│           ├── Cargo.toml             # depends on eight of the libs (not primlib; the GameClock has it)
+│           ├── Cargo.toml             # depends on nine of the libs (not primlib; the GameClock has it)
 │           └── src/
 │               └── main.rs            # boots, starts and stops the server; opens the door once the world is ready
 ├── Ensemble/                          # the client
@@ -273,6 +278,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested; world_size      |
 | conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input, broadcast (chat,  |
 |                      |                                                         | /who list), housekeeping         |
+| conductor-player-    | Lib: what a player types in the world: the table of     | Written; waiting on a build      |
+|   commands           | commands and the anti-flood.                            |                                  |
 | conductor-wgui       | Lib: the web admin on 127.0.0.1.                        | Tested                           |
 | conductor-launcher   | Bin: the program.  Boots, then waits on the Server tab. | Tested                           |
 | DiskMan              | Every file read and write, one worker thread.           | Tested                           |

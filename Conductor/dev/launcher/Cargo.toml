@@ -18,5 +18,6 @@ conductor-gameworld = { path = "../gameworld" }
 conductor-lua-parser = { path = "../lua-parser" }
 conductor-monitor = { path = "../monitor" }
 conductor-networking = { path = "../networking" }
+conductor-player-commands = { path = "../player-commands" }
 conductor-tools = { path = "../tools" }
 conductor-wgui = { path = "../wgui" }

@@ -15,10 +15,11 @@
 //! `stop()` on STOP SERVER.  It has to come up again after that.  Nothing
 //! in here touches the world itself: a character goes in and out through
 //! the GameClock's mailbox (`conductor_gameclock::enter()` and `leave()`),
-//! which never waits.  The chat goes the same way: a line goes in the
-//! GameClock's chat mailbox, and its broadcast check hands the cycle's
-//! lines back to us to send (`commands/chat.rs`), and `/who list` the
-//! same way (`commands/who.rs`).
+//! which never waits.  What a player types is `conductor-player-commands`'
+//! business: it leans on this crate (the book, the packets, sending), so
+//! this crate never names it; the launcher hands its dispatcher to
+//! `typed.rs`'s slot, and its senders to the GameClock, on every START
+//! SERVER.
 //!
 //! Written with the CPU in mind and the RAM less so, Jacob's ask.  Logins
 //! run on a fixed handful of threads rather than one per connection, so a
@@ -35,7 +36,6 @@ use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 
 mod access;
-mod commands;
 mod dns;
 mod ledger;
 pub mod protocol;
@@ -44,12 +44,19 @@ mod sessions;
 mod settings;
 mod tcp;
 mod tls;
+pub mod typed;
 mod udp;
 
 pub use access::{Entry, List, Mode as AccessMode, Snapshot as AccessLists};
 pub use ledger::{Connection, End, Gone, Stage};
 pub use sessions::PlayerView as Player;
 pub use tcp::Kicked;
+
+// What conductor-player-commands needs of the book and the UDP side: the
+// anti-flood, who's in the world, an ask's answer, and sending.  The
+// modules themselves stay ours.
+pub use sessions::{finish_ask, in_world, may_command, names_in_world};
+pub use udp::{tell_all, tell_answer};
 
 /// How networking is doing, for whoever asks (the web admin).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -133,12 +140,6 @@ pub fn start() {
         scribe::error(Channel::Network, &format!("NOBODY CAN LOG IN.  {why}"));
         return;
     }
-
-    // The GameClock sends the chat and answers `/who list` through us.
-    // Plain functions, so handing them over again on every start does no
-    // harm.
-    conductor_gameclock::set_chat_sender(commands::send_out);
-    conductor_gameclock::set_who_sender(commands::send_list);
 
     // Protogame before UDP, so a player's first ask has somewhere to go.
     if let Err(why) = protogame::start() {

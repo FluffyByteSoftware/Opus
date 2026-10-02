@@ -1,4 +1,4 @@
-//! File:       Opus/Conductor/dev/networking/src/commands/who.rs
+//! File:       Opus/Conductor/dev/player-commands/src/who.rs
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
@@ -21,13 +21,10 @@
 //! cycle later.
 
 use conductor_gameclock::{Standing, WhoAsked};
+use conductor_networking::protocol::{self, WhoEntry};
+use conductor_networking::typed::{Asker, Outcome};
 use conductor_tools::clock::Utc;
 use conductor_tools::scribe::{self, Channel};
-
-use super::{Asker, Outcome};
-use crate::protocol::{self, WhoEntry};
-use crate::sessions;
-use crate::udp;
 
 const ONLY_WHO: &str = "Try /who, or /who list.";
 const UNAVAILABLE: &str = "Who Unavailable";
@@ -38,7 +35,7 @@ pub fn run(asker: &Asker, rest: &str) -> Outcome {
     let (account, ask) = (asker.account, asker.ask);
     let rest = rest.trim_matches(' ');
     if rest.is_empty() {
-        let entries: Vec<WhoEntry> = sorted(sessions::names_in_world()).into_iter()
+        let entries: Vec<WhoEntry> = sorted(conductor_networking::names_in_world()).into_iter()
             .map(|name| WhoEntry { name, block: None })
             .collect();
         return Outcome::Answer(protocol::who_delivery(ask, seconds_since_midnight(), false, &entries));
@@ -57,17 +54,17 @@ pub fn run(asker: &Asker, rest: &str) -> Outcome {
 }
 
 /// Answers a `/who list` with where everybody stands.  The GameClock calls
-/// this from its broadcast check, on its own thread; networking hands it
-/// over as it starts (`conductor_gameclock::set_who_sender()`).  Nothing
-/// goes out if the one who asked has left since.
+/// this from its broadcast check, on its own thread; `wire()` hands it
+/// over (`conductor_gameclock::set_who_sender()`).  Nothing goes out if
+/// the one who asked has left since.
 pub fn send_list(asked: &WhoAsked, standing: &[Standing]) {
     let mut entries: Vec<WhoEntry> = standing.iter()
         .map(|character| WhoEntry { name: character.name.clone(), block: Some(character.block) })
         .collect();
     entries.sort_by_key(|entry| entry.name.to_ascii_lowercase());
     let answer = protocol::who_delivery(asked.ask, seconds_since_midnight(), true, &entries);
-    if sessions::finish_ask(asked.from, &asked.account, asked.ask, &answer) {
-        udp::tell_answer(asked.from, asked.ask, &answer);
+    if conductor_networking::finish_ask(asked.from, &asked.account, asked.ask, &answer) {
+        conductor_networking::tell_answer(asked.from, asked.ask, &answer);
     }
 }
 

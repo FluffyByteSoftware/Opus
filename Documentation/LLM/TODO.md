@@ -144,8 +144,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     other.  Like the GameClock's chat sender, networking could be handed the commands as a plain function
     at its start (the launcher wires it), with the commands crate depending on networking; or the pieces
     both need move somewhere both can reach.
-  - **What `admin_commands` means**: typed by an admin in the game, from the web admin, or both, and
-    whether the two crates share the table and the anti-flood.
+  - **What `admin_commands` means** (Jacob, 2026-10-02): "its a permissions difference but the commands
+    will otherwise be the same".  So the same table, with who may run each; from where, still open.
+  - **Built** (2026-10-02, the same session as the chat window, "we got tokens"; waiting on a build):
+    `design/conductor-networking.md`, "Commands and the anti-flood", has how it leans.
 : today a command too soon is only refused.  Whether
   enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's call.
 - **`/help`** (2026-10-02): could list the table of commands.  Its own feature.

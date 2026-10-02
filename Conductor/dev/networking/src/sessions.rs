@@ -499,7 +499,7 @@ pub fn players() -> Vec<PlayerView> {
 /// one's wait is over (or they've had none), and then this one is
 /// stamped as going through, with `wait` as the wait it leaves.  False
 /// if it's too soon, and nothing changes, so hammering doesn't push the
-/// wait back.  The anti-flood for every command (`commands.rs`).
+/// wait back.  The anti-flood for every command (`conductor-player-commands`).
 pub fn may_command(from: SocketAddr, wait: Duration) -> bool {
     may_command_in(&mut book(), from, wait, Instant::now())
 }

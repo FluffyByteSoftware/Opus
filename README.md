@@ -54,7 +54,7 @@ somebody presses START SERVER on the web admin.  STOP SERVER takes it back down 
 running.  So a changed port is a STOP and a START away (a **soft reboot**), and only a few settings need
 Conductor itself run again (a **hard reboot**).
 
-Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/dev/`:
+Conductor is a Cargo workspace of eleven crates, one folder each under `Conductor/dev/`:
 
 - **tools** -- the pieces everything leans on, each with a name since they come up a lot.  **DiskMan**
   does every file read and write on a thread of its own, so nothing waits on the disk.  **Scribe** is the
@@ -73,6 +73,9 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
   when the player goes.
   A whitelist and a blacklist, which take at once without a reboot, because a ban that waited for a STOP
   SERVER wouldn't be much of a ban.
+- **player-commands** -- what a player types once they're in the world: `/chat` and `/who` so far, one
+  file each in a table with the anti-flood, so a new command is a file and a line.  Networking hands it
+  each line and never names the crate; the launcher wires the two together.
 - **lua-parser** -- the game's content is going to be written in Lua 5.4.  For now every script under
   `Content/scripts/` runs once on START SERVER, with no way to reach the disk, the network or the
   database, and a time limit, a memory limit and a cap on its log lines, so a bad quest can't be a bad

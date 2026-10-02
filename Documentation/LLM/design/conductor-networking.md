@@ -43,12 +43,8 @@ networking/
     │                    read_session_choice(), read_connect(),
     │                    read_list_request(), read_create(), read_delete(), read_reset_home(),
     │                    read_user_press_play(), read_player_command()
-    ├── commands.rs    what a player types: COMMANDS, the table (name, wait, run), Asker, command() ->
-    │                    Outcome (Answer, or Later for the GameClock to answer), the anti-flood, DEFAULT_WAIT
-    ├── commands/chat.rs  /chat: run(), the line into the GameClock's chat mailbox; send_out(), which the
-    │                    GameClock calls to send a cycle's lines
-    ├── commands/who.rs   /who answered from the book; /who list left with the GameClock; send_list(),
-    │                    which the GameClock calls with where everybody stands
+    ├── typed.rs       a line a player typed: Asker, Outcome (Answer, or Later for the GameClock to
+    │                    answer), set_runner() (the slot conductor-player-commands' wire() fills), run()
     ├── protogame.rs   Protogame, thread protogame: start(), stop(), hand_in(from, account, ask, Work) -> the
     │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome,
     │                    Play }; play() and bring_in(), the spawn's slow part
@@ -314,10 +310,10 @@ all nine checks passed, Ensemble still logging in on version 8.
 - **Everybody in the world hears it, the speaker too**, as `[Chat] Jacob: Yo yo yo!`, one fixed channel
   ("like the way the old shit muds did it!").  Players at character select don't.
 - **It goes out on the GameClock's beat**: "on the next "chat" GameClock tick that carries chat (which
-  should be every beat)".  The UDP thread reads the line on the spot (`commands/chat.rs`; no database, nothing in
-  the world), answers CommandAccepted or CommandRefused through the book like any ask, so a resend isn't
+  should be every beat)".  The UDP thread reads the line on the spot (`player-commands/src/chat.rs`; no
+  database, nothing in the world), answers CommandAccepted or CommandRefused through the book like any ask, so a resend isn't
   said twice, and leaves the finished line in the GameClock's chat mailbox.  The broadcast check takes the
-  cycle's lines and calls `commands::send_out()`, handed to the GameClock when networking starts
+  cycle's lines and calls `chat::send_out()`, handed to the GameClock by `wire()` (it was networking's start)
   (`set_chat_sender()`), since the GameClock can't depend on networking: networking depends on it.  That
   builds **ChatDelivery** (`0x38`, a count and the lines, split to stay under 1200 bytes) and sends it to
   `sessions::in_world()` with `udp::tell_all()`, from the GameClock's thread.  Sent once; a lost one is lost.
@@ -341,8 +337,8 @@ the box.  Built and tested on Linux, every check passed.
   zone with the client's own date; the columns fit the chat box ("make it fit our actual chat size"); the
   count is written out by Ensemble's `Translator.NumberToWords()`, British ("IN the honor of Discworld!").
   So the server sends **WhoDelivery** (`0x39`): the ask, the seconds, list or not, the names (and blocks).
-- **Where it's answered**: `/who` from the book on the UDP thread, on the spot (`commands/who.rs`).  `/who list`
-  needs positions, which only the GameClock's thread reads, so it goes in the GameClock's `/who list`
+- **Where it's answered**: `/who` from the book on the UDP thread, on the spot
+  (`player-commands/src/who.rs`).  `/who list` needs positions, which only the GameClock's thread reads, so it goes in the GameClock's `/who list`
   mailbox (`who_list()`), and the broadcast check reads every player's character's name and block once and
   calls `who::send_list()` for each ask (handed over as `set_who_sender()` when networking starts), which
   finishes the ask in the book and sends the answer.  The ask stays open in the book until then, so the
@@ -360,8 +356,8 @@ mg temptation would be to make a command interface and then make it so we could 
 in", "the default should be 500 ms but if we make a command that hits the database a bunch maybe that
 needs longer".  Built and tested on Linux, every check passed.
 
-- **Every command is a line in `COMMANDS`** (`commands.rs`): its name, its wait, and its `run()`, in a file
-  of its own under `commands/`.  A table of plain structs, like the GameClock's checks, rather than a
+- **Every command is a line in `COMMANDS`** (`player-commands/src/lib.rs`): its name, its wait, and its
+  `run()`, in a file of its own beside it.  A table of plain structs, like the GameClock's checks, rather than a
   trait: it does what a C# interface would.  A new command is a new file and a new line.
 - **The anti-flood is in the one dispatcher**: after a command goes through, the player waits that
   command's wait before the next, whichever it is.  `DEFAULT_WAIT` is 500 ms, two game cycles; `/who` is 1
@@ -372,6 +368,18 @@ needs longer".  Built and tested on Linux, every check passed.
 - **The client shows the refusal's words** ("client interprets it as command can't be run so soon"); no
   reason number, so no protocol change.
 - **Later** (TODO.md): kicking a player who keeps flooding.
+- **A crate of its own** (2026-10-02, written, waiting on a build): `conductor-player-commands`, folder
+  `Conductor/dev/player-commands/`.  Jacob, mid-way through Ensemble's chat window: "we need to rip the
+  commands out of networking and put them into their own crate I think... conductor::player_commands then
+  we'll probably also have admin_commands", "before we get too deep in commands".  `commands.rs` and
+  `commands/` moved there whole (`lib.rs`, `chat.rs`, `who.rs`), tests and all.  It leans on networking
+  and the GameClock, and networking never names it: `typed.rs` keeps `Asker`, `Outcome` and a slot
+  (`set_runner()`), which `conductor_player_commands::wire()` fills, with the GameClock's two senders,
+  from the launcher's `start_server()`, after the GameClock starts.  `lib.rs` re-exports what the commands
+  need of the book and the UDP side (`may_command`, `in_world`, `names_in_world`, `finish_ask`,
+  `tell_all`, `tell_answer`); the modules stay private.  With nothing in the slot, a line is refused with
+  "Commands Unavailable" and the first is a Warn.  No thread, no service, nothing to stop.  Admin commands:
+  "its a permissions difference but the commands will otherwise be the same".
 
 ## What's open
 

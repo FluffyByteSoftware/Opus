@@ -164,6 +164,10 @@ fn start_server() {
     conductor_lua_parser::start();
     conductor_gameworld::start();
     conductor_gameclock::start();
+    // The commands a player types: not a piece with a thread, just the
+    // functions networking and the GameClock call, handed over here so
+    // neither has to name the crate.  Nothing to stop.
+    conductor_player_commands::wire();
     conductor_networking::wait_for_world();
     conductor_monitor::start();
 

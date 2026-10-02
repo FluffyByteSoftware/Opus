@@ -324,6 +324,8 @@ The answer is a **CommandAccepted** when the line goes out, or a **CommandRefuse
 - "Chat is plain English: letters, numbers, punctuation and spaces." for anything else in the first 300.
 - "Commands work once your character is in the world." from character select, for any command.
 - "Chat Unavailable": the server can't right now.  Nothing the player did.
+- "Commands Unavailable": nothing in the server runs commands (it was put together wrong).  Nothing the
+  player did.
 
 **ChatDelivery** is the chat going out.  The server gathers everything said and sends it once a game cycle
 (every 250 ms, when there's anything to send) to every player whose character is in the world, the one who

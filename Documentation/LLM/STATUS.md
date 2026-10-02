@@ -8,7 +8,7 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor is ten crates, each in a folder without the `conductor-` in front (`Conductor/dev/tools/`) while
+Conductor is eleven crates, each in a folder without the `conductor-` in front (`Conductor/dev/tools/`) while
 the crate keeps it (`conductor-tools`, `conductor_tools::` in code).  `conductor-tools` (lib) holds DiskMan,
 Scribe, Constellations, Fingerprinter, Security, Archivist, the notices, the clock, the thread list, the
 services list and the server's switch (`server.rs`).  `conductor-accounts` (lib) is the one way in to the
@@ -17,6 +17,9 @@ process and the machine once a second.  `conductor-networking` (lib) is the fron
 TCP that hands a player a ticket for UDP, the UDP side, character select and the spawn (Protogame), what a
 player types in the world (a table of commands, `/chat` and `/who`, with an anti-flood), a ledger of every
 connection, and the access lists.
+`conductor-player-commands` (lib, 2026-10-02, waiting on a build) is what a player types in the world:
+the table of commands and the anti-flood, `/chat` and `/who`, out of networking and wired to it by the
+launcher.
 `conductor-lua-parser` (lib) runs the Lua scripts, locked down, and reads saved GameObjects back.
 `conductor-primlib` (lib) is the game library, an ECS in memory, with the Living and Character templates.
 `conductor-gameworld` (lib) is GameWorld, the ground.  `conductor-gameclock` (lib) is the GameClock, the game
