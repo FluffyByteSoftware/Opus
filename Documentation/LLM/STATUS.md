@@ -42,10 +42,10 @@ is up from the moment the launcher runs.  The server (Fingerprinter, Security, A
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
-**The branches**: `main` is at `e5f5f2c`, released 2026-10-02 at this session's end (Jacob: "merge everything
-to main as well"): the client's net code, TLS 1.2, and character select's buttons, all built and tested.
-`unstable` and `testing` are level with each other, ahead of `main` only by this line.  `main` moves when Jacob
-says.
+**The branches**: `main` is at `90f2e6f`, released 2026-10-02 at this session's end (Jacob: "merge everything
+to main as well", then "move main up to the most recent build since everything tested well"): the client's net
+code, TLS 1.2, character select's buttons, and the `.csproj` and solution files out of git.  `unstable` and
+`testing` are level with each other, ahead of `main` only by this line.  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor, `world_size`, the password's key (protocol version 7) and TLS
 1.2 included.  **In Unity**: Copy Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1, the login,
