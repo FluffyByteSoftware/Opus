@@ -63,6 +63,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     ChatDelivery's lines are printed, and it stops taking keys at 300 characters.  Open: where "when you
     log in" puts it (in the world after PLAY, or the HUD with Phase 1's chat placeholder).  Ensemble speaks
     version 8 already (the number only) and logs a ChatDelivery as one it doesn't handle yet.
+  - **The chat window's look** (Jacob, 2026-10-02, opening Ensemble's chat): "the default lay out is to
+    place it in the lower left", "350 pixels wide, and about 200 pixels tall with a header "Chat"".  "It
+    has a sub-chat box inside of itself at the bottom row of the chat window is an "input field" for
+    typing your local commands in."  "The chat box will echo your commands as `>commandhere` in yellow
+    font", and "Commands coming from the server are in white over 50% transparent black background".
 - **`/who`** (Jacob, 2026-10-02, after chat passed, "we're barely 30% so we're gonna keep going"): "a /who
   that shows all connected players", each as "[PlayerName] is currently at [x,y,z]".  Planning: who counts as
   connected, who sees the answer, where the positions come from, the line's exact form.  His answers:
