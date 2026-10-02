@@ -97,7 +97,10 @@ all there (PROTOCOL.md, "Character select"), so this is Ensemble's alone.
   `.gitignore` keeps out every `*.key`.  A new key pair is made with README's openssl command, and its
   certificate copied in as `conductor_crt.txt`.
 
-### As written (2026-10-02, waiting on Unity)
+### As written (2026-10-02, built and tested)
+
+In Unity against Conductor on Linux, all eleven checks passed, the new key pair included (Jacob: "the fucking
+loop worked!"): log in, pick, make, delete, reset home, play, log out, and in again.
 
 - **`GameConnection.Ask(kind, params string[] fields)`**: every ask with fields carries strings only.  It
   reads CharacterCreateResult, CharacterDeleteResult, CommandAccepted and CharacterEnteredWorld now
