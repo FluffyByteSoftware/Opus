@@ -96,10 +96,14 @@ is a biome).  The first world is Alpha (flat) and Omega (hills).  `design/world.
 
 ## Soundcheck, the patcher, and a certificate for every client
 
-**Opus.Soundcheck** is the patcher (Jacob's name).  It runs before the game and gives the client a
-certificate, and the server turns away any connection without a valid one ("then both the client should
-be able to trust the server and vice-versa").  Mutual TLS: today only the server shows a certificate
-(`with_no_client_auth()` in `tls.rs`), and a player proves who they are with the password.
+**Opus.Soundcheck** is the launcher (Jacob's name).  **Started 2026-10-02**: `design/soundcheck.md` has
+what's settled (C# on .NET 10 with Avalonia; the login moves out of Ensemble into it; after the login, a
+manifest check of every file of the installed client against the stamp in `Content/patch/`; PLAY is a
+second login and starts Ensemble with the ticket; two modes, admin writes the manifest) and what's left of
+it, step by step, is in TODO.md under "Soundcheck".  What stays here is the certificate: one day Soundcheck
+gives the client a certificate, and the server turns away any connection without a valid one ("then both
+the client should be able to trust the server and vice-versa").  Mutual TLS: today only the server shows a
+certificate (`with_no_client_auth()` in `tls.rs`), and a player proves who they are with the password.
 
 What it buys: anything that isn't our client is turned away in the TLS handshake, before it gets near
 Security's line, so a bot throwing logins at the door never costs a hash.  What it doesn't: a changed
@@ -113,8 +117,6 @@ Open when it opens:
   to do the signing (Soundcheck asking the server, most likely), and a ban list of certificates.  rustls
   checks certificates but doesn't make them; making them in Rust is a crate (`rcgen`, Jacob's call), or
   openssl by hand.
-- **What Soundcheck is written in**, where it lives (a new top-level folder is Jacob's call), and what
-  else it does (the game's files, updates).
 - **How it proves who's asking** before it hands a certificate out: the account's password, most likely,
   so a certificate belongs to an account, not just an install.
 - **The test client** gets one too, and a `--client-cert`.

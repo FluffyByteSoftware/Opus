@@ -37,8 +37,8 @@ That commit is the release.  Everything below is built from it.
 
 ## 2. The version number
 
-The tag is the version number as it is: `0.0.1` (the first one went up that way, no `v`).  Three places carry a number of their own, and they all say the
-same thing before the tag is made:
+The tag is the version number as it is: `0.0.1` (the first one went up that way, no `v`).  Four places carry a
+number of their own, and they all say the same thing before the tag is made:
 
 - **The tag**, made on GitHub in step 5.
 - **Unity's Version** (Player Settings > Version, `bundleVersion` in `ProjectSettings.asset`).  It's what
@@ -47,6 +47,8 @@ same thing before the tag is made:
   saved before it's committed, with the usual two-folder `git add`.
 - **The crates' `version`** in each `Cargo.toml` under `Conductor/dev/`, and their lines in `Cargo.lock`.
   Nothing reads them yet.
+- **Soundcheck's `<Version>`** in `Soundcheck/dev/Opus.Soundcheck.csproj` (2026-10-02).  Soundcheck sends
+  it with the Login, so `client_versions` has to list it too.
 
 All three went to `0.0.1` on 2026-10-02.  A number changed after the tag is a lie in the package, so the
 next version's bump comes before step 3.

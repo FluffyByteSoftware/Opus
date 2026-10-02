@@ -1,0 +1,42 @@
+<!--
+File:       Opus/Soundcheck/dev/Opus.Soundcheck.csproj
+Component:  Soundcheck
+Author:     Jacob Chacko
+
+The launcher's project.  .NET 10, Avalonia for the window, and nothing
+else: the TLS, the hashing and the JSON are all in .NET itself.
+-->
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Opus.Soundcheck</RootNamespace>
+    <AssemblyName>Opus.Soundcheck</AssemblyName>
+    <!-- The client's version, what the Login carries.  networking.cfg's
+         client_versions has to list it.  One of the places RELEASE.md
+         bumps together. -->
+    <Version>0.0.1</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+    <!-- Explicit usings and no nullable annotations, the same as
+         Ensemble's C#, so the ported files read the same on both sides. -->
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The server's certificate, beside the program when it's built, so
+         a patch can replace it one day without a new build. -->
+    <None Include="Certs/conductor.crt" CopyToOutputDirectory="PreserveNewest" Link="conductor.crt" />
+  </ItemGroup>
+
+</Project>

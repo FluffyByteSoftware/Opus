@@ -42,10 +42,14 @@ Project root: `/opt/storage/Coding/Opus`
     four folders under `Assets/` are committed; the rest is on Jacob's
     machine.
   - Folder: `Ensemble/`
-- **Soundcheck** (`Opus.Soundcheck`) -- the patcher, not started.  It runs
-  before the game and hands each client a certificate of its own, so the
-  server can turn away any connection without one (mutual TLS).
-  LONGTERM_TODO.md has it.
+- **Soundcheck** (`Opus.Soundcheck`) -- the launcher players open, started
+  2026-10-02.  It owns the login (TLS 1.3 to the Ticket) and the manifest
+  check of the installed client, and starts Ensemble with a ticket; one day
+  it hands each client a certificate of its own (mutual TLS,
+  LONGTERM_TODO.md).  `design/soundcheck.md` has it.
+  - Language: C#, .NET 10, Avalonia 11.  Not Unity.
+  - Folder: `Soundcheck/`
+  - Runs on: Linux and Windows, like Ensemble.
 - **Documentation** -- project docs. `Documentation/LLM/` holds the working
   docs (status, TODOs, design, protocol) and is the source of truth for anything
   not in the code.
@@ -93,13 +97,22 @@ Opus/
 │   │           └── Data/      # our own data files: layouts in Data/Layouts/, styles in Data/Styles/,
 │   │                          #   the server's certificate in Data/Certs/
 │   └── build/             # compiled output -- never committed
-├── Content/               # data both programs read and write -- committed, except Assets/, logs/ and world/
+├── Soundcheck/            # launcher
+│   ├── dev/               # the .NET project: Opus.Soundcheck.csproj at its root, bin/ and obj/ gitignored
+│   │   ├── Net/           # the login over TLS, ported from Ensemble's Assets/Code/Net/
+│   │   ├── Security/      # the password's key and Remember Me, ported from Ensemble
+│   │   ├── Patch/         # the manifest (PATCH_MANIFEST.md), and admin mode's remembered settings
+│   │   ├── Screens/       # the login screen, and admin mode's
+│   │   └── Certs/         # conductor.crt, copied beside the program at build
+│   └── build/             # compiled output -- never committed
+├── Content/               # data the programs read and write -- committed, except Assets/, logs/, world/, patch/
 │   ├── Assets/            # purchased art -- never committed
 │   ├── cfg/               # config files (conductor_globals, wgui, postgres, networking, game, whitelist, blacklist)
 │   ├── certs/             # the TLS certificate (committed) and its key (never committed), made with openssl
 │   ├── scripts/           # the Lua scripts, folders inside it and all
 │   ├── logs/              # log files -- never committed
 │   ├── world/             # the game's save: region.map, and Regions/<region>/ -- never committed
+│   ├── patch/             # patch_manifest.json, the stamp of the shipped client -- never committed
 │   └── psql/
 │       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
 │       └── migrations/    # every change to a table after that, numbered
@@ -116,6 +129,7 @@ Opus/
         ├── PROTOCOL.md    # server/client contract: the packets
         ├── REGION_MAP.md  # server/client contract: region.map, byte for byte
         ├── HUD_FORMATS.md # the HUD's layout and catalog files: the game and the web editor's contract
+        ├── PATCH_MANIFEST.md # patch_manifest.json, field by field: Soundcheck's and Conductor's contract
         ├── WRITINGSTYLE.md # my voice for public docs and comments
         ├── TEST_CHECKLIST.html # what's still to check on testing, with boxes to tick
         ├── CODE_REVIEW_0.0.1.md # the pre-release review of Conductor: every finding, file and line
@@ -620,7 +634,9 @@ When I say we're wrapping up:
   Conductor never makes one and never crashes without one: the Services tab
   says it's missing and the log says the command.  **A new certificate is
   copied to Ensemble too** (`Assets/Data/Certs/conductor_crt.txt`), or the
-  game refuses the server.  It's `.txt` because Unity only takes a text
+  game refuses the server, **and to Soundcheck**
+  (`Soundcheck/dev/Certs/conductor.crt`, copied beside the program at
+  build).  It's `.txt` in Ensemble because Unity only takes a text
   asset from a name it knows; a `.crt` comes in as a plain file the slot
   won't hold.  **No `.key` file goes in git, anywhere** (the `.gitignore`
   says `*.key`): on 2026-10-02 the server's key went in under
@@ -976,6 +992,59 @@ When I say we're wrapping up:
   says which window (Hierarchy, Project, Inspector) and which of the two.
 - [More conventions as Ensemble grows]
 
+## Launcher rules (Soundcheck)
+
+- **Plain C# on .NET 10 with Avalonia 11**, and nothing else: the TLS, the
+  hashing and the JSON are .NET's own.  Ask before any other package.
+  `design/soundcheck.md` is the design, with what's settled and what's open.
+- **The login is Soundcheck's; the game is Ensemble's** (Jacob, 2026-10-02:
+  "remove login from the game like monsters and memories did").  Soundcheck
+  does everything that's TCP: TLS 1.3 (its .NET can; Unity's couldn't, which
+  is why Conductor took 1.2), Hello, the version, the Login with the key, the
+  other-session choice, the Ticket.  Ensemble will start on character select
+  with the ticket from its environment and never speak TCP.  Until Ensemble's
+  half is built, Soundcheck drops the Ticket's token unlogged and PLAY stays
+  greyed.
+- **After the login, before Ensemble, the manifest check** (Jacob: "this
+  happens AFTER LOGIN ONLY BUT BEFORE WE GO TO ENSEMBLE").  The server hands
+  the client the stamp, the client checks itself first ("most of the time its
+  just gonna be a legit reason and not a hacker"), asks for what's off, then
+  reports its own manifest for the server to check too.  PLAY is a second
+  login.  Conductor's half isn't built yet (TODO.md).
+- **Two modes, one program.**  User mode is the player's.  Admin mode
+  (`--admin`) runs on the server's machine and writes `patch_manifest.json`
+  from the correct client folder, which goes to `Content/patch/`.
+  **`PATCH_MANIFEST.md` is the JSON's contract**, byte for byte, like
+  PROTOCOL.md is the packets': `Patch/Manifest.cs` is written from it, a
+  change bumps `format`, and the two change together.  The manifest covers
+  every file of the client, Soundcheck's own included; the only thing skipped
+  is a manifest at the folder's root.
+- **The ported files stay the same files.**  `Net/Protocol.cs`, `Packets.cs`,
+  `ServerCertificate.cs`, `LoginConnection.cs`, `Security/PasswordKey.cs` and
+  `RememberedLogin.cs` came from Ensemble with a new header and no Unity in
+  them; a fix to one goes in both until Ensemble's copies go.  Soundcheck
+  reads the same `remembered_login.json` in the same player folder
+  (`PlayerFiles.cs` builds the path without Unity), so there's one Remember
+  Me, not two.
+- **The login's thread talks to the screen through `ILoginListener`**, called
+  on the login's thread; the screen puts every call back on the window's
+  thread with `Dispatcher.UIThread.Post()`.  Anything slow (the key, hashing a
+  folder) runs on a worker thread and reports back the same way, so the
+  window never stops drawing.
+- **The certificate is a file beside the program**, `conductor.crt`, copied
+  from `Soundcheck/dev/Certs/` at build, so the manifest can patch it one day
+  without a new build.  A missing one is said on the status box with the path.
+- **The version is the csproj's `<Version>`**, read off the program
+  (`ClientVersion.cs`) and sent with the Login; `client_versions` has to list
+  it.  It's one of RELEASE.md's places to bump.
+- **Soundcheck says what it does on the terminal** (`Log.cs`), one line a
+  message, the time in UTC with a `Z`.  On Windows a windowed program has no
+  terminal, so a log file is TODO.  Nothing logs a password, a key or a token.
+- **Jacob builds and runs it**, like everything else: `dotnet build` and
+  `dotnet run --project` with the absolute path, from `Conductor/dev`.  No
+  `.meta` round, since it isn't Unity, so a reply gives the plain `git add`
+  of `Soundcheck/dev`.
+
 ---
 
 ## Git rules
@@ -1004,9 +1073,10 @@ When I say we're wrapping up:
   from `testing` on my say (`git push origin origin/testing:main`), then
   the `0.0.1` tag (the version, no `v`) and the two packages are mine to make by
   `Documentation/HowTo/RELEASE.md` (the session can't run `cargo build
-  --release`, Unity or the GitHub Release page).  The version is in three
+  --release`, Unity or the GitHub Release page).  The version is in four
   places that all change together: every crate's `Cargo.toml` and its
-  `Cargo.lock` line, Unity's `bundleVersion`, and the tag.  A fix to a
+  `Cargo.lock` line, Unity's `bundleVersion`, Soundcheck's `<Version>` in
+  `Opus.Soundcheck.csproj`, and the tag.  A fix to a
   released version is a new tag, never the old one moved.
 - **The session's clone is shallow** (50 commits).  `git fetch
   --unshallow origin` before trusting a branch count or a merge-base: on

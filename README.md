@@ -7,16 +7,18 @@ Author:     Jacob Chacko
 # Opus
 
 Opus is a multiplayer game I'm building as a hobby.  Opus is the project's codename; the game itself is
-**Forgotten Legends**.  It's two programs: **Conductor**, the server, and
-**Ensemble**, the client players run.  Conductor is authoritative -- it owns the game state, clients ask,
-and Conductor decides.
+**Forgotten Legends**.  It's three programs: **Conductor**, the server; **Ensemble**, the game players
+run; and **Soundcheck**, the launcher they open first, which logs them in, checks the game's files and
+starts Ensemble.  Conductor is authoritative -- it owns the game state, clients ask, and Conductor decides.
 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
 game loop ticking over it, and a player can pick a character, stand in that world and chat with whoever
 else is there, though nothing moves yet.  Ensemble has an editor tool for the art, and screens built from
 layout files: it logs in over TLS, turning the password into a key before it's sent or kept, makes, deletes
 and picks a character at character select, and puts it in the world with a chat window over the scene,
-though there's no world on screen yet.  Things will change and things will break.
+though there's no world on screen yet.  Soundcheck is just started: it logs in over TLS 1.3, and in admin
+mode writes the manifest of a client folder; the login is moving out of Ensemble into it.  Things will change
+and things will break.
 
 **0.0.1 is released (2026-10-02): a player logs in, picks a character, and stands in the world chatting.**
 The next milestone is movement.
@@ -46,6 +48,7 @@ The next milestone is movement.
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 | The 0.0.1 review: four bugs, seven risks fixed   | Built, tested and checked (`CODE_REVIEW_0.0.1.md`)     |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
+| Soundcheck, the launcher                         | Started: the login over TLS 1.3, admin mode's manifest |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.
@@ -128,8 +131,17 @@ Conductor is a Cargo workspace of eleven crates, one folder each under `Conducto
   player's character).
 - **launcher** -- the program itself.  Boots, then starts and stops the server on the web admin's say.
 
+**Soundcheck** is a .NET 10 program with an Avalonia window, in `Soundcheck/dev/`.  The idea is the one
+Monsters and Memories uses: the launcher logs you in, not the game.  It does the TLS login and gets the
+ticket, checks every file of the installed game against a manifest the server holds (`patch_manifest.json`,
+written by Soundcheck's own admin mode from the folder we ship), mends what's wrong, and starts Ensemble
+with the ticket, which goes straight to character select over UDP.  Today it's the first step: the login
+works and admin mode writes a manifest; the check, Conductor's half of it and Ensemble taking a ticket are
+to come.
+
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
-each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).
+each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).  The manifest's shape is
+`Documentation/LLM/PATCH_MANIFEST.md`.
 
 ## What it needs
 
@@ -140,6 +152,7 @@ each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).
 - **PostgreSQL 18**, on the same machine (every table's `uuid` falls back on its `uuidv7()`).
 - **openssl**, once, to make the TLS certificate.
 - **Python 3**, for the test client.
+- **.NET 10**, for Soundcheck.  The Avalonia packages come down from NuGet on the first build.
 
 ## Running it
 
@@ -149,7 +162,8 @@ release is made is in [RELEASE.md](Documentation/HowTo/RELEASE.md).
 
 **The TLS certificate.**  Conductor doesn't make one.  Make it once from the `Opus` folder; the key stays
 out of git, and the certificate goes in, since a client needs a copy to trust (Ensemble carries one as
-`Assets/Data/Certs/conductor_crt.txt`, so a new certificate is copied over there too):
+`Assets/Data/Certs/conductor_crt.txt` and Soundcheck as `Soundcheck/dev/Certs/conductor.crt`, so a new
+certificate is copied over both):
 
 ```
 mkdir -p Content/certs && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout Content/certs/conductor.key -out Content/certs/conductor.crt -days 3650 -subj "/CN=Opus Conductor" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
@@ -180,6 +194,17 @@ Conductor finds `Content/` by walking up from wherever it's run.  If it can't, p
 
 The password benchmark only runs when asked, and always optimized, since Argon2 is six times slower
 without: `cargo test -p conductor-tools --release argon2_cost -- --ignored --nocapture`
+
+**Soundcheck**, from the same terminal:
+
+```
+dotnet build /opt/storage/Coding/Opus/Soundcheck/dev
+dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev
+dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --admin
+```
+
+The first opens the login; the second, admin mode, which writes `patch_manifest.json` of a folder you point
+it at.  What it says as it goes is on the terminal.
 
 ## The config files
 
@@ -223,6 +248,9 @@ Opus/
 │   └── build/                     compiled output, never committed
 ├── Ensemble/
 │   └── dev/Opus.Ensemble/         the Unity 6000.6 project: its settings, and Assets/Editor, Code, Scripts and Data
+├── Soundcheck/
+│   ├── dev/                       the .NET 10 project: the login, the manifest, the two screens
+│   └── build/                     compiled output, never committed
 ├── Content/                       what both programs read and write
 │   ├── cfg/                       the config files and the two access lists
 │   ├── certs/                     the TLS certificate (committed) and its key (never)
@@ -230,6 +258,7 @@ Opus/
 │   ├── psql/                      the tables as first made, and every change since, numbered
 │   ├── world/                     the game's save: region.map and the regions' files, never committed
 │   ├── logs/                      one log file per UTC day, never committed
+│   ├── patch/                     patch_manifest.json, the stamp of the shipped client, never committed
 │   └── Assets/                    the purchased art, never committed
 └── Documentation/
     ├── HowTo/                     how-tos: installing a release, making one, building on Windows

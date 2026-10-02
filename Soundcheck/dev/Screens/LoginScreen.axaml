@@ -1,0 +1,56 @@
+<!--
+File:       Opus/Soundcheck/dev/Screens/LoginScreen.axaml
+Component:  Soundcheck
+Author:     Jacob Chacko
+
+The login screen, as Ensemble had it: server and port, username and
+password, Remember Me, SUBMIT, the status box under it (with the two buttons
+for an account already playing elsewhere), and PLAY, which comes alive once
+the login's done.
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Opus.Soundcheck.Screens.LoginScreen">
+
+  <StackPanel Width="380" HorizontalAlignment="Center">
+
+    <Grid ColumnDefinitions="*,8,110">
+      <StackPanel Grid.Column="0">
+        <TextBlock Classes="label" Text="Server" />
+        <TextBox x:Name="ServerBox" Watermark="address" />
+      </StackPanel>
+      <StackPanel Grid.Column="2">
+        <TextBlock Classes="label" Text="Port" />
+        <TextBox x:Name="PortBox" Watermark="9997" />
+      </StackPanel>
+    </Grid>
+
+    <TextBlock Classes="label" Text="Username" />
+    <TextBox x:Name="UsernameBox" />
+
+    <TextBlock Classes="label" Text="Password" />
+    <TextBox x:Name="PasswordBox" PasswordChar="●" />
+
+    <CheckBox x:Name="RememberMeBox" Content="Remember me" Margin="0,10,0,0" Foreground="#BFFFFFFF" />
+
+    <Button x:Name="SubmitButton" Classes="primary" Content="SUBMIT" HorizontalAlignment="Stretch"
+            Margin="0,12,0,0" Click="SubmitClicked" />
+
+    <Border x:Name="StatusBox" Classes="status" Margin="0,12,0,0" IsVisible="False">
+      <TextBlock x:Name="StatusLine" />
+    </Border>
+
+    <Grid x:Name="ChoiceRow" ColumnDefinitions="*,8,*" Margin="0,8,0,0" IsVisible="False">
+      <Button Grid.Column="0" Classes="primary" Content="LOG THE OTHER OUT" HorizontalAlignment="Stretch"
+              Click="LogOtherOutClicked" />
+      <Button Grid.Column="2" Classes="primary" Content="LOG OFF" HorizontalAlignment="Stretch"
+              Click="LogOffClicked" />
+    </Grid>
+
+    <!-- Greyed until Ensemble can take a ticket from Soundcheck (its next step). -->
+    <Button x:Name="PlayButton" Classes="primary" Content="PLAY" HorizontalAlignment="Stretch"
+            Margin="0,16,0,0" IsEnabled="False" />
+
+  </StackPanel>
+
+</UserControl>

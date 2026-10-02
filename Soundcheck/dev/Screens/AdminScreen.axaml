@@ -1,0 +1,43 @@
+<!--
+File:       Opus/Soundcheck/dev/Screens/AdminScreen.axaml
+Component:  Soundcheck
+Author:     Jacob Chacko
+
+Admin mode's one screen: the correct client folder, the version it is,
+where to write the manifest, WRITE MANIFEST, and how it went.
+-->
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Opus.Soundcheck.Screens.AdminScreen">
+
+  <StackPanel Width="460" HorizontalAlignment="Center">
+
+    <TextBlock Classes="label" Text="The client folder (exactly what ships to players)" />
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBox Grid.Column="0" x:Name="FolderBox" />
+      <Button Grid.Column="2" x:Name="BrowseFolderButton" Classes="primary" Content="BROWSE"
+              Click="BrowseFolderClicked" />
+    </Grid>
+
+    <TextBlock Classes="label" Text="The client's version (what networking.cfg's client_versions lists)" />
+    <TextBox x:Name="VersionBox" Width="160" HorizontalAlignment="Left" />
+
+    <TextBlock Classes="label" Text="Write the manifest to" />
+    <Grid ColumnDefinitions="*,8,Auto">
+      <TextBox Grid.Column="0" x:Name="WriteToBox" />
+      <Button Grid.Column="2" x:Name="BrowseWriteToButton" Classes="primary" Content="BROWSE"
+              Click="BrowseWriteToClicked" />
+    </Grid>
+
+    <Button x:Name="WriteButton" Classes="primary" Content="WRITE MANIFEST" HorizontalAlignment="Stretch"
+            Margin="0,16,0,0" Click="WriteClicked" />
+
+    <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Height="6" Margin="0,12,0,0" IsVisible="False" />
+
+    <Border x:Name="StatusBox" Classes="status" Margin="0,12,0,0" IsVisible="False">
+      <TextBlock x:Name="StatusLine" />
+    </Border>
+
+  </StackPanel>
+
+</UserControl>

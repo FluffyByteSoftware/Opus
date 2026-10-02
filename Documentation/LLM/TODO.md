@@ -351,8 +351,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - A session id in every UDP packet, so a home router changing the port mid-session doesn't end it.
   - Messaging a player from the web admin.
 - **A client certificate for every client** (mutual TLS).  Today the server never asks a client for
-  one; the test client's `--cert` is the client checking the server.  It waits on Soundcheck
-  (LONGTERM_TODO.md).
+  one; the test client's `--cert` is the client checking the server.  It waits on Soundcheck, which is
+  started (LONGTERM_TODO.md, and "Soundcheck" above).
 - **The whitelist and blacklist changeable while the server is stopped** (Jacob, 2026-09-30).  Today the
   tabs are locked until both listeners are up, and `addip` / `removeip` answer 409 while networking isn't
   running.  It would take: the two tabs open while stopped, like Settings; `/Opus/networking` reading the
@@ -404,6 +404,43 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   thread.  Plain text is fine while the page only listens on this machine.
 - HTTPS.  rustls is in the build, so it waits only on wanting it, and on the browser's warning for a
   self-signed certificate.
+
+### Soundcheck
+
+Started 2026-10-02 (`design/soundcheck.md`).  The first step is written and not built: user mode logs in
+over TLS 1.3 to the Ticket, admin mode writes `patch_manifest.json` (PATCH_MANIFEST.md).  What's left, a
+step each:
+
+- **Conductor's half**: after the Login, the stamp down and the report up (the manifest in the protocol's
+  own bytes, in pieces or past the 4,096-byte frame cap), the ask for files, a file in 3 MB pieces, the
+  download's end; `PleaseWait` for the place in line; one downloader thread with a queue, paced to 15 Mbps,
+  the login thread handing it the TLS connection; `patch.cfg` (soft: the limit, the piece size, maybe the
+  client folder); `Content/patch/` read and checked against its manifest at START SERVER, a Warn and no
+  downloads on a mismatch; `serde` and `serde_json` (Jacob, 2026-10-02: "yes add it").  `PROTOCOL_VERSION`
+  bumps; `test_client.py` gets a `--client-folder`.
+- **Ensemble's half**: the login screen and the TCP half of `Assets/Code/Net/` go; it starts on character
+  select with the ticket read from its environment (the address, the UDP port, the token, and Soundcheck's
+  path); no ticket is a screen saying to start the game from the launcher; when its session ends it starts
+  Soundcheck and quits (`/camp desktop` quits without); the world's files move to
+  `Assets/StreamingAssets/World/`, a fifth folder of ours under `Assets/`, into the `.gitignore` with its
+  `.meta`.  Then Conductor's `tls12` feature can go, since nothing speaks 1.2 any more.
+- **PLAY in Soundcheck**: a second login, Ensemble started with the ticket in its environment, Soundcheck
+  closing.  Waits on Ensemble's half.
+- **The check in user mode**: hash the install, compare with the stamp, ask for what's off, write each file
+  to a temp beside it and swap it in, check again, report.  Waits on Conductor's half.
+- **Where the correct client folder is on the server**: inside `Content/patch/` beside the manifest, or
+  anywhere, pointed at by a setting in `patch.cfg`.  Jacob asked whether it's "the USERPREFS" (2026-10-02);
+  admin mode remembers the folder it was pointed at in the player folder (`soundcheck_admin.json`), but
+  Conductor still has to find the files.  Open.
+- **A log file for Soundcheck**: on Windows a windowed program has no terminal, so `Log.cs` shows nothing
+  there.  A file in the player folder, probably.
+- **Soundcheck patching itself**: a running program can't overwrite its own files on Windows.  The first
+  step says "download the launcher again"; later, the new file written beside and swapped on the next
+  start.
+- **A new build of Ensemble as a patch**, or a fresh download: a call for when there's a second build.
+- **One package for a release**, Soundcheck and Ensemble together, with RELEASE.md's step for writing
+  the manifest and putting it in `Content/patch/`.
+- **The certificate for every client**: LONGTERM_TODO.md.  Soundcheck is where it goes.
 
 ### The rest
 

@@ -75,3 +75,12 @@ Ensemble/dev/**/[Uu]ser[Ss]ettings/
 .vscode/
 *.swp
 .DS_Store
+
+# Soundcheck's build output: what dotnet makes beside the project, and
+# the packages folder like the other two components'.
+Soundcheck/build/
+Soundcheck/dev/bin/
+Soundcheck/dev/obj/
+# The stamp of the shipped client (patch_manifest.json), and the client
+# itself if it sits there.  This machine's, not the repo's.
+Content/patch/

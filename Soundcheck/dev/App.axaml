@@ -1,0 +1,98 @@
+<!--
+File:       Opus/Soundcheck/dev/App.axaml
+Component:  Soundcheck
+Author:     Jacob Chacko
+
+The program as Avalonia sees it: the theme, and the few looks of our own
+laid over it, in the login screen's colours (Ensemble's login.uss): black
+behind, boxes in a dark grey, the blue buttons, the red status box.
+-->
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="Opus.Soundcheck.App"
+             RequestedThemeVariant="Dark">
+
+  <Application.Styles>
+    <FluentTheme />
+
+    <Style Selector="Window">
+      <Setter Property="Background" Value="#000000" />
+      <Setter Property="FontSize" Value="15" />
+    </Style>
+
+    <Style Selector="TextBlock.title">
+      <Setter Property="FontSize" Value="28" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="HorizontalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="TextBlock.small">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Foreground" Value="#80FFFFFF" />
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="Foreground" Value="#BFFFFFFF" />
+      <Setter Property="Margin" Value="0,8,0,2" />
+    </Style>
+
+    <Style Selector="TextBox">
+      <Setter Property="Background" Value="#181A20" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#33FFFFFF" />
+      <Setter Property="CornerRadius" Value="3" />
+    </Style>
+    <Style Selector="TextBox:pointerover /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="#181A20" />
+      <Setter Property="BorderBrush" Value="#66FFFFFF" />
+    </Style>
+    <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+      <Setter Property="Background" Value="#181A20" />
+      <Setter Property="BorderBrush" Value="#99FFFFFF" />
+    </Style>
+
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#3A568C" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="16,8" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#4868A6" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#283E68" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.primary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#283E68" />
+      <Setter Property="Foreground" Value="#80FFFFFF" />
+    </Style>
+
+    <!-- The status box: grey while it's just saying how things are going,
+         red when something's wrong. -->
+    <Style Selector="Border.status">
+      <Setter Property="Background" Value="#181A20" />
+      <Setter Property="BorderBrush" Value="#33FFFFFF" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="3" />
+      <Setter Property="Padding" Value="10,8" />
+    </Style>
+    <Style Selector="Border.status.trouble">
+      <Setter Property="Background" Value="#738C2020" />
+      <Setter Property="BorderBrush" Value="#998C2020" />
+    </Style>
+    <Style Selector="Border.status TextBlock">
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <Style Selector="ProgressBar">
+      <Setter Property="Foreground" Value="#4868A6" />
+      <Setter Property="Background" Value="#181A20" />
+    </Style>
+  </Application.Styles>
+
+</Application>

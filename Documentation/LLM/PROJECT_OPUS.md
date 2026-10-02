@@ -211,7 +211,35 @@ Opus/
 │               ├── Styles/login.uss   # the login's look
 │               ├── Styles/character_select.uss # character select's look
 │               └── Certs/conductor_crt.txt # a copy of Content/certs/conductor.crt: the one server trusted
-├── Content/                           # committed, except Assets/, logs/ and world/; made on first run if missing
+├── Soundcheck/                        # the launcher (design/soundcheck.md): C# on .NET 10, Avalonia for the window
+│   ├── build/                         # compiled output -- never committed
+│   └── dev/                           # the project; bin/ and obj/ are gitignored
+│       ├── Opus.Soundcheck.csproj     # .NET 10, the three Avalonia packages, the <Version> the Login carries
+│       ├── app.manifest               # Windows only: says the program is written for Windows 10 and up
+│       ├── Program.cs                 # where it starts: builds the Avalonia app and runs the window
+│       ├── App.axaml                  # the theme, and our own looks over it, in the login's colours
+│       ├── App.axaml.cs               # opens the window; --admin on the command line is admin mode
+│       ├── MainWindow.axaml           # the one window: the game's name, the screen, the version in the corner
+│       ├── MainWindow.axaml.cs        # puts the right screen in; stops a login when the window closes
+│       ├── ClientVersion.cs           # the <Version> read off the program: what the Login carries
+│       ├── Log.cs                     # Say, Warn, Error on the terminal, UTC with a Z; never a password, key or token
+│       ├── PlayerFiles.cs             # Ensemble's player folder, built without Unity, so Remember Me is one file
+│       ├── Certs/conductor.crt        # a copy of Content/certs/conductor.crt, copied beside the program at build
+│       ├── Net/                       # namespace Opus.Net: Ensemble's login files, ported
+│       │   ├── Protocol.cs            # the version, the packet types, the answers
+│       │   ├── Packets.cs             # PacketWriter and PacketReader: PROTOCOL.md's bytes, the TCP half
+│       │   ├── ServerCertificate.cs   # the one certificate trusted, read from beside the program, matched byte for byte
+│       │   └── LoginConnection.cs     # the login over TLS 1.3, its own thread, to the Ticket; ILoginListener hears it
+│       ├── Security/                  # namespace Opus.Security
+│       │   ├── PasswordKey.cs         # the password's key, the same recipe as Ensemble's and Conductor's
+│       │   └── RememberedLogin.cs     # Remember Me's file, the same file Ensemble wrote, read with System.Text.Json
+│       ├── Patch/                     # namespace Opus.Patch
+│       │   ├── Manifest.cs            # patch_manifest.json (PATCH_MANIFEST.md): walk a folder, hash every file, write, read
+│       │   └── AdminSettings.cs       # what admin mode remembers: the folder, the version, where it wrote
+│       └── Screens/                   # namespace Opus.Soundcheck.Screens, a .axaml and its code each
+│           ├── LoginScreen.axaml(.cs) # the login: the boxes, SUBMIT, the status box, the other-session buttons, PLAY
+│           └── AdminScreen.axaml(.cs) # admin mode: the client folder, the version, where to write, WRITE MANIFEST
+├── Content/                           # committed, except Assets/, logs/, world/ and patch/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
 │   ├── cfg/wgui.cfg                   # the web admin's two accounts: user's and admin's passwords (hard)
@@ -229,6 +257,7 @@ Opus/
 │   ├── world/region.map               # the game's save starts here: which region every chunk is in -- never committed
 │   ├── world/Regions/Omega/omega.heights # Omega's hills, made once from the seed -- never committed
 │   ├── world/Regions/<Region>/*.chunk # a chunk somebody changed, whole (none yet) -- never committed
+│   ├── patch/patch_manifest.json      # the stamp of the shipped client, written by Soundcheck's admin mode -- never committed
 │   └── psql/
 │       ├── defaults/schemas/accounts.sql  # the accounts table as first made
 │       ├── defaults/schemas/player_characters.sql # a player's characters: account, name, position, save
@@ -247,6 +276,7 @@ Opus/
         ├── PROTOCOL.md                # the server/client contract: the login over TLS, the game over UDP
         ├── REGION_MAP.md              # region.map, byte for byte: which region every chunk is in
         ├── HUD_FORMATS.md             # the HUD's layout and catalog files, field by field: the contract
+        ├── PATCH_MANIFEST.md          # patch_manifest.json, field by field: Soundcheck's and Conductor's contract
         ├── HUD_LAYOUT_SYSTEM.md       # Jacob's brief for the HUD, kept as he wrote it
         ├── WRITINGSTYLE.md            # Jacob's voice for anything in the repo
         ├── TEST_CHECKLIST.html        # what's still to check on testing, a page with boxes; a passed check comes out
@@ -264,7 +294,8 @@ Opus/
             ├── world.md               # the world: regions, chunks, blocks, its files; GameWorld; what's open
             ├── ensemble-hud.md        # the HUD and its layouts; the login screen
             ├── ensemble-networking.md # the client's net code: the login, UDP, character select
-            └── client-security.md     # the password's key: the contract, the client's half and Conductor's
+            ├── client-security.md     # the password's key: the contract, the client's half and Conductor's
+            └── soundcheck.md          # the launcher: the login moves into it, the manifest check, the two modes
 ```
 
 ## The named pieces
@@ -277,7 +308,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Ensemble             | The client players run.  Unity 6000.6, C#.              | Tested: tool, HUD, login, key,   |
 |                      |                                                         | logging in, character select,    |
 |                      |                                                         | the chat window and its keys     |
-| Soundcheck           | The patcher: hands each client a certificate.           | Named, not started               |
+| Soundcheck           | The launcher: the login, the manifest check, then      | Written 2026-10-02: the login    |
+|                      | Ensemble.  C# on .NET 10, Avalonia.                     | and admin mode; not built yet    |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |
@@ -304,3 +336,4 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | The access lists     | The whitelist and the blacklist at the door.            | Tested                           |
 | The protocol         | What Conductor and a client say to each other.          | Version 10                       |
 | region.map           | Which region every chunk is in, for server and client.  | Version 2                        |
+| patch_manifest.json  | Every file of the shipped client, its size and hash.    | Format 1; Soundcheck writes it   |

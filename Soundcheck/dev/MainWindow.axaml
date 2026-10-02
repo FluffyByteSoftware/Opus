@@ -1,0 +1,25 @@
+<!--
+File:       Opus/Soundcheck/dev/MainWindow.axaml
+Component:  Soundcheck
+Author:     Jacob Chacko
+
+The one window: the game's name across the top, the version in the corner,
+and whichever screen is showing under it (the login, or admin mode).
+-->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="Opus.Soundcheck.MainWindow"
+        Title="Forgotten Legends"
+        Width="560" Height="520"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen">
+
+  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+    <TextBlock Grid.Row="0" Classes="title" Text="FORGOTTEN LEGENDS" Margin="0,8,0,16" />
+
+    <ContentControl Grid.Row="1" x:Name="ScreenHost" />
+
+    <TextBlock Grid.Row="2" x:Name="VersionLine" Classes="small" HorizontalAlignment="Right" Margin="0,12,0,0" />
+  </Grid>
+
+</Window>
