@@ -150,6 +150,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **Built** (2026-10-02, the same session as the chat window, "we got tokens"; waiting on a build):
     `design/conductor-networking.md`, "Commands and the anti-flood", has how it leans.  Built, 93 tests
     pass, chat works through it (Jacob, 2026-10-02).
+- **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
+  last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
+  (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
+  the catalog's `MaxCount` for chat is 1 today.
 - **A major clean-up of code and documentation** (Jacob, 2026-10-02, at the chat window's hand-off: "Next
   conversation we're gonna do major clean up of code and documentation").  His to lay out.  Candidates seen
   on the way: the stale words entry below; `design/conductor-networking.md`'s "Chat" and "/who" sections,

@@ -58,9 +58,10 @@ hand-off.  `main` moves when Jacob says.
 **Built and tested on Linux**: all of Conductor up to chat, `/who` and the anti-flood, and the commands' move
 into `conductor-player-commands` (built, 93 tests pass, chat works through it; its one run check with the test
 client is still in TEST_CHECKLIST.html).  **In Unity**: everything up to character select's PLAY passed; the
-chat window compiles and chats, and its look passed on 1440p; its other checks (the test client hearing it,
-the anti-flood's refusal, `/who`'s box, the 300 limit, `/camp`) are in TEST_CHECKLIST.html with one Parked
-(Spans for real).  **On Windows**: Conductor builds and runs, START SERVER included, without a
+chat window passed every check (the look on 1440p, chat both ways with the test client, the anti-flood's
+refusal, `/who`'s box in Retro, the 300 limit, `/camp`); the crate's run check passed too.  **Waiting on
+Unity**: EverQuest's keys for the chat field (Enter or `/` anywhere brings the keys to it, Escape drops them),
+one check in TEST_CHECKLIST.html with one Parked (Spans for real).  **On Windows**: Conductor builds and runs, START SERVER included, without a
 database; nothing since the world has been tried there (GitHub issue #10).
 
 ## Jacob's map (2026-09-30, and on)
@@ -149,6 +150,10 @@ Two steps, each planned, OKed and pushed on its own.  `design/ensemble-hud.md` (
   launcher fills with `conductor_player_commands::wire()` in `start_server()`, with the GameClock's two
   senders.  Networking never names the crate.  "Commands Unavailable" with nothing in the slot.  Admin
   commands, when they come: "its a permissions difference but the commands will otherwise be the same".
+- **EverQuest's keys, after the hand-off** (written, waiting on Unity): with the field not focused, Enter
+  or `/` anywhere on the screen brings the keys to it (`/` already typed); Escape or a click away drops
+  them (`ChatWidget.cs`, `KeyAnywhere()`).  Jacob tested EQ for it: "we're mimicking their behavior after
+  all".  "The window I last used" with more than one window is in TODO.md.
 - Jacob's `Cargo.lock` and `WhoBox.cs.meta` commits may still be on his machine at this hand-off: the next
   session fetches first.
 
@@ -164,7 +169,7 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 
 ## What's waiting
 
-- **The chat window's checks** and the commands crate's run check, in TEST_CHECKLIST.html.  Then 0.0.1
+- **The chat window's Enter, `/` and Escape check** in TEST_CHECKLIST.html (every other check passed).  Then 0.0.1
   (a player in the world, chatting, from Ensemble) can go to `main`, Jacob's call.
 - **The clean-up** Jacob named for next.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps

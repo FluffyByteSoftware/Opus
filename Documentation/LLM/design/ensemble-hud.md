@@ -188,7 +188,10 @@ entry has his answers in his words.
   enter or typing / immediately brings focus up to the chat window and starts typing that into the input"):
   the panel's root sees every key first, and with the field not focused, Enter focuses it and a "/" focuses it
   and goes in as typed; a half-typed line is kept, not selected over.  With the field focused, the keys are
-  the field's own.
+  the field's own, and **Escape drops them**, as does a click away (Jacob, from EverQuest: "if I press enter
+  or / it immediately starts focus into the chat window I last used's input bar... clicking away makes it
+  lose focus.  So does hitting ESC").  "The chat window I last used" is this one while there's only one;
+  with more, it's one remembered reference, not a subsystem (TODO.md).
 - **`/camp`** is the client's own and never sent: `/camp` logs out to the login, `/camp desktop` logs out and
   closes the game (in the editor, it stops Play mode).  Anything else after it gets "Try /camp, or /camp
   desktop."

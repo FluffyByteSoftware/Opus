@@ -5,9 +5,10 @@
 // row to type in.  Enter sends what's typed to the server as it was typed,
 // and echoes it as ">/chat hello" in yellow; what the server says is white.
 // The box stops taking keys at 300 characters.  The font is ScreenRoot's
-// Chat Font slot, a monospaced one, so /who's box lines up.  With the
-// field not focused, Enter or a "/" anywhere on the screen brings the
-// keys to it, the "/" already typed (Jacob, 2026-10-02).
+// Chat Font slot, a monospaced one, so /who's box lines up.  EverQuest's
+// keys (Jacob, 2026-10-02): with the field not focused, Enter or a "/"
+// anywhere on the screen brings the keys to it, the "/" already typed;
+// Escape, or a click away, drops them.
 
 using Opus.Net;
 using UnityEngine;
@@ -161,6 +162,14 @@ namespace Opus.Hud
 
         void KeyDown(KeyDownEvent e)
         {
+            // Escape drops the keys, the line left as it is for Enter to
+            // come back to.
+            if (e.keyCode == KeyCode.Escape)
+            {
+                input.Blur();
+                e.StopPropagation();
+                return;
+            }
             if (e.keyCode != KeyCode.Return && e.keyCode != KeyCode.KeypadEnter)
                 return;
 

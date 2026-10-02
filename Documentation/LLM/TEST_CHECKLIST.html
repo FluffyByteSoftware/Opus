@@ -201,56 +201,11 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      In Ensemble, <code>/chat hello</code>, Enter: <code>&gt;/chat hello</code> in yellow, then
-      <code>[Chat] Chatter: hello</code> in white.  The test client, in the world as Tester, gets it too, and
-      a <code>/chat</code> typed there shows in Ensemble.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester testuser123 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Two lines fast in Ensemble: the second gets "You can't do that again so soon." in white.  A line
-      without a <code>/</code> gets "Saying things without a command isn't in yet.  Use /chat."
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      <code>/who</code> in Ensemble with Tester in the world too: the box in white, lined up, the time in this
-      computer's time zone, the names in columns, and "There are two legends currently online."
-      <code>/who list</code>: a line each, <code>[Chatter] is currently at [0, 0, 0]</code>.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The field stops taking keys at 300 characters (paste in a long line), and
-      <code>/chat &lt;b&gt;hi&lt;/b&gt;</code> shows the brackets as typed, not bold.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       Click the scene so the field loses the keys, then press Enter: the cursor is back in the field.  Click
       away again and type <code>/who</code>, Enter: the <code>/</code> went into the field and the box came.
       With <code>/cha</code> half typed, click away and press Enter: the line is still there, and typing
-      carries on from its end.
+      carries on from its end.  Escape drops the keys the same as a click away, and Enter brings them back.
     </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      <code>/camp</code>: back at the login, "Logged out.", and the test client's <code>/who</code> no longer
-      lists Chatter.  In again, <code>/camp now</code>: "Try /camp, or /camp desktop.", and still in the world.
-      Then <code>/camp desktop</code>: Play mode stops.
-    </span></label>
-  </li>
-</ul>
-
-<h2>2026-10-02, Conductor: the commands in their own crate</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      START SERVER, and in the world as Tester with the test client, <code>/chat hello</code> and
-      <code>/who</code> work as before, and the log has no "nothing runs commands" Warn.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester testuser123 'Testpass1!'</pre>
   </li>
 </ul>
 
