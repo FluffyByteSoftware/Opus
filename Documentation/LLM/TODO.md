@@ -411,6 +411,14 @@ Started 2026-10-02 (`design/soundcheck.md`).  Built and tested: user mode's logi
 PLAY, the way back, Ensemble's half.  **Written and not built** (2026-10-02, the manifests session): admin
 mode's two manifests and the check in user mode.  What's left, a step each:
 
+- **The world's dump** (Jacob, 2026-10-02, with the zip redesign in `design/soundcheck.md`): Conductor
+  dumps a portable world to `Content/`, "a general shape of the world but 'smoothed'", for the client to
+  carry (region.map and the heights, the ground as Conductor would build it, so the distance doesn't
+  vanish; the chunks around the player stream over UDP and override it).  It ships as a file of its own,
+  compressed, with its own line in the manifest beside the client zip, "because this is much more likely to
+  need to be downloaded": a new world isn't a new client download.  Not designed yet: what's in it, how
+  "smoothed", where it lands in the install (`Ensemble_Data/StreamingAssets/World/`, the fifth folder), and
+  whether Conductor dumps it on START SERVER or on a button.  Its own session, after the patcher.
 - **The download, when the check fails**: today a fail is "install the game again".  Where the files come
   from is open (`design/soundcheck.md`, "Open"): Conductor over the login's TLS connection in 3 MB pieces,
   paced to 15 Mbps, one downloader thread with a queue and `PleaseWait` for the place in line; or the same

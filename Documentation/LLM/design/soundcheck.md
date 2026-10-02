@@ -144,10 +144,15 @@ What changes against what's built, as read back to him (his answers go here as t
   player file is in the player folder (`~/.config/unity3d/FluffyByte/Opus.Ensemble/`), and Soundcheck's
   `conductor.crt` sits beside the launcher.  So nothing is excluded yet; the rule stands for when one comes.
 
-Open on it (asked 2026-10-02): the two builds can't share one flat folder (`Ensemble_Data/` is in both and
-differs by platform), so one zip a platform or one zip with a folder each; whether the address is
-`opusensemble.duckdns.org` (duckdns's names end in `.org`) or `opusensemble.com`; and how the world's dump
-gets into the build folder before it's zipped.
+Settled the same day, his answers: **one zip a platform** ("1 zip a platform thats fine"; he'd wondered
+whether the two builds share everything past the executable, and they don't: `Ensemble_Data/` is in both
+and built per platform, the shaders compiled for each one's graphics API, the native plugins `.so` or
+`.dll`); **whatever is in the build folder is in the zip, Soundcheck included if it's there** ("it _could_
+be because we're gonna make it flexible for the user to decide"), so the patcher has to cope with its own
+files going under it; **the address is `opusensemble.duckdns.org:8553`** (".org sorry"); **the world's
+dump is a separate file**, compressed, with its own line in the manifest, "because this is much more likely
+to need to be downloaded", and it isn't built or designed yet (TODO.md: Conductor's dump, and the client's
+side of it).
 
 ## Built and tested 2026-10-02: what the first build taught
 
