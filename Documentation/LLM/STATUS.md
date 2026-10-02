@@ -54,8 +54,8 @@ hand-off.  `main` moves when Jacob says.
 included; `/chat` (protocol version 8), and `/who`, `/who list`, Spans (version 9), the command table and the
 anti-flood, and the test client's Ctrl-C: every check passed, nothing waits on a build.  **In Unity**:
 everything up to character select's PLAY passed, and `Translator.cs` compiles (its `.meta` committed by Jacob,
-`f9f1c6a`, with `Content/cfg/game.cfg`).  The test client's two typing checks passed too (2026-10-02);
-and two Parked (Spans for real, and the chat box drawing `/who`).  **On Windows**: Conductor builds and runs, START SERVER included, without a
+`f9f1c6a`, with `Content/cfg/game.cfg`).  The test client's two typing checks passed too (2026-10-02); TEST_CHECKLIST.html
+has two Parked (Spans for real, and the chat box drawing `/who`).  **On Windows**: Conductor builds and runs, START SERVER included, without a
 database; nothing since the world has been tried there (GitHub issue #10).
 
 ## Jacob's map (2026-09-30, and on)
