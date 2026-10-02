@@ -84,8 +84,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     ```
 
     **Both** (Jacob, 2026-10-02): "A but if they do /who list It shows [Aldric] is currently at [0, 0, 0]
-    and so on".  So `/who` is the grid of names, `/who list` the line each with the position.  Open: the
-    date and the UTC rule's `Z`; columns for names up to 20 letters; the count in words.
+    and so on".  So `/who` is the grid of names, `/who list` the line each with the position.
+  - **The time** (Jacob, 2026-10-02): "we are going to send this to the client as seconds from midnight UTC
+    and let the client determine the local time zone".  **The count**: "Write them all out", and "we can
+    build a new tool that converts a number into written words?  Up to one million".  **The grid**: "make
+    it fit our actual chat size".  So the client draws the date, and the grid to its own chat box's width;
+    being settled: what the packet carries, and where the words tool lives.
   - **Ensemble**: these lines only line up in a monospaced font, so the chat box needs one.
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
