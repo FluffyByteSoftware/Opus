@@ -45,9 +45,12 @@ changing any of this locks everybody out, so it changes only with every account 
   `fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855`.  Ensemble, `test_client.py` and Conductor
   are each checked against it.
 
-## Ensemble's half (built and tested)
+## The client's half (built and tested in Ensemble; Soundcheck's since 2026-10-02)
 
-In `Assets/Code/`:
+Written as Ensemble's `Assets/Code/`, and moved to Soundcheck the same day the login did
+(`design/soundcheck.md`): the files are `Soundcheck/dev/Security/PasswordKey.cs` and `RememberedLogin.cs`,
+and the form is `Screens/LoginScreen.axaml.cs`.  Ensemble has none of it any more: it never sees a password.
+The recipe and the behaviour below are unchanged; only the paths moved.
 
 - **`Security/PasswordKey.cs`**: `Make()` (the recipe above) and `MakeAsync()`, which runs it on a worker
   thread so the screen keeps drawing; `LooksLikeKey()`; `AsciiLower()`.  The bytes it makes are wiped after;

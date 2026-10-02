@@ -1,7 +1,7 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/HudBuilder.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// Turns the checked widgets into a screen (the HUD, the login): a stack of
+// Turns the checked widgets into a screen (the HUD, the start screen): a stack of
 // layers, a box per widget in its layer, and each box placed from its
 // anchor.
 
@@ -22,7 +22,7 @@ namespace Opus.Hud
 
         // Build a screen under root, with its own style sheet.  The sheet
         // goes on the screen, not the root, so the HUD's look and the
-        // login's never meet.  Anything this builder built before goes first.
+        // start screen's never meet.  Anything this builder built before goes first.
         public void Build(VisualElement root, List<PlacedWidget> widgets, string name, StyleSheet styleSheet)
         {
             Clear();

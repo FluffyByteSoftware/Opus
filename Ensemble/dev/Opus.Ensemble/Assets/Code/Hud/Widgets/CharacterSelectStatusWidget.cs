@@ -4,7 +4,7 @@
 // The line under character select's list: what the server said to the
 // last ask (made, deleted, refused and why), and why the client didn't
 // send one (a name that breaks the rule).  Trouble is a dark red band, the
-// same as the login's status line.
+// same as the start screen's line.
 
 using UnityEngine;
 using UnityEngine.UIElements;

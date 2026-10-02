@@ -1,0 +1,21 @@
+{
+  "format": "opus-hud-layout",
+  "version": 1,
+  "screen": "start",
+  "name": "Default",
+  "reference": { "width": 1920, "height": 1080 },
+  "widgets": [
+    {
+      "id": "start_background", "anchor": "TopLeft",
+      "offset": { "x": 0, "y": 0 }, "size": { "width": 1920, "height": 1080 }, "layer": 0
+    },
+    {
+      "id": "start_logo", "anchor": "Center",
+      "offset": { "x": 0, "y": -300 }, "size": { "width": 600, "height": 160 }, "layer": 1
+    },
+    {
+      "id": "start_card", "anchor": "Center",
+      "offset": { "x": 0, "y": 0 }, "size": { "width": 700, "height": 260 }, "layer": 1
+    }
+  ]
+}

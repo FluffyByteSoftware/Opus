@@ -8,9 +8,10 @@ Author:     Jacob Chacko
 
 What Conductor and its clients say to each other, down to the byte.  Written for somebody building a
 client who has never seen Conductor's code.  Conductor's half is `Conductor/dev/networking/src/protocol.rs`.
-The Python test client beside the crate (`networking/test_client.py`) speaks all of it, and Ensemble
-(`Assets/Code/Net/`, 2026-10-02) the login and character select so far, not chat yet; when any of them
-disagrees with this document, it is the code that gets fixed.
+The Python test client beside the crate (`networking/test_client.py`) speaks all of it; Soundcheck, the
+launcher (`Soundcheck/dev/Net/`), speaks the login over TCP, and Ensemble (`Assets/Code/Net/`) everything over
+UDP, from the Connect the launcher's ticket earns it (2026-10-02); when any of them disagrees with this
+document, it is the code that gets fixed.
 
 Protocol version **10**.  The number goes up when a packet changes, and the server says it in the first
 thing it sends, so a client built against another version can stop right there.  Version 10 (2026-10-02)
@@ -54,8 +55,9 @@ to character select from the world but logging out and in again.
 
 ### TLS
 
-TLS 1.3 or 1.2.  It was 1.3 only until Ensemble (2026-10-02): Unity's .NET can't speak 1.3, so the server
-takes 1.2 as well.  Nothing in the packets changed, so the protocol version didn't either.  The server has one
+TLS 1.3 or 1.2.  It was 1.3 only until Ensemble logged in itself (2026-10-02): Unity's .NET can't speak
+1.3, so the server took 1.2 as well.  The login is Soundcheck's now, whose .NET speaks 1.3, so 1.2 is on its
+way out again.  Nothing in the packets changed, so the protocol version didn't either.  The server has one
 self-signed certificate, and a client trusts that certificate and no
 authority: it keeps a copy of the certificate file and refuses any server that shows it a different one.
 Nothing in the login goes over the wire until TLS is up.

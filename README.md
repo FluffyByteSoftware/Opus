@@ -14,11 +14,11 @@ starts Ensemble.  Conductor is authoritative -- it owns the game state, clients 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
 game loop ticking over it, and a player can pick a character, stand in that world and chat with whoever
 else is there, though nothing moves yet.  Ensemble has an editor tool for the art, and screens built from
-layout files: it logs in over TLS, turning the password into a key before it's sent or kept, makes, deletes
-and picks a character at character select, and puts it in the world with a chat window over the scene,
-though there's no world on screen yet.  Soundcheck is just started: it logs in over TLS 1.3 and in admin
-mode writes the manifest of a client folder, both tested; the login is moving out of Ensemble into it, and
-starting the game from it is next.  Things will change
+layout files: it starts with the launcher's ticket, makes, deletes and picks a character at character select,
+and puts it in the world with a chat window over the scene, though there's no world on screen yet.
+Soundcheck is the launcher, just started: it logs in over TLS 1.3, turning the password into a key before
+it's sent or kept, and in admin mode writes the manifest of a client folder, both tested.  The login has
+moved out of Ensemble into it; Soundcheck starting the game is next.  Things will change
 and things will break.
 
 **0.0.1 is released (2026-10-02): a player logs in, picks a character, and stands in the world chatting.**
@@ -43,10 +43,11 @@ The next milestone is movement.
 | Chat: `/chat` to everybody in the world          | Built and tested with the test client                  |
 | `/who` and `/who list`, the anti-flood           | Built and tested with the test client                  |
 | Movement                                         | Not started                                            |
-| Ensemble                                         | An editor tool; the login and the HUD, from layouts    |
-| Ensemble logging in, character select, PLAY      | Built and tested; the HUD comes up over the scene      |
+| Ensemble                                         | An editor tool; the screens and the HUD, from layouts  |
+| Ensemble's character select and PLAY             | Built and tested; the HUD comes up over the scene      |
 | Ensemble's chat window, `/who`'s box, `/camp`    | Built and tested, EverQuest's keys included            |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
+| Ensemble starting from the launcher's ticket     | Written, waiting on Unity: the start screen, dev mode  |
 | The 0.0.1 review: four bugs, seven risks fixed   | Built, tested and checked (`CODE_REVIEW_0.0.1.md`)     |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
 | Soundcheck, the launcher                         | Built and tested: the login over TLS 1.3, Remember Me, |
@@ -68,7 +69,9 @@ To run a released version rather than build one, get the two packages from the r
    <http://127.0.0.1:9996/Opus> on that machine: START SERVER, wait for the world, make the players'
    accounts on the Accounts tab.
 2. **A player** unpacks `Opus-Ensemble-0.0.1`, runs it, types the server's address and port on the login
-   screen, and logs in with the account the admin made.
+   screen, and logs in with the account the admin made.  (That's the released 0.0.1.  Since then the login
+   has moved into Soundcheck, the launcher, which will start the game; the next release ships the two
+   together.)
 
 How a release is made, tag and packages, is in [RELEASE.md](Documentation/HowTo/RELEASE.md).
 
@@ -93,7 +96,8 @@ Conductor is a Cargo workspace of eleven crates, one folder each under `Conducto
   held in memory: it's read from its row when needed and every change goes straight back, so there's only
   ever one copy.  Three characters to an account, each with a name that's unique on the server.
 - **monitor** -- once a second, CPU, memory, disk and threads for Conductor and the machine.
-- **networking** -- the front door.  TCP is only the login: TLS (1.3, or 1.2 for the Unity client), a
+- **networking** -- the front door.  TCP is only the login: TLS (1.3; 1.2 was let in while the Unity
+  client logged in itself, and is on its way out), a
   username and password, and the player gets a ticket for UDP, where everything after happens, starting
   with character select (list, make, delete, reset home), answered by Protogame on a thread of its own,
   and then the pick: the character is loaded from its save and put in the world, and taken out and saved
@@ -137,9 +141,10 @@ Conductor is a Cargo workspace of eleven crates, one folder each under `Conducto
 Monsters and Memories uses: the launcher logs you in, not the game.  It does the TLS login and gets the
 ticket, checks every file of the installed game against a manifest the server holds (`patch_manifest.json`,
 written by Soundcheck's own admin mode from the folder we ship), mends what's wrong, and starts Ensemble
-with the ticket, which goes straight to character select over UDP.  Today it's the first step: the login
-works and admin mode writes a manifest; the check, Conductor's half of it and Ensemble taking a ticket are
-to come.
+with the ticket, which goes straight to character select over UDP.  Today the login works, admin mode
+writes a manifest, and Ensemble's half is written: it takes the ticket from its environment, starts on
+character select, and goes back to the launcher when the session ends.  The check, Conductor's half of it
+and Soundcheck's PLAY are to come.
 
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
 each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).  The manifest's shape is

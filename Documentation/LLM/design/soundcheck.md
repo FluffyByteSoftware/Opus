@@ -54,7 +54,11 @@ a patcher is that something.  The certificate half is still to come; this is the
   open while a player sits at the launcher.
 - **The hand-off is environment variables**, read by Ensemble at start.  On Linux a process's command line is
   readable by every user on the machine for as long as it runs, while its environment is its own user's, and
-  a one-use token shouldn't sit in `ps`.
+  a one-use token shouldn't sit in `ps`.  **The four** (settled with Ensemble's half, 2026-10-02; the
+  contract between the two programs, `Soundcheck/dev/...` on one side and Ensemble's `Net/Ticket.cs` on
+  the other): `OPUS_SERVER` (the server's address, as the player typed it), `OPUS_UDP_PORT` (the Ticket's
+  port), `OPUS_TOKEN` (the Ticket's token, 64 hex) and `OPUS_SOUNDCHECK` (the launcher's own path, for the
+  way back).  Ensemble takes all four out of the environment it hands Soundcheck on the way back.
 - **Soundcheck closes once Ensemble is up**, and **Ensemble quits back to Soundcheck** when its session ends:
   it starts Soundcheck again on its way out, so a kicked player is looking at the login.  Ensemble finds
   Soundcheck through one more environment variable, its path.
@@ -130,7 +134,10 @@ runs as it always does, and the point of it is the first of these:
   environment as always (once PLAY is built).  An Ensemble running inside Unity's editor is already running,
   so there's nothing to start: for it, debug mode writes `debug_ticket.json` in the player folder (the
   server's address, the UDP port, the token, when it was issued; `Net/DebugTicket.cs`), and the editor's
-  Ensemble reads it when PLAY is pressed there.  A token on the disk is a token somebody else on the machine
+  Ensemble watches for it (**dev mode**, Jacob's "Play/Dev Mode", 2026-10-02): its start screen looks once a
+  second, takes a fresh ticket the moment it lands, and joins the world; the same ticket is never taken
+  twice, and one older than 30 seconds is left alone.  So the round is Play in Unity, SUBMIT in Soundcheck,
+  and the editor is at character select.  A token on the disk is a token somebody else on the machine
   could read, which is fine for debug mode and for nothing else; it's good once, for 30 seconds, so a stale
   file is harmless.  Today, with PLAY not built, the file is all debug mode does with the ticket.
 
@@ -182,14 +189,23 @@ on the downloader thread only.
 - **The version in the Login** becomes Soundcheck's: it and Ensemble ship as one package, and
   `client_versions` lists that number.
 
-## Ensemble's side
+## Ensemble's side (written 2026-10-02, waiting on Unity)
 
-- Loses the login screen and the TCP half of `Assets/Code/Net/`.  Starts on character select.
-- Reads the ticket, and Soundcheck's path, from the environment at start.  No ticket there is a screen
-  saying to start the game from the launcher, and a button that closes.
-- When the UDP session ends (kicked, the server gone, `/camp`), it starts Soundcheck and quits.  `/camp
-  desktop` quits without.
-- **The world's files** go in `Assets/StreamingAssets/World/`.  A Unity build packs everything under
+- **Lost the login screen and the TCP half of `Assets/Code/Net/`**: `LoginConnection.cs`,
+  `ServerCertificate.cs`, the `Security/` folder, the login's eleven widget files, its layout and style, and
+  the certificate copy in `Data/Certs/`.  `Protocol.cs` keeps the packet table whole (it mirrors PROTOCOL.md)
+  and lost only LoginResult's answers, SessionChoice's values and the secret word.
+- **Reads the ticket, and Soundcheck's path, from the environment at start** (`Net/Ticket.cs`, the four
+  variables above), and sends Connect at once, so the first screen a player sees is character select.
+- **The start screen** (`start_default.json`, `start.uss`; `start_background`, `start_logo`, `start_card`) is
+  what shows when there's no ticket: "Start Forgotten Legends from the launcher." and QUIT.  It's also
+  the screen behind "Joining the world..." for the moment before Welcome, and where a session that ends
+  with the game still open says why.  In the editor its card is dev mode (above).
+- **When the UDP session ends** (kicked, the server gone, LOG OUT, `/camp`), it starts Soundcheck from
+  `OPUS_SOUNDCHECK`, with the four variables taken out of the environment it hands over, and quits.  `/camp
+  desktop` and QUIT quit without.  A game with no launcher path (started by hand, or the editor) stays open
+  on the start screen instead.
+- **The world's files** (not this pass) go in `Assets/StreamingAssets/World/`.  A Unity build packs everything under
   `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as loose files
   (`Opus.Ensemble_Data/StreamingAssets/`), and a patcher writes loose files.  That's a fifth folder of ours
   under `Assets/`, into the `.gitignore` with its `.meta`.

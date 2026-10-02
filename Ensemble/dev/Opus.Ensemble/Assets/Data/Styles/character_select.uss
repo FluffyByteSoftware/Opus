@@ -3,9 +3,9 @@
  * Component:  Ensemble
  * Author:     Jacob Chacko
  * Character select's look.  Only character select carries this sheet.  The
- * words' colour and font are ScreenRoot's Login Text Color and Login Text
- * Font, the same as the login's.  Sizes are in the layout's reference
- * pixels.
+ * words' colour and font are ScreenRoot's Screen Text Color and Screen
+ * Text Font, the same as the start screen's.  Sizes are in the layout's
+ * reference pixels.
  */
 
 .widget {
@@ -225,7 +225,7 @@
     background-color: rgb(166, 52, 52);
 }
 
-/* LOG OUT, the same look as the login's SUBMIT. */
+/* LOG OUT, the same look as the start screen's QUIT. */
 .character-select-log-out {
     flex-grow: 1;
     margin: 0;

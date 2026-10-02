@@ -2,13 +2,16 @@
 // Component:  Ensemble
 // Author:     Jacob Chacko
 // Sits on the GameObject beside the UI Document and owns every screen: the
-// login, character select and the HUD, and which one is showing.  It finds
-// a screen's layout, checks it, and hands it to HudBuilder.  The session
-// (Opus.Net's Session) switches between the login, character select and
-// the HUD, drawn over the game scene once the character is in the world.
-// This is where the network's threads get their turn on the main thread,
-// once a frame.  Right-click it in the Inspector for Show Login, Show HUD
-// and Reset HUD To Default.
+// start screen, character select and the HUD, and which one is showing.
+// It finds a screen's layout, checks it, and hands it to HudBuilder.  The
+// game starts on the start screen and, with a ticket from the launcher in
+// its environment, joins the world at once, so the first thing a player
+// sees is character select; without one the start screen stays.  The
+// session (Opus.Net's Session) switches between the start screen,
+// character select and the HUD, drawn over the game scene once the
+// character is in the world.  This is where the network's threads get
+// their turn on the main thread, once a frame.  Right-click it in the
+// Inspector for Show Start Screen, Show HUD and Reset HUD To Default.
 
 using Opus.Net;
 using UnityEngine;
@@ -20,25 +23,27 @@ namespace Opus.Hud
     [RequireComponent(typeof(UIDocument))]
     public class ScreenRoot : MonoBehaviour
     {
-        [Header("The login")]
-        [Tooltip("The login's layout, Assets/Data/Layouts/login_default.json.  It ships with the game; there's "
-            + "never a player's own.")]
-        public TextAsset loginLayout;
+        [Header("The start screen")]
+        [Tooltip("The start screen's layout, Assets/Data/Layouts/start_default.json: what the game shows when it "
+            + "has no ticket from the launcher, and for the moment before character select.  It ships with the "
+            + "game; there's never a player's own.")]
+        public TextAsset startLayout;
 
-        [Tooltip("The login's look, Assets/Data/Styles/login.uss.")]
-        public StyleSheet loginStyle;
+        [Tooltip("The start screen's look, Assets/Data/Styles/start.uss.")]
+        public StyleSheet startStyle;
 
-        [Tooltip("The colour of every word on the login and character select: the names, what's typed, the "
-            + "buttons.  It can be changed in Play mode and shows at once.")]
-        public Color loginTextColor = new Color(0.91f, 0.89f, 0.84f);
+        // The two were Login Text Color and Login Text Font;
+        // FormerlySerializedAs keeps what was set.
+        [Header("The screens' words")]
+        [Tooltip("The colour of every word on the start screen and character select: the names, what's typed, "
+            + "the buttons.  It can be changed in Play mode and shows at once.")]
+        [FormerlySerializedAs("loginTextColor")]
+        public Color screenTextColor = new Color(0.91f, 0.89f, 0.84f);
 
-        [Tooltip("The font of every word on the login and character select.  Empty is Unity's own.  It can be "
-            + "changed in Play mode and shows at once.")]
-        public Font loginTextFont;
-
-        [Tooltip("The server's certificate, Assets/Data/Certs/conductor_crt.txt, a copy of "
-            + "Content/certs/conductor.crt.  The client trusts that server and no other.")]
-        public TextAsset serverCertificate;
+        [Tooltip("The font of every word on the start screen and character select.  Empty is Unity's own.  It "
+            + "can be changed in Play mode and shows at once.")]
+        [FormerlySerializedAs("loginTextFont")]
+        public Font screenTextFont;
 
         [Header("Character select")]
         [Tooltip("Character select's layout, Assets/Data/Layouts/character_select_default.json.  It ships "
@@ -65,8 +70,12 @@ namespace Opus.Hud
             + "Empty is Unity's own.  It can be changed in Play mode and shows at once.")]
         public Font chatFont;
 
-        // The game starts on the login.
-        string showing = LayoutLoader.LoginScreen;
+        // The game starts on the start screen.
+        string showing = LayoutLoader.StartScreen;
+
+        // The launcher's ticket is looked for once per run, not on every
+        // enable: a token is good once.
+        static bool ticketLookedFor;
 
         UIDocument document;
         PanelSettings ownSettings;
@@ -74,24 +83,22 @@ namespace Opus.Hud
 
         void OnEnable()
         {
-            Session.Certificate = serverCertificate != null ? serverCertificate.text : null;
             Session.ReachedCharacterSelect += ShowCharacterSelect;
-            Session.BackAtLogin += BackAtLogin;
+            Session.SessionOver += SessionOver;
             Session.ReachedWorld += ShowHudInWorld;
             CharacterSelectForm.Filled += ApplyText;
             ChatWidget.Font = chatFont;
-            LoginForm.Listen();
             CharacterSelectForm.Listen();
             Show(showing);
+            TakeTicket();
         }
 
         void OnDisable()
         {
             Session.ReachedCharacterSelect -= ShowCharacterSelect;
-            Session.BackAtLogin -= BackAtLogin;
+            Session.SessionOver -= SessionOver;
             Session.ReachedWorld -= ShowHudInWorld;
             CharacterSelectForm.Filled -= ApplyText;
-            LoginForm.StopListening();
             CharacterSelectForm.StopListening();
             builder.Clear();
         }
@@ -129,6 +136,35 @@ namespace Opus.Hud
                 ApplyText();
         }
 
+        // The ticket the launcher started the game with, if it did: the
+        // game joins the world straight away, and the start screen's card
+        // says so until character select comes.  A ticket that doesn't hold
+        // up is a warning; none at all is the start screen, saying to start
+        // the game from the launcher.
+        void TakeTicket()
+        {
+            if (ticketLookedFor)
+                return;
+            ticketLookedFor = true;
+
+            string why;
+            Ticket ticket = Ticket.FromEnvironment(out why);
+            if (ticket != null)
+            {
+                Debug.Log("Game: started by the launcher, with a ticket for " + ticket.Host + ":" + ticket.UdpPort
+                          + ".");
+                Session.Enter(ticket);
+            }
+            else if (why != null)
+            {
+                Debug.LogWarning("Game: " + why + ", so it's the start screen.");
+            }
+            else
+            {
+                Debug.Log("Game: no ticket from the launcher, so it's the start screen.");
+            }
+        }
+
         void ShowCharacterSelect()
         {
             Show(LayoutLoader.CharacterSelectScreen);
@@ -140,13 +176,12 @@ namespace Opus.Hud
             Show(LayoutLoader.HudScreen);
         }
 
-        // The session is over.  The login says why (LoginForm hears it too);
-        // it's only built again if it isn't already showing, so a failed
-        // login keeps what was typed.
-        void BackAtLogin(string why, bool trouble)
+        // The session is over and the game is staying open: the start
+        // screen, whose card says why (it reads Session.Notice).
+        void SessionOver(string why, bool trouble)
         {
-            if (showing != LayoutLoader.LoginScreen)
-                Show(LayoutLoader.LoginScreen);
+            if (showing != LayoutLoader.StartScreen)
+                Show(LayoutLoader.StartScreen);
         }
 
         void Show(string screen)
@@ -173,9 +208,9 @@ namespace Opus.Hud
             }
             else
             {
-                layout = LayoutLoader.LoadShipped(loginLayout, LayoutLoader.LoginScreen, "Login Layout");
-                style = loginStyle;
-                styleFile = "login.uss onto ScreenRoot's Login Style";
+                layout = LayoutLoader.LoadShipped(startLayout, LayoutLoader.StartScreen, "Start Layout");
+                style = startStyle;
+                styleFile = "start.uss onto ScreenRoot's Start Style";
             }
             if (layout == null)
                 return;
@@ -204,32 +239,34 @@ namespace Opus.Hud
 
             builder.Build(root, LayoutChecker.Check(layout), screen, style);
 
-            // The game's place for the keys is on the HUD only; the login
-            // and character select are all widgets.  Placed before the
-            // widgets wake, so the chat's "straight to typing" still wins.
+            // The game's place for the keys is on the HUD only; the start
+            // screen and character select are all widgets.  Placed before
+            // the widgets wake, so the chat's "straight to typing" still
+            // wins.
             if (screen == LayoutLoader.HudScreen)
                 GameFocus.Place(builder.Screen);
             else
                 ApplyText();
         }
 
-        // The login's colour and font, on every piece of text in it, and in
-        // character select.  Set on each one rather than once on the screen,
-        // since Unity's own theme gives the text in a box and on a button
-        // colours of their own, and a style set on the element itself is the
-        // only thing that beats it.  Not on the HUD, which has its own look.
+        // The screens' colour and font, on every piece of text on the start
+        // screen and character select.  Set on each one rather than once on
+        // the screen, since Unity's own theme gives the text in a box and on
+        // a button colours of their own, and a style set on the element
+        // itself is the only thing that beats it.  Not on the HUD, which has
+        // its own look.
         void ApplyText()
         {
             VisualElement screen = builder.Screen;
             if (screen == null || showing == LayoutLoader.HudScreen)
                 return;
 
-            StyleFontDefinition font = loginTextFont != null
-                ? new StyleFontDefinition(loginTextFont)
+            StyleFontDefinition font = screenTextFont != null
+                ? new StyleFontDefinition(screenTextFont)
                 : new StyleFontDefinition(StyleKeyword.Null);
             screen.Query<TextElement>().ForEach(text =>
             {
-                text.style.color = loginTextColor;
+                text.style.color = screenTextColor;
                 text.style.unityFontDefinition = font;
             });
         }
@@ -246,10 +283,11 @@ namespace Opus.Hud
         // The whole screen is scaled from the layout's reference to the real
         // one, the bigger of the two fitting (Expand), so a layout made on
         // any screen fits on any other and keeps its shape.  Each screen has
-        // its own reference (the login 1920 x 1080, the HUD 2560 x 1440), so
-        // it's set again on every switch.  That's on the UI Document's Panel
-        // Settings, and we set it on a copy: a change to the asset itself
-        // made in Play mode would stay in the asset after Play stops.
+        // its own reference (the start screen 1920 x 1080, the HUD 2560 x
+        // 1440), so it's set again on every switch.  That's on the UI
+        // Document's Panel Settings, and we set it on a copy: a change to
+        // the asset itself made in Play mode would stay in the asset after
+        // Play stops.
         bool ScaleTo(PixelSize reference)
         {
             if (ownSettings == null)
@@ -272,12 +310,12 @@ namespace Opus.Hud
             return true;
         }
 
-        // Switching screens by hand, until something in the game does it
-        // (SUBMIT, one day).  Play mode only: outside it there's no screen.
-        [ContextMenu("Show Login")]
-        public void ShowLogin()
+        // Switching screens by hand, to look at one.  Play mode only:
+        // outside it there's no screen.
+        [ContextMenu("Show Start Screen")]
+        public void ShowStartScreen()
         {
-            ShowInPlay(LayoutLoader.LoginScreen);
+            ShowInPlay(LayoutLoader.StartScreen);
         }
 
         [ContextMenu("Show HUD")]

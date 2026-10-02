@@ -633,18 +633,19 @@ When I say we're wrapping up:
   `Content/certs/`.  The key is gitignored, the certificate committed.
   Conductor never makes one and never crashes without one: the Services tab
   says it's missing and the log says the command.  **A new certificate is
-  copied to Ensemble too** (`Assets/Data/Certs/conductor_crt.txt`), or the
-  game refuses the server, **and to Soundcheck**
-  (`Soundcheck/dev/Certs/conductor.crt`, copied beside the program at
-  build).  It's `.txt` in Ensemble because Unity only takes a text
-  asset from a name it knows; a `.crt` comes in as a plain file the slot
-  won't hold.  **No `.key` file goes in git, anywhere** (the `.gitignore`
-  says `*.key`): on 2026-10-02 the server's key went in under
-  `Data/Certs/` with a `.meta` commit, and a new pair was made.  A reply
-  giving the `git add` says to check `git status` for a `.key`.
+  copied to Soundcheck too** (`Soundcheck/dev/Certs/conductor.crt`, copied
+  beside the program at build), or the launcher refuses the server.
+  Ensemble has no copy any more (2026-10-02): it never speaks TLS.  (It
+  had one as `Assets/Data/Certs/conductor_crt.txt`, `.txt` because Unity
+  only takes a text asset from a name it knows.)  **No `.key` file goes in
+  git, anywhere** (the `.gitignore` says `*.key`): on 2026-10-02 the
+  server's key went in under `Data/Certs/` with a `.meta` commit, and a
+  new pair was made.  A reply giving the `git add` says to check `git
+  status` for a `.key`.
 - **TLS 1.3 and 1.2** (2026-10-02): rustls's `tls12` feature is on, since
   Unity's .NET has no TLS 1.3 (`SslProtocols.Tls13` doesn't exist there).
-  `test_client.py` still insists on 1.3.
+  Nothing speaks 1.2 any more now the login is Soundcheck's (its .NET and
+  `test_client.py` both insist on 1.3), so the feature can go (TODO.md).
 - **What a player types is a command** (`conductor-player-commands`,
   protocol version 8): the client sends the line as typed in a
   PlayerCommand, and the server finds the word after the `/` in
@@ -903,25 +904,44 @@ When I say we're wrapping up:
   push to both branches, stopping at the first step that fails.  A reply
   says `git meta` instead of the five lines, for a `.meta` round and a
   changed lock file alike.
-- **The password never leaves the client as typed** (Jacob, 2026-10-01:
-  "we don't want to save it to their local disk as plain text!").  On
-  SUBMIT it's turned into a key (`Assets/Code/Security/PasswordKey.cs`,
-  PBKDF2-SHA256, salted with the username), and the key is what's sent
-  and what Remember Me keeps (`remembered_login.json`, in the player's
-  folder, below).  `design/client-security.md` is the recipe, and
-  Conductor makes the same key from what the admin types on the Accounts
-  tab.  Any change to the recipe locks every account out.  Both halves
-  are built and tested (Conductor's, protocol version 7, 2026-10-02).
+- **Ensemble never logs in and never sees a password** (2026-10-02, the
+  login moved to Soundcheck; it was Ensemble's from 2026-10-01).  The
+  password's key, Remember Me and the server's certificate are
+  Soundcheck's now ("Launcher rules", below), and Ensemble has no TCP, no
+  TLS and no `Security/` folder.  What it has is **the ticket**
+  (`Assets/Code/Net/Ticket.cs`): Soundcheck starts the game with the
+  server's address, the UDP port, the one-time token and its own path in
+  the game's environment, `OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`
+  and `OPUS_SOUNDCHECK` (the contract, in `design/soundcheck.md`), and
+  the game sends Connect at once, so the first thing a player sees is
+  character select.  Player Settings' Version no longer goes anywhere:
+  the version in the Login is Soundcheck's.
+- **The start screen is the fallback, not a step** (`start_default.json`,
+  `start.uss`, the `start_background`, `start_logo` and `start_card`
+  widgets): what the game shows when there's no ticket (started by hand,
+  or in the editor), saying to start it from the launcher, with QUIT.
+  **Every way out goes back to the launcher**: a session that ends
+  (Kicked, the server gone, LOG OUT, `/camp`) starts Soundcheck from
+  `OPUS_SOUNDCHECK` and closes the game, so the player is looking at the
+  login; `/camp desktop` and QUIT close it without.  A game with no
+  launcher to go back to stays on the start screen, which says why.
+- **Dev mode is the editor's way in** (Jacob, 2026-10-02: "Play/Dev
+  Mode"): there's no launcher to start the editor's game, so the start
+  screen's card, in the editor only (`#if UNITY_EDITOR`), looks once a
+  second for a fresh ticket in `debug_ticket.json` in the player folder,
+  written by Soundcheck's `--debug` SUBMIT, and joins the world the moment
+  one lands; a ticket is taken once and dropped after 30 seconds, the
+  token's life.  So: Play in Unity, SUBMIT in Soundcheck, and the editor is
+  at character select.  A session that ends in the editor is the start
+  screen again, with why, waiting for the next ticket.  A built game never
+  looks at the file.
 - **The client's net code is `Assets/Code/Net/`** (namespace `Opus.Net`,
-  `design/ensemble-networking.md`).  The connections run on threads of
-  their own and never touch the screen: what they hear goes through
-  `MainThread.Post()`, run from ScreenRoot's `Update()`, to `Session`,
-  which owns the flow and tells the screens through its events.  The
-  keep-alives are sent from a thread, not `Update()`, so they go on with
-  the window in the background.  The client trusts one certificate, its
-  copy in `Assets/Data/Certs/`, byte for byte.  The Login carries Player
-  Settings' Version (`0.0.1` since the release, 2026-10-02; it was `0.0.0.1`, Jacob: "we're not ready for 0.0.1
-  yet"), which `networking.cfg`'s `client_versions` has to list.
+  `design/ensemble-networking.md`): the ticket, and the game over UDP.
+  The connection runs on threads of its own and never touches the screen:
+  what it hears goes through `MainThread.Post()`, run from ScreenRoot's
+  `Update()`, to `Session`, which owns the flow and tells the screens
+  through its events.  The keep-alives are sent from a thread, not
+  `Update()`, so they go on with the window in the background.
 - **A slot filled in the Inspector lives in the scene**, which isn't
   committed: the reply that asks for one says File > Save after.  On
   2026-10-02 the Server Certificate slot was found empty after a check had
@@ -942,7 +962,7 @@ When I say we're wrapping up:
 - **The chat window** (`ChatWidget.cs`, `design/ensemble-hud.md`): the
   HUD comes up over the Unity scene on `Session.ReachedWorld`; a line typed
   goes out as typed through `Session.SendLine()`, which catches `/camp`
-  (to the login) and `/camp desktop` (closes the game) before anything is
+  (to the launcher) and `/camp desktop` (closes the game) before anything is
   sent; what comes back is `ChatLine` (white) and `WhoAnswered`
   (`WhoBox.cs`, to the window's width in letters).  The player's own
   lines are yellow.  Rich text is off on every line.  **The keys are
@@ -982,10 +1002,14 @@ When I say we're wrapping up:
   it and name ours.
 - **ScreenRoot** (`Assets/Scripts/Hud/ScreenRoot.cs`, on the GameObject
   beside the UI Document component) owns every screen and which one is
-  showing; a new screen gets its slots there.  It starts on the login.
+  showing; a new screen gets its slots there.  It starts on the start
+  screen, and with a ticket in the environment joins the world at once.
   Each screen carries its own style sheet.  A widget that has to cover the
-  whole screen whatever its shape (the login's background) says
-  `FillsScreen` in its catalog entry.
+  whole screen whatever its shape (the start screen's background) says
+  `FillsScreen` in its catalog entry.  The words' colour and font on the
+  start screen and character select are its Screen Text Color and Screen
+  Text Font (they were Login Text Color and Font; `FormerlySerializedAs`
+  keeps what's set).
 - **Unity calls two things a "UI Document"**: a UXML file (Create > UI
   Toolkit > UI Document) and the component on a GameObject.  We use only the
   component, with no Source Asset.  A reply that sends Jacob into the editor
@@ -1001,10 +1025,11 @@ When I say we're wrapping up:
   "remove login from the game like monsters and memories did").  Soundcheck
   does everything that's TCP: TLS 1.3 (its .NET can; Unity's couldn't, which
   is why Conductor took 1.2), Hello, the version, the Login with the key, the
-  other-session choice, the Ticket.  Ensemble will start on character select
-  with the ticket from its environment and never speak TCP.  Until Ensemble's
-  half is built, Soundcheck drops the Ticket's token unlogged and PLAY stays
-  greyed.
+  other-session choice, the Ticket.  Ensemble starts on character select
+  with the ticket from its environment and never speaks TCP (its half,
+  2026-10-02: "Client rules" has the four variables).  Until PLAY is built,
+  Soundcheck drops the Ticket's token unlogged and PLAY stays greyed; in
+  `--debug` the ticket goes to the file the editor's game watches.
 - **After the login, before Ensemble, the manifest check** (Jacob: "this
   happens AFTER LOGIN ONLY BUT BEFORE WE GO TO ENSEMBLE").  The server hands
   the client the stamp, the client checks itself first ("most of the time its
@@ -1025,7 +1050,8 @@ When I say we're wrapping up:
   `patch.cfg` allows debug clients, off by default), so a changed Ensemble
   plays without a new stamp.  The ticket also goes to `debug_ticket.json` in
   the player folder, for an Ensemble running in Unity's editor, which
-  Soundcheck can't start.  The window says DEBUG MODE.  Never the default.
+  Soundcheck can't start: the editor's game watches for it (dev mode,
+  "Client rules" above).  The window says DEBUG MODE.  Never the default.
 - **Soundcheck ends the process itself on Avalonia's `Exit` event**
   (`App.axaml.cs`), before Avalonia's own shutdown runs: on KDE's Wayland
   session that shutdown dies with a TaskCanceledException out of the DBus
@@ -1042,13 +1068,14 @@ When I say we're wrapping up:
   and it didn't (2026-10-02); the comment was corrected.  Avalonia's tracker
   and its source (raw.githubusercontent.com reaches the session) are read
   before a third guess.
-- **The ported files stay the same files.**  `Net/Protocol.cs`, `Packets.cs`,
+- **The ported files are Soundcheck's now.**  `Net/Protocol.cs`, `Packets.cs`,
   `ServerCertificate.cs`, `LoginConnection.cs`, `Security/PasswordKey.cs` and
   `RememberedLogin.cs` came from Ensemble with a new header and no Unity in
-  them; a fix to one goes in both until Ensemble's copies go.  Soundcheck
-  reads the same `remembered_login.json` in the same player folder
-  (`PlayerFiles.cs` builds the path without Unity), so there's one Remember
-  Me, not two.
+  them, and Ensemble's copies are gone (2026-10-02), so a fix goes in one
+  place.  `Protocol.cs` and `Packets.cs` are still in both, since the game
+  speaks the UDP half; a packet change touches both.  Soundcheck reads the
+  same `remembered_login.json` in the same player folder (`PlayerFiles.cs`
+  builds the path without Unity), so there's one Remember Me, not two.
 - **The login's thread talks to the screen through `ILoginListener`**, called
   on the login's thread; the screen puts every call back on the window's
   thread with `Dispatcher.UIThread.Post()`.  Anything slow (the key, hashing a

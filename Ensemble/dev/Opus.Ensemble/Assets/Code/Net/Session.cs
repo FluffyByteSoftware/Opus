@@ -1,20 +1,24 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Net/Session.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// The player's session with the server, from SUBMIT to the login screen
-// again.  It runs the two connections in turn (the login over TCP, then
-// the game over UDP), keeps where the player is, makes the asks at
-// character select (the list, CREATE, DELETE, RESET HOME, PLAY) and sends
-// what's typed in the chat box once the character is in the world, and
-// tells the screens through its events.  Main thread only: the connections' threads reach it
-// through MainThread.Post, and every message from a connection that's
-// already been dropped is ignored.
+// The player's session with the server, from the ticket to the launcher
+// again.  The launcher (Soundcheck) did the login; the game starts with
+// the ticket it earned (Ticket.cs), opens UDP to the server, keeps where
+// the player is, makes the asks at character select (the list, CREATE,
+// DELETE, RESET HOME, PLAY) and sends what's typed in the chat box once
+// the character is in the world, and tells the screens through its
+// events.  Main thread only: the connection's threads reach it through
+// MainThread.Post, and every message from a connection that's already
+// been dropped is ignored.
 //
 // There's no reconnect.  However the session ends (a Kicked, the server
-// going quiet, LOG OUT), the player is back at the login and starts over.
+// going quiet, LOG OUT, /camp), the player is gone from the server, and
+// the game goes back to the launcher: it starts Soundcheck again and
+// closes, so the player is looking at the login.  A game that wasn't
+// started by the launcher (the editor, or one started by hand) stays
+// open on the start screen, which says why.
 
 using System;
-using System.Threading.Tasks;
 using UnityEngine;
 
 namespace Opus.Net
@@ -22,8 +26,6 @@ namespace Opus.Net
     public enum SessionStage
     {
         LoggedOut,
-        LoggingIn,
-        AskedAboutOtherSession,
         Connecting,
         AtCharacterSelect,
         InWorld,
@@ -31,10 +33,6 @@ namespace Opus.Net
 
     public static class Session
     {
-        // The server's certificate as PEM text, from ScreenRoot's Server
-        // Certificate slot.  The client trusts that one and no other.
-        public static string Certificate;
-
         public static SessionStage Stage { get; private set; }
 
         public static bool Busy
@@ -42,9 +40,12 @@ namespace Opus.Net
             get { return Stage != SessionStage.LoggedOut; }
         }
 
-        // When the player's time to answer about the other session runs
-        // out, UTC.
-        public static DateTime ChoiceDeadline { get; private set; }
+        // What the start screen says: what's happening before character
+        // select ("Joining the world..."), or why the last session ended,
+        // and whether it's something gone wrong.  Null when there's nothing
+        // to say yet.
+        public static string Notice { get; private set; }
+        public static bool NoticeTrouble { get; private set; }
 
         // The account's characters, in slot order, or null while they're
         // still being asked for.
@@ -71,20 +72,8 @@ namespace Opus.Net
         // The character's name once it's in the world, or null.
         public static string InWorldAs { get; private set; }
 
-        // What's happening, for the login's status line, and whether it's
-        // something gone wrong.
-        public static event Action<string, bool> StatusChanged;
-
-        // The account is already in the world from somewhere else: the
-        // player picks, before ChoiceDeadline, with Choose().
-        public static event Action OtherSessionAsked;
-
-        // The password was right and the Ticket came.
-        public static event Action LoggedIn;
-
-        // The server said Invalid Credentials, so whatever key was sent is
-        // no good (or the username isn't an account).
-        public static event Action WrongPassword;
+        // Notice changed: the start screen's card redraws.
+        public static event Action NoticeChanged;
 
         // The UDP side said Welcome: the player is at character select.
         public static event Action ReachedCharacterSelect;
@@ -97,9 +86,10 @@ namespace Opus.Net
         // it), rung before CharacterSelectChanged.  The cards close on a yes.
         public static event Action<byte, bool> AskAnswered;
 
-        // The session is over and the player is back at the login: why,
-        // and whether it's something gone wrong.
-        public static event Action<string, bool> BackAtLogin;
+        // The session is over and the game is staying open: why, and
+        // whether it's something gone wrong.  Not rung when the game goes
+        // back to the launcher instead.
+        public static event Action<string, bool> SessionOver;
 
         // PLAY's answer came: the character is in the world, and the HUD
         // takes over from character select.
@@ -112,7 +102,6 @@ namespace Opus.Net
         // /who's answer, for the chat box to draw.
         public static event Action<WhoAnswer> WhoAnswered;
 
-        static LoginConnection login;
         static GameConnection game;
 
         // The name of the character RESET HOME was asked for, for its
@@ -120,41 +109,33 @@ namespace Opus.Net
         static string sentHome;
 
         // ---------------------------------------------------------------
-        // From the screens
+        // In: the ticket
         // ---------------------------------------------------------------
 
-        // SUBMIT.  Starts connecting at once; the key can still be being
-        // made.  False if it couldn't start (it says why on the status line).
-        public static bool LogIn(string host, ushort port, string username, Task<string> key)
+        // The ticket from the launcher (or, in the editor, from Soundcheck's
+        // debug file): straight to the server's UDP port, and character
+        // select once it says Welcome.  False if it couldn't start (the
+        // start screen says why).
+        public static bool Enter(Ticket ticket)
         {
             if (Busy)
                 return false;
 
-            byte[] carried = ServerCertificate.FromPem(Certificate);
-            if (carried == null)
+            ForgetCharacterSelect();
+            try
             {
-                Debug.LogError("Login: there's no server certificate to check the server against.  Drag "
-                               + "conductor_crt.txt, from Assets/Data/Certs, onto ScreenRoot's Server Certificate.");
-                Say("This client has no copy of the server's certificate, so it can't log in.", true);
+                game = GameConnection.Start(ticket.Host, ticket.UdpPort, ticket.Token);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning("Game: couldn't open UDP to " + ticket.Host + ":" + ticket.UdpPort + " ("
+                                 + e.Message + ").");
+                Finish("Couldn't reach the server's game port.", true);
                 return false;
             }
-
-            Stage = SessionStage.LoggingIn;
-            ForgetCharacterSelect();
-            // Player Settings' Version.  networking.cfg's client_versions has
-            // to list it, or the server says Outdated Client Failure.
-            login = LoginConnection.Start(host, port, carried, Application.version, username, key);
+            Stage = SessionStage.Connecting;
+            Tell("Joining the world...", false);
             return true;
-        }
-
-        // The player's answer about the other session: true logs it out,
-        // false logs this one off.
-        public static void Choose(bool logOtherOut)
-        {
-            if (Stage != SessionStage.AskedAboutOtherSession || login == null)
-                return;
-            Stage = SessionStage.LoggingIn;
-            login.Choose(logOtherOut);
         }
 
         // ---------------------------------------------------------------
@@ -310,9 +291,9 @@ namespace Opus.Net
             game.Ask(Protocol.PlayerCommand, line);
         }
 
-        // /camp, any capitals, logs out to the login; /camp desktop logs out
-        // and closes the game (Jacob, 2026-10-02).  True when the line was a
-        // /camp, whatever came after it.
+        // /camp, any capitals, logs out, back to the launcher; /camp desktop
+        // logs out and closes the game without it (Jacob, 2026-10-02).
+        // True when the line was a /camp, whatever came after it.
         static bool Camped(string line)
         {
             string typed = line.Trim();
@@ -324,13 +305,12 @@ namespace Opus.Net
             string rest = space < 0 ? "" : typed.Substring(space + 1).Trim();
             if (rest == "")
             {
-                Debug.Log("Game: camped to the login.");
+                Debug.Log("Game: camped to the launcher.");
                 LogOut();
             }
             else if (string.Equals(rest, "desktop", StringComparison.OrdinalIgnoreCase))
             {
                 Debug.Log("Game: camped to the desktop.");
-                LogOut();
                 CloseTheGame();
             }
             else
@@ -340,18 +320,12 @@ namespace Opus.Net
             return true;
         }
 
-        // The game closing itself.  In the editor Application.Quit() does
-        // nothing, so Play mode stops instead.
-        static void CloseTheGame()
-        {
-#if UNITY_EDITOR
-            UnityEditor.EditorApplication.isPlaying = false;
-#else
-            Application.Quit();
-#endif
-        }
+        // ---------------------------------------------------------------
+        // Out
+        // ---------------------------------------------------------------
 
-        // LOG OUT: a Goodbye to the server, and back to the login.
+        // LOG OUT, or /camp: a Goodbye to the server, and back to the
+        // launcher.
         public static void LogOut()
         {
             if (!Busy)
@@ -359,6 +333,16 @@ namespace Opus.Net
             Debug.Log("Game: logged out.");
             Drop();
             Finish("Logged out.", false);
+        }
+
+        // QUIT on the start screen, or /camp desktop: a Goodbye to the
+        // server if there's a session, and the game closes without going
+        // back to the launcher.
+        public static void CloseTheGame()
+        {
+            Drop();
+            Stage = SessionStage.LoggedOut;
+            StopRunning();
         }
 
         // The game is closing (or Play mode stopping).  The same as LOG OUT,
@@ -376,63 +360,52 @@ namespace Opus.Net
                 game.Close(true);
                 game = null;
             }
-            if (login != null)
-            {
-                login.Cancel();
-                login = null;
-            }
         }
 
-        // ---------------------------------------------------------------
-        // From the login's thread, through MainThread
-        // ---------------------------------------------------------------
-
-        internal static void LoginStatus(LoginConnection from, string words)
+        // The program ending.  In the editor Application.Quit() does
+        // nothing, so Play mode stops instead.
+        static void StopRunning()
         {
-            if (from == login)
-                Say(words, false);
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
 
-        internal static void AskedAboutOtherSession(LoginConnection from)
+        // Starts Soundcheck again, from the path it left in the environment
+        // (Ticket.cs), so a player who's out is looking at the login.  The
+        // used-up ticket doesn't go along.  False when the game wasn't
+        // started by the launcher, or the launcher can't be started (the
+        // log says why); never in the editor, where there's no launcher to
+        // go back to.
+        static bool BackToTheLauncher()
         {
-            if (from != login)
-                return;
-            Stage = SessionStage.AskedAboutOtherSession;
-            ChoiceDeadline = DateTime.UtcNow.AddSeconds(LoginConnection.ChoiceSeconds);
-            if (OtherSessionAsked != null)
-                OtherSessionAsked();
-        }
-
-        internal static void LoginEnded(LoginConnection from, string why, bool wrongPassword)
-        {
-            if (from != login)
-                return;
-            login = null;
-            if (wrongPassword && WrongPassword != null)
-                WrongPassword();
-            Finish(why, true);
-        }
-
-        internal static void TicketCame(LoginConnection from, string host, ushort udpPort, string token)
-        {
-            if (from != login)
-                return;
-            login = null;
-            if (LoggedIn != null)
-                LoggedIn();
-
+#if UNITY_EDITOR
+            return false;
+#else
+            string path = Ticket.LauncherPath();
+            if (path == null)
+                return false;
             try
             {
-                game = GameConnection.Start(host, udpPort, token);
+                var start = new System.Diagnostics.ProcessStartInfo(path);
+                start.UseShellExecute = false;
+                start.WorkingDirectory = System.IO.Path.GetDirectoryName(path);
+                start.EnvironmentVariables.Remove(Ticket.ServerVariable);
+                start.EnvironmentVariables.Remove(Ticket.UdpPortVariable);
+                start.EnvironmentVariables.Remove(Ticket.TokenVariable);
+                start.EnvironmentVariables.Remove(Ticket.LauncherVariable);
+                System.Diagnostics.Process.Start(start);
+                Debug.Log("Game: back to the launcher, " + path + ".");
+                return true;
             }
             catch (Exception e)
             {
-                Debug.LogWarning("Game: couldn't open UDP to " + host + ":" + udpPort + " (" + e.Message + ").");
-                Finish("Couldn't reach the server's game port.", true);
-                return;
+                Debug.LogError("Game: couldn't start the launcher, " + path + " (" + e.Message + ").");
+                return false;
             }
-            Stage = SessionStage.Connecting;
-            Say("Joining the world...", false);
+#endif
         }
 
         // ---------------------------------------------------------------
@@ -559,7 +532,7 @@ namespace Opus.Net
         }
 
         // PLAY's answer: the character is in the world.  Character select is
-        // behind the player now; the way out is LOG OUT, to the login.
+        // behind the player now; the way out is LOG OUT, to the launcher.
         internal static void EnteredWorld(GameConnection from, string name)
         {
             if (from != game)
@@ -601,10 +574,13 @@ namespace Opus.Net
 
         // ---------------------------------------------------------------
 
-        static void Say(string words, bool trouble)
+        // The start screen's line.
+        static void Tell(string words, bool trouble)
         {
-            if (StatusChanged != null)
-                StatusChanged(words, trouble);
+            Notice = words;
+            NoticeTrouble = trouble;
+            if (NoticeChanged != null)
+                NoticeChanged();
         }
 
         static void Chat(string line)
@@ -651,12 +627,21 @@ namespace Opus.Net
             InWorldAs = null;
         }
 
+        // The session is over, however it ended.  A game the launcher
+        // started goes back to it and closes; any other stays open on the
+        // start screen, which says why.
         static void Finish(string why, bool trouble)
         {
             Stage = SessionStage.LoggedOut;
             ForgetCharacterSelect();
-            if (BackAtLogin != null)
-                BackAtLogin(why, trouble);
+            Tell(why, trouble);
+            if (BackToTheLauncher())
+            {
+                StopRunning();
+                return;
+            }
+            if (SessionOver != null)
+                SessionOver(why, trouble);
         }
     }
 }

@@ -182,35 +182,31 @@ Opus/
 │           │   │   ├── WhoBox.cs      # /who's answer drawn as the MUD's box, to the chat window's width
 │           │   │   ├── GameFocus.cs   # the game's place-holder for the keyboard's focus on the HUD
 │           │   │   └── Widgets/       # the HUD's health and minimap (placeholders) and the chat window; the
-│           │   │                      #   login's nine, and LoginForm.cs, where they meet: SUBMIT, Remember
-│           │   │                      #   Me, the status line; character select's ten, and
+│           │   │                      #   start screen's three (background, logo, the card: the line, QUIT,
+│           │   │                      #   and dev mode in the editor); character select's ten, and
 │           │   │                      #   CharacterSelectForm.cs, where they meet: the list and its pick,
 │           │   │                      #   PLAY, CREATE, DELETE, RESET HOME, the two cards
 │           │   ├── Net/               # the client's net code, namespace Opus.Net (design/ensemble-networking.md)
 │           │   │   ├── Protocol.cs    # the version, the packet types, the answers, the Kicked reasons' words
 │           │   │   ├── Packets.cs     # PacketWriter and PacketReader: PROTOCOL.md's bytes
-│           │   │   ├── ServerCertificate.cs # the one certificate trusted, matched byte for byte
-│           │   │   ├── LoginConnection.cs # the login over TLS, its own thread, to the Ticket
+│           │   │   ├── Ticket.cs      # the launcher's ticket out of the environment (OPUS_SERVER, OPUS_UDP_PORT,
+│           │   │   │                  #   OPUS_TOKEN, OPUS_SOUNDCHECK); in the editor, out of debug_ticket.json
 │           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks, the chat, Spans; Kicked and the
 │           │   │   │                  #   quiet timer end it
 │           │   │   ├── MainThread.cs  # what the threads hand to Unity's main thread, run once a frame
-│           │   │   └── Session.cs     # the flow from SUBMIT back to the login, character select's asks, a line
-│           │   │                      #   typed (/camp caught here), the events
-│           │   └── Security/          # namespace Opus.Security (design/client-security.md)
-│           │       ├── PasswordKey.cs # the password's key, made on SUBMIT: what's sent and kept, never the password
-│           │       └── RememberedLogin.cs # Remember Me's file, in the player's own folder for the game
+│           │   │   └── Session.cs     # the flow from the ticket back to the launcher, character select's asks, a
+│           │   │                      #   line typed (/camp caught here), the events
 │           ├── Scripts/
-│           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the login, character select,
-│           │                          #   the HUD) and which is showing; the text colour and font; the server's
-│           │                          #   certificate; runs MainThread once a frame
+│           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the start screen, character
+│           │                          #   select, the HUD) and which is showing; takes the ticket at start; the
+│           │                          #   text colour and font; runs MainThread once a frame
 │           └── Data/                  # our own data files
 │               ├── Layouts/hud_default.json # the HUD's default layout, 2560 x 1440
-│               ├── Layouts/login_default.json # the login's layout, 1920 x 1080
+│               ├── Layouts/start_default.json # the start screen's layout, 1920 x 1080
 │               ├── Layouts/character_select_default.json # character select's layout, 1920 x 1080
 │               ├── Styles/hud.uss     # the HUD's look
-│               ├── Styles/login.uss   # the login's look
-│               ├── Styles/character_select.uss # character select's look
-│               └── Certs/conductor_crt.txt # a copy of Content/certs/conductor.crt: the one server trusted
+│               ├── Styles/start.uss   # the start screen's look
+│               └── Styles/character_select.uss # character select's look
 ├── Soundcheck/                        # the launcher (design/soundcheck.md): C# on .NET 10, Avalonia for the window
 │   ├── build/                         # compiled output -- never committed
 │   └── dev/                           # the project; bin/ and obj/ are gitignored

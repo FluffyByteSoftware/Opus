@@ -75,7 +75,7 @@ reference, an anchored widget stays with its corner or edge.
 |-------------|--------|------------|
 | `format`    | string | Always `"opus-hud-layout"`.  Anything else isn't a layout. |
 | `version`   | number | `1`. |
-| `screen`    | string | The screen it's for: `"hud"`, `"login"` or `"character_select"`.  Only the HUD's layout is ever the player's; the other two ship with the game. |
+| `screen`    | string | The screen it's for: `"hud"`, `"start"` or `"character_select"`.  Only the HUD's layout is ever the player's; the other two ship with the game. |
 | `name`      | string | A name for a person to read ("Default", "Combat").  The game doesn't use it yet. |
 | `reference` | object | `width` and `height`, the screen the layout was made on, in pixels.  320 to 7680 wide, 240 to 4320 tall. |
 | `widgets`   | array  | The widgets placed, in draw order within a layer.  A widget not in it isn't shown. |
@@ -109,7 +109,7 @@ the sizes above.
 6. A size under the widget's `minSize` (scaled to the reference): raised to it.  A size bigger than the reference: cut to it.
 7. A widget off the reference screen, wholly or partly: moved back on, by changing its offset.
 
-**A widget whose catalog entry says `fillsScreen`** (the login's background) covers the whole real screen,
+**A widget whose catalog entry says `fillsScreen`** (the start screen's background) covers the whole real screen,
 whatever its shape, and its `anchor`, `offset` and `size` are ignored, so rules 4 to 7 don't apply to it.
 Its `layer` and its place in the file still count.
 
@@ -151,7 +151,7 @@ Each widget:
 | `displayName`   | string  | Its name in the editor's palette. |
 | `description`   | string  | A line about it, for the editor's tooltip. |
 | `color`         | string  | `#RRGGBB`, the colour of its placeholder box in the editor. |
-| `screens`       | array   | The screens it can go on (`"hud"`, `"login"`, `"character_select"`). |
+| `screens`       | array   | The screens it can go on (`"hud"`, `"start"`, `"character_select"`). |
 | `defaultSize`   | object  | `width` and `height` when it's first dropped, in pixels on a 2560 x 1440 reference (scaled for another, above). |
 | `minSize`       | object  | The smallest it can be, the same way. |
 | `resizable`     | boolean | `false` means it's always its `defaultSize`. |

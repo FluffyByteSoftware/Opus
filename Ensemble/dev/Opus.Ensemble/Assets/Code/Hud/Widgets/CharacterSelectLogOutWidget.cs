@@ -2,7 +2,7 @@
 // Component:  Ensemble
 // Author:     Jacob Chacko
 // LOG OUT at character select: a Goodbye to the server, and back to the
-// login screen.
+// launcher (or, with no launcher to go back to, the start screen).
 
 using Opus.Net;
 using UnityEngine;
@@ -16,7 +16,7 @@ namespace Opus.Hud
         {
             Id = "character_select_log_out",
             DisplayName = "Log Out",
-            Description = "Back to the login screen.",
+            Description = "Back to the launcher.",
             Color = "#6A4A2A",
             Screens = new[] { "character_select" },
             DefaultSize = new Vector2(320f, 75f),

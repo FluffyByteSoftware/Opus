@@ -2,7 +2,7 @@
 // Component:  Ensemble
 // Author:     Jacob Chacko
 // What every widget is: a piece of a screen (the HUD's health bar, the
-// login's username box) that draws its own insides and knows nothing about
+// start screen's card) that draws its own insides and knows nothing about
 // where it sits.
 
 using UnityEngine;

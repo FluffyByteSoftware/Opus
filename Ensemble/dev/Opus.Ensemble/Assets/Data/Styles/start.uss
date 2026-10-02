@@ -1,0 +1,95 @@
+/*
+ * File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Data/Styles/start.uss
+ * Component:  Ensemble
+ * Author:     Jacob Chacko
+ * The start screen's look.  Only the start screen carries this sheet, so
+ * its .widget is the start screen's and never the HUD's.  The words'
+ * colour and font aren't here: they're ScreenRoot's Screen Text Color and
+ * Screen Text Font, in the Inspector.  Sizes are in the layout's reference
+ * pixels.
+ */
+
+.widget {
+    overflow: hidden;
+}
+
+/* The background: black for now.  A picture goes in here later, as
+   background-image, with -unity-background-scale-mode: scale-and-crop so
+   it covers any shape of screen. */
+.widget-start_background {
+    background-color: rgb(0, 0, 0);
+}
+
+/* The logo: a placeholder box with LOGO in the middle. */
+.widget-start_logo {
+    align-items: center;
+    justify-content: center;
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.25);
+    border-radius: 6px;
+}
+
+.start-logo {
+    font-size: 56px;
+    -unity-font-style: bold;
+    letter-spacing: 8px;
+}
+
+/* The card: the line, the dev mode line in the editor, and QUIT, down the
+   middle. */
+.widget-start_card {
+    align-items: center;
+    justify-content: center;
+    padding: 24px 30px;
+    background-color: rgb(24, 26, 32);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+}
+
+/* What the game has to say.  Trouble is a dark red band behind the
+   words, not a colour for them: the words' colour is ScreenRoot's. */
+.start-line {
+    font-size: 24px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin: 0 0 16px 0;
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+
+.start-line--trouble {
+    background-color: rgba(140, 32, 32, 0.45);
+}
+
+/* Dev mode's line, the editor only. */
+.start-dev {
+    font-size: 18px;
+    -unity-font-style: italic;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin: 0 0 16px 0;
+    padding: 0;
+}
+
+/* QUIT: lighter under the mouse, and it sinks a little while it's held
+   down. */
+.start-quit {
+    width: 240px;
+    height: 56px;
+    margin: 0;
+    font-size: 22px;
+    -unity-font-style: bold;
+    background-color: rgb(58, 86, 140);
+    border-width: 0;
+    border-radius: 4px;
+}
+
+.start-quit:hover {
+    background-color: rgb(72, 104, 166);
+}
+
+.start-quit:active {
+    background-color: rgb(40, 62, 104);
+    translate: 0 2px;
+}

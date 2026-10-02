@@ -361,9 +361,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   whether Connections keeps its own lock.  CLAUDE.md's rule gets rewritten with it.
 - **`access_list` switchable from the page at once.**  Today it takes on the next START SERVER, while the
   lists take at once.  Jacob's call if the reboot is a bother.
-- The client versions are a list in `networking.cfg`.  Ensemble sends Player Settings' Version as it is
-  (`0.0.0.1`, 2026-10-02: "we're not ready for 0.0.1 yet"); the list is `0.0.0.1, 0.0.1` for it and the test
-  client.  Its default in `constellations/files.rs` is still `0.0.1`.
+- The client versions are a list in `networking.cfg`, `0.0.0.1, 0.0.1` today.  `0.0.0.1` was Ensemble's
+  pre-release version and is stale: the Login's version is Soundcheck's now (`0.0.1`, its csproj's
+  `<Version>`), and Ensemble sends none.  Taken out with the `tls12` feature ("Soundcheck", above).
 - Reverse DNS on macOS: `dns/other.rs` hands back no name.  macOS has `getnameinfo` with its own
   `sockaddr` layout (a length byte first).  Waits on a Mac.
 
@@ -418,14 +418,21 @@ step each:
   client folder); `Content/patch/` read and checked against its manifest at START SERVER, a Warn and no
   downloads on a mismatch; `serde` and `serde_json` (Jacob, 2026-10-02: "yes add it").  `PROTOCOL_VERSION`
   bumps; `test_client.py` gets a `--client-folder`.
-- **Ensemble's half**: the login screen and the TCP half of `Assets/Code/Net/` go; it starts on character
-  select with the ticket read from its environment (the address, the UDP port, the token, and Soundcheck's
-  path); no ticket is a screen saying to start the game from the launcher; when its session ends it starts
-  Soundcheck and quits (`/camp desktop` quits without); the world's files move to
+- **Ensemble's half is written** (2026-10-02, waiting on Unity; `design/soundcheck.md`, "Ensemble's side"):
+  the login screen and the TCP half of `Assets/Code/Net/` are gone; it starts on character select with the
+  ticket read from its environment (`OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`, `OPUS_SOUNDCHECK`); no
+  ticket is the start screen, saying to start the game from the launcher; when its session ends it starts
+  Soundcheck and quits (`/camp desktop` and QUIT quit without); in the editor, dev mode watches for
+  Soundcheck's `debug_ticket.json`.  **Still to do from it**: the world's files move to
   `Assets/StreamingAssets/World/`, a fifth folder of ours under `Assets/`, into the `.gitignore` with its
-  `.meta`.  Then Conductor's `tls12` feature can go, since nothing speaks 1.2 any more.
-- **PLAY in Soundcheck**: a second login, Ensemble started with the ticket in its environment, Soundcheck
-  closing.  Waits on Ensemble's half.
+  `.meta` (Jacob, 2026-10-02: out of that pass).
+- **Conductor's `tls12` feature can go**: nothing speaks 1.2 any more (Soundcheck and `test_client.py` both
+  insist on 1.3).  `networking/Cargo.toml`'s feature list and the comment in `tls.rs`; and `0.0.0.1` comes
+  out of `client_versions` in `Content/cfg/networking.cfg` (Ensemble's old pre-release version; the Login's
+  version is Soundcheck's now, `0.0.1`).  A small Conductor step.
+- **PLAY in Soundcheck**: a second login, Ensemble started with the ticket in its environment (the four
+  variables above), Soundcheck closing.  How Soundcheck finds the game to start (beside itself, most likely,
+  since they ship as one package) is to settle first.
 - **The check in user mode**: hash the install, compare with the stamp, ask for what's off, write each file
   to a temp beside it and swap it in, check again, report.  Waits on Conductor's half.
 - **Where the correct client folder is on the server**: inside `Content/patch/` beside the manifest, or
@@ -436,9 +443,8 @@ step each:
   - **Conductor**: `allow_debug_clients` in `patch.cfg`, off by default; a client that says it won't send a
     manifest is let through to the Ticket only when it's on, else refused with words that say so.  Part of
     Conductor's half above.
-  - **Ensemble in the editor**: reads `debug_ticket.json` from the player folder on a PLAY of its own
-    (editor only, `#if UNITY_EDITOR`), so a fix can be tried without a build or a patch round.  Part of
-    Ensemble's half above.
+  - **Ensemble in the editor**: done with Ensemble's half (dev mode: the start screen watches for
+    `debug_ticket.json` and joins the world when a fresh one lands, editor only).
 - **A log file for Soundcheck**: on Windows a windowed program has no terminal, so `Log.cs` shows nothing
   there.  A file in the player folder, probably.
 - **Soundcheck patching itself**: a running program can't overwrite its own files on Windows.  The first

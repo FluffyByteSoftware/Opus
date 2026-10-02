@@ -29,7 +29,35 @@ failed on TLS 1.3 (below, "TLS"); after that it compiled clean.
   (`Application.version`, `0.0.1` since 2026-10-02), and `networking.cfg`'s `client_versions` is `0.0.0.1, 0.0.1` (the
   second for `test_client.py`, whose default is still `0.0.1`).
 
-## As written
+## The login moved out (2026-10-02, written, waiting on Unity)
+
+Soundcheck does the login now (`design/soundcheck.md`: "remove login from the game like monsters and memories
+did").  So everything below about TLS, the certificate, `LoginConnection.cs`, `ServerCertificate.cs`, the
+`Security/` folder, `LoginForm.cs`, `login_status` and the login screen is history: those files left Ensemble
+(Soundcheck has its own copies, ported the same day), and `Session.cs` lost `LogIn()`, `Choose()`, the two
+login stages and the login's events.  What's there instead:
+
+- **`Net/Ticket.cs`**: the ticket from the launcher, read out of the game's environment at start
+  (`OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`, and `OPUS_SOUNDCHECK` for the way back), and in the editor
+  only, out of Soundcheck's `debug_ticket.json` (dev mode).  A token is good once, for 30 seconds, and is
+  never logged.
+- **`Session.Enter(ticket)`** opens UDP at once; `Welcomed` is character select as before.  `Notice` and
+  `NoticeChanged` are the start screen's line ("Joining the world...", or why the session ended);
+  `SessionOver` replaces `BackAtLogin` and rings only when the game stays open.  `Finish()` starts Soundcheck
+  again (`BackToTheLauncher()`, `System.Diagnostics.Process`, the four variables taken out of what it
+  inherits) and closes the game; with no launcher path, or in the editor, it's the start screen with why.
+  `CloseTheGame()` (QUIT, `/camp desktop`) closes without the launcher.
+- **The start screen** replaces the login on ScreenRoot: `start_default.json`, `start.uss`, three widgets
+  (`start_background`, `start_logo`, `start_card`).  The card says the line, has QUIT, and in the editor
+  carries dev mode: `box.schedule.Execute().Every(1000)` looks for a fresh ticket while the card is on
+  screen, and `Session.Enter()`s it.  ScreenRoot's Login Text Color and Font became Screen Text Color and
+  Font (`FormerlySerializedAs` keeps the values); the Server Certificate slot is gone.
+- **`Protocol.cs`** keeps the whole packet table (it mirrors PROTOCOL.md's) and lost LoginResult's answers,
+  SessionChoice's values, the secret word and the TCP frame cap.  Player Settings' Version is no longer sent
+  anywhere: the version the server checks is Soundcheck's.
+- **Conductor's `tls12` feature** can go now; nothing speaks 1.2 (TODO.md).
+
+## As written (2026-10-02, before the login moved out)
 
 In `Assets/Code/Net/`, namespace `Opus.Net`, plain C#, nothing added to the project:
 

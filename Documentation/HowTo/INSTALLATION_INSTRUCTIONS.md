@@ -140,6 +140,10 @@ lose whatever hadn't been written yet, so use the button.
 
 ## The client
 
+These are the released 0.0.1's steps, where the game logs in itself.  Since then the login has moved into
+Soundcheck, the launcher, which does the login and starts the game; the next release ships the two
+together, and these steps change with it.
+
 1. Unpack the Ensemble package anywhere and run the program in it (`Opus.Ensemble` on Linux,
    `Opus.Ensemble.exe` on Windows).
 2. On the login screen, the **Server IP** is the server's `bind_address` from step 4 (or the machine's

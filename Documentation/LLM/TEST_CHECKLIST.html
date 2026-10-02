@@ -197,6 +197,70 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>Ensemble: the start screen and the launcher's ticket (2026-10-02)</h2>
+<p>The login is out of Ensemble.  First the pull and the deletions, then Unity.  The deletions are one line
+(the session couldn't run it): it takes out the login's files and their <code>.meta</code>s, and
+<code>git meta</code> commits them with the rest.</p>
+<pre class="cmd">git rm -r -q /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Security* /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Data/Certs* /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Net/LoginConnection.cs* /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Net/ServerCertificate.cs* /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/Widgets/Login* /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Data/Layouts/login_default.json* /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets/Data/Styles/login.uss*</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      After the pull and the <code>git rm</code> line, Unity compiles with a clean Console.  ScreenRoot's
+      Start Layout and Start Style slots take <code>start_default.json</code> and <code>start.uss</code>
+      (the login's two slots and Server Certificate are gone; Login Text Color and Font read Screen Text
+      Color and Font and keep their values), then File &gt; Save.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Play with no Soundcheck running: the start screen, "Start Forgotten Legends from the launcher.", the
+      DEV MODE line under it, QUIT.  The Console says "no ticket from the launcher".  QUIT stops Play mode.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Dev mode: Play in Unity, then SUBMIT in Soundcheck started with <code>--debug</code>.  Within a
+      second the Console says "Dev mode: a fresh ticket from Soundcheck", the card says "Joining the
+      world...", and character select comes up with the account's characters.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      PLAY, then <code>/camp</code> in the chat box: the editor goes back to the start screen saying
+      "Logged out." (Play mode keeps running: no launcher to go back to), and stays there until the next
+      SUBMIT in Soundcheck; the ticket already used is never taken again.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A stale ticket: SUBMIT in Soundcheck, wait past 30 seconds, then Play in Unity.  The start screen stays
+      and nothing joins, with no warning in the Console.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A built Ensemble double-clicked: the start screen with no DEV MODE line, and QUIT closes it.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A built Ensemble started from the terminal with the four variables (below; SUBMIT in Soundcheck's
+      <code>--debug</code> first, the token is read from its file): no start screen beyond "Joining the
+      world...", straight to character select.  <code>/camp</code> from the world closes the game and
+      Soundcheck's window opens in its place; KICK from the web admin's Connections tab does the same.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The same, with <code>/camp desktop</code>: the game closes and nothing opens.
+    </span></label>
+  </li>
+</ul>
+<p>Soundcheck in debug mode, and the built game with its ticket (fill in the game's folder; the launcher's
+path is <code>dotnet build</code>'s output):</p>
+<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+<pre class="cmd">OPUS_SERVER=10.0.0.84 OPUS_UDP_PORT=9998 OPUS_SOUNDCHECK=/opt/storage/Coding/Opus/Soundcheck/dev/bin/Debug/net10.0/Opus.Soundcheck OPUS_TOKEN=$(python3 -c "import json;print(json.load(open('$HOME/.config/unity3d/FluffyByte/Opus.Ensemble/debug_ticket.json'))['Token'])") /THE/GAME/FOLDER/Opus.Ensemble</pre>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

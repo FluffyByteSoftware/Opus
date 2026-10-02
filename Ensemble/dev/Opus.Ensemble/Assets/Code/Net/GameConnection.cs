@@ -12,7 +12,7 @@
 //
 // The session ends with a Kicked, with the server going quiet, or with
 // Close() (LOG OUT, quitting).  Whichever way, there's no reconnect: the
-// player goes back to the login screen and starts over.
+// player goes back to the launcher and starts over.
 
 using System;
 using System.Diagnostics;

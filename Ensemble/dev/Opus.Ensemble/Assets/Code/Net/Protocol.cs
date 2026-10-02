@@ -14,19 +14,16 @@ namespace Opus.Net
         // Hello, and a client built against another stops right there.
         public const byte Version = 10;
 
-        // What a client has to say with its login.  Not a secret from
-        // anybody with a copy of the client; it turns port scanners away
-        // before they cost the server a hash.  networking.cfg's secret_word.
-        public const string SecretWord = "potato";
-
-        // The biggest TCP frame either side takes, and the biggest UDP
-        // packet the server takes.
-        public const int LargestFrame = 4096;
+        // The biggest UDP packet the server takes.  (The TCP frame's cap is
+        // the launcher's business.)
         public const int LargestDatagram = 1200;
 
         // ---------------------------------------------------------------
         // Packet types.  The high four bits are the group: 0x1_ the login
         // over TCP, 0x2_ character select over UDP, 0x3_ the game over UDP.
+        // The login is the launcher's (Soundcheck), and the game never
+        // sends or reads a 0x1_ packet; they're listed so this file is the
+        // whole table, as PROTOCOL.md has it.
         // ---------------------------------------------------------------
 
         public const byte Hello = 0x10;
@@ -62,16 +59,6 @@ namespace Opus.Net
         // ---------------------------------------------------------------
         // What's inside them
         // ---------------------------------------------------------------
-
-        // LoginResult's answer.
-        public const byte LoginFailed = 1;
-        public const byte LoginAlreadyLoggedIn = 2;
-        public const byte LoginOutdated = 3;
-        public const byte LoginUnavailable = 4;
-
-        // SessionChoice, when the account is already in the world.
-        public const byte LogTheOtherOut = 0;
-        public const byte HangUp = 1;
 
         // ConnectResult's answer.
         public const byte Welcome = 0;
