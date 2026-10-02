@@ -29,11 +29,14 @@
 //! characters come into it and leave it through a mailbox (`players.rs`:
 //! `enter()` and `leave()`), and the world is saved every
 //! `world_save_seconds` and as the thread ends on STOP SERVER
-//! (`saving.rs`).  Primlib's other copies aren't saved yet
+//! (`saving.rs`).  The chat comes in through a mailbox of its own
+//! (`chat.rs`) and goes out to everybody in the world from the broadcast
+//! check, once a cycle.  Primlib's other copies aren't saved yet
 //! (design/primlib.md).  The terrain starts empty, and the GameClock asks
 //! GameWorld for the chunks around 0,0,0, where every player starts for
 //! now.  They come in over the first cycles, in housekeeping.
 
+mod chat;
 mod checks;
 mod players;
 mod saving;
@@ -55,6 +58,7 @@ use saving::{WorldSave, Writes};
 
 // Rust note: `pub use` hands these on, so networking can write
 // `conductor_gameclock::enter(...)`.
+pub use chat::{chat, set_chat_sender};
 pub use players::{enter, leave, saving, wait_until_saved};
 
 /// One check's share of a cycle, in milliseconds.
@@ -107,6 +111,7 @@ pub fn start() {
 
     READY.store(false, Ordering::SeqCst);
     players::forget_saving();
+    chat::open();
     services::set(services::GAMECLOCK, State::Starting, "Making a fresh world.");
     let (stop, stopped) = mpsc::channel();
     let notes = players::open_mailbox();
@@ -118,6 +123,7 @@ pub fn start() {
         }
         Err(e) => {
             players::close_mailbox();
+            chat::close();
             scribe::error_with(Channel::Game, &e, "The GameClock couldn't start its thread.  \
                 Nothing in the world moves this run.");
             services::set(services::GAMECLOCK, State::Stopped, &format!("Couldn't start its thread: {e}"));
@@ -133,6 +139,7 @@ pub fn start() {
 pub fn stop() {
     READY.store(false, Ordering::SeqCst);
     players::close_mailbox();
+    chat::close();
     lock(&STOP).take();
 
     let handle = lock(&GAMECLOCK).take();

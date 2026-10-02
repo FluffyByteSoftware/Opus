@@ -50,7 +50,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     characters": the chat box stops taking keys at 300.  For the chat box's session.
   - **One fixed channel** (Jacob, 2026-10-02, asked whether the server sends the pieces): "nah a fixed chat
     channel is sufficient like the way the old shit muds did it!"  The server sends the finished line.
-  - **The plan, OKed** (2026-10-02): protocol version 8; `PlayerCommand` (`0x37`, an ask number and the
+  - **Written, waiting on Jacob's build** (2026-10-02): `design/conductor-networking.md`, "Chat", and
+    PROTOCOL.md have it.  The plan, OKed: protocol version 8; `PlayerCommand` (`0x37`, an ask number and the
     line) answered with CommandAccepted or CommandRefused; the line into a chat mailbox in the GameClock;
     the broadcast check sends `ChatDelivery` (`0x38`, a count and the lines) to everybody in the world,
     through a function networking hands the GameClock at its start.
@@ -58,8 +59,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     we won't implement yet but TODO!"  Saying things (nearby, once there are positions) is still to come;
     until then a line without a `/` is refused.
   - Later: a limit on how fast one player can chat, whether the web admin sees chat, nearby chat.
-  - The client's box after: where "when you log in" puts it (in the world after PLAY, or the HUD with
-    Phase 1's chat placeholder).
+  - **Ensemble's chat box**, after: whatever is typed goes out as a PlayerCommand as it was typed, every
+    ChatDelivery's lines are printed, and it stops taking keys at 300 characters.  Open: where "when you
+    log in" puts it (in the world after PLAY, or the HUD with Phase 1's chat placeholder).  Ensemble speaks
+    version 8 already (the number only) and logs a ChatDelivery as one it doesn't handle yet.
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
   kept below.  Settled for its database side, the first step:

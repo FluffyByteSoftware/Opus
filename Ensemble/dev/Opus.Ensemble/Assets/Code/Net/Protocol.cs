@@ -12,7 +12,7 @@ namespace Opus.Net
     {
         // The version this client speaks.  The server says its own in the
         // Hello, and a client built against another stops right there.
-        public const byte Version = 7;
+        public const byte Version = 8;
 
         // What a client has to say with its login.  Not a secret from
         // anybody with a copy of the client; it turns port scanners away
@@ -53,6 +53,8 @@ namespace Opus.Net
         public const byte Kicked = 0x34;
         public const byte CommandAccepted = 0x35;
         public const byte CommandRefused = 0x36;
+        public const byte PlayerCommand = 0x37;
+        public const byte ChatDelivery = 0x38;
 
         // ---------------------------------------------------------------
         // What's inside them
@@ -122,6 +124,8 @@ namespace Opus.Net
                 case Kicked: return "Kicked";
                 case CommandAccepted: return "CommandAccepted";
                 case CommandRefused: return "CommandRefused";
+                case PlayerCommand: return "PlayerCommand";
+                case ChatDelivery: return "ChatDelivery";
                 default: return "0x" + kind.ToString("X2");
             }
         }

@@ -239,10 +239,12 @@ pub enum Ask {
     Again(Vec<u8>),
     /// A new ask, now theirs to be worked on.  The player's account.
     New(String),
-    /// A new ask from a player whose character is in the world, where
-    /// character select is behind them.  Theirs to be answered with a
-    /// refusal (`finish_ask()`), like any other.  The player's account.
-    InWorld(String),
+    /// A new ask from a player whose character is in the world.  From
+    /// character select's asks, theirs to be answered with a refusal
+    /// (`finish_ask()`), since it's behind them; a command (`/chat`) is
+    /// theirs to be done.  The player's account, and their character's
+    /// name.
+    InWorld(String, String),
 }
 
 /// What the admin's kick of a login's row found in the book.
@@ -486,6 +488,12 @@ pub fn players() -> Vec<PlayerView> {
     players_in(&book(), Instant::now())
 }
 
+/// The address of every player whose character is in the world, for
+/// sending them the chat.  Players at character select aren't on it.
+pub fn in_world() -> Vec<SocketAddr> {
+    in_world_in(&book())
+}
+
 /// Crosses out every player whose address `matches` says so for: a ban
 /// from the web admin.  Nothing is sent from here; the caller tells each
 /// one with a Kicked.  Their addresses and accounts, for that and the log.
@@ -553,8 +561,8 @@ fn begin_ask_in(book: &mut Book, from: SocketAddr, ask: u32, now: Instant) -> As
         return Ask::Busy;
     }
     player.asking = Some(ask);
-    if player.character.is_some() {
-        return Ask::InWorld(player.account.clone());
+    if let Some(character) = &player.character {
+        return Ask::InWorld(player.account.clone(), character.name.clone());
     }
     Ask::New(player.account.clone())
 }
@@ -612,6 +620,13 @@ fn players_in(book: &Book, now: Instant) -> Vec<PlayerView> {
     // Newest first: the shortest time in the world at the top.
     players.sort_by_key(|player| player.playing_for);
     players
+}
+
+fn in_world_in(book: &Book) -> Vec<SocketAddr> {
+    book.players.iter()
+        .filter(|(_, player)| player.character.is_some())
+        .map(|(address, _)| *address)
+        .collect()
 }
 
 fn drop_where_in(book: &mut Book, matches: impl Fn(SocketAddr) -> bool) -> Vec<(SocketAddr, String)> {
@@ -830,10 +845,28 @@ mod tests {
         assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
 
         // A new ask is theirs to be refused, and the refusal is kept.
-        assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::InWorld("jacob".to_string()));
+        assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::InWorld("jacob".to_string(), "Jacob".to_string()));
         assert_eq!(begin_ask_in(&mut book, home, 3, now), Ask::Busy);
         assert!(finish_ask_in(&mut book, home, "jacob", 2, b"no"));
         assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::Again(b"no".to_vec()));
+    }
+
+    #[test]
+    fn only_players_in_the_world_hear_the_chat() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        let brother = address("10.0.0.6:50000");
+        issue_in(&mut book, "jacob", "abc", 1, now);
+        connect_in(&mut book, "abc", home, now);
+        issue_in(&mut book, "brother", "def", 2, now);
+        connect_in(&mut book, "def", brother, now);
+        assert!(in_world_in(&book).is_empty());
+
+        // Jacob picks a character; his brother stays at character select.
+        begin_ask_in(&mut book, home, 1, now);
+        assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
+        assert_eq!(in_world_in(&book), vec![home]);
     }
 
     #[test]

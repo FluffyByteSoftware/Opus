@@ -5,10 +5,10 @@
 //! The five checks, one to each 50 ms of a cycle, in the order they run.
 //! Each one gets the game (the world, the terrain, the players and the
 //! saves on their way) and does whatever it needs to on its own group of
-//! objects.  Input brings players' characters in and out, and
-//! housekeeping takes in the chunks GameWorld has sent and saves the
-//! world; nothing in the world moves yet, and the protocol has no input
-//! packet.  Each says what goes in it.
+//! objects.  Input brings players' characters in and out, broadcast
+//! sends out the chat, and housekeeping takes in the chunks GameWorld has
+//! sent and saves the world; nothing in the world moves yet, and the
+//! protocol has no input packet.  Each says what goes in it.
 //!
 //! Until the ground around 0,0,0 is in, only housekeeping runs, so it can
 //! take the chunks in.  The other four wait their turn and do nothing:
@@ -64,9 +64,13 @@ fn ai(_game: &mut Game) {}
 /// for, checked against the world, lands in each `Transform`.
 fn movement(_game: &mut Game) {}
 
-/// The positions go out: each player is sent what moved, and only what
-/// that player may see.
-fn broadcast(_game: &mut Game) {}
+/// What the players are told goes out.  Today that's the chat said since
+/// the last cycle, to everybody in the world (`chat.rs`).  The positions
+/// will go out here too: each player sent what moved, and only what that
+/// player may see.
+fn broadcast(_game: &mut Game) {
+    crate::chat::broadcast();
+}
 
 /// The rest.  The chunks GameWorld has finished with come into the
 /// terrain here, the saves on their way to the database are looked at,

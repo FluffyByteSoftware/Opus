@@ -19,8 +19,8 @@ them forward on a fixed beat.
 Built and tested on Linux: no warnings, its tests pass, and every run check passed (GameClock green on the
 Services tab at about 240 cycles a minute, its thread near nothing on the CPU, a login leaving the late
 count at 0, and a clean STOP SERVER and START SERVER).  Housekeeping takes in the chunks GameWorld sends and
-saves the world; input brings players' characters in and out of the world through the mailbox; AI, movement
-and broadcast are empty, since nothing in the world moves and the protocol has no input packet.
+saves the world; input brings players' characters in and out of the world through the mailbox; broadcast
+sends out the chat (2026-10-02, "Chat" below); AI and movement are empty, since nothing in the world moves.
 
 **Ready for the spawn** (2026-10-01, built and tested, every check passed): the mailbox, the players' list,
 and the world save.  See "Players and the world save" below.
@@ -31,7 +31,9 @@ and the world save.  See "Players and the world save" below.
 gameclock/
 ├── Cargo.toml     depends on conductor-tools, conductor-primlib, conductor-gameworld and conductor-accounts
 └── src/
-    ├── lib.rs     start(), stop(), ready(); enter() and leave() handed on from players.rs; Game (the world, the
+    ├── chat.rs    the chat's mailbox: chat(line), set_chat_sender(send); broadcast(), for the broadcast check
+    ├── lib.rs     start(), stop(), ready(); enter() and leave() handed on from players.rs, chat() and
+    │                set_chat_sender() from chat.rs; Game (the world, the
     │                terrain, the players, the world save, the saves on their way); the GameClock's thread, the
     │                schedule, the tallies, the Warn; save_world()
     ├── checks.rs  the five checks, in order, each a function that gets the Game
@@ -128,11 +130,25 @@ Jacob's answers, 2026-09-30 and 2026-10-01, preparing the game library for the s
   save in their thousands.  If it ever grows too big for one cycle, spreading it over several loses the one
   moment, so it comes back to Jacob.
 
+## Chat (2026-10-02)
+
+Jacob: "we send a packet to all users including the person who sent the message on the next "chat"
+GameClock tick that carries chat (which should be every beat)".  So the chat goes out from the broadcast
+check, once a 250 ms cycle.  Networking reads a player's `/chat` and leaves the finished line
+(`[Chat] Jacob: Yo yo yo!`) with `chat()`, which comes straight back; the broadcast check takes every line
+left since the cycle before, in order, and hands them to the function networking gave it at its start
+(`set_chat_sender()`), which sends them to everybody in the world.  The GameClock knows nobody's address,
+and can't call networking itself: networking depends on the GameClock, and Rust won't build two crates
+that each need the other.  A plain function handed over solves it; the positions will go out the same way.
+The mailbox is open only while the GameClock runs, and STOP SERVER drops what's in it.  A cycle with no
+chat costs a lock.  The sending is one UDP send per player in the world per cycle that has chat, on the
+GameClock's thread; a guess, not measured.  `design/conductor-networking.md` has the rest.
+
 ## Open
 
 - What each check does, as the pieces come: the input mailbox and the input packet (a protocol version
-  bump), a brain component for the AI, movement into `Transform`, the broadcast (only what each player may
-  see), the spawn system in housekeeping.
+  bump), a brain component for the AI, movement into `Transform`, the positions in the broadcast (only what
+  each player may see), the spawn system in housekeeping.
 - Whether a check's group of objects is picked by its components (the AI check runs over everything with a
   brain), which is how an ECS usually does it.
 - The Tick evaluator tab under GAME MANAGEMENT: what it shows, and the numbers the GameClock keeps for it

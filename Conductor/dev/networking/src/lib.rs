@@ -15,7 +15,9 @@
 //! `stop()` on STOP SERVER.  It has to come up again after that.  Nothing
 //! in here touches the world itself: a character goes in and out through
 //! the GameClock's mailbox (`conductor_gameclock::enter()` and `leave()`),
-//! which never waits.
+//! which never waits.  The chat goes the same way: a line goes in the
+//! GameClock's chat mailbox, and its broadcast check hands the cycle's
+//! lines back to us to send (`chat.rs`).
 //!
 //! Written with the CPU in mind and the RAM less so, Jacob's ask.  Logins
 //! run on a fixed handful of threads rather than one per connection, so a
@@ -32,6 +34,7 @@ use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 
 mod access;
+mod chat;
 mod dns;
 mod ledger;
 pub mod protocol;
@@ -129,6 +132,10 @@ pub fn start() {
         scribe::error(Channel::Network, &format!("NOBODY CAN LOG IN.  {why}"));
         return;
     }
+
+    // The GameClock sends the chat through us.  A plain function, so
+    // handing it over again on every start does no harm.
+    conductor_gameclock::set_chat_sender(chat::send_out);
 
     // Protogame before UDP, so a player's first ask has somewhere to go.
     if let Err(why) = protogame::start() {

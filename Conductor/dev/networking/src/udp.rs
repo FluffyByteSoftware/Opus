@@ -40,6 +40,11 @@
 //! the world, character select is behind them, and an ask from there is
 //! refused from here; they keep alive until they leave one way or
 //! another, and their character leaves with them.
+//!
+//! A player in the world types lines (protocol version 8): a
+//! PlayerCommand, answered from here, since nothing in it waits on the
+//! database.  `/chat` makes a line for everybody (`chat.rs`), which goes
+//! out from the GameClock's next broadcast check through `tell_all()`.
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
@@ -53,6 +58,7 @@ use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
+use crate::chat;
 use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
 use crate::protogame::{self, Work};
 use crate::sessions::{self, Ask, Connected};
@@ -65,6 +71,9 @@ const SWEEP_EVERY: Duration = Duration::from_secs(1);
 /// What a player in the world hears for an ask from character select.
 const CHARACTER_SELECT_IS_BEHIND: &str = "Your character is in the world.  Log out to get back to character \
     select.";
+
+/// What a player at character select hears for a command.
+const NOT_IN_THE_WORLD: &str = "You can chat once your character is in the world.";
 
 /// How much we read in one go.  Bigger than MAX_UDP_BYTES on purpose: a
 /// packet that doesn't fit the buffer gets cut to fit without a word, and
@@ -175,6 +184,22 @@ pub fn tell(to: SocketAddr, bytes: &[u8]) {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some(side) = guard.as_ref() {
         send(&side.socket, to, bytes);
+    }
+}
+
+/// Sends every packet in `packets` to every address in `addresses`, from
+/// the listening socket, from any thread.  For the chat, which goes out
+/// from the GameClock's thread.  Nothing happens if the UDP side isn't
+/// running.
+pub fn tell_all(addresses: &[SocketAddr], packets: &[Vec<u8>]) {
+    let guard = UDP.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(side) = guard.as_ref() {
+        for address in addresses {
+            for packet in packets {
+                send(&side.socket, *address, packet);
+            }
+        }
     }
 }
 
@@ -301,9 +326,15 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 sessions::heard(from);
             }
         },
+        // A line the player typed: a command, `/chat` so far.
+        Some(PacketType::PlayerCommand) => match protocol::read_player_command(payload) {
+            Ok((ask, line)) => player_command(socket, from, ask, &line),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
         // Anything else from a player counts as hearing from them: there
-        // are no game packets past the spawn yet.  From a stranger,
-        // silence.
+        // are no other game packets yet.  From a stranger, silence.
         _ => {
             sessions::heard(from);
         }
@@ -318,7 +349,7 @@ fn ask_protogame(socket: &UdpSocket, from: SocketAddr, ask: u32, work: Work) {
     match sessions::begin_ask(from, ask) {
         Ask::Stranger | Ask::Busy => {}
         Ask::Again(answer) => send(socket, from, &answer),
-        Ask::InWorld(account) => {
+        Ask::InWorld(account, _) => {
             let answer = protocol::command_refused(ask, CHARACTER_SELECT_IS_BEHIND);
             if sessions::finish_ask(from, &account, ask, &answer) {
                 send(socket, from, &answer);
@@ -334,6 +365,35 @@ fn ask_protogame(socket: &UdpSocket, from: SocketAddr, ask: u32, work: Work) {
                 }
             }
         }
+    }
+}
+
+/// A line a player typed.  The other way round from character select:
+/// only a player in the world may, and a player at character select is
+/// refused.  A stranger, or a player whose last ask is still being worked
+/// on, hears nothing; one asked again gets the answer it missed, so a
+/// chat whose answer got lost isn't said twice.
+fn player_command(socket: &UdpSocket, from: SocketAddr, ask: u32, line: &str) {
+    let (account, answer) = match sessions::begin_ask(from, ask) {
+        Ask::Stranger | Ask::Busy => return,
+        Ask::Again(answer) => {
+            send(socket, from, &answer);
+            return;
+        }
+        Ask::New(account) => {
+            let answer = protocol::command_refused(ask, NOT_IN_THE_WORLD);
+            (account, answer)
+        }
+        Ask::InWorld(account, character) => {
+            let answer = match chat::command(&account, &character, line) {
+                Ok(()) => protocol::command_accepted(ask),
+                Err(why) => protocol::command_refused(ask, why),
+            };
+            (account, answer)
+        }
+    };
+    if sessions::finish_ask(from, &account, ask, &answer) {
+        send(socket, from, &answer);
     }
 }
 
@@ -406,6 +466,12 @@ mod tests {
         let mut create = vec![PacketType::CreateCharacter as u8, 2, 0, 0, 0, 5, 0, 0, 0];
         create.extend_from_slice(b"Jacob");
         heard(&ours, &create, from);
+        assert!(stranger.recv_from(&mut buffer).is_err());
+
+        // A chat from a stranger: silence too.
+        let mut said = vec![PacketType::PlayerCommand as u8, 3, 0, 0, 0, 9, 0, 0, 0];
+        said.extend_from_slice(b"/chat Yo!");
+        heard(&ours, &said, from);
         assert!(stranger.recv_from(&mut buffer).is_err());
     }
 

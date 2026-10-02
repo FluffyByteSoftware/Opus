@@ -47,10 +47,15 @@
 //! Version 7 (2026-10-02) is the password's key: the Login's fourth string
 //! is no longer the password as typed but the key the client makes from
 //! it (Security's `password_key()` has the recipe), 64 lowercase hex.
+//!
+//! Version 8 (2026-10-02) is chat: PlayerCommand carries a line the
+//! player typed, as it was typed (`/chat Yo yo yo!`), and ChatDelivery
+//! carries the finished lines out to everybody in the world, once a
+//! GameClock cycle.
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 7;
+pub const PROTOCOL_VERSION: u8 = 8;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -152,6 +157,16 @@ pub enum PacketType {
     /// Server to client, over UDP.  The ask number, then a string saying
     /// why the command wasn't done, for the player.  Version 5.
     CommandRefused = 0x36,
+    /// Client to server, over UDP.  The ask number, then a line the
+    /// player typed, as it was typed (a string).  One starting with `/`
+    /// is a command (`/chat Yo yo yo!`).  Answered with a CommandAccepted
+    /// or a CommandRefused.  Version 8, 2026-10-02.
+    PlayerCommand = 0x37,
+    /// Server to client, over UDP.  A u8 count, then that many finished
+    /// lines of chat (strings), the way the player sees them: `[Chat]
+    /// Jacob: Yo yo yo!`.  Sent once a GameClock cycle that has chat, to
+    /// everybody in the world, the one who said it too.  Version 8.
+    ChatDelivery = 0x38,
 }
 
 impl PacketType {
@@ -181,6 +196,8 @@ impl PacketType {
             0x34 => Some(PacketType::Kicked),
             0x35 => Some(PacketType::CommandAccepted),
             0x36 => Some(PacketType::CommandRefused),
+            0x37 => Some(PacketType::PlayerCommand),
+            0x38 => Some(PacketType::ChatDelivery),
             _ => None,
         }
     }
@@ -584,6 +601,36 @@ pub fn entered_world(ask: u32, character: &EnteredCharacter) -> Vec<u8> {
     bytes
 }
 
+/// A cycle's chat, as few ChatDeliveries as it fits in: each line in
+/// order, and a new packet started whenever the next line would take
+/// this one past MAX_UDP_BYTES (or past 255 lines, what the count
+/// holds).  No lines, no packets.  A line too big for a packet on its own
+/// can't happen (chat cuts a message at 300 characters), and one would
+/// go out alone and be too big.
+pub fn chat_deliveries(lines: &[String]) -> Vec<Vec<u8>> {
+    let mut packets = Vec::new();
+    let mut packet: Vec<u8> = Vec::new();
+    let mut count: u8 = 0;
+    for line in lines {
+        let room = 4 + line.len();
+        if count > 0 && (packet.len() + room > MAX_UDP_BYTES || count == u8::MAX) {
+            packet[1] = count;
+            packets.push(std::mem::take(&mut packet));
+            count = 0;
+        }
+        if count == 0 {
+            packet = vec![PacketType::ChatDelivery as u8, 0];
+        }
+        put_string(&mut packet, line);
+        count += 1;
+    }
+    if count > 0 {
+        packet[1] = count;
+        packets.push(packet);
+    }
+    packets
+}
+
 // ---------------------------------------------------------------------------
 // The packets the server reads
 // ---------------------------------------------------------------------------
@@ -668,6 +715,15 @@ pub fn read_user_press_play(payload: &[u8]) -> Result<(u32, String), String> {
     let uuid = take_string(payload, &mut at)?;
     finished(payload, at)?;
     Ok((ask, uuid))
+}
+
+/// The payload of a PlayerCommand: the ask number and the line as typed.
+pub fn read_player_command(payload: &[u8]) -> Result<(u32, String), String> {
+    let mut at = 0;
+    let ask = take_u32(payload, &mut at)?;
+    let line = take_string(payload, &mut at)?;
+    finished(payload, at)?;
+    Ok((ask, line))
 }
 
 // ---------------------------------------------------------------------------
@@ -874,14 +930,15 @@ mod tests {
                      PacketType::CommandRefused, PacketType::CharacterListRequest, PacketType::CharacterListDelivery,
                      PacketType::CreateCharacter, PacketType::CharacterCreateResult, PacketType::DeleteCharacter,
                      PacketType::CharacterDeleteResult, PacketType::CharacterRequestResetHome,
-                     PacketType::UserPressPlay, PacketType::CharacterEnteredWorld];
+                     PacketType::UserPressPlay, PacketType::CharacterEnteredWorld, PacketType::PlayerCommand,
+                     PacketType::ChatDelivery];
         for kind in every {
             assert_eq!(PacketType::from_byte(kind as u8), Some(kind));
         }
         assert_eq!(PacketType::from_byte(0x00), None);
         assert_eq!(PacketType::from_byte(0x16), None);
         assert_eq!(PacketType::from_byte(0x29), None);
-        assert_eq!(PacketType::from_byte(0x37), None);
+        assert_eq!(PacketType::from_byte(0x39), None);
     }
 
     #[test]
@@ -974,5 +1031,50 @@ mod tests {
         expected.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
         expected.extend_from_slice(&[0x00, 0x00, 0x00, 0xC0]);
         assert_eq!(entered_world(12, &jacob), expected);
+    }
+
+    #[test]
+    fn a_player_command_reads_back() {
+        let mut command = 13u32.to_le_bytes().to_vec();
+        put_string(&mut command, "/chat Yo yo yo!");
+        assert_eq!(read_player_command(&command), Ok((13, "/chat Yo yo yo!".to_string())));
+        assert!(read_player_command(&command[..10]).is_err());
+        command.push(0);
+        assert!(read_player_command(&command).is_err());
+    }
+
+    #[test]
+    fn a_chat_delivery_in_bytes() {
+        let lines = vec!["[Chat] Jacob: Yo".to_string(), "[Chat] Mckay: Hi".to_string()];
+        let mut expected = vec![0x38, 2];
+        expected.extend_from_slice(&[16, 0, 0, 0]);
+        expected.extend_from_slice(b"[Chat] Jacob: Yo");
+        expected.extend_from_slice(&[16, 0, 0, 0]);
+        expected.extend_from_slice(b"[Chat] Mckay: Hi");
+        assert_eq!(chat_deliveries(&lines), vec![expected]);
+        assert!(chat_deliveries(&[]).is_empty());
+    }
+
+    #[test]
+    fn a_busy_cycle_of_chat_is_split_under_the_udp_limit() {
+        // The longest line there is: a 20-letter name and 300 characters.
+        let longest = format!("[Chat] {}: {}", "A".repeat(20), "x".repeat(300));
+        let lines = vec![longest; 10];
+        let packets = chat_deliveries(&lines);
+        assert!(packets.len() > 1);
+        let mut total = 0;
+        for packet in &packets {
+            assert!(packet.len() <= MAX_UDP_BYTES);
+            assert_eq!(packet[0], 0x38);
+            total += packet[1] as usize;
+        }
+        assert_eq!(total, 10);
+
+        // Empty lines, 4 bytes each: the count's 255 is the limit, not
+        // the bytes.
+        let empty = vec![String::new(); 300];
+        let packets = chat_deliveries(&empty);
+        assert_eq!(packets.iter().map(|packet| packet[1] as usize).collect::<Vec<_>>(), vec![255, 45]);
+        assert!(packets.iter().all(|packet| packet.len() <= MAX_UDP_BYTES));
     }
 }

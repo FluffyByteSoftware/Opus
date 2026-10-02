@@ -9,7 +9,9 @@
 # until Ctrl-C (which sends a Goodbye) or --leave-after runs out.  In
 # between, at character select, it asks for the account's characters,
 # makes, deletes or resets home the ones the flags name, and with --play
-# brings one into the world and stays there.  Every
+# brings one into the world and stays there.  With --type it types lines
+# there, the way a player types in the chat window (`/chat Yo yo yo!`,
+# protocol version 8), and every chat the server sends is printed.  Every
 # packet in and out is printed, meaning first and raw bytes under it.  The
 # bytes are the ones in Documentation/LLM/PROTOCOL.md; when this and the
 # document disagree, the document wins.  To try "already logged in", leave
@@ -30,6 +32,7 @@
 #   python3 test_client.py --delete Jacob jacob_01 'Correct horse 1!'   (types DELETE; --delete-word to type another)
 #   python3 test_client.py --reset-home Jacob jacob_01 'Correct horse 1!'   (puts it back at 0, 0, 0)
 #   python3 test_client.py --play Jacob jacob_01 'Correct horse 1!'   (brings Jacob into the world)
+#   python3 test_client.py --play Jacob --type '/chat Yo yo yo!' jacob_01 'Correct horse 1!'   (says it to everybody)
 #   python3 test_client.py --no-key jacob_01 'Correct horse 1!'   (sends the password, not its key: refused)
 #
 # Standard library only.
@@ -43,7 +46,7 @@ import struct
 import sys
 import time
 
-PROTOCOL_VERSION = 7
+PROTOCOL_VERSION = 8
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -73,6 +76,8 @@ GOODBYE = 0x33
 KICKED = 0x34
 COMMAND_ACCEPTED = 0x35
 COMMAND_REFUSED = 0x36
+PLAYER_COMMAND = 0x37
+CHAT_DELIVERY = 0x38
 
 NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "LoginResult",
          SESSION_CHOICE: "SessionChoice", TICKET: "Ticket", CONNECT: "Connect", CONNECT_RESULT: "ConnectResult",
@@ -82,7 +87,8 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          DELETE_CHARACTER: "DeleteCharacter", CHARACTER_DELETE_RESULT: "CharacterDeleteResult",
          CHARACTER_REQUEST_RESET_HOME: "CharacterRequestResetHome", COMMAND_ACCEPTED: "CommandAccepted",
          COMMAND_REFUSED: "CommandRefused", USER_PRESS_PLAY: "UserPressPlay",
-         CHARACTER_ENTERED_WORLD: "CharacterEnteredWorld"}
+         CHARACTER_ENTERED_WORLD: "CharacterEnteredWorld", PLAYER_COMMAND: "PlayerCommand",
+         CHAT_DELIVERY: "ChatDelivery"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
@@ -127,6 +133,19 @@ def say(direction, kind, detail="", payload=None):
         # The raw bytes under the meaning, so a disagreement with
         # PROTOCOL.md shows up as bytes, not as a guess.
         print("   %s" % payload.hex(" "), flush=True)
+
+
+def show_chat(data):
+    """A ChatDelivery: a count, then that many finished lines."""
+    count = data[1]
+    at = 2
+    lines = []
+    for _ in range(count):
+        line, at = take_string(data, at)
+        lines.append(line)
+    say("<-", CHAT_DELIVERY, "%d line(s)" % count, data[1:])
+    for line in lines:
+        print("   %s" % line, flush=True)
 
 
 class Tcp:
@@ -280,6 +299,8 @@ class CharacterSelect:
                     if answered == ask:
                         return data[0], data
                     say("<-", data[0], "for ask %d, an old one; ignored" % answered, data[1:])
+                elif data[0] == CHAT_DELIVERY:
+                    show_chat(data)
                 elif data[0] != KEEP_ALIVE:
                     say("<-", data[0], "", data[1:])
         print("No answer to ask %d in 10 seconds." % ask)
@@ -362,10 +383,19 @@ class CharacterSelect:
             say("<-", kind, repr(message), data[1:])
         return None
 
+    def type_line(self, line):
+        """A line typed in the chat window, sent as it was typed."""
+        kind, data = self.ask(PLAYER_COMMAND, put_string(line), repr(line))
+        if kind == COMMAND_ACCEPTED:
+            say("<-", kind, "", data[1:])
+        elif kind == COMMAND_REFUSED:
+            message, _ = take_string(data, 5)
+            say("<-", kind, repr(message), data[1:])
+
 
 def character_select(args, udp, server):
     """The list, then whatever the flags ask for, each followed by the list
-    again, then --play last.  Hands back (still connected, the name of the
+    again, then --play, then the --type lines.  Hands back (still connected, the name of the
     character in the world or None)."""
     select = CharacterSelect(udp, server)
     playing = None
@@ -385,6 +415,9 @@ def character_select(args, udp, server):
             if playing:
                 # Character select is behind us now; the server says so.
                 select.list()
+        # Typed in the world, or at character select to see it refused.
+        for line in args.type or []:
+            select.type_line(line)
     except Kicked:
         print("Back to the login screen.")
         return False, None
@@ -454,6 +487,8 @@ def play(args, token, udp_port):
                     say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
                     print("Back to the login screen.")
                     return
+                elif data[0] == CHAT_DELIVERY:
+                    show_chat(data)
                 else:
                     say("<-", data[0])
             print("-> KeepAlive %s" % ("answered" if answered else "NOT answered"), flush=True)
@@ -495,6 +530,9 @@ def main():
     parser.add_argument("--reset-home", metavar="NAME", help="put the account's character with this name at 0, 0, 0")
     parser.add_argument("--play", metavar="NAME",
                         help="bring the account's character with this name into the world, after the other flags")
+    parser.add_argument("--type", metavar="LINE", action="append",
+                        help="type this line in the chat window once at character select is done, after --play "
+                             "('/chat Yo yo yo!'); give it more than once for more lines")
     args = parser.parse_args()
 
     try:

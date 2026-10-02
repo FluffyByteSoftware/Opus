@@ -9,11 +9,13 @@ Author:     Jacob Chacko
 What Conductor and its clients say to each other, down to the byte.  Written for somebody building a
 client who has never seen Conductor's code.  Conductor's half is `Conductor/dev/networking/src/protocol.rs`.
 The Python test client beside the crate (`networking/test_client.py`) speaks all of it, and Ensemble
-(`Assets/Code/Net/`, 2026-10-02) the login and character select's list so far; when any of them disagrees with
-this document, it is the code that gets fixed.
+(`Assets/Code/Net/`, 2026-10-02) the login and character select so far, not chat yet; when any of them
+disagrees with this document, it is the code that gets fixed.
 
-Protocol version **7**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 7 (2026-10-02)
+Protocol version **8**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 8 (2026-10-02)
+added chat: PlayerCommand (`0x37`), a line the player typed, and ChatDelivery (`0x38`), the chat going out to
+everybody in the world (below, "In the world, over UDP").  Version 7 (2026-10-02)
 made the Login's fourth string the password's key instead of the password (below, "The password's key").
 Version 6 (2026-10-01)
 added the spawn: UserPressPlay and CharacterEnteredWorld (`0x27`, `0x28`), and reason `6`, character
@@ -111,6 +113,8 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 | `0x34` | Kicked         | server to client | u32 reason                                               |
 | `0x35` | CommandAccepted | server to client | u32 ask                                                 |
 | `0x36` | CommandRefused | server to client | u32 ask, string why                                      |
+| `0x37` | PlayerCommand  | client to server | u32 ask, string the line as typed                        |
+| `0x38` | ChatDelivery   | server to client | u8 count, then that many strings, each a finished line   |
 
 ## The login, over TCP
 
@@ -196,8 +200,8 @@ can't are short labels with no period.
    UserPressPlay is locked for a moment (nothing is wrong; logging in again gets it).  The
    client goes back to the login screen.
 
-Anything else from an address the server knows counts as hearing from that player (the game's packets go
-here later).  Anything at all from an address it doesn't know, other than a Connect, gets no answer.
+Anything else from an address the server knows counts as hearing from that player (more of the game's
+packets go here later).  Anything at all from an address it doesn't know, other than a Connect, gets no answer.
 
 ## Character select, over UDP
 
@@ -285,6 +289,58 @@ characters):
 00 00 C0 3F                                   x 1.5
 00 00 00 00                                   y 0
 00 00 00 C0                                   z -2
+```
+
+## In the world, over UDP
+
+Once a CharacterEnteredWorld has come, the player is in the world.  For now what they can do there is chat.
+
+**PlayerCommand** carries a line the player typed in the client's chat window, as it was typed, with an ask
+number like character select's: the same number again gets the same answer again, so a line whose answer
+got lost isn't said twice, and one ask at a time.  A line that starts with `/` is a command; the word after
+the `/`, up to the first space or the end, says which, with any capitals.  There's one so far:
+
+- **`/chat <message>`** says the message to everybody in the world.  The message is what comes after the
+  first space, spaces at either end left off.  It's plain English: letters, numbers, punctuation and the
+  space, bytes `0x20` to `0x7E`.  Only its first 300 characters count, and anything after them is dropped
+  without a word (a client stops the player at 300 anyway).
+
+The answer is a **CommandAccepted** when the line goes out, or a **CommandRefused** saying why it doesn't:
+
+- "Saying things without a command isn't in yet.  Use /chat." for a line without a `/` (it'll be said
+  out loud, nearby, later).
+- "There's no command by that name.  For now there's only /chat."
+- "Say something after /chat." for a `/chat` with nothing after it.
+- "Chat is plain English: letters, numbers, punctuation and spaces." for anything else in the first 300.
+- "You can chat once your character is in the world." from character select.
+- "Chat Unavailable": the server can't right now.  Nothing the player did.
+
+**ChatDelivery** is the chat going out.  The server gathers everything said and sends it once a game cycle
+(every 250 ms, when there's anything to send) to every player whose character is in the world, the one who
+said it too: a u8 count, then that many strings, oldest first, each the line as the player sees it, one
+fixed channel:
+
+```text
+[Chat] Jacob: Yo yo yo!
+```
+
+A cycle with more than fits in 1200 bytes (or more than 255 lines) goes out as more than one ChatDelivery,
+in order.  It carries no ask number and isn't answered; a lost one is lost.  Players at character select
+don't get it.
+
+A `/chat` as ask 4, and what everybody gets:
+
+```text
+37                                            PlayerCommand
+04 00 00 00                                   ask 4
+0F 00 00 00  2F 63 68 61 74 20 59 6F ...      "/chat Yo yo yo!", 15 bytes
+
+35                                            CommandAccepted
+04 00 00 00                                   ask 4
+
+38                                            ChatDelivery
+01                                            1 line
+17 00 00 00  5B 43 68 61 74 5D 20 4A ...      "[Chat] Jacob: Yo yo yo!", 23 bytes
 ```
 
 ## A worked example

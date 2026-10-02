@@ -25,7 +25,8 @@ networking/
 ├── Cargo.toml         conductor-accounts, conductor-gameclock, conductor-lua-parser, conductor-primlib,
 │                        conductor-tools, rustls 0.23 ("ring", "std")
 ├── test_client.py     the stand-in client: TLS, Login, Ticket, Connect, character select (--create,
-│                        --delete, --delete-word, --reset-home), --play, keep-alives, Goodbye.  Python 3.
+│                        --delete, --delete-word, --reset-home), --play, --type (chat), keep-alives,
+│                        Goodbye.  Python 3.
 └── src/
     ├── lib.rs         start(), wait_for_world(), stop(), status() -> Status { tcp, udp, players, tickets,
     │                    connections, in_world, access, whitelisted, blacklisted }, kick(id), terminate(account),
@@ -33,13 +34,16 @@ networking/
     │                    timed_out(), wake_address()
     ├── settings.rs    networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs         server_config(settings) -> Arc<ServerConfig>; make_pair(), the openssl command
-    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 6: PacketType, LoginAnswer, ConnectAnswer,
+    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 8: PacketType, LoginAnswer, ConnectAnswer,
     │                    KickReason, Choice, CreateAnswer, DeleteAnswer, ListedCharacter, EnteredCharacter;
     │                    frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                    connect_result(), keep_alive(), kicked(), command_accepted(), command_refused(),
-    │                    character_list(), create_result(), delete_result(), entered_world(); read_login(),
-    │                    read_session_choice(), read_connect(), read_list_request(), read_create(),
-    │                    read_delete(), read_reset_home(), read_user_press_play()
+    │                    character_list(), create_result(), delete_result(), entered_world(),
+    │                    chat_deliveries(); read_login(), read_session_choice(), read_connect(),
+    │                    read_list_request(), read_create(), read_delete(), read_reset_home(),
+    │                    read_user_press_play(), read_player_command()
+    ├── chat.rs        what a player types: command() reads /chat and leaves the finished line in the
+    │                    GameClock's chat mailbox; send_out(), which the GameClock calls to send a cycle's lines
     ├── protogame.rs   Protogame, thread protogame: start(), stop(), hand_in(from, account, ask, Work) -> the
     │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome,
     │                    Play }; play() and bring_in(), the spawn's slow part
@@ -48,7 +52,8 @@ networking/
     │                    and each character's lock (Lock, LOCK_FOR); playing(), issue(), connect(), heard(),
     │                    begin_ask() -> Ask, finish_ask(), entered(), leave_world(), lock_for_loading(),
     │                    turn_away(), leave(), kick() (with the kicked character's row id),
-    │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), drop_where();
+    │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), in_world(),
+    │                    drop_where();
     │                    with_book(), which asks the GameClock to take out whoever left
     ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
     │                    start(), clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
@@ -62,7 +67,8 @@ networking/
     │                    close_where() for a ban, listening_on(); wait_for_save() after logging the other
     │                    session out
     └── udp.rs         the one UDP thread: Connect, KeepAlive, Goodbye, character select's asks handed to
-                         Protogame, the sweep; tell(), listening_on()
+                         Protogame, PlayerCommand answered on the spot, the sweep; tell(), tell_all(),
+                         listening_on()
 ```
 
 ## What Jacob asked for
@@ -284,6 +290,33 @@ session before (`design/gameclock.md`).
 - **The Connections tab's UDP list** has the character beside the account ("character select", greyed,
   until there is one), and its count says how many are in the world and how many at character select.
 
+## Chat (2026-10-02)
+
+Jacob's command and packets, protocol version 8, the 0.0.1 release ("If we can get it where people can log
+in and chat with each other... that's release 0.0.1").  PROTOCOL.md has the bytes.
+
+- **The client sends what was typed**: "whatever is sent there is sent as a plaintext string to the server
+  and the server goes "oh hey that started with / that means look for a command"".  **PlayerCommand**
+  (`0x37`) is an ask number and the line.  There's one command, EverQuest's `/chat <message>`, any capitals.
+  A line without a `/` "will default to being said -- something we won't implement yet but TODO!", so it's
+  refused for now.
+- **The message**: plain English ("letters numbers special characters, spaces"), printable ASCII, and only
+  its first 300 characters ("The server will just ignore everything after 300"); the client will stop at
+  300 itself.  Spaces at either end are left off; nothing left is refused.
+- **Everybody in the world hears it, the speaker too**, as `[Chat] Jacob: Yo yo yo!`, one fixed channel
+  ("like the way the old shit muds did it!").  Players at character select don't.
+- **It goes out on the GameClock's beat**: "on the next "chat" GameClock tick that carries chat (which
+  should be every beat)".  The UDP thread reads the line on the spot (`chat.rs`; no database, nothing in the
+  world), answers CommandAccepted or CommandRefused through the book like any ask, so a resend isn't said
+  twice, and leaves the finished line in the GameClock's chat mailbox.  The broadcast check takes the
+  cycle's lines and calls `chat::send_out()`, handed to the GameClock when networking starts
+  (`set_chat_sender()`), since the GameClock can't depend on networking: networking depends on it.  That
+  builds **ChatDelivery** (`0x38`, a count and the lines, split to stay under 1200 bytes) and sends it to
+  `sessions::in_world()` with `udp::tell_all()`, from the GameClock's thread.  Sent once; a lost one is lost.
+- **The log**: every line said is a Debug on the Game channel, the account with it.
+- **Later** (TODO.md): saying things without a `/`, nearby, once there are positions; a limit on how fast
+  one player can chat; whether the web admin sees the chat; Ensemble's chat box.
+
 ## What's open
 
 - **Client management** is all TODO: a player limit ("The server is full."), reconnecting with a token
@@ -293,5 +326,5 @@ session before (`design/gameclock.md`).
 - **Windows**: it builds there (2026-09-30) but hasn't run networking yet (no world made, no certificate,
   no database).  The OS-specific parts are the three `dns/` files and the `ConnectionReset` line in
   `udp.rs`, Windows telling us about a bounced packet.  macOS gets no DNS names until there's a Mac.
-- **What the client is sent after CharacterEnteredWorld**: nothing yet.  The world around it (chunks,
-  `region.map`), other players and movement are the game's packets, to come.
+- **What the client is sent after CharacterEnteredWorld**: the chat (above), and nothing else yet.  The
+  world around it (chunks, `region.map`), other players and movement are the game's packets, to come.
