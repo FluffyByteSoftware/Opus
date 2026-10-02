@@ -63,6 +63,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     ChatDelivery's lines are printed, and it stops taking keys at 300 characters.  Open: where "when you
     log in" puts it (in the world after PLAY, or the HUD with Phase 1's chat placeholder).  Ensemble speaks
     version 8 already (the number only) and logs a ChatDelivery as one it doesn't handle yet.
+- **`/who`** (Jacob, 2026-10-02, after chat passed, "we're barely 30% so we're gonna keep going"): "a /who
+  that shows all connected players", each as "[PlayerName] is currently at [x,y,z]".  Planning: who counts as
+  connected, who sees the answer, where the positions come from, the line's exact form.
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
   kept below.  Settled for its database side, the first step:
