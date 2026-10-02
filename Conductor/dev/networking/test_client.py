@@ -44,7 +44,6 @@
 import argparse
 import hashlib
 import os
-import signal
 import socket
 import ssl
 import struct
@@ -601,14 +600,6 @@ def session(args, token, udp, server):
 
 
 def main():
-    # Ctrl-C is SIGINT, and Python only turns it into a KeyboardInterrupt if
-    # SIGINT wasn't already set to be ignored when it started.  A process
-    # inherits that from whatever started it, so a terminal (or a program
-    # it was started from) that ignores SIGINT makes Ctrl-C do nothing at
-    # all here.  Setting Python's own handler back makes Ctrl-C work
-    # whatever we were started from.
-    signal.signal(signal.SIGINT, signal.default_int_handler)
-
     here = os.path.dirname(os.path.abspath(__file__))
     default_cert = os.path.normpath(os.path.join(here, "..", "..", "..", "Content", "certs", "conductor.crt"))
 
