@@ -184,6 +184,11 @@ entry has his answers in his words.
   Everything else is white: the chat, a refusal's reason ("You can't do that again so soon."), "The server
   didn't answer.", and `/who`'s box.  A CommandAccepted shows nothing, since the line comes back as chat.
   The last 200 lines are kept.  Rich text is off on every line, so a `<b>` in somebody's chat is just text.
+- **Enter or "/" anywhere brings the keys to the field** (Jacob, 2026-10-02, after the first run: "pressing
+  enter or typing / immediately brings focus up to the chat window and starts typing that into the input"):
+  the panel's root sees every key first, and with the field not focused, Enter focuses it and a "/" focuses it
+  and goes in as typed; a half-typed line is kept, not selected over.  With the field focused, the keys are
+  the field's own.
 - **`/camp`** is the client's own and never sent: `/camp` logs out to the login, `/camp desktop` logs out and
   closes the game (in the editor, it stops Play mode).  Anything else after it gets "Try /camp, or /camp
   desktop."

@@ -5,7 +5,9 @@
 // row to type in.  Enter sends what's typed to the server as it was typed,
 // and echoes it as ">/chat hello" in yellow; what the server says is white.
 // The box stops taking keys at 300 characters.  The font is ScreenRoot's
-// Chat Font slot, a monospaced one, so /who's box lines up.
+// Chat Font slot, a monospaced one, so /who's box lines up.  With the
+// field not focused, Enter or a "/" anywhere on the screen brings the
+// keys to it, the "/" already typed (Jacob, 2026-10-02).
 
 using Opus.Net;
 using UnityEngine;
@@ -47,6 +49,10 @@ namespace Opus.Hud
         ScrollView lines;
         TextField input;
 
+        // The panel the box is on, for the screen-wide keys, kept so they
+        // can be let go when the box leaves it.
+        IPanel panel;
+
         // Ten letters, never shown, to measure how wide a letter is in
         // the chat's font and size.
         Label ruler;
@@ -66,6 +72,9 @@ namespace Opus.Hud
 
             input = new TextField();
             input.maxLength = LongestLine;
+            // A half-typed line is kept as it is when the keys come back
+            // to the field, not selected whole to be typed over.
+            input.selectAllOnFocus = false;
             input.AddToClassList("chat-input");
 
             // Caught on the way down (TrickleDown), before the text field
@@ -87,6 +96,7 @@ namespace Opus.Hud
             // copy stops listening when its box goes.
             Session.ChatLine += ServerSaid;
             Session.WhoAnswered += DrawWho;
+            box.RegisterCallback<AttachToPanelEvent>(Arrived);
             box.RegisterCallback<DetachFromPanelEvent>(Gone);
 
             // Straight to typing once the HUD is up.
@@ -104,11 +114,49 @@ namespace Opus.Hud
             within.Query<TextElement>().ForEach(text => text.style.unityFontDefinition = font);
         }
 
+        // Keys pressed anywhere on the screen reach the panel's root first,
+        // whatever has the focus, so that's where Enter and "/" are watched
+        // for.
+        void Arrived(AttachToPanelEvent e)
+        {
+            panel = e.destinationPanel;
+            panel.visualTree.RegisterCallback<KeyDownEvent>(KeyAnywhere, TrickleDown.TrickleDown);
+        }
+
         void Gone(DetachFromPanelEvent e)
         {
             Session.ChatLine -= ServerSaid;
             Session.WhoAnswered -= DrawWho;
+            if (panel != null)
+                panel.visualTree.UnregisterCallback<KeyDownEvent>(KeyAnywhere, TrickleDown.TrickleDown);
+            panel = null;
+            box.UnregisterCallback<AttachToPanelEvent>(Arrived);
             box.UnregisterCallback<DetachFromPanelEvent>(Gone);
+        }
+
+        // With the field not focused, Enter brings the keys to it, and "/"
+        // does the same and goes in as the first character (Jacob: "pressing
+        // enter or typing / immediately brings focus up to the chat window
+        // and starts typing that into the input").  The key is used up here
+        // so nothing else on the screen sees it.  With the field focused,
+        // its own KeyDown has Enter and the "/" is just typed.
+        void KeyAnywhere(KeyDownEvent e)
+        {
+            if (e.target is VisualElement target && (target == input || input.Contains(target)))
+                return;
+
+            bool enter = e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter;
+            bool slash = e.character == '/';
+            if (!enter && !slash)
+                return;
+
+            if (slash)
+                input.value = input.value + "/";
+            input.Focus();
+            // The cursor goes to the end once the field has the keys.
+            int end = input.value.Length;
+            input.schedule.Execute(() => input.SelectRange(end, end));
+            e.StopPropagation();
         }
 
         void KeyDown(KeyDownEvent e)
