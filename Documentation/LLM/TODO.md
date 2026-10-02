@@ -131,7 +131,22 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     ("the default should be 500 ms but if we make a command that hits the database a bunch maybe that
     needs longer"): `/chat` 500 ms, `/who` 1 second.  Built and tested;
     `design/conductor-networking.md`, "Commands and the anti-flood", has it.
-- **Kicking a player who keeps flooding** (2026-10-02): today a command too soon is only refused.  Whether
+- **The commands out of networking, into a crate of their own** (Jacob, 2026-10-02, mid-way through the
+  chat window): "we need to rip the commands out of networking and put them into their own crate I
+  think... conductor::player_commands then we'll probably also have admin_commands and potentially
+  others", and "make that todo for next session that seems urgent to me before we get too deep in
+  commands".  Today they're `networking/src/commands.rs` and `commands/` (`chat.rs`, `who.rs`): the table,
+  the anti-flood, and each command.  By CLAUDE.md's naming that's a lib, folder `Conductor/dev/
+  player-commands/`, crate `conductor-player-commands`, `conductor_player_commands::` in code; the
+  names are Jacob's to settle.  To plan with him:
+  - **Which way the crates lean.**  The commands use networking's `sessions`, `udp` and `protocol` (the
+    book, sending, the packets), and networking calls the commands, so one of the two can't name the
+    other.  Like the GameClock's chat sender, networking could be handed the commands as a plain function
+    at its start (the launcher wires it), with the commands crate depending on networking; or the pieces
+    both need move somewhere both can reach.
+  - **What `admin_commands` means**: typed by an admin in the game, from the web admin, or both, and
+    whether the two crates share the table and the anti-flood.
+: today a command too soon is only refused.  Whether
   enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's call.
 - **`/help`** (2026-10-02): could list the table of commands.  Its own feature.
   - **Ensemble, with the chat box**: draw the WhoDelivery (the box to the chat box's width, the time in the

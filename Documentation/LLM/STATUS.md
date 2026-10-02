@@ -113,6 +113,11 @@ At this hand-off (2026-10-02, after `/who` and the anti-flood): **"wrap our docu
 Ensemble again"**, and then, every check passed: **"next one we're gonna integrate chat into the client"**.
 His to change.
 
+During the chat window (2026-10-02): **"we need to rip the commands out of networking and put them into their
+own crate I think... conductor::player_commands then we'll probably also have admin_commands"**, and "make
+that todo for next session that seems urgent to me before we get too deep in commands".  TODO.md has it.
+His to change.
+
 ## Last session -- 2026-10-02, chat, /who and the anti-flood (Conductor)
 
 Jacob, "rewinding a bit": the server's side of chat before the client's box.  Four pieces, each planned and
