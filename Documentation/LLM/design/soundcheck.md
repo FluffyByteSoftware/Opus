@@ -56,6 +56,11 @@ a patcher is that something.  The certificate half is still to come; this is the
 - **Soundcheck closes once Ensemble is up**, and **Ensemble quits back to Soundcheck** when its session ends:
   it starts Soundcheck again on its way out, so a kicked player is looking at the login.  Ensemble finds
   Soundcheck through one more environment variable, its path.
+- **Admin mode remembers its folder where Remember Me lives** (Jacob: "where the Remember Me saves is where
+  this should save for the client"): `soundcheck_admin.json` in the player folder, beside
+  `remembered_login.json`.
+- **A debug mode**, for Jacob: "we will need a way to locally enter debug mode and bypass the patcher because
+  I don't want to patch every time I test a fix in the game engine."  Below.
 
 ## The flow, user mode
 
@@ -91,6 +96,24 @@ Started with `--admin` on the command line (it reads a folder on this machine an
 there's nothing to log in to).  One screen: the client folder, WRITE MANIFEST, and where it wrote.  It walks
 the folder, hashes every file, and writes `patch_manifest.json` where Jacob says; he puts it in
 `Content/patch/`.  The manifest never sits inside the client folder, or it would have to list itself.
+
+## Debug mode
+
+`--debug` on Soundcheck's command line.  The window says DEBUG MODE in its title and its corner, the login
+runs as it always does, and two things change:
+
+- **The file check is skipped.**  Once the check exists, debug mode tells the server it isn't going to send a
+  manifest, and the server lets it through only if `patch.cfg` says debug clients are allowed (off by
+  default, so nobody skips the check on a live server by typing `--debug`).  A server that doesn't allow it
+  refuses the login with words that say so.
+- **The ticket goes to a file, not a started Ensemble.**  An Ensemble running inside Unity's editor is
+  already running, so there's nothing to start and no environment to put a ticket in.  Debug mode writes
+  `debug_ticket.json` in the player folder (the server's address, the UDP port, the token, when it was
+  issued; `Net/DebugTicket.cs`), and the editor's Ensemble reads it when PLAY is pressed there.  A token on
+  the disk is a token somebody else on the machine could read, which is fine for debug mode and for nothing
+  else; it's good once, for 30 seconds, so a stale file is harmless.
+
+Debug mode is Soundcheck's switch, not Ensemble's: a built Ensemble started by Soundcheck never sees it.
 
 ## The manifest
 
@@ -164,6 +187,7 @@ on the downloader thread only.
 ## Open
 
 - **Where the correct client folder is on the server**: inside `Content/patch/` beside the manifest, or
-  anywhere, pointed at by a setting in `patch.cfg`.
+  anywhere, pointed at by a setting in `patch.cfg`.  Admin mode's remembered folder is settled (the player
+  folder), but Conductor doesn't read that, so it still has to be told.
 - **Which comes first to build**: Soundcheck's user mode against today's Conductor (it logs in and gets the
   Ticket, with no manifest yet), or Conductor's side.

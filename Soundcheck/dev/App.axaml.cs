@@ -2,8 +2,10 @@
 // Component:  Soundcheck
 // Author:     Jacob Chacko
 // Opens the window once Avalonia is up.  --admin on the command line opens
-// it in admin mode (the manifest writer, for the server's machine); anything
-// else is a player logging in.
+// it in admin mode (the manifest writer, for the server's machine); --debug
+// is debug mode (a login that skips the file check and leaves the ticket in
+// a file for an Ensemble running in Unity's editor); anything else is a
+// player logging in.
 
 using System;
 using Avalonia;
@@ -24,8 +26,9 @@ namespace Opus.Soundcheck
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 bool admin = desktop.Args != null && Array.IndexOf(desktop.Args, "--admin") >= 0;
-                Log.Say("Soundcheck " + ClientVersion.Text + (admin ? ", admin mode." : "."));
-                desktop.MainWindow = new MainWindow(admin);
+                bool debug = desktop.Args != null && Array.IndexOf(desktop.Args, "--debug") >= 0;
+                Log.Say("Soundcheck " + ClientVersion.Text + (admin ? ", admin mode." : debug ? ", debug mode." : "."));
+                desktop.MainWindow = new MainWindow(admin, debug);
             }
             base.OnFrameworkInitializationCompleted();
         }

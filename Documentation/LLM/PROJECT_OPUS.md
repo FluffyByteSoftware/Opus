@@ -218,7 +218,7 @@ Opus/
 │       ├── app.manifest               # Windows only: says the program is written for Windows 10 and up
 │       ├── Program.cs                 # where it starts: builds the Avalonia app and runs the window
 │       ├── App.axaml                  # the theme, and our own looks over it, in the login's colours
-│       ├── App.axaml.cs               # opens the window; --admin on the command line is admin mode
+│       ├── App.axaml.cs               # opens the window; --admin is admin mode, --debug is debug mode
 │       ├── MainWindow.axaml           # the one window: the game's name, the screen, the version in the corner
 │       ├── MainWindow.axaml.cs        # puts the right screen in; stops a login when the window closes
 │       ├── ClientVersion.cs           # the <Version> read off the program: what the Login carries
@@ -229,7 +229,8 @@ Opus/
 │       │   ├── Protocol.cs            # the version, the packet types, the answers
 │       │   ├── Packets.cs             # PacketWriter and PacketReader: PROTOCOL.md's bytes, the TCP half
 │       │   ├── ServerCertificate.cs   # the one certificate trusted, read from beside the program, matched byte for byte
-│       │   └── LoginConnection.cs     # the login over TLS 1.3, its own thread, to the Ticket; ILoginListener hears it
+│       │   ├── LoginConnection.cs     # the login over TLS 1.3, its own thread, to the Ticket; ILoginListener hears it
+│       │   └── DebugTicket.cs         # debug mode's hand-off: the ticket written to debug_ticket.json for the editor
 │       ├── Security/                  # namespace Opus.Security
 │       │   ├── PasswordKey.cs         # the password's key, the same recipe as Ensemble's and Conductor's
 │       │   └── RememberedLogin.cs     # Remember Me's file, the same file Ensemble wrote, read with System.Text.Json

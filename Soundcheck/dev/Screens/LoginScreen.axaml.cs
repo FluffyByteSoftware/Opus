@@ -8,6 +8,11 @@
 // Remember Me keeps the key.  The login's thread talks to this screen
 // through ILoginListener, and every call is put back on the window's
 // thread first.  The key is never logged.
+//
+// Debug mode (--debug) is for Jacob testing a fix in Unity's editor without
+// a patch round: the file check (when it exists) is skipped, and the ticket
+// goes to debug_ticket.json in the player folder (Net/DebugTicket.cs) for
+// the editor's Ensemble, instead of into a started Ensemble's environment.
 
 using System;
 using System.Diagnostics;
@@ -29,6 +34,9 @@ namespace Opus.Soundcheck.Screens
         const string RememberedHint = "(remembered)";
         const string PasswordHint = "";
 
+        // Debug mode: skip the file check, leave the ticket in a file.
+        readonly bool debug;
+
         // The login under way, if one is.  Null between logins.
         LoginConnection login;
 
@@ -47,9 +55,10 @@ namespace Opus.Soundcheck.Screens
         DispatcherTimer countdown;
         DateTime choiceDeadline;
 
-        public LoginScreen()
+        public LoginScreen(bool debug)
         {
             InitializeComponent();
+            this.debug = debug;
 
             RememberedLogin remembered = RememberedLogin.Load();
             if (remembered != null)
@@ -337,11 +346,29 @@ namespace Opus.Soundcheck.Screens
                     Log.Say("Login: remembered for next time, in " + RememberedLogin.FilePath + ".");
                 }
 
+                SetBoxesEnabled(true);
+                if (debug)
+                {
+                    // For an Ensemble already running in Unity's editor.
+                    try
+                    {
+                        DebugTicket.Save(host, udpPort, token);
+                        Log.Say("Login: debug mode, so the ticket went to " + DebugTicket.FilePath + ".");
+                        ShowStatus("Logged in (debug mode). The ticket is in " + DebugTicket.FilePath + " for an "
+                                   + "Ensemble running in the editor. It's good once, for 30 seconds.", false);
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error("Login: the debug ticket couldn't be written (" + e.Message + ").");
+                        ShowStatus("Logged in, but the debug ticket couldn't be written: " + e.Message, true);
+                    }
+                    return;
+                }
+
                 // The token is good once, for 30 seconds, and nothing can
                 // use it yet: Ensemble doesn't take a ticket from Soundcheck
                 // until its next step.  So it's dropped here, unlogged, and
                 // the screen says the login worked.
-                SetBoxesEnabled(true);
                 ShowStatus("Logged in. The server's game port is UDP " + udpPort + ". PLAY comes with Ensemble's "
                            + "next step; the ticket was dropped.", false);
             });

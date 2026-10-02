@@ -259,6 +259,19 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>2026-10-02 -- Soundcheck's debug mode</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Debug mode: the title and the corner say DEBUG MODE, a login works the same, and the status says the
+      ticket went to <code>debug_ticket.json</code>.  The file has the address, UDP 9998, a 64-character token
+      and when it was issued.
+    </span></label>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+    <pre class="cmd">cat ~/.config/unity3d/FluffyByte/Opus.Ensemble/debug_ticket.json</pre>
+  </li>
+</ul>
+
 <h2>Questions</h2>
 <ul class="checks">
   <li class="check">

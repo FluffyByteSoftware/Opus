@@ -429,9 +429,16 @@ step each:
 - **The check in user mode**: hash the install, compare with the stamp, ask for what's off, write each file
   to a temp beside it and swap it in, check again, report.  Waits on Conductor's half.
 - **Where the correct client folder is on the server**: inside `Content/patch/` beside the manifest, or
-  anywhere, pointed at by a setting in `patch.cfg`.  Jacob asked whether it's "the USERPREFS" (2026-10-02);
-  admin mode remembers the folder it was pointed at in the player folder (`soundcheck_admin.json`), but
-  Conductor still has to find the files.  Open.
+  anywhere, pointed at by a setting in `patch.cfg`.  Admin mode remembering the folder in the player folder
+  (`soundcheck_admin.json`) is settled (Jacob, 2026-10-02: "where the Remember Me saves is where this should
+  save"), but Conductor doesn't read that, so it still has to be told.  Open.
+- **Debug mode's other halves** (`--debug` is in Soundcheck, 2026-10-02; `design/soundcheck.md`):
+  - **Conductor**: `allow_debug_clients` in `patch.cfg`, off by default; a client that says it won't send a
+    manifest is let through to the Ticket only when it's on, else refused with words that say so.  Part of
+    Conductor's half above.
+  - **Ensemble in the editor**: reads `debug_ticket.json` from the player folder on a PLAY of its own
+    (editor only, `#if UNITY_EDITOR`), so a fix can be tried without a build or a patch round.  Part of
+    Ensemble's half above.
 - **A log file for Soundcheck**: on Windows a windowed program has no terminal, so `Log.cs` shows nothing
   there.  A file in the player folder, probably.
 - **Soundcheck patching itself**: a running program can't overwrite its own files on Windows.  The first

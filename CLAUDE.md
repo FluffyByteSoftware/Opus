@@ -1019,6 +1019,12 @@ When I say we're wrapping up:
   change bumps `format`, and the two change together.  The manifest covers
   every file of the client, Soundcheck's own included; the only thing skipped
   is a manifest at the folder's root.
+- **Debug mode is `--debug`** (Jacob, 2026-10-02: "I don't want to patch
+  every time I test a fix in the game engine").  The login runs as always,
+  the file check is skipped (once it exists, only if `patch.cfg` allows debug
+  clients, off by default), and the ticket goes to `debug_ticket.json` in the
+  player folder for an Ensemble running in Unity's editor, since there's
+  nothing to start.  The window says DEBUG MODE.  Never the default.
 - **The ported files stay the same files.**  `Net/Protocol.cs`, `Packets.cs`,
   `ServerCertificate.cs`, `LoginConnection.cs`, `Security/PasswordKey.cs` and
   `RememberedLogin.cs` came from Ensemble with a new header and no Unity in
