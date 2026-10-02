@@ -155,7 +155,7 @@ Every check passed (Jacob: "That was smooth!").
 - **The colour and font are set on each piece of text**, not once on the screen: Unity's theme gives the
   text in a box and on a button colours of their own, and only a style on the element itself beats it.
 
-### The status line and character select (2026-10-02, written, not built yet)
+### The status line and character select (2026-10-02, built and tested)
 
 With the client's net code (`design/ensemble-networking.md`):
 

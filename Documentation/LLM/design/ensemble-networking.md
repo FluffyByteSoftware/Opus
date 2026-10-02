@@ -10,7 +10,8 @@ Started 2026-10-02.  Jacob: "its time to build up the client to submit and move 
 PROTOCOL.md is the contract; this file is how Ensemble speaks it.  `test_client.py` is still the working example
 of every byte.
 
-**Written, not built yet** (2026-10-02): nobody has compiled it in Unity.  The checks are in TEST_CHECKLIST.html.
+**Built and tested** (2026-10-02, in Unity against Conductor on Linux): all ten checks passed.  The first compile
+failed on TLS 1.3 (below, "TLS"); after that it compiled clean.
 
 ## Settled (Jacob, 2026-10-02)
 

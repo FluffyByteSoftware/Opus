@@ -251,8 +251,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Name                 | What it is                                              | State                            |
 |----------------------|---------------------------------------------------------|----------------------------------|
 | Conductor            | The server.  It owns the game state.                    | Tested on Linux; runs on Windows |
-| Ensemble             | The client players run.  Unity 6000.6, C#.              | Tested: tool, HUD, login, key.  |
-|                      |                                                         | Written: logging in, char select |
+| Ensemble             | The client players run.  Unity 6000.6, C#.              | Tested: tool, HUD, login, key,   |
+|                      |                                                         | logging in, character select     |
 | Soundcheck           | The patcher: hands each client a certificate.           | Named, not started               |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |

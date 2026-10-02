@@ -327,7 +327,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   Remember Me is built (`design/client-security.md`).  The effects between screens ("cool ass
   effects if we can", "I don't know yet"); then character select's layout.
 - **The client's net code** (Jacob, 2026-10-02: "its time to build up the client to submit and move over
-  to character selection!").  **Written, not built yet** (2026-10-02): `design/ensemble-networking.md`
+  to character selection!").  **Built and tested** (2026-10-02, ten checks): `design/ensemble-networking.md`
   has it.  `Assets/Code/Net/` (the protocol, the login over TLS, the server's certificate, UDP), a
   `login_status` line under SUBMIT, character select's screen.  Jacob's answers:
   - **Get there this session**: character select shows the account's characters and LOG OUT.  CREATE,
