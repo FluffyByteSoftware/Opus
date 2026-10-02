@@ -22,7 +22,7 @@ namespace Opus.Hud
             Description = "Talk to other players.",
             Color = "#3A6EA5",
             Screens = new[] { "hud" },
-            DefaultSize = new Vector2(350f, 200f),
+            DefaultSize = new Vector2(700f, 300f),
             MinSize = new Vector2(320f, 160f),
             Resizable = true,
             DefaultAnchor = Anchor.BottomLeft,

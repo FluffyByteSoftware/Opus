@@ -175,8 +175,10 @@ entry has his answers in his words.
 - **After PLAY, the HUD as it is**: ScreenRoot shows it on `Session.ReachedWorld`, the placeholder health bar
   and minimap and the chat box, drawn over the Unity scene ("make it so we render the game scene for now";
   the HUD has no background).  There's no LOG OUT button there: `/camp` is the way out.
-- **The window**: bottom-left, 350 x 200 on the HUD's 2560 x 1440 layout (`hud_default.json`, and the
-  catalog's default size), the whole of it 50% black.  A "Chat" header, the lines, and a field to type in on
+- **The window**: bottom-left, 700 x 300 on the HUD's 2560 x 1440 layout (`hud_default.json`, and the
+  catalog's default size), the whole of it 50% black.  It was Jacob's 350 x 200 with 16 px text until he
+  saw it on 1440p ("holy shit we need to make the font bigger in 1440p and the window needs to be twice
+  as wide!"): now 24 px lines and a 28 px header, and taller to keep its lines.  A "Chat" header, the lines, and a field to type in on
   the bottom row, which stops taking keys at 300 characters and has the keys as soon as the HUD is up.
 - **Lines**: Enter echoes what's typed as `>/chat hello` in yellow and sends it as typed (`Session.SendLine`).
   Everything else is white: the chat, a refusal's reason ("You can't do that again so soon."), "The server
@@ -188,8 +190,8 @@ entry has his answers in his words.
 - **The font is a slot**, ScreenRoot's Chat Font: Retro, from Jacob's Font Nation pack in
   `Assets/Purchased/`, so it's never committed and is dragged on by hand.  Set on every piece of text in the
   box, the way the login's font is, and changeable in Play mode.  The sizes are in `hud.uss` (the header
-  18 px, the lines and the field 16 px).
+  28 px, the lines and the field 24 px).
 - **`/who`'s box** is `Assets/Code/Hud/WhoBox.cs`, to the chat box's width in letters: the lines' width over
   one letter's, measured in the chat's font by a hidden ruler of ten Ms, less one so a full-width line
-  never wraps on a rounding.  At 350 wide that's not many letters, so the footer ("There are seven legends
-  currently online.") can be longer than the box and wraps.
+  never wraps on a rounding.  A footer longer than the box ("There are seven legends currently online.")
+  wraps.

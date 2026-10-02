@@ -201,15 +201,9 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      Drag Retro (<code>Assets/Purchased/Font Nation/TTF Fonts/Retro.ttf</code>) onto ScreenRoot's new Chat
-      Font slot.  Unity compiles with nothing red in the Console.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       Log in as Chatter in Ensemble and PLAY: the HUD over the game scene, the health bar, the minimap, and
-      the chat window bottom-left, 350 x 200, "Chat" across the top, 50% black, in Retro, with the field to
-      type in on the bottom row and the keys already in it.
+      the chat window bottom-left, 700 x 300, "Chat" across the top, 50% black, in Retro at a size that
+      reads on 1440p, with the field to type in on the bottom row and the keys already in it.
     </span></label>
   </li>
   <li class="check">
@@ -250,14 +244,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 
 <h2>2026-10-02, Conductor: the commands in their own crate</h2>
 <ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The build is clean (the new crate is <code>conductor-player-commands</code>), and the tests pass:
-      the three moved with the table, the four with <code>/chat</code> and <code>/who</code>, and
-      networking's new one for the slot.
-    </span></label>
-    <pre class="cmd">cargo build 2>&1 | tail -3 && cargo test -p conductor-player-commands -p conductor-networking 2>&1 | grep -E 'test result|FAILED|panicked'</pre>
-  </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
       START SERVER, and in the world as Tester with the test client, <code>/chat hello</code> and

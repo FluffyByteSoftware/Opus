@@ -75,7 +75,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     the chat box, and "make it so we render the game scene for now": the HUD has no background, so the
     Unity scene shows behind it.
   - **The size** is 350 x 200 on the HUD's 2560 x 1440 layout ("yes").  **The background**: "The
-    background is 50% transparent black", the whole window.
+    background is 50% transparent black", the whole window.  Seen on 1440p: "holy shit we need to make
+    the font bigger in 1440p and the window needs to be twice as wide!"  So 700 x 300, 24 px text.
   - **`/camp`** (Jacob, 2026-10-02): "`/camp desktop` will log out and close the game, `/camp` will log out
     to the login again".  The client's own: caught before anything is sent, so the server never sees it,
     and the log out is the Goodbye LOG OUT always sent.

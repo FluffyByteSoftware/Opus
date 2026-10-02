@@ -15,7 +15,7 @@
     },
     {
       "id": "chat", "anchor": "BottomLeft",
-      "offset": { "x": 24, "y": -24 }, "size": { "width": 350, "height": 200 }, "layer": 1
+      "offset": { "x": 24, "y": -24 }, "size": { "width": 700, "height": 300 }, "layer": 1
     }
   ]
 }
