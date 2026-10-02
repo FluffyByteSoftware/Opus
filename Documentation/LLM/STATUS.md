@@ -29,7 +29,8 @@ Ensemble is Unity 6000.6: its project settings and our four folders under `Asset
 `Assets/Purchased/`.  It has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and two screens built
 from layout files by our own builder: **the login** and the HUD (`design/ensemble-hud.md`).  ScreenRoot,
 beside the UI Document component, owns both and starts on the login.  **The login turns the password into
-a key** on SUBMIT, and Remember Me keeps the key, never the password (`design/client-security.md`).  No
+a key** on SUBMIT, and Remember Me keeps the key, never the password (`design/client-security.md`).
+**Conductor takes the key** where it took the password (protocol version 7, 2026-10-02).  Ensemble has no
 networking yet.  **The
 game's name is Forgotten Legends**; the project, its folders and code stay Opus.  Unity's Company Name is
 FluffyByte and its Product Name Opus.Ensemble.  Every file the game keeps for a player goes in
@@ -44,12 +45,12 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 `testing` are level with each other and carry everything since, this hand-off included.  `main` moves
 when Jacob says.
 
-**Built and tested on Linux**: all of Conductor, `world_size` included.  **In Unity**: Copy
-Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1, the login, and the password's key with
-Remember Me, every check passed.  TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now (Jacob opened
-it, "Windows x86/x64 Untested").  **On Windows**: Conductor builds and runs, START SERVER included, without
-a database; the world, the characters, character select, the world save and the spawn haven't been tried
-there.
+**Built and tested on Linux**: all of Conductor, `world_size` and the password's key (protocol version 7)
+included.  **In Unity**: Copy Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1, the login, and
+the password's key with Remember Me, every check passed.  TEST_CHECKLIST.html is empty: the Windows check that
+sat Parked there is GitHub issue #10 now (Jacob opened it, "Windows x86/x64 Untested").  **On Windows**:
+Conductor builds and runs, START SERVER included, without a database; the world, the characters, character
+select, the world save, the spawn and the password's key haven't been tried there.
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -82,63 +83,59 @@ the whole thing together"**.  His to change.
 
 At this hand-off (2026-10-01): **"next one is going to be brutal we'll start the net code for the
 client"**, then, told Conductor doesn't take the key yet: **"we'll do netcode update on server next
-then"**.  So Conductor's half of the password's key comes first.  His to change.
+then"**.  So Conductor's half of the password's key came first.  His to change.
 
-## Last session -- 2026-10-01, security in the client: the password's key
+At this hand-off (2026-10-02), Conductor's half done: **"wrap up here back to Ensemble"**.  So the client's
+net code is what his earlier word put next.  His to change.
 
-**Built and tested in Unity**, all six checks passed.  Nothing in it waits on a build.
-`design/client-security.md` has all of it.
+## Last session -- 2026-10-02, Conductor's half of the password's key
 
-- **Jacob's ask**: "even though its going over TLS we don't want to save it to their local disk as plain
-  text!"  The password never crosses the internet or lands on a disk as typed.
-- **The key**: PBKDF2 with HMAC-SHA256, the salt `Opus login v1:` plus the username with A to Z made
-  lowercase, 600,000 rounds, 32 bytes as 64 lowercase hex.  `jacob_01` / `Correct horse 1!` makes
-  `fc71f0c9...8855`, and Unity's key matched Python's to the byte.  **600,000 rounds, settled**
-  (Jacob: "Make this the full 600,000"), 2852 ms in the Unity editor (Python: 150 ms).
-- **In `Assets/Code/`**: `Security/PasswordKey.cs` (makes the key, on a worker thread),
-  `Security/RememberedLogin.cs` (`remembered_login.json` in the player's folder: the server, the
-  port, the username and the key), and `Hud/Widgets/LoginForm.cs` (where the login's widgets meet; SUBMIT's
-  work).  The six login widgets hand their boxes to it.
-- **SUBMIT**: the password comes out of the box at once (dots stand in), the key is made, then Remember Me
-  ticked saves the file and unticked deletes it.  It still doesn't log in.  **A remembered login** fills
-  the boxes and shows stand-in dots; typing a password or changing the username drops the remembered key.
-- **Conductor's half is written down, not built** (`design/client-security.md`, "Conductor's half"):
-  protocol version 7 with the key in the Login; anything that isn't a key refused without a hash; the
-  account desk making the key from what the admin types (Jacob: "we'll have conductor do it"), which needs
-  the `pbkdf2` and `sha2` crates, to be OKed then; and every account deleted (Jacob: "we'll delete all
-  accounts then").  **Until it's built, a key sent as the password matches no account.**
-- **The `.meta` files** went in from Jacob's machine (`caaafdf`), with Unity's Player Settings.
+**Built and tested on Linux**, all six checks passed; nothing waits on a build.  `design/client-security.md`,
+"Conductor's half" and "As built", has all of it.
+
+- **Jacob's ask**: "we just made it so the client is going to pass a hashed password instead of plaintext
+  (this is so it can save it on the client)".  Built as the plan in the design file said; his OK on the two
+  crates: "Yes".
+- **Protocol version 7**: the Login's fourth string is the password's key, 64 lowercase hex.
+  `protocol.rs` (`LoginRequest.key`), PROTOCOL.md (a section "The password's key", the worked example's
+  bytes redone, 100 long) and `test_client.py` changed together.
+- **A Login that isn't a key** is Invalid Credentials at once, without a hash (`tcp.rs`, beside the name
+  check), logged without what was sent.  Otherwise the key goes through Security's line as the password did.
+- **Security makes the key** (`password_key()`, `looks_like_key()` in `tools/src/security.rs`), with the
+  **`pbkdf2` 0.13 and `sha2` 0.11 crates** (OKed; `sha2` and `hmac` were already in the build through
+  `postgres`).  Tested against the worked example, the full 600,000 rounds.
+- **The account desk** (`desk.rs`) makes the key from what the admin types, on its own thread, and hashes
+  that.  The Accounts tab didn't change.
+- **`test_client.py`** makes the key with `hashlib` from the password on its command line; `--no-key`
+  sends the password as typed, to see it refused.
+- **Every account was deleted** by Jacob before the build; `testuser123` / `Testpass1!` was made again on
+  the Accounts tab, and logs in.
+
+## The session before -- 2026-10-01, security in the client (Ensemble)
+
+Built and tested in Unity.  The key: PBKDF2 with HMAC-SHA256, the salt `Opus login v1:` plus the username
+with A to Z made lowercase, 600,000 rounds (Jacob: "Make this the full 600,000"; 2852 ms in the Unity
+editor), 32 bytes as 64 lowercase hex.  `Assets/Code/Security/PasswordKey.cs` makes it on a worker thread,
+`Security/RememberedLogin.cs` keeps Remember Me's file (the server, the port, the username and the key),
+`Hud/Widgets/LoginForm.cs` is SUBMIT's work.  **SUBMIT still doesn't log in**: there's no network client.
+At its hand-off every player file went into one folder, `~/.config/unity3d/FluffyByte/Opus.Ensemble/`
+(`Assets/Code/PlayerFiles.cs`).
 
 ## Where the next session starts
 
-**Conductor's half of the password's key** (Jacob: "we'll do netcode update on server next then"), as
-written in `design/client-security.md`, "Conductor's half": protocol version 7, a login that isn't a key
-refused without a hash, the account desk making the key, `test_client.py` making it with `hashlib`, every
-account deleted.  Before planning:
+**Back to Ensemble** (Jacob: "wrap up here back to Ensemble").  By his earlier word that's the client's
+net code (his to change): the login over TLS (PROTOCOL.md, version 7: the Login carries the key), the
+client checking the server's certificate (TODO.md), and how far into UDP the first step goes.  **SUBMIT
+connects while the key is made** (Jacob's pick, "in the background while the player moves forward in
+login"): the TLS connection goes up as the key is worked out, and the Login goes the moment it's ready.
+`test_client.py` is the working example of every byte the client sends and reads.
 
-- **The `pbkdf2` and `sha2` crates** need his OK.
-
-Then the client's net code: the login over TLS (PROTOCOL.md), the client checking the server's
-certificate (TODO.md), and how far into UDP the first step goes.  **SUBMIT connects while the key is
-made** (Jacob's pick, "in the background while the player moves forward in login"): the TLS connection
-goes up as the key is worked out, and the Login goes the moment it's ready.
-
-### Changed at the hand-off
-
-**Every player file in one folder** (Jacob: "Please set all files to go to there",
-`~/.config/unity3d/FluffyByte/Opus.Ensemble`).  `Assets/Code/PlayerFiles.cs` (new) gives a path in it;
-Remember Me's file moved there from Unity's `persistentDataPath` (`.../FluffyByte/Opus_Ensemble/`, Unity
-makes the dot an underscore), and the HUD's layout from `.../Opus.Ensemble/Unity/`.  Unity's names are
-FluffyByte and Opus.Ensemble (Jacob's screenshot: "the screenshot is right"), so the docs that said
-FluffyByte Studios and Forgotten Legends were fixed.  **Built and tested in Unity**, all three checks passed; its `.meta` is in (`29ada86`).
+Accounts to log in with: `testuser123` / `Testpass1!` (made again after the switch).
 
 ## What's waiting
 
-- **Conductor's half of the password's key: built and tested 2026-10-02**, all six checks passed (this
-  session, still open).  Protocol version 7, a Login that isn't a key refused without a hash, the account desk making the
-  key (`pbkdf2` and `sha2`, OKed), `test_client.py` making it.  Jacob deleted every account first.  `design/client-security.md`, "As built"; TEST_CHECKLIST.html.
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
-- **Ensemble's client code**: the network client, character select's layout,
+- **Ensemble's client code**: the network client (Conductor takes the key now), character select's layout,
   stitching the login, character select and the world together, and the HUD's Phases 2 and 3 (the
   catalog's export, the web layout editor).  **Ensemble's project files in git** (Packages/, the .csproj
   files, LFS for scenes): TODO.md.
