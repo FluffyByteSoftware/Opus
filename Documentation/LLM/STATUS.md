@@ -140,8 +140,9 @@ and PROTOCOL.md have all of it; TODO.md has every answer in his words.
   `run()`, a file each in `commands/`.  After a command, the player waits its wait before the next: 500 ms
   by default ("two full game ticks"), `/who` 1 second, longer for anything heavy later.  Too soon gets
   "You can't do that again so soon.", and doesn't push the wait back.
-- **test_client.py**: `--type` lines, the `/who` box drawn at 79 wide, Spans joined, `--type-gap` (1.1 s by
-  default; 0 floods), and Ctrl-C caught anywhere with a Goodbye.  Ctrl-C "doing nothing" turned out to be
+- **test_client.py**: lines typed live in its terminal once in the world (Jacob: "write it so we can do it
+  that way"), `--type` lines, the `/who` box drawn at 79 wide, Spans joined, `--type-gap` (1.1 s by
+  default; 0 floods), keep-alives printed only when unanswered, and Ctrl-C caught anywhere with a Goodbye.  Ctrl-C "doing nothing" turned out to be
   Jacob's terminal; a SIGINT line added for it was taken out again.
 
 ## Where the next session starts

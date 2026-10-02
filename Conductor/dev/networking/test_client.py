@@ -10,7 +10,9 @@
 # or --leave-after runs out.  In
 # between, at character select, it asks for the account's characters,
 # makes, deletes or resets home the ones the flags name, and with --play
-# brings one into the world and stays there.  With --type it types lines
+# brings one into the world and stays there.  Once it's there, a line
+# typed in the terminal and sent with Enter goes out the way the chat
+# window would send it.  With --type it types lines
 # there, the way a player types in the chat window (`/chat Yo yo yo!`,
 # protocol version 8), and every chat the server sends is printed; a
 # `/who` (version 9) is drawn the way Ensemble will draw it, at 79 wide,
@@ -45,10 +47,12 @@
 import argparse
 import hashlib
 import os
+import queue
 import socket
 import ssl
 import struct
 import sys
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -486,7 +490,7 @@ class CharacterSelect:
 def character_select(args, udp, server):
     """The list, then whatever the flags ask for, each followed by the list
     again, then --play, then the --type lines.  Hands back (still connected, the name of the
-    character in the world or None)."""
+    character in the world or None, and the asks, for lines typed after)."""
     select = CharacterSelect(udp, server)
     playing = None
     try:
@@ -513,8 +517,17 @@ def character_select(args, udp, server):
             select.type_line(line)
     except Kicked:
         print("Back to the login screen.")
-        return False, None
-    return True, playing
+        return False, None, select
+    return True, playing, select
+
+
+def read_typed(typed):
+    """Every line typed in the terminal, into `typed`, on a thread of its
+    own so the keep-alives go on while it waits.  Started only once the
+    login's "Already logged in" question is behind us, so it never takes
+    that answer.  A daemon thread, so it never holds the script open."""
+    for line in sys.stdin:
+        typed.put(line.rstrip("\r\n"))
 
 
 def play(args, token, udp_port):
@@ -557,7 +570,7 @@ def session(args, token, udp, server):
         print("No answer to the Connect in 10 seconds.")
         return False
 
-    connected, playing = character_select(args, udp, server)
+    connected, playing, select = character_select(args, udp, server)
     if not connected:
         return False
 
@@ -572,15 +585,33 @@ def session(args, token, udp, server):
                 pass
 
     if playing:
-        print("In the world as %s.  Keep-alives once a second; Ctrl-C to say Goodbye." % playing)
+        print("In the world as %s." % playing)
     else:
-        print("Still at character select.  Keep-alives once a second; Ctrl-C to say Goodbye.")
+        print("Still at character select.")
+    print("Type a line and press Enter to send it, as the chat window would (/chat Yo yo yo!, /who, /who list).")
+    print("Keep-alives go once a second, printed only when one isn't answered (--show-keepalives prints them "
+          "all).  Ctrl-C says Goodbye.", flush=True)
+
+    # Read often, so a typed line goes out at once rather than up to half a
+    # second later.
+    udp.settimeout(0.1)
+    typed = queue.Queue()
+    threading.Thread(target=read_typed, args=(typed,), daemon=True).start()
+
     started = time.monotonic()
     while True:
         udp.sendto(bytes([KEEP_ALIVE]), server)
         deadline = time.monotonic() + 1.0
         answered = False
         while time.monotonic() < deadline:
+            while not typed.empty():
+                line = typed.get()
+                if line.strip():
+                    try:
+                        select.type_line(line)
+                    except Kicked:
+                        print("Back to the login screen.")
+                        return False
             try:
                 data, _ = udp.recvfrom(2048)
             except socket.timeout:
@@ -598,7 +629,8 @@ def session(args, token, udp, server):
                 show_chat(data)
             else:
                 say("<-", data[0])
-        print("-> KeepAlive %s" % ("answered" if answered else "NOT answered"), flush=True)
+        if args.show_keepalives or not answered:
+            print("-> KeepAlive %s" % ("answered" if answered else "NOT answered"), flush=True)
         if args.leave_after and time.monotonic() - started >= args.leave_after:
             return True
 
@@ -639,6 +671,8 @@ def main():
     parser.add_argument("--type-gap", type=float, default=1.1,
                         help="seconds between --type lines (default 1.1, past /who's wait of 1 second); 0 floods, "
                              "to see the server refuse the lines that come too soon")
+    parser.add_argument("--show-keepalives", action="store_true",
+                        help="print every keep-alive, not just the ones that go unanswered")
     args = parser.parse_args()
 
     try:

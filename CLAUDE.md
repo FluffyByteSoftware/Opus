@@ -624,9 +624,12 @@ When I say we're wrapping up:
   them all.
 - **`test_client.py`** beside the crate is how networking is tested where
   Ensemble doesn't reach yet (it logs in and lists characters, 2026-10-02).  Python 3, standard library only.  I run it and paste
-  back what it prints, the same as the server.  `--type` types lines in
-  the chat window, `--type-gap` (1.1 s) apart so the anti-flood lets them
-  through; Ctrl-C anywhere sends a Goodbye.
+  back what it prints, the same as the server.  Once in the world, a line
+  typed in its terminal and sent with Enter goes out as the chat window
+  would send it; `--type` sends lines from the command line,
+  `--type-gap` (1.1 s) apart so the anti-flood lets them through.
+  Keep-alives print only when one goes unanswered (`--show-keepalives`
+  for all).  Ctrl-C anywhere sends a Goodbye.
 - **Client management** (a player limit, reconnect tokens, messaging a
   player from the web admin) is not this iteration.  It's in TODO.md.
   Kicking from the web admin is built: KICK on the Connections tab.
