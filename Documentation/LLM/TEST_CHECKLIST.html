@@ -198,44 +198,13 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="checks-column">
 
 <h2>Soundcheck: the web folder, the check at start, the patch (2026-10-02)</h2>
-<p>Not built by me yet: the first <code>dotnet build</code> may want a fix or two.  Admin mode first, on the
-0.0.12 build, into a web folder; then user mode against a web server on this machine serving that folder,
-standing in for <code>opusensemble.duckdns.org:8553</code> until the folder is up there.  The server has to
-be running with the door open for the login part, as before.</p>
-<pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
-<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --admin</pre>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Admin mode opens with Linux ticked (this machine), the web folder box saying
-      <code>/opt/storage/WWW</code>, and the small line under it saying the copy goes to
-      <code>/opt/storage/WWW/download/linux</code> and the manifest to
-      <code>/opt/storage/WWW/linux_manifest.json</code>.  The build folder box is blank (the old settings
-      file remembered one folder, not one a platform).
-    </span></label>
-  </li>
-</ul>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Tick Windows: the build folder box empties (a folder is remembered per platform) and the line says
-      <code>download/windows</code> and <code>windows_manifest.json</code>.  Close admin mode and open it
-      again: it comes back on Windows, and ticking Linux brings the 0.0.12 folder back.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A web folder inside the build folder (or the other way round) is refused with "can't be inside each
-      other".
-    </span></label>
-  </li>
-</ul>
+<p>Built 2026-10-02.  Admin mode's checks (PUBLISH, the folder per platform, the refusal) all passed.
+The server has to be running with the door open for the login part, as before.</p>
 <p>User mode.  <code>--www http://127.0.0.1:8553/</code> on the command line points the launcher at
 <code>python3 -m http.server 8553 --directory /opt/storage/WWW</code> on this machine instead of the
 real address, for the checks that need the web server stopped or a file taken out of it.</p>
 <p>The web folder is up at <code>opusensemble.duckdns.org:8553</code> (2026-10-02), so the launcher runs
-without <code>--www</code> now; PUBLISH, the check and a two-file patch passed against it.  The empty
-<code>&lt;ul&gt;</code>s below are where the passed checks were.</p>
+without <code>--www</code> now; the check and a two-file patch passed against it.</p>
 <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --game /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble.x86_64</pre>
 <ul class="checks">
   <li class="check">
