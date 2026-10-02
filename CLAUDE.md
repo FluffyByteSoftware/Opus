@@ -199,6 +199,14 @@ by creating `./Content` when neither works.
   you'll touch and the approach, and wait for my OK.  Check the plan against
   the rules here first, and say when an ask runs into one; I may turn the ask
   round once I see why.
+- **A review's finding is a claim until the code says so.**  The 0.0.1
+  review (`Documentation/LLM/CODE_REVIEW_0.0.1.md`, 2026-10-02) was four
+  crate groups read by four readers, each claim checked against the code
+  before it went in, and one still got through wrong (the web admin's
+  passwords called `Secret` when they were `Text`); the build caught it.
+  A review goes in as a file with file and line for every finding, a
+  "checked and fine" list so nothing is re-investigated, and a line on
+  each finding saying when it was fixed.  I pick what's fixed and when.
 - **Things that can't be done yet** (because a dependency isn't built) go in
   `Documentation/LLM/TODO.md`, not half-implemented in code.
 - **Future ideas** that come up in conversation also go in `Documentation/LLM/TODO.md`.
@@ -992,6 +1000,18 @@ When I say we're wrapping up:
   (`bind_address = 10.0.0.84` in `networking.cfg` is one, my machine's
   address and correct).  When `main` has a commit `unstable` doesn't, merge
   `main` into `unstable`, so the next release is a plain catch-up.
+- **A release** (the first, 0.0.1, 2026-10-02): `main` is fast-forwarded
+  from `testing` on my say (`git push origin origin/testing:main`), then
+  the `v0.0.1` tag and the two packages are mine to make by
+  `Documentation/HowTo/RELEASE.md` (the session can't run `cargo build
+  --release`, Unity or the GitHub Release page).  The version is in three
+  places that all change together: every crate's `Cargo.toml` and its
+  `Cargo.lock` line, Unity's `bundleVersion`, and the tag.  A fix to a
+  released version is a new tag, never the old one moved.
+- **The session's clone is shallow** (50 commits).  `git fetch
+  --unshallow origin` before trusting a branch count or a merge-base: on
+  2026-10-02 the shallow clone said `main` and `testing` had no common
+  ancestor and 107 commits apart, and they were a plain fast-forward.
 - Deleting a branch on GitHub can't be done from the session (the push is
   refused), so I do that by hand when one is finished with.
 - **On the Windows laptop, git is Git GUI** (a clone in

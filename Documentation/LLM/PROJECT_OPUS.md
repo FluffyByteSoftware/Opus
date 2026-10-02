@@ -302,5 +302,5 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | The server's switch  | Stopped / starting / running / stopping.                | Tested                           |
 | The clock            | UTC date and time.                                      | Tested                           |
 | The access lists     | The whitelist and the blacklist at the door.            | Tested                           |
-| The protocol         | What Conductor and a client say to each other.          | Version 9                        |
+| The protocol         | What Conductor and a client say to each other.          | Version 10                       |
 | region.map           | Which region every chunk is in, for server and client.  | Version 2                        |

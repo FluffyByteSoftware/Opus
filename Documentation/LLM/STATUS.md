@@ -44,7 +44,7 @@ server as typed and is echoed in yellow, the chat, refusals and `/who`'s box com
 back together, and `/camp` (to the login) and `/camp desktop` (closes the game) are the way out.  **The game's
 name is Forgotten Legends**; the project, its folders and code stay Opus.  Unity's Company Name is FluffyByte
 and its Product Name Opus.Ensemble.  Every file the game keeps for a player goes in
-`~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).  Ensemble speaks protocol version 9.
+`~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).  Ensemble speaks protocol version 10.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -56,14 +56,10 @@ chatting, from Ensemble; the review's eleven fixes and PleaseWait built, tested 
 tag and the two packages are Jacob's to make; `Documentation/HowTo/RELEASE.md` walks through it.
 `unstable`, `testing` and `main` are level.  `main` moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor up to chat, `/who` and the anti-flood, and the commands' move
-into `conductor-player-commands` (built, 93 tests pass, chat works through it; its one run check with the test
-client is still in TEST_CHECKLIST.html).  **In Unity**: everything up to character select's PLAY passed; the
-chat window passed every check (the look on 1440p, chat both ways with the test client, the anti-flood's
-refusal, `/who`'s box in Retro, the 300 limit, `/camp`, and EverQuest's keys); the crate's run check passed
-too.  **The 0.0.1 review's four bug fixes and seven risk fixes are built and tested** (2026-10-02, 365 tests); their run checks are in TEST_CHECKLIST.html, with one Parked check (Spans for real).  **On Windows**:
-Conductor builds and runs, START SERVER included, without a database; nothing since the world has been tried
-there (GitHub issue #10).
+**Built and tested on Linux**: all of Conductor as released, 365 tests, every run check passed and out of
+TEST_CHECKLIST.html, which holds one Parked check (Spans for real).  **In Unity**: everything through the
+chat window, EverQuest's keys and PleaseWait passed.  **On Windows**: Conductor builds and runs, START
+SERVER included, without a database; nothing since the world has been tried there (GitHub issue #10).
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -130,6 +126,12 @@ At this hand-off (2026-10-02, the chat window and the commands crate): **"Next c
 major clean up of code and documentation"**, and, asked whether to release: **"not yet we're gonna do code
 clean up next session then merge to main and release 0.0.1"**.  His to change.
 
+The release session (2026-10-02): **"we are ready to prepare for release 0.0.1"**, with a review of all of
+Conductor first; then **"merge everything into main"**, and once the review was in, **"Wait till we fix bugs
+and validate everything works"** before `main` moved again; **"we changing to version 0.0.1"**; the kick
+found in testing: **"the client is told to wait and then pulled in"**, **"please add the PleaseWait feature
+before we release"**.  Movement is next by his earlier numbering (0.0.0.12).  His to change.
+
 ## Last session -- 2026-10-02, release prep: the review, the release docs, the four bugs
 
 Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of all of Conductor.
@@ -186,20 +188,11 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
 
 ## Where the next session starts
 
-**The kick bug Jacob found
-while testing** (2026-10-02): a second login that logs the other out and presses PLAY inside the
-character's one-second lock gets Kicked, reason 6, back to the login.  **Built from his "please add the
-PleaseWait feature before we release", written and NOT BUILT, Conductor and Ensemble both**: protocol
-version 10's PleaseWait (`0x3B`, the ask's number and words, general for any ask that will take a moment);
-Protogame sends one for a locked pick and waits the lock out (`sessions::wait_for_loading_lock()`, up to
-`LOCK_WAIT` of 5 s), then plays; past that the Kicked as before.  Ensemble's `GameConnection.Waiting()`,
-`Session.AskWaiting()`, the words on character select's status line, `Protocol.Version` 10;
-`test_client.py` prints it.  PROTOCOL.md, CLAUDE.md and both networking design docs say so.  **Built and
-tested, both halves** (`cargo build` clean, 365 tests, a clean Unity Console, and the three run checks
-passed: the double login from Ensemble shows the words and then the HUD, and the test client prints the
-PleaseWait line and goes in).  **`main` is at `testing`'s tip, `b3ea5a8`, the 0.0.1 release**; the `v0.0.1`
-tag and the two packages are Jacob's (RELEASE.md, steps 3 to 5).  The "major clean up" he named before is
-the rest of the review's list.
+**0.0.1 is released**: `main` is at the release commit, built, tested and checked; the `v0.0.1` tag and the two
+packages are Jacob's to make by RELEASE.md (the session can't run `cargo build --release`, Unity or the
+GitHub Release page).  Nothing waits on a build.  What's next is his: the "major clean up" is the rest of
+the review's list (`CODE_REVIEW_0.0.1.md`: R8 onward, the inefficiencies, the stale words), or movement
+(0.0.0.12), or whatever he opens.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
@@ -208,9 +201,11 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 - **The 0.0.1 release's tag and packages**: `main` is at the release commit and the version numbers are
   set; the `v0.0.1` tag, Conductor's tar and Ensemble's zip are Jacob's, by `Documentation/HowTo/RELEASE.md`
   steps 3 to 5.
-- **The 0.0.1 code review's findings** (`CODE_REVIEW_0.0.1.md`, 2026-10-02): the four bugs are fixed and
-  waiting on a build; the seven risks are next, on Jacob's OK; then the inefficiencies and the stale words.
-  The clean-up he named for next can start from it.
+- **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`, 2026-10-02): the four bugs and the seven risks
+  are fixed, built and tested; R8 onward, the inefficiencies and the stale words are the clean-up Jacob
+  named.  The biggest: Scribe writing to the console under its lock (R8), the Lua time limit not stopping a
+  C call (R9), the page redrawing every tab every second (I2), DiskMan scanning its map per log line (I4),
+  the all-air chunks (I1).
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class
   on the client**: TODO.md.

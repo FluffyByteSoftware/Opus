@@ -12,12 +12,14 @@ Opus is a multiplayer game I'm building as a hobby.  Opus is the project's coden
 and Conductor decides.
 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
-game loop ticking over it, and a player can pick a character and stand in that world, though nothing moves
-yet.  Ensemble has an editor tool for the art, and screens built from layout files: it logs in over TLS,
-turning the password into a key before it's sent or kept, and at character select makes, deletes and picks
-a character and puts it in the world, though there's no world on screen yet.  Things will change and things will break.
+game loop ticking over it, and a player can pick a character, stand in that world and chat with whoever
+else is there, though nothing moves yet.  Ensemble has an editor tool for the art, and screens built from
+layout files: it logs in over TLS, turning the password into a key before it's sent or kept, makes, deletes
+and picks a character at character select, and puts it in the world with a chat window over the scene,
+though there's no world on screen yet.  Things will change and things will break.
 
-**The first goal, 0.0.1, is a player spawned in the world and able to chat.**
+**0.0.1 is released (2026-10-02): a player logs in, picks a character, and stands in the world chatting.**
+The next milestone is movement.
 
 ## Where it stands
 
@@ -42,9 +44,28 @@ a character and puts it in the world, though there's no world on screen yet.  Th
 | Ensemble logging in, character select, PLAY      | Built and tested; the HUD comes up over the scene      |
 | Ensemble's chat window, `/who`'s box, `/camp`    | Built and tested, EverQuest's keys included            |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
+| The 0.0.1 review: four bugs, seven risks fixed   | Built, tested and checked (`CODE_REVIEW_0.0.1.md`)     |
+| A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.
+
+## Installation
+
+To run a released version rather than build one, get the two packages from the repo's Releases page
+(private, like the repo) and follow
+[INSTALLATION_INSTRUCTIONS.md](Documentation/HowTo/INSTALLATION_INSTRUCTIONS.md).  In short:
+
+1. **The server** needs a Linux machine with PostgreSQL 18 and `openssl`.  Unpack `Opus-Conductor-0.0.1`,
+   make the database and its role (two lines of SQL; Conductor makes its own tables), put the TLS key
+   beside the certificate in `Content/certs/`, set the Postgres password, the address to listen on and the
+   web admin's passwords in `Content/cfg/`, and run `conductor-launcher`.  The web admin is at
+   <http://127.0.0.1:9996/Opus> on that machine: START SERVER, wait for the world, make the players'
+   accounts on the Accounts tab.
+2. **A player** unpacks `Opus-Ensemble-0.0.1`, runs it, types the server's address and port on the login
+   screen, and logs in with the account the admin made.
+
+How a release is made, tag and packages, is in [RELEASE.md](Documentation/HowTo/RELEASE.md).
 
 ## How it's put together
 
@@ -108,7 +129,7 @@ Conductor is a Cargo workspace of eleven crates, one folder each under `Conducto
 - **launcher** -- the program itself.  Boots, then starts and stops the server on the web admin's say.
 
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
-each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 9).
+each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).
 
 ## What it needs
 
