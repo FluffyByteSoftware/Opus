@@ -95,8 +95,15 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     the two), and the client takes the date from its own clock.
   - **Numbers into words**: "I'd make it a static class in c# but words isn't right... I think actually we
     build a new lib.  This isn't anything like tools.  It's just a Translator and a Math object in here."
-    Up to the largest int ("Past that it would show the number").  Open: which side the lib is on, its
-    name, and what the Math object holds.
+    Up to the largest int ("Past that it would show the number").  **It's the client's** (Jacob,
+    2026-10-02): "a static class `string NumberToWords(int number)`", British, with the "and" ("IN the honor
+    of Discworld!").  The server sends the names; the client counts them and writes the count out.
+  - **A big answer** (Jacob, 2026-10-02): "we need to build a "span packet" that tells the client there are
+    X of Y packets about to show up and to wait till all are received or a specified time elapses?"  Being
+    settled.
+- **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up
+  repeatedly needing but we don't need it... yet put this in todo".  A static class beside the Translator,
+  when there's a formula used in more than one place.
   - **Ensemble**: these lines only line up in a monospaced font, so the chat box needs one.
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
