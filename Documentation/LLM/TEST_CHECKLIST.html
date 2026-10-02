@@ -197,82 +197,16 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>Soundcheck: the web folder, the check at start, the patch (2026-10-02)</h2>
-<p>Built 2026-10-02.  Admin mode's checks (PUBLISH, the folder per platform, the refusal) all passed.
-The server has to be running with the door open for the login part, as before.</p>
-<p>User mode.  <code>--www http://127.0.0.1:8553/</code> on the command line points the launcher at
-<code>python3 -m http.server 8553 --directory /opt/storage/WWW</code> on this machine instead of the
-real address, for the checks that need the web server stopped or a file taken out of it.</p>
-<p>The web folder is up at <code>opusensemble.duckdns.org:8553</code> (2026-10-02), so the launcher runs
-without <code>--www</code> now; the check and a two-file patch passed against it.</p>
-<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --game /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble.x86_64</pre>
+<h2>Parked</h2>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      Delete <code>Ensemble.x86_64</code> itself (it's in the web folder) and start again: the log has
-      "Patch: Ensemble.x86_64 ... is in.", <code>ls -l</code> shows this evening's time and the x, and PLAY
-      starts the game.  (On 2026-10-02 the <code>ls -l</code> came back with the build's own time, so the
-      file hadn't been deleted first.)
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A file the manifest doesn't know (<code>touch</code> one in the 0.0.12 folder, delete it after):
-      the check still passes, with "1 file here isn't in the manifest and was left alone (&lt;name&gt;)."
-      on the end.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      With the web server stopped: "The game's files couldn't be checked: couldn't reach
-      http://127.0.0.1:8553/linux_manifest.json (...). Close the launcher and try again." in red, the
-      boxes stay greyed.  <code>--www http://127.0.0.1:8553/nothing/</code> with it running: "... answered
-      404 ...".
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A file missing from the web folder: delete <code>/opt/storage/WWW/download/linux/Ensemble_Data/app.info</code>
-      (not the manifest's line), break the install's copy as above, start: "The game's files couldn't be
-      checked: ... app.info answered 404 Not Found", boxes greyed, and the install's broken file is still
-      there with no <code>.patch</code> beside it.  PUBLISH in admin mode puts the web copy back.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A manifest line with a broken hash (the <code>sed</code> below changes one character of the first
-      file's hash): the file is fetched, the copy's hash doesn't match the manifest, and the status says
-      "the copy at ... isn't what the manifest says".  PUBLISH writes a good manifest back.
-    </span></label>
-  </li>
-</ul>
-<pre class="cmd">sed -i '0,/"sha256": "/s/"sha256": "./"sha256": "z/' /opt/storage/WWW/linux_manifest.json</pre>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      <code>--debug</code>: no fetch, no check, the boxes open at once with "Debug mode: the game's files
-      aren't checked."; SUBMIT writes the ticket file and PLAY is on, as before.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      KICK from the web admin with the check on: Soundcheck opens, the check runs, and the status ends
-      up red with "You were kicked by the admin. Every file checks out (M files). Log in."  The farewell
-      isn't lost under the check's words.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Parked until Soundcheck ships beside the game (no <code>--game</code>): a changed launcher file in the
+      Soundcheck shipped beside the game (no <code>--game</code>): a changed launcher file in the
       web folder is fetched, "The launcher was updated. Starting it again...", and the new launcher opens
       with "Started again after a patch." in its log and passes.  On Windows, the old <code>.exe</code> is
       left as <code>.old</code> and gone on the start after.
     </span></label>
   </li>
-</ul>
-
-<h2>Parked</h2>
-<ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
       Spans for real: a <code>/who list</code> with thirty-odd characters in the world goes out in pieces and

@@ -42,7 +42,7 @@ a fresh one lands.  Soundcheck finds the game beside itself (`Ensemble.x86_64`),
 remembered.  **Admin mode (`--admin`) publishes a platform's build into the web folder**
 (`/opt/storage/WWW`, served at `http://opusensemble.duckdns.org:8553/`): the build mirrored into
 `download/<platform>/`, and `linux_manifest.json` or `windows_manifest.json` written at the root from it
-(PATCH_MANIFEST.md, format 3).  **User mode checks the install at start** (written 2026-10-02, not built),
+(PATCH_MANIFEST.md, format 3).  **User mode checks the install at start** (built and tested 2026-10-02),
 with the login locked: it fetches the manifest for the OS it's on (`--www <url>` for a test), hashes the
 game's folder against it, fetches whatever's missing or changed a file at a time into a temp beside it and
 swaps it in, checks again, and unlocks the login on a pass; a launcher that replaced one of its own files
@@ -59,9 +59,12 @@ the GitHub Release.  `main` is two docs commits past the tag; `testing` and `uns
 other, this session's work past `main`.  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor as released (365 tests), Soundcheck through PLAY and the way
-back, and Ensemble through the start screen, dev mode and the launcher's ticket.  **Not built yet**: this
-session's Soundcheck (PUBLISH, the check at start, the patch, the restart); TEST_CHECKLIST.html has its
-checks, and the first `dotnet build` may want a fix or two.  **On Windows**: Conductor builds and runs, START SERVER included,
+back, and Ensemble through the start screen, dev mode and the launcher's ticket.  **Built and tested 2026-10-02**: PUBLISH, the check at start, the patch (two files, and the game's program
+itself fetched back runnable), the extra file, the web server down, a 404, a file missing from the web
+folder, a bad hash, `--debug`, the farewell after a KICK, all against the real address.  **Hashing the 655 MB
+build takes 1.3 s** at a start (193 files; the disk cache does most of that, a cold start will be slower).
+TEST_CHECKLIST.html is down to two Parked checks: the launcher's own restart after a patch (needs
+Soundcheck shipped beside the game) and Spans for real.  **On Windows**: Conductor builds and runs, START SERVER included,
 without a database; nothing since the world has been tried there (GitHub issue #10), and neither Soundcheck
 nor the new Ensemble has been built there at all.  The `.meta` round from the login's move landed before
 this session (`git ls-files` shows none of the old login's files).
@@ -111,7 +114,7 @@ of its own there, later.  All three shapes are in `design/soundcheck.md`, in his
 
 ## Last session -- 2026-10-02, the web folder: PUBLISH, the check at start, the patch
 
-Two rounds in one chat, written and pushed, not built.  The first (two manifests from a web address, the
+Two rounds in one chat, built and tested the same evening.  The first (two manifests from a web address, the
 check after SUBMIT) went up and was overtaken the same afternoon by Jacob's redesign (above); the second
 is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
 
@@ -136,13 +139,12 @@ is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
 
 ## Where the next session starts
 
-**The build.**  `dotnet build` on this session's Soundcheck, then TEST_CHECKLIST.html's checks: PUBLISH on
-the 0.0.12 build into `/opt/storage/WWW`, user mode against `python3 -m http.server 8553` on it with
-`--www`, a broken file fetched back, the game's program fetched back executable, an extra file, the web
-server down, a 404, a bad hash, `--debug`, the farewell, the real address once the folder is up.  The
-restart after a launcher patch is Parked until Soundcheck ships beside the game.
+The patcher is tested on Linux against the real web folder (above).  What the build taught, fixed the same
+evening: the CA1416 guard has to be `OperatingSystem.IsWindows()`; a worker's last progress message can land
+after the words that follow it, so each carries its phase; and the check wants the game's *folder*, not its
+program, or a deleted `Ensemble.x86_64` stops the check instead of being fetched.
 
-Then, unordered (TODO.md, "Soundcheck", has each): the world's dump (Conductor's, and its line in the
+Unordered (TODO.md, "Soundcheck", has each): the world's dump (Conductor's, and its line in the
 manifest); the Windows builds of Ensemble and Soundcheck published as the Windows half; Soundcheck's log
 file for Windows; one package; the other person's server.
 
