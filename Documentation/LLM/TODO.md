@@ -333,6 +333,15 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 
 ### Networking
 
+- **A pick inside the character's lock waits instead of a Kicked** (Jacob, 2026-10-02, found testing the
+  double login: "we need to have the client wait for the lock out and then be allowed to play them...
+  instead of kicking them back to login", then "the client is told to wait and then pulled in?", then
+  "please add the PleaseWait feature before we release").  **Written, waiting on a build**: protocol version
+  10's PleaseWait (`0x3B`, the ask's number and words, general for any ask that will take a moment); Protogame
+  sends it and waits the lock out (the rest of its second, then the save) up to 5 s, then plays the character;
+  past that, the Kicked as today.  Ensemble shows the words on character select's status line and keeps PLAY
+  greyed until the answer.  PROTOCOL.md's "One moment" has it.
+
 - **Client management**, not this iteration:
   - A player limit: "The server is full."  Today `max_waiting_logins` caps the door and nothing caps the
     world.
@@ -405,7 +414,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   password through `/Opus/settings`, idle TLS connections tie up the login pool, a spoofed UDP Connect is
   a disk-written Info line, accept failures flood the bell, a DiskMan write during a config swap is lost,
   notices have no cap, a Warn per world save over `slow_job_ms`), and the rest.  **The four bugs are fixed,
-  built and tested, and the seven risks are fixed and waiting on a build** (2026-10-02).  The rest (R8 on,
+  built and tested, and the seven risks are fixed, built and tested too** (2026-10-02, 365 tests).  The rest (R8 on,
   the inefficiencies, the stale words) is the clean-up's list.
 
 - **Scribe: the Debug switch** in `conductor_globals.cfg` that drops Debug lines when off.  Then go

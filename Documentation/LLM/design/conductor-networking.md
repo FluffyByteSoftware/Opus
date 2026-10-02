@@ -284,9 +284,14 @@ session before (`design/gameclock.md`).
   - **The lock, both ways** (`sessions.rs`, `Lock`, `LOCK_FOR` of 1 second, fixed in code): Protogame locks
     a character for a second before it reads the row (`lock_for_loading()`), and a character that leaves
     the world is locked for a second, and after that for as long as the GameClock says it's saving.  A
-    UserPressPlay for a locked character isn't read at all: the player is sent a Kicked, reason `6`, and
-    goes back to the login screen (Jacob: "Yes, that's correct"); their row reads "LINKDEAD: picked a
-    character locked for a moment; logs in again".  This covers the other ways back in (Goodbye, gone
+    UserPressPlay for a locked character isn't read until the lock clears: the player is sent a PleaseWait
+    (protocol version 10, "Your character is still being saved from its last session. One moment."),
+    Protogame waits the lock out (`wait_for_loading_lock()`, the rest of its second slept, the save waited
+    on the GameClock's bell, up to `LOCK_WAIT` of 5 s) and then plays it.  Jacob, 2026-10-02, after the
+    second login's PLAY inside the first one's second got the Kicked: "the client is told to wait and then
+    pulled in".  Past 5 s (the save is stuck) the player is sent a Kicked, reason `6`, and goes back to the
+    login screen; their row reads "LINKDEAD: picked a character locked for a moment; logs in again".
+    Protogame is one thread, so another player's ask waits behind the wait, nothing at these numbers.  This covers the other ways back in (Goodbye, gone
     quiet, a kick from the page, then a fresh login), where no login is waiting.  The lock is by uuid,
     lowercased.  A loading lock is swept once its second is over; a leaving one keeps the row id until STOP
     SERVER (one per character that left this run), so a later pick can still ask the GameClock about its

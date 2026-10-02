@@ -185,9 +185,14 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
 
 The run checks in TEST_CHECKLIST.html under "2026-10-02 -- the 0.0.1 fixes".  **The kick bug Jacob found
 while testing** (2026-10-02): a second login that logs the other out and presses PLAY inside the
-character's one-second lock gets Kicked, reason 6, back to the login.  Planned, waiting on his OK: the
-client is told to wait (a new `PleaseWait` UDP packet, protocol version 10, the words on character
-select's status line) and Protogame waits the lock out, up to 5 s, then pulls them in.  Then `main` moves
+character's one-second lock gets Kicked, reason 6, back to the login.  **Built from his "please add the
+PleaseWait feature before we release", written and NOT BUILT, Conductor and Ensemble both**: protocol
+version 10's PleaseWait (`0x3B`, the ask's number and words, general for any ask that will take a moment);
+Protogame sends one for a locked pick and waits the lock out (`sessions::wait_for_loading_lock()`, up to
+`LOCK_WAIT` of 5 s), then plays; past that the Kicked as before.  Ensemble's `GameConnection.Waiting()`,
+`Session.AskWaiting()`, the words on character select's status line, `Protocol.Version` 10;
+`test_client.py` prints it.  PROTOCOL.md, CLAUDE.md and both networking design docs say so.  The next
+session starts by expecting compile fixes in Rust and in Unity.  Then `main` moves
 to `testing`'s tip, the `v0.0.1` tag and the two packages (RELEASE.md).  The "major clean up" he named
 before is the rest of the review's list.
 

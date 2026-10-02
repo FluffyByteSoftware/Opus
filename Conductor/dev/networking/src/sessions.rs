@@ -87,6 +87,7 @@ use std::io;
 use std::mem;
 use std::net::SocketAddr;
 use std::sync::{LazyLock, Mutex};
+use std::thread;
 use std::time::{Duration, Instant};
 
 use conductor_tools::clock::Utc;
@@ -433,6 +434,39 @@ pub fn lock_for_loading(uuid: &str) -> bool {
     }
     lock_loading_in(&mut book(), uuid, now);
     true
+}
+
+/// Waits for the character `uuid`'s lock to clear and then locks it for
+/// loading, for Protogame, for up to `limit`.  True once it's locked for
+/// loading, and the row may be read; false if `limit` ran out first.
+/// What's holding it is the rest of its second (slept out) or its save
+/// on its way to the database (waited on the GameClock's bell), so nothing
+/// polls.  Jacob, 2026-10-02, on the second login's pick getting Kicked
+/// inside the first one's second: "the client is told to wait and then
+/// pulled in".
+pub fn wait_for_loading_lock(uuid: &str, limit: Duration) -> bool {
+    let until = Instant::now() + limit;
+    loop {
+        if lock_for_loading(uuid) {
+            return true;
+        }
+        let now = Instant::now();
+        if now >= until {
+            return false;
+        }
+        let left = until - now;
+        let (second_left, character_id) = match book().locks.get(&uuid.to_ascii_lowercase()) {
+            Some(lock) => (LOCK_FOR.saturating_sub(now.saturating_duration_since(lock.since)), lock.character_id),
+            None => (Duration::ZERO, None),
+        };
+        if !second_left.is_zero() {
+            thread::sleep(second_left.min(left));
+        } else if let Some(character_id) = character_id {
+            conductor_gameclock::wait_until_saved(character_id, left);
+        } else {
+            // Locked a moment ago and clear now: round again at once.
+        }
+    }
 }
 
 /// Sends the player at `from` back to the login: they picked a locked

@@ -61,7 +61,7 @@
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 9;
+pub const PROTOCOL_VERSION: u8 = 10;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -186,6 +186,10 @@ pub enum PacketType {
     /// answer, type byte and all.  An answer that fits in one packet goes
     /// as it is.  Version 9, Jacob's "span packet".
     Span = 0x3A,
+    /// The ask is being worked on and will take a moment (version 10):
+    /// the words to show while it is.  Not the answer: that follows under
+    /// the same ask number.
+    PleaseWait = 0x3B,
 }
 
 impl PacketType {
@@ -219,6 +223,7 @@ impl PacketType {
             0x38 => Some(PacketType::ChatDelivery),
             0x39 => Some(PacketType::WhoDelivery),
             0x3A => Some(PacketType::Span),
+            0x3B => Some(PacketType::PleaseWait),
             _ => None,
         }
     }
@@ -586,6 +591,18 @@ pub fn command_refused(ask: u32, why: &str) -> Vec<u8> {
     let mut bytes = vec![PacketType::CommandRefused as u8];
     bytes.extend_from_slice(&ask.to_le_bytes());
     put_string(&mut bytes, why);
+    bytes
+}
+
+/// The general "one moment": the ask is being worked on and will take a
+/// while, and these are the words to show meanwhile.  Not the answer, so
+/// the book doesn't keep it; the answer follows under the same ask
+/// number.  Protogame sends it when a picked character is locked and it
+/// waits the lock out (version 10).
+pub fn please_wait(ask: u32, words: &str) -> Vec<u8> {
+    let mut bytes = vec![PacketType::PleaseWait as u8];
+    bytes.extend_from_slice(&ask.to_le_bytes());
+    put_string(&mut bytes, words);
     bytes
 }
 
@@ -1016,14 +1033,14 @@ mod tests {
                      PacketType::CreateCharacter, PacketType::CharacterCreateResult, PacketType::DeleteCharacter,
                      PacketType::CharacterDeleteResult, PacketType::CharacterRequestResetHome,
                      PacketType::UserPressPlay, PacketType::CharacterEnteredWorld, PacketType::PlayerCommand,
-                     PacketType::ChatDelivery, PacketType::WhoDelivery, PacketType::Span];
+                     PacketType::ChatDelivery, PacketType::WhoDelivery, PacketType::Span, PacketType::PleaseWait];
         for kind in every {
             assert_eq!(PacketType::from_byte(kind as u8), Some(kind));
         }
         assert_eq!(PacketType::from_byte(0x00), None);
         assert_eq!(PacketType::from_byte(0x16), None);
         assert_eq!(PacketType::from_byte(0x29), None);
-        assert_eq!(PacketType::from_byte(0x3B), None);
+        assert_eq!(PacketType::from_byte(0x3C), None);
     }
 
     #[test]
@@ -1032,6 +1049,9 @@ mod tests {
         let mut expected = vec![0x36, 7, 0, 0, 0, 3, 0, 0, 0];
         expected.extend_from_slice(b"No.");
         assert_eq!(command_refused(7, "No."), expected);
+        let mut expected = vec![0x3B, 7, 0, 0, 0, 10, 0, 0, 0];
+        expected.extend_from_slice(b"One moment");
+        assert_eq!(please_wait(7, "One moment"), expected);
     }
 
     #[test]

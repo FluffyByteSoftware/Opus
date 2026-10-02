@@ -12,8 +12,11 @@ The Python test client beside the crate (`networking/test_client.py`) speaks all
 (`Assets/Code/Net/`, 2026-10-02) the login and character select so far, not chat yet; when any of them
 disagrees with this document, it is the code that gets fixed.
 
-Protocol version **9**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 9 (2026-10-02)
+Protocol version **10**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 10 (2026-10-02)
+added PleaseWait (`0x3B`): the server is working on an ask and says it'll take a moment, with the words to
+show; the answer follows under the same ask number.  A UserPressPlay for a character locked for a moment
+gets one, and the lock is waited out, where before it got a Kicked.  Version 9 (2026-10-02)
 added `/who`: WhoDelivery (`0x39`), and Span (`0x3A`), an answer too big for one packet in pieces (below,
 "Answers in pieces").  Version 8 (2026-10-02)
 added chat: PlayerCommand (`0x37`), a line the player typed, and ChatDelivery (`0x38`), the chat going out to
@@ -119,6 +122,7 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 | `0x38` | ChatDelivery   | server to client | u8 count, then that many strings, each a finished line   |
 | `0x39` | WhoDelivery    | server to client | u32 ask, u32 seconds since midnight UTC, u8 list, u16 count, then each: string name, and with a list i32 x, y, z |
 | `0x3A` | Span           | server to client | u32 ask, u8 piece, u8 pieces, then the piece's bytes     |
+| `0x3B` | PleaseWait     | server to client | u32 ask, string words                                    |
 
 ## The login, over TCP
 
@@ -201,8 +205,8 @@ can't are short labels with no period.
    blacklist, or took it off the whitelist; its next login is closed at the door), `4` the admin kicked
    them (nothing stops them logging in again), `5` the admin deleted the account (the client says
    ACCOUNT TERMINATED; the account is gone, so logging in again fails), `6` the character picked with
-   UserPressPlay is locked for a moment (nothing is wrong; logging in again gets it).  The
-   client goes back to the login screen.
+   UserPressPlay was still locked after the server waited 5 seconds for it (its save from its last
+   session is stuck; logging in again tries again).  The client goes back to the login screen.
 
 Anything else from an address the server knows counts as hearing from that player (more of the game's
 packets go here later).  Anything at all from an address it doesn't know, other than a Connect, gets no answer.
@@ -250,8 +254,12 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
 - **A character is locked for a moment** whenever it moves between the database and the world: for 1
   second from the moment the server starts loading it, and for 1 second after it leaves the world, longer
   if its save from leaving hasn't reached the database yet.  A UserPressPlay for a locked character isn't
-  looked at: it gets a **Kicked** with reason `6`, and the client logs in again.  So one character is
-  never brought in twice at once, or on the save before its last.
+  read until the lock clears: the client gets a **PleaseWait** (version 10) with the words to show, "Your
+  character is still being saved from its last session. One moment.", the server waits the lock out, and
+  the CharacterEnteredWorld (or a CommandRefused) follows under the same ask number.  The client keeps
+  resending the ask meanwhile, as for any ask, and the server drops the resends.  If the lock is still
+  held after 5 seconds the client gets a **Kicked** with reason `6` instead, and logs in again.  So one
+  character is never brought in twice at once, or on the save before its last.
 - **Once the character is in the world, character select is behind the player.**  Any of the asks above
   gets a **CommandRefused**, "Your character is in the world.  Log out to get back to character select."
   The way back is logging out, to the login screen, every time (Jacob: "you log out back to log in screen
@@ -404,6 +412,20 @@ B4 36 00 00                                   14,004 seconds after midnight UTC
 02 00                                         2 characters
 06 00 00 00  41 6C 64 72 69 63                "Aldric"
 05 00 00 00  4A 61 63 6F 62                   "Jacob"
+```
+
+## One moment
+
+**PleaseWait** (`0x3B`, version 10): the ask's number and the words to show while the server works on it.
+It isn't the ask's answer, so it doesn't end the ask: the answer follows under the same number, and the
+client goes on waiting (and resending, as for any ask; the server drops the resends while it works).  A
+client that gives up on an ask after a fixed time starts that time again at a PleaseWait.  Today only a
+UserPressPlay for a character locked for a moment gets one; any ask that will take a while may.
+
+```text
+3B                                            PleaseWait
+03 00 00 00                                   ask 3
+0A 00 00 00  4F 6E 65 20 6D 6F 6D 65 6E 74    "One moment"
 ```
 
 ## Answers in pieces

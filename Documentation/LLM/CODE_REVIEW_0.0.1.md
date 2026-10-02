@@ -23,7 +23,7 @@ behaviour, reachable), **Risk** (reachable by abuse or by bad luck, or a rule br
 **Cleanliness** (dead code, stale words).  Line numbers are as of `7d85f1f`.
 
 **The four bugs and the seven risks under "worth fixing before the tag" were fixed the same day**
-(2026-10-02; each says so below; the bugs built and tested, the risks waiting on a build).  The rest is
+(2026-10-02; each says so below; all built and tested, 365 tests).  The rest is
 Jacob's to pick from, before the tag or after (CODE_REVIEW in TODO.md).
 
 ---

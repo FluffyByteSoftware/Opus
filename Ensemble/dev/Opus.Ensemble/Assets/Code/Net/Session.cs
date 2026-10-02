@@ -542,6 +542,22 @@ namespace Opus.Net
             Answered(kind, false);
         }
 
+        // A PleaseWait for the ask that's waiting: the server is on it and
+        // says it'll be a moment, so the words go on the status line (a
+        // character still being saved from its last session, say).  The
+        // buttons stay grey, since the ask is still out.
+        internal static void AskWaiting(GameConnection from, string words)
+        {
+            if (from != game || Asking == 0)
+                return;
+            if (Asking == Protocol.PlayerCommand)
+            {
+                Chat(words);
+                return;
+            }
+            SayHere(words, false);
+        }
+
         // PLAY's answer: the character is in the world.  Character select is
         // behind the player now; the way out is LOG OUT, to the login.
         internal static void EnteredWorld(GameConnection from, string name)

@@ -118,6 +118,18 @@ loop worked!"): log in, pick, make, delete, reset home, play, log out, and in ag
   which card is open, and fills it all in.  The layout puts the list, the line, the four buttons in a row
   and LOG OUT down the middle.
 
+## One moment: PleaseWait (2026-10-02, written, waiting on Unity)
+
+Jacob found it testing the double login: the second client logs the first out, presses PLAY inside the
+character's one-second lock, and gets Kicked, reason 6, back to the login.  His call: "the client is told to
+wait and then pulled in".  So protocol version 10 adds PleaseWait (`0x3B`, the ask's number and words), and
+the server sends one for a locked pick and waits the lock out itself.  In the client:
+`GameConnection.Waiting()` takes it for the ask that's out (an older ask's is ignored), starts the ask's
+10-second clock again, and posts `Session.AskWaiting()`, which puts the words on character select's status
+line (not as trouble) and leaves the ask out, so the buttons stay grey.  CharacterEnteredWorld then comes as
+usual and clears the line; a refusal shows as before.  For a typed line it goes in the chat box, in case a
+command ever sends one.  `Protocol.Version` is 10.
+
 ## In the world: chat and /who (2026-10-02, written, waiting on Unity)
 
 The server's side is PROTOCOL.md's "In the world"; the chat window is `design/ensemble-hud.md`.

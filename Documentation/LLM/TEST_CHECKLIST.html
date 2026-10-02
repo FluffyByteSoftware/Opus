@@ -265,6 +265,34 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>2026-10-02 -- PleaseWait: a pick inside the lock waits instead of a Kicked</h2>
+<p class="soft">Protocol version 10, Conductor and Ensemble both.  Written and not built.  Conductor first, then Unity
+(no new files, so no <code>.meta</code> round; the pull, then Unity's focus and its Console).</p>
+<pre class="cmd">cargo build && cargo test</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>cargo build</code> is clean and <code>cargo test</code> passes; Unity compiles with a clean Console.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The double login from Ensemble: the test client is in the world as Tester, Ensemble logs in as the same
+      account, says log the other out, and presses PLAY on Tester straight away.  The status line says "Your
+      character is still being saved from its last session. One moment." and then the HUD comes up, no Kicked,
+      no trip to the login.  The test client was told it's logged in elsewhere.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py testuser123 'Testpass1!' --host 10.0.0.84 --play Tester</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The same the other way round, with two test clients: the second's <code>--play</code> prints a PleaseWait
+      line and then "is in the world".
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py testuser123 'Testpass1!' --host 10.0.0.84 --play Tester</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

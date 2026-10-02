@@ -354,6 +354,10 @@ namespace Opus.Net
                 case Protocol.Span:
                     Piece(packet);
                     return;
+
+                case Protocol.PleaseWait:
+                    Waiting(packet);
+                    return;
             }
 
             if (!Protocol.CarriesAsk(packet.Kind))
@@ -373,6 +377,26 @@ namespace Opus.Net
                 askPacket = null;
             }
             Answered(packet);
+        }
+
+        // The server is working on our ask and says it'll take a moment
+        // (a character still being saved from its last session, say): the
+        // words to show meanwhile.  Not the answer, which follows under the
+        // same ask number.  The ask's clock starts again, so the server's
+        // wait isn't counted against the 10 seconds we give it.
+        void Waiting(PacketReader packet)
+        {
+            uint ask = packet.U32();
+            string words = packet.String();
+            packet.End();
+            lock (gate)
+            {
+                if (askPacket == null || ask != lastAsk)
+                    return;
+                askFirstSent = clock.ElapsedMilliseconds;
+            }
+            Debug.Log("Game: the server says to wait, \"" + words + "\".");
+            MainThread.Post(() => Session.AskWaiting(this, words));
         }
 
         // One piece of an answer too big for one packet.  The pieces' bytes

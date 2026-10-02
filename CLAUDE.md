@@ -566,8 +566,8 @@ When I say we're wrapping up:
   and so does a new value in a packet's enum (each new Kicked reason did):
   `protocol.rs`, PROTOCOL.md, `test_client.py` and Ensemble's
   `Assets/Code/Net/Protocol.cs` all change together, and the document gets
-  a line saying what the version added.  It's at 9
-  (`/who` and the span, 2026-10-02).
+  a line saying what the version added.  It's at 10
+  (PleaseWait, 2026-10-02).
 - **What a player types is `conductor-player-commands`** (2026-10-02, Jacob: "rip the
   commands out of networking and put them into their own crate... before we get too
   deep in commands").  A command is a file of its own in `player-commands/src/` and a
@@ -599,8 +599,12 @@ When I say we're wrapping up:
   every time", camping out included.
 - **A character is locked both ways** (`sessions.rs`): for 1 second when
   it starts loading, and for 1 second when it leaves the world and as long
-  after as its save is on its way.  A pick of a locked character gets
-  Kicked, reason 6, and the client logs in again.  A login that logs the
+  after as its save is on its way.  A pick of a locked character is told
+  to wait (PleaseWait, protocol version 10) and Protogame waits the lock
+  out, up to 5 seconds, then plays it; past that it's Kicked, reason 6,
+  and the client logs in again (Jacob, 2026-10-02, after a second login's
+  PLAY inside the first one's second got the Kicked: "the client is told
+  to wait and then pulled in").  A login that logs the
   other session out waits for that session's character's save before its
   ticket goes out, up to 5 seconds, then Login Unavailable.
 - **The TLS pair is made by hand** with the openssl command in README.md, in

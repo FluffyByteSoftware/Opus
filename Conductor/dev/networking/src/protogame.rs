@@ -18,9 +18,12 @@
 //! straight back out.  Before any of it the character is locked for a
 //! second (`sessions::lock_for_loading()`), and one that's locked already
 //! (loading, just out of the world, or its save still on its way) isn't
-//! read at all: its player is sent back to the login to try again.
-//! Jacob's lock, 2026-10-01, so no character is brought in twice at once
-//! or on the save before its last.
+//! read until the lock clears: the player is told to wait (PleaseWait)
+//! and the lock is waited out, up to `LOCK_WAIT`; past that they're sent
+//! back to the login to try again.  Jacob's lock, 2026-10-01, so no
+//! character is brought in twice at once or on the save before its last;
+//! the wait is his too (2026-10-02), after a second login's PLAY inside
+//! the first one's second got the Kicked.
 //!
 //! Every one of those is a database job, and the UDP thread never waits on
 //! the database.  So the UDP thread hands each ask in here, through a
@@ -65,6 +68,18 @@ const DATABASE_WAIT: Duration = Duration::from_secs(10);
 /// How long the thread sleeps for an ask before it checks in with the
 /// services list.
 const CHECK_IN_EVERY: Duration = Duration::from_secs(1);
+
+/// How long a UserPressPlay waits for its character's lock to clear
+/// before the player is sent back to the login.  The lock is a second,
+/// plus the save if one's still on its way; past this the save is stuck,
+/// and the login's own wait for it (`tcp.rs`) is the same 5 seconds.
+/// Protogame is one thread, so another player's ask waits behind this,
+/// which at these numbers is nothing.
+const LOCK_WAIT: Duration = Duration::from_secs(5);
+
+/// What the player sees on character select while the lock is waited
+/// out (PleaseWait, protocol version 10).
+const LOCK_WAIT_WORDS: &str = "Your character is still being saved from its last session. One moment.";
 
 /// The word a player types to delete a character, whatever the capitals
 /// (Jacob: "the client pre-reqs to ask them to type in delete").
@@ -326,13 +341,22 @@ fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
 fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str) {
     // Before the row is read: the point is not to read it while another
     // copy is being brought in, or before the last session's save is in it.
+    // A locked one is waited out, with the player told so, since the usual
+    // way to hit it is a second login that logged the first out and pressed
+    // PLAY inside its second (Jacob, 2026-10-02).
     if !sessions::lock_for_loading(uuid) {
-        if sessions::turn_away(from, account) {
-            udp::tell(from, &protocol::kicked(KickReason::CharacterLocked));
-            scribe::info(Channel::Security, &format!("{account} at {from} picked a character that's locked for \
-                a moment (loading, or just out of the world).  Sent back to the login to try again."));
+        udp::tell(from, &protocol::please_wait(ask, LOCK_WAIT_WORDS));
+        scribe::debug(Channel::Game, &format!("{account} at {from} picked a character that's locked for a moment \
+            (loading, or just out of the world).  Waiting it out, up to {} s.", LOCK_WAIT.as_secs()));
+        if !sessions::wait_for_loading_lock(uuid, LOCK_WAIT) {
+            if sessions::turn_away(from, account) {
+                udp::tell(from, &protocol::kicked(KickReason::CharacterLocked));
+                scribe::warn(Channel::Game, &format!("{account} at {from} picked a character still locked after \
+                    {} s: its save from its last session hasn't reached the database.  Sent back to the login \
+                    to try again.", LOCK_WAIT.as_secs()));
+            }
+            return;
         }
-        return;
     }
 
     let (character, answer) = match bring_in(account, ask, uuid) {

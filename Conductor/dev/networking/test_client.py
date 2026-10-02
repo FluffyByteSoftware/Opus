@@ -56,7 +56,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-PROTOCOL_VERSION = 9
+PROTOCOL_VERSION = 10
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -90,6 +90,7 @@ PLAYER_COMMAND = 0x37
 CHAT_DELIVERY = 0x38
 WHO_DELIVERY = 0x39
 SPAN = 0x3A
+PLEASE_WAIT = 0x3B
 
 NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "LoginResult",
          SESSION_CHOICE: "SessionChoice", TICKET: "Ticket", CONNECT: "Connect", CONNECT_RESULT: "ConnectResult",
@@ -100,7 +101,7 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          CHARACTER_REQUEST_RESET_HOME: "CharacterRequestResetHome", COMMAND_ACCEPTED: "CommandAccepted",
          COMMAND_REFUSED: "CommandRefused", USER_PRESS_PLAY: "UserPressPlay",
          CHARACTER_ENTERED_WORLD: "CharacterEnteredWorld", PLAYER_COMMAND: "PlayerCommand",
-         CHAT_DELIVERY: "ChatDelivery", WHO_DELIVERY: "WhoDelivery", SPAN: "Span"}
+         CHAT_DELIVERY: "ChatDelivery", WHO_DELIVERY: "WhoDelivery", SPAN: "Span", PLEASE_WAIT: "PleaseWait"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
@@ -370,6 +371,16 @@ class CharacterSelect:
                     (reason,) = struct.unpack("<I", data[1:5])
                     say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
                     raise Kicked()
+                if data[0] == PLEASE_WAIT and len(data) >= 5:
+                    (answered,) = struct.unpack_from("<I", data, 1)
+                    words, _ = take_string(data, 5)
+                    if answered == ask:
+                        # Not the answer: the server is working on it and
+                        # says so.  The answer follows under the same number.
+                        say("<-", PLEASE_WAIT, "ask %d: %r" % (ask, words), data[1:])
+                    else:
+                        say("<-", PLEASE_WAIT, "for ask %d, an old one; ignored" % answered)
+                    continue
                 if data[0] == SPAN and len(data) >= 7:
                     (answered,) = struct.unpack_from("<I", data, 1)
                     if answered != ask:
