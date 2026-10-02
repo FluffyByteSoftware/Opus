@@ -117,6 +117,7 @@ Opus/
 │       ├── defaults/schemas/ # database schemas as first made, one .sql file per table
 │       └── migrations/    # every change to a table after that, numbered
 └── Documentation/
+    ├── REPORT.html        # the easy version: the three programs, how a player gets in, the library, with diagrams
     ├── HowTo/             # how-tos for a person, public docs in my voice
     │   ├── WINDOWS_INSTALL.md # building Conductor on Windows; grows as Windows is tried
     │   ├── RELEASE.md         # testing to main, the tag, the two packages, the GitHub Release

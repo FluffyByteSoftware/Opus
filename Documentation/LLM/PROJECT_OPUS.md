@@ -272,6 +272,7 @@ Opus/
 │       └── migrations/                # the rules in README.md; 0001 put a uuid on every table, 0002 the
 │                                      #   three character slots on accounts
 └── Documentation/
+    ├── REPORT.html                    # the easy version of the whole thing, with diagrams; opened from the disk
     ├── HowTo/                         # how-tos for a person, not the sessions' working docs
     │   ├── WINDOWS_INSTALL.md         # building Conductor on Windows: MSVC and the Build Tools
     │   ├── RELEASE.md                 # releasing a version: main, the tag, the packages

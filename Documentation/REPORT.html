@@ -1,0 +1,540 @@
+<!--
+File:       Opus/Documentation/REPORT.html
+Component:  Documentation
+Author:     Jacob Chacko
+
+The easy version of how Opus hangs together, as of 2026-10-02: the three
+programs, how a player gets from a double-click to standing in the world
+chatting, and what the game library is.  Opened straight from the disk.
+Pulls nothing from the internet.  Nothing in here is the contract; the
+contracts are PROTOCOL.md, PATCH_MANIFEST.md and REGION_MAP.md in LLM/,
+and when this page and those disagree, those win.
+-->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Opus, the easy version</title>
+<style>
+  :root {
+    --page: #0f172a;
+    --panel: rgba(30, 41, 59, 0.7);
+    --line: #334155;
+    --ink: #e2e8f0;
+    --ink-bright: #ffffff;
+    --ink-soft: #94a3b8;
+    --green: #34d399;
+    --yellow: #facc15;
+    --blue: #60a5fa;
+    --red: #f87171;
+    --mono: "Fira Code", ui-monospace, "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: Inter, system-ui, "Segoe UI", Roboto, sans-serif;
+    background: var(--page);
+    color: var(--ink);
+    line-height: 1.6;
+    font-size: 17px;
+  }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 80px; }
+  h1 { font-size: 34px; margin: 8px 0 4px; color: var(--ink-bright); }
+  h2 { font-size: 24px; margin: 48px 0 8px; color: var(--green); border-bottom: 1px solid var(--line); padding-bottom: 4px; }
+  h3 { font-size: 18px; margin: 28px 0 6px; color: var(--yellow); }
+  p { margin: 10px 0; }
+  .soft { color: var(--ink-soft); }
+  .big { font-size: 20px; }
+  code { font-family: var(--mono); font-size: 0.92em; background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px; }
+  .box {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin: 16px 0;
+  }
+  .box.tip { border-color: var(--green); }
+  .box.warn { border-color: var(--yellow); }
+  figure { margin: 18px 0; }
+  figure svg { width: 100%; height: auto; display: block; background: #0b1222; border: 1px solid var(--line); border-radius: 8px; }
+  figcaption { color: var(--ink-soft); font-size: 14px; margin-top: 6px; }
+  ul { padding-left: 22px; }
+  li { margin: 4px 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 15px; }
+  th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; vertical-align: top; }
+  th { color: var(--ink-bright); background: rgba(255,255,255,0.04); }
+  nav a { color: var(--blue); text-decoration: none; margin-right: 14px; }
+  nav a:hover { text-decoration: underline; }
+  /* The diagrams' words. */
+  svg text { font-family: Inter, system-ui, sans-serif; font-size: 14px; fill: #e2e8f0; }
+  svg text.title { font-size: 16px; font-weight: bold; fill: #ffffff; }
+  svg text.small { font-size: 12px; fill: #94a3b8; }
+  svg text.mono { font-family: "Fira Code", ui-monospace, monospace; font-size: 12px; }
+  svg .node { fill: #1e293b; stroke: #475569; stroke-width: 1.5; rx: 8; }
+  svg .node.green { stroke: #34d399; }
+  svg .node.yellow { stroke: #facc15; }
+  svg .node.blue { stroke: #60a5fa; }
+  svg .node.red { stroke: #f87171; }
+  svg .arrow { stroke: #94a3b8; stroke-width: 2; fill: none; marker-end: url(#head); }
+  svg .arrow.green { stroke: #34d399; marker-end: url(#headg); }
+  svg .arrow.yellow { stroke: #facc15; marker-end: url(#heady); }
+  svg .arrow.red { stroke: #f87171; marker-end: url(#headr); }
+  svg .life { stroke: #334155; stroke-width: 1; stroke-dasharray: 4 4; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Opus, the easy version</h1>
+<p class="soft">How a player gets from a double-click to standing in the world talking, and what's under the hood.
+As of 2026-10-02.  No jargon without a translation.  If you only read the pictures, you'll still get it.</p>
+
+<nav>
+  <a href="#programs">The three programs</a>
+  <a href="#patch">1. The patcher</a>
+  <a href="#login">2. The login</a>
+  <a href="#udp">3. The game</a>
+  <a href="#back">The way back</a>
+  <a href="#testclient">The test client</a>
+  <a href="#library">The library</a>
+  <a href="#tick">The tick</a>
+  <a href="#rules">The rules</a>
+  <a href="#next">Not yet</a>
+</nav>
+
+<!-- Arrowheads for every diagram, drawn once. -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <marker id="head" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="headg" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#34d399"/>
+    </marker>
+    <marker id="heady" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#facc15"/>
+    </marker>
+    <marker id="headr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto" markerUnits="userSpaceOnUse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#f87171"/>
+    </marker>
+  </defs>
+</svg>
+
+<h2 id="programs">The three programs</h2>
+<p class="big">Opus is three programs.  One the player opens, one the player plays, and one that runs the whole
+show on my machine.</p>
+
+<figure>
+<svg viewBox="0 0 900 300">
+  <rect class="node green" x="30" y="90" width="215" height="120"/>
+  <text class="title" x="137" y="125" text-anchor="middle">Soundcheck</text>
+  <text x="137" y="150" text-anchor="middle">the launcher</text>
+  <text class="small" x="137" y="172" text-anchor="middle">checks your files, logs you in,</text>
+  <text class="small" x="137" y="190" text-anchor="middle">starts the game and quits</text>
+
+  <rect class="node blue" x="342" y="90" width="215" height="120"/>
+  <text class="title" x="450" y="125" text-anchor="middle">Ensemble</text>
+  <text x="450" y="150" text-anchor="middle">the game (Unity)</text>
+  <text class="small" x="450" y="172" text-anchor="middle">character select, the world,</text>
+  <text class="small" x="450" y="190" text-anchor="middle">the chat window</text>
+
+  <rect class="node yellow" x="655" y="90" width="215" height="120"/>
+  <text class="title" x="762" y="125" text-anchor="middle">Conductor</text>
+  <text x="762" y="150" text-anchor="middle">the server (Rust)</text>
+  <text class="small" x="762" y="172" text-anchor="middle">owns the world, the accounts,</text>
+  <text class="small" x="762" y="190" text-anchor="middle">and decides everything</text>
+
+  <path class="arrow green" d="M245,150 L342,150"/>
+  <text class="small" x="293" y="140" text-anchor="middle">starts it</text>
+  <text class="small" x="293" y="168" text-anchor="middle">with a ticket</text>
+
+  <path class="arrow" d="M137,90 C137,30 762,30 762,90"/>
+  <text class="small" x="450" y="38" text-anchor="middle">the login (TLS over TCP, port 9997)</text>
+
+  <path class="arrow blue" d="M450,210 C450,270 762,270 762,210"/>
+  <text class="small" x="606" y="262" text-anchor="middle">the game (UDP, port 9998)</text>
+
+  <text class="small" x="30" y="285">The player's machine: Soundcheck and Ensemble sit in one folder.  My machine: Conductor, and the web folder (next section).</text>
+</svg>
+<figcaption>Who talks to whom.  Soundcheck only ever talks to the server over TCP.  Ensemble only ever talks to it over UDP.
+The two never need each other's secrets.</figcaption>
+</figure>
+
+<div class="box">
+<p><b>The one idea everything hangs off:</b> the server is the boss.  The client asks, the server decides.  The client
+never gets sent anything it isn't allowed to see, because somebody with a hacked client can read anything it's sent.</p>
+</div>
+
+<h2 id="patch">Step 1: the patcher checks your files</h2>
+<p>You double-click Soundcheck.  Before it lets you type a password, it checks that every file of the game on your disk
+is the one we shipped.  Not "most of them": every one.  Here's the trick that makes it cheap.</p>
+
+<figure>
+<svg viewBox="0 0 900 360">
+  <rect class="node green" x="30" y="40" width="300" height="280"/>
+  <text class="title" x="180" y="70" text-anchor="middle">Your machine</text>
+  <rect class="node" x="55" y="90" width="250" height="60"/>
+  <text x="180" y="115" text-anchor="middle">Soundcheck</text>
+  <text class="small" x="180" y="135" text-anchor="middle">"which OS am I on?  linux."</text>
+  <rect class="node" x="55" y="170" width="250" height="130"/>
+  <text x="180" y="195" text-anchor="middle">the game's folder</text>
+  <text class="mono" x="70" y="220">Ensemble.x86_64      ok</text>
+  <text class="mono" x="70" y="240">Ensemble_Data/...    ok</text>
+  <text class="mono" x="70" y="260" fill="#f87171">boot.config          WRONG</text>
+  <text class="mono" x="70" y="280">193 files, 655 MB, 1.3 s</text>
+
+  <rect class="node yellow" x="570" y="40" width="300" height="280"/>
+  <text class="title" x="720" y="70" text-anchor="middle">The web folder (my machine)</text>
+  <text class="small" x="720" y="90" text-anchor="middle">opusensemble.duckdns.org:8553</text>
+  <rect class="node" x="595" y="105" width="250" height="50"/>
+  <text class="mono" x="720" y="125" text-anchor="middle">linux_manifest.json</text>
+  <text class="small" x="720" y="143" text-anchor="middle">every file's name, size and fingerprint</text>
+  <rect class="node" x="595" y="170" width="250" height="130"/>
+  <text x="720" y="195" text-anchor="middle">download/linux/</text>
+  <text class="small" x="720" y="215" text-anchor="middle">an exact copy of the game</text>
+  <text class="mono" x="610" y="240">Ensemble.x86_64</text>
+  <text class="mono" x="610" y="260">Ensemble_Data/boot.config</text>
+  <text class="mono" x="610" y="280">...</text>
+
+  <path class="arrow" d="M330,120 L570,120"/>
+  <text class="small" x="450" y="110" text-anchor="middle">1. "give me the list"</text>
+  <path class="arrow yellow" d="M570,135 L330,135"/>
+  <path class="arrow red" d="M330,255 L570,255"/>
+  <text class="small" x="450" y="245" text-anchor="middle">2. "give me boot.config"</text>
+  <path class="arrow yellow" d="M570,270 L330,270"/>
+  <text class="small" x="450" y="290" text-anchor="middle">3. it comes down, is checked,</text>
+  <text class="small" x="450" y="306" text-anchor="middle">and swapped in</text>
+
+  <text class="small" x="30" y="345">4. Check again.  All good?  The login unlocks.  (If the launcher patched itself, it restarts first.)</text>
+</svg>
+<figcaption>The manifest is the answer key.  Soundcheck grades its own homework against it, and only asks for the questions it got wrong.</figcaption>
+</figure>
+
+<p><b>A fingerprint</b> here is a SHA-256: you feed a file through a maths grinder and get 64 characters out, and
+changing one byte of the file changes the whole fingerprint.  So "same fingerprint" means "same file", and the
+launcher never has to send your files anywhere to prove it.</p>
+
+<p><b>The admin side</b> is the same program with <code>--admin</code>.  I point it at a build, press PUBLISH, and it copies the
+build into the web folder and writes the manifest beside it.  A plain web server serves that folder as it is.
+Conductor isn't involved in patching at all.</p>
+
+<div class="box tip">
+<p><b>Why bother?</b>  Two reasons.  A player with a broken install gets fixed without reinstalling 600 MB.  And a
+player with a <i>modified</i> install gets it put back, which is step one of keeping cheats out.</p>
+</div>
+
+<h2 id="login">Step 2: the login (the bouncer)</h2>
+<p>Files pass, the boxes unlock, you type your username and password and hit SUBMIT.  Soundcheck opens one connection to
+the server on TCP, wrapped in TLS, which is the same encryption your bank uses.  Then it's a short conversation.</p>
+
+<figure>
+<svg viewBox="0 0 900 420">
+  <text class="title" x="180" y="30" text-anchor="middle">Soundcheck</text>
+  <text class="title" x="720" y="30" text-anchor="middle">Conductor</text>
+  <line class="life" x1="180" y1="40" x2="180" y2="400"/>
+  <line class="life" x1="720" y1="40" x2="720" y2="400"/>
+
+  <path class="arrow" d="M180,70 L720,70"/>
+  <text class="small" x="450" y="62" text-anchor="middle">connect, TLS comes up.  Soundcheck checks the server's certificate byte for byte: "yes, that's my server"</text>
+
+  <path class="arrow yellow" d="M720,110 L180,110"/>
+  <text x="450" y="102" text-anchor="middle">Hello (protocol version 10)</text>
+
+  <path class="arrow green" d="M180,160 L720,160"/>
+  <text x="450" y="152" text-anchor="middle">Login: client version, the secret word, username, the password's KEY</text>
+  <text class="small" x="450" y="178" text-anchor="middle">the key is the password put through a grinder on your machine first; the password itself never leaves it</text>
+
+  <path class="arrow yellow" d="M720,215 L180,215"/>
+  <text class="small" x="450" y="207" text-anchor="middle">InLine: "2 people ahead of you, about 400 ms" (the server checks one password at a time, on purpose)</text>
+
+  <path class="arrow yellow" d="M720,270 L180,270"/>
+  <text x="450" y="262" text-anchor="middle">Ticket: a one-time token (64 characters) and the UDP port</text>
+  <text class="small" x="450" y="288" text-anchor="middle">...or LoginResult: wrong password / already logged in elsewhere / old client / server busy</text>
+
+  <text class="small" x="450" y="330" text-anchor="middle">The TCP connection closes right here.  Nothing stays open while you sit at the launcher.</text>
+
+  <rect class="node" x="300" y="350" width="300" height="40"/>
+  <text x="450" y="375" text-anchor="middle">PLAY = do all this again, then start the game</text>
+</svg>
+<figcaption>The ticket is a wristband.  Good once, good for 30 seconds, only from the first address that shows it.</figcaption>
+</figure>
+
+<h3>Why the password turns into a key first</h3>
+<p>The launcher never sends your actual password.  It grinds it (with your username mixed in) into a 64-character key,
+and sends that.  The server grinds it <i>again</i> with a slow, memory-hungry recipe called Argon2 before comparing.
+If somebody ever stole the database they'd have the result of two grinders, not a single password anybody can
+reuse on their email.  "Remember me" saves the key, not the password, for the same reason.</p>
+
+<h3>Why "Invalid Credentials" is the only wrong answer</h3>
+<p>Wrong username, wrong password, wrong secret word: you get the same words, and the server always takes at least
+150 ms to say it.  So nobody can tell which part they got wrong, or whether an account exists, by watching the
+answer or the clock.</p>
+
+<h3>PLAY is a second login</h3>
+<p>SUBMIT's ticket is thrown away.  When you press PLAY, Soundcheck logs in again with the key still in memory, gets a
+fresh ticket, hands it to Ensemble, and closes.  So no half-used ticket ever sits around, and the server lets the
+first one die.</p>
+
+<h2 id="udp">Step 3: the game (UDP, the fast lane)</h2>
+<p>Soundcheck starts Ensemble and puts four things in its environment (not on its command line, where other users on
+the machine could read them): the server's address, the UDP port, the token, and where Soundcheck itself lives (for
+the trip back).  Ensemble never sees a password and never speaks TCP.  It goes straight to the UDP port.</p>
+
+<div class="box">
+<p><b>TCP vs UDP, in one breath.</b>  TCP is a phone call: every word gets there, in order, or the line drops.  UDP is
+shouting across a field: fast, no setup, but a word can get lost.  The login needs the phone call.  A game needs the
+field, and it just shouts again if nobody answers.</p>
+</div>
+
+<figure>
+<svg viewBox="0 0 900 520">
+  <text class="title" x="180" y="30" text-anchor="middle">Ensemble</text>
+  <text class="title" x="720" y="30" text-anchor="middle">Conductor</text>
+  <line class="life" x1="180" y1="40" x2="180" y2="500"/>
+  <line class="life" x1="720" y1="40" x2="720" y2="500"/>
+
+  <path class="arrow green" d="M180,65 L720,65"/>
+  <text x="450" y="57" text-anchor="middle">Connect: the token (sent again every half second until answered)</text>
+  <path class="arrow yellow" d="M720,95 L180,95"/>
+  <text x="450" y="87" text-anchor="middle">ConnectResult: "Welcome to the world."</text>
+
+  <rect class="node blue" x="40" y="115" width="820" height="30" fill="#172033"/>
+  <text x="450" y="135" text-anchor="middle">You're at CHARACTER SELECT.  Every ask carries a number, so a lost answer is asked again, never done twice.</text>
+
+  <path class="arrow green" d="M180,175 L720,175"/>
+  <text x="450" y="167" text-anchor="middle">CharacterListRequest (ask 1)</text>
+  <path class="arrow yellow" d="M720,205 L180,205"/>
+  <text x="450" y="197" text-anchor="middle">CharacterListDelivery: up to 3 characters, name, slot, playable</text>
+
+  <path class="arrow green" d="M180,245 L720,245"/>
+  <text x="450" y="237" text-anchor="middle">CreateCharacter "Bob" / DeleteCharacter / UserPressPlay (ask 2, 3, ...)</text>
+  <path class="arrow yellow" d="M720,275 L180,275"/>
+  <text x="450" y="267" text-anchor="middle">CharacterEnteredWorld: your uuid, name, x y z   (or PleaseWait: "hang on a sec")</text>
+
+  <rect class="node blue" x="40" y="295" width="820" height="30" fill="#172033"/>
+  <text x="450" y="315" text-anchor="middle">You're IN THE WORLD.  The HUD and the chat window come up over the scene.</text>
+
+  <path class="arrow green" d="M180,355 L720,355"/>
+  <text x="450" y="347" text-anchor="middle">PlayerCommand: "/chat yo yo yo"   (or /who, /who list, /camp)</text>
+  <path class="arrow yellow" d="M720,385 L180,385"/>
+  <text x="450" y="377" text-anchor="middle">ChatDelivery: "[Chat] Bob: yo yo yo"  to everybody, on the server's 250 ms beat</text>
+
+  <path class="arrow" d="M180,425 L720,425"/>
+  <path class="arrow" d="M720,440 L180,440"/>
+  <text class="small" x="450" y="418" text-anchor="middle">KeepAlive once a second, both ways.  40 seconds of silence and the server drops you.</text>
+
+  <path class="arrow red" d="M720,480 L180,480"/>
+  <text x="450" y="472" text-anchor="middle">Kicked (reason) / or Goodbye from you.  Either way: back to the launcher.</text>
+</svg>
+<figcaption>Every packet is a type byte and a payload, written down byte for byte in PROTOCOL.md.  Conductor, Ensemble and
+the test client all read from that one page.</figcaption>
+</figure>
+
+<h3>Little things that matter</h3>
+<ul>
+  <li><b>The anti-flood.</b>  After a command you wait 500 ms (two ticks) before the next one is listened to; <code>/who</code>
+  makes you wait a second because it costs more.  Spam just gets "too soon".</li>
+  <li><b>Big answers come in pieces</b> (Spans).  A <code>/who list</code> with thirty people won't fit one packet, so it's
+  cut into "piece 2 of 5" and glued back together on the client.</li>
+  <li><b>No way back to character select.</b>  Leaving the world for any reason (kicked, server stops, <code>/camp</code>,
+  LOG OUT) means the launcher again.  Simple on purpose.</li>
+  <li><b>A character is locked</b> for a second when it's loading and for a second after it leaves, and until its save has
+  landed.  Pick a locked one and you're told to wait, then pulled in.</li>
+</ul>
+
+<h2 id="back">The way back</h2>
+<p>When the session ends, Ensemble starts Soundcheck again (it knows where, from its environment), hands it <i>why</i>
+("You were kicked by the admin.", "Logged out."), and quits.  So you're looking at the login with the reason in the
+status box, not a dead black window.  <code>/camp desktop</code> and QUIT skip the launcher and just close.</p>
+
+<figure>
+<svg viewBox="0 0 900 150">
+  <rect class="node green" x="40" y="40" width="200" height="70"/>
+  <text class="title" x="140" y="70" text-anchor="middle">Soundcheck</text>
+  <text class="small" x="140" y="92" text-anchor="middle">check, login, PLAY</text>
+  <rect class="node blue" x="350" y="40" width="200" height="70"/>
+  <text class="title" x="450" y="70" text-anchor="middle">Ensemble</text>
+  <text class="small" x="450" y="92" text-anchor="middle">play until it's over</text>
+  <rect class="node green" x="660" y="40" width="200" height="70"/>
+  <text class="title" x="760" y="70" text-anchor="middle">Soundcheck</text>
+  <text class="small" x="760" y="92" text-anchor="middle">"You were kicked by the admin."</text>
+  <path class="arrow green" d="M240,75 L350,75"/>
+  <text class="small" x="295" y="65" text-anchor="middle">ticket</text>
+  <path class="arrow red" d="M550,75 L660,75"/>
+  <text class="small" x="605" y="65" text-anchor="middle">the reason</text>
+  <text class="small" x="450" y="135" text-anchor="middle">A loop: launcher, game, launcher.  Each one closes when it hands over.</text>
+</svg>
+</figure>
+
+<h2 id="testclient">The test client (a fake player in a script)</h2>
+<p><code>Conductor/dev/networking/test_client.py</code> is a Python script that pretends to be a client, using nothing
+but Python's standard library.  It does the whole dance above from a terminal: TLS, Hello, Login with the key, the
+Ticket, Connect over UDP, the character list, PLAY, and then whatever you type goes out as a <code>/chat</code>.  Two of
+them in two terminals can talk to each other.</p>
+<p>It exists because for a long time there was no Ensemble to test with, and it's still the quickest way to poke the
+server: no Unity, no launcher, one line.  When the protocol document changes, the script changes with it, same as the
+real clients.  If the script and the server disagree about a byte, the document says who's right and the code gets
+fixed.</p>
+
+<div class="box">
+<p><b>The three readers of one page.</b>  Conductor's <code>protocol.rs</code>, Ensemble's <code>Protocol.cs</code>, and
+<code>test_client.py</code> are all written from PROTOCOL.md.  That's why they agree.</p>
+</div>
+
+<h2 id="library">The library: what a "thing in the world" is made of</h2>
+<p>Inside Conductor, the game library is <code>primlib</code>.  It's how the server holds every goblin, player and
+rock in memory.  The style is called an ECS, which sounds fancy and isn't.</p>
+
+<h3>Entities, components, and a spreadsheet</h3>
+<p>Picture a spreadsheet.  Each row is a <b>thing</b> (an entity).  Each column is a <b>kind of fact</b> about a thing
+(a component): where it is, what it looks like, its health.  A thing has a value in some columns and nothing in
+others.  A rock has a position and a shape and no health.  A player has all of it.</p>
+
+<figure>
+<svg viewBox="0 0 900 260">
+  <text class="title" x="30" y="30">The World, as a spreadsheet</text>
+  <!-- header -->
+  <rect class="node" x="30" y="45" width="130" height="34"/><text x="95" y="68" text-anchor="middle">entity</text>
+  <rect class="node yellow" x="165" y="45" width="140" height="34"/><text x="235" y="68" text-anchor="middle">Transform</text>
+  <rect class="node yellow" x="310" y="45" width="130" height="34"/><text x="375" y="68" text-anchor="middle">Model</text>
+  <rect class="node yellow" x="445" y="45" width="130" height="34"/><text x="510" y="68" text-anchor="middle">ShortName</text>
+  <rect class="node yellow" x="580" y="45" width="130" height="34"/><text x="645" y="68" text-anchor="middle">Health</text>
+  <rect class="node yellow" x="715" y="45" width="155" height="34"/><text x="792" y="68" text-anchor="middle">PlayerCharacter</text>
+  <!-- rows -->
+  <rect class="node" x="30" y="90" width="130" height="34"/><text class="mono" x="95" y="113" text-anchor="middle">#7 gen 2</text>
+  <rect class="node" x="165" y="90" width="140" height="34"/><text class="mono" x="235" y="113" text-anchor="middle">12, 0, -4</text>
+  <rect class="node" x="310" y="90" width="130" height="34"/><text class="mono" x="375" y="113" text-anchor="middle">goblin_a</text>
+  <rect class="node" x="445" y="90" width="130" height="34"/><text class="mono" x="510" y="113" text-anchor="middle">Goblin</text>
+  <rect class="node" x="580" y="90" width="130" height="34"/><text class="mono" x="645" y="113" text-anchor="middle">30 / 30</text>
+  <rect class="node" x="715" y="90" width="155" height="34"/><text class="small" x="792" y="113" text-anchor="middle">-</text>
+
+  <rect class="node" x="30" y="130" width="130" height="34"/><text class="mono" x="95" y="153" text-anchor="middle">#8 gen 1</text>
+  <rect class="node" x="165" y="130" width="140" height="34"/><text class="mono" x="235" y="153" text-anchor="middle">0, 0, 0</text>
+  <rect class="node" x="310" y="130" width="130" height="34"/><text class="mono" x="375" y="153" text-anchor="middle">human</text>
+  <rect class="node" x="445" y="130" width="130" height="34"/><text class="mono" x="510" y="153" text-anchor="middle">Bob</text>
+  <rect class="node" x="580" y="130" width="130" height="34"/><text class="mono" x="645" y="153" text-anchor="middle">100 / 100</text>
+  <rect class="node green" x="715" y="130" width="155" height="34"/><text class="mono" x="792" y="153" text-anchor="middle">account: jacob</text>
+
+  <rect class="node" x="30" y="170" width="130" height="34"/><text class="mono" x="95" y="193" text-anchor="middle">#9 gen 1</text>
+  <rect class="node" x="165" y="170" width="140" height="34"/><text class="mono" x="235" y="193" text-anchor="middle">3, 1, 3</text>
+  <rect class="node" x="310" y="170" width="130" height="34"/><text class="mono" x="375" y="193" text-anchor="middle">rock</text>
+  <rect class="node" x="445" y="170" width="130" height="34"/><text class="small" x="510" y="193" text-anchor="middle">-</text>
+  <rect class="node" x="580" y="170" width="130" height="34"/><text class="small" x="645" y="193" text-anchor="middle">-</text>
+  <rect class="node" x="715" y="170" width="155" height="34"/><text class="small" x="792" y="193" text-anchor="middle">-</text>
+
+  <text class="small" x="30" y="235">Rows are entities (a slot number plus a "generation", so a stale handle to a dead goblin can't poke whatever took its slot).</text>
+  <text class="small" x="30" y="252">Columns are components.  There are eleven kinds today; four shown.  A dash means "this thing doesn't have that".</text>
+</svg>
+</figure>
+
+<p>The eleven kinds of fact, in plain words: where it is (Transform), what it looks like (Model, PrimitiveShape,
+Animator), what it's called (ShortName, LongName, Titles), its bars (Health, Endurance, Mana), and whose it is
+(PlayerCharacter, which points at the account).</p>
+
+<h3>Templates and blueprints (the cookie cutter and the icing)</h3>
+<p>You don't fill the spreadsheet by hand.  A <b>template</b> is a cookie cutter: "an NPC has these columns, with these
+defaults".  A template can include another one whole: <code>Character</code> takes in everything <code>Living</code> has,
+then adds its own.  A <b>blueprint</b> is the icing on one cutter: <code>goblin_a</code> is the NPC template with its own
+model, name and health.  Every thing remembers which templates it came from, so the game can ask
+<code>is(entity, "Living")</code> and get a yes or no.</p>
+
+<figure>
+<svg viewBox="0 0 900 230">
+  <rect class="node yellow" x="40" y="40" width="200" height="60"/>
+  <text class="title" x="140" y="65" text-anchor="middle">Living</text>
+  <text class="small" x="140" y="87" text-anchor="middle">position, name, the three bars</text>
+  <rect class="node yellow" x="40" y="140" width="200" height="60"/>
+  <text class="title" x="140" y="165" text-anchor="middle">Character</text>
+  <text class="small" x="140" y="187" text-anchor="middle">Living + PlayerCharacter</text>
+  <path class="arrow yellow" d="M140,100 L140,140"/>
+  <text class="small" x="200" y="124">takes in</text>
+
+  <rect class="node blue" x="350" y="40" width="200" height="60"/>
+  <text class="title" x="450" y="65" text-anchor="middle">goblin_a</text>
+  <text class="small" x="450" y="87" text-anchor="middle">a blueprint: Living, but green</text>
+  <path class="arrow" d="M240,70 L350,70"/>
+
+  <rect class="node blue" x="350" y="140" width="200" height="60"/>
+  <text class="title" x="450" y="165" text-anchor="middle">Bob</text>
+  <text class="small" x="450" y="187" text-anchor="middle">Character + his save laid over it</text>
+  <path class="arrow" d="M240,170 L350,170"/>
+
+  <rect class="node green" x="660" y="90" width="200" height="60"/>
+  <text class="title" x="760" y="115" text-anchor="middle">the World</text>
+  <text class="small" x="760" y="137" text-anchor="middle">the rows alive right now</text>
+  <path class="arrow green" d="M550,70 L660,105"/>
+  <path class="arrow green" d="M550,170 L660,135"/>
+  <text class="small" x="605" y="60" text-anchor="middle">spawn</text>
+</svg>
+<figcaption>Templates say what a kind of thing is.  Blueprints say what this particular one is.  The World is the rows that are alive right now.</figcaption>
+</figure>
+
+<h3>Saving</h3>
+<p>The World lives in memory and the game loop never waits on the database.  Every 150 seconds one tick copies every
+player's character as plain data, and a background thread turns the copies into Lua text and writes them all in one
+go, so the database holds the world as it was at one moment.  Each component says which of its fields get saved and
+which don't.  STOP SERVER saves one last time.  When you log in, your character is built from the Character template
+with your save laid over the top.</p>
+
+<h2 id="tick">The tick (the server's heartbeat)</h2>
+<p>Conductor doesn't do things "when they happen".  It does them on a beat: every 250 ms, five checks of 50 ms, in a
+fixed order, run by the GameClock.  Only the GameClock's thread is allowed to touch the World and the ground.
+Everything slow (the database, the disk, the network) happens on other threads and hands its answer in later.</p>
+
+<figure>
+<svg viewBox="0 0 900 170">
+  <text class="title" x="30" y="30">One tick = 250 ms</text>
+  <rect class="node green" x="30" y="50" width="160" height="60"/><text x="110" y="78" text-anchor="middle">input</text><text class="small" x="110" y="98" text-anchor="middle">what players sent</text>
+  <rect class="node" x="200" y="50" width="160" height="60"/><text x="280" y="78" text-anchor="middle">AI</text><text class="small" x="280" y="98" text-anchor="middle">(nothing yet)</text>
+  <rect class="node" x="370" y="50" width="160" height="60"/><text x="450" y="78" text-anchor="middle">movement</text><text class="small" x="450" y="98" text-anchor="middle">(next milestone)</text>
+  <rect class="node green" x="540" y="50" width="160" height="60"/><text x="620" y="78" text-anchor="middle">broadcast</text><text class="small" x="620" y="98" text-anchor="middle">chat out, /who answered</text>
+  <rect class="node green" x="710" y="50" width="160" height="60"/><text x="790" y="78" text-anchor="middle">housekeeping</text><text class="small" x="790" y="98" text-anchor="middle">saves, the clock</text>
+  <path class="arrow" d="M30,135 L870,135"/>
+  <text class="small" x="110" y="155" text-anchor="middle">0 ms</text>
+  <text class="small" x="280" y="155" text-anchor="middle">50</text>
+  <text class="small" x="450" y="155" text-anchor="middle">100</text>
+  <text class="small" x="620" y="155" text-anchor="middle">150</text>
+  <text class="small" x="790" y="155" text-anchor="middle">200</text>
+</svg>
+<figcaption>Four ticks a second, always.  A slow check makes the next one late; nothing is ever skipped.  That's why your chat line shows up on the beat, not the instant.</figcaption>
+</figure>
+
+<p><b>The ground</b> is blocks, one metre a side, in chunks of 32, in a world 16 km across and eleven chunks tall
+(bedrock at the bottom, nothing above +319).  It's made on its own thread, chunk by chunk, and the server's door only
+opens once the ground around 0,0,0 is in, because nobody should log in before there's a voxel to stand on.  Getting
+that ground onto the <i>client's</i> screen is the next hard part.</p>
+
+<h2 id="rules">The rules it all lives by</h2>
+<table>
+<tr><th>Rule</th><th>Plain words</th></tr>
+<tr><td>TCP is only the login; UDP is everything after.</td><td>One phone call to get a wristband, then shouting across the field.</td></tr>
+<tr><td>Nothing is kept for a reconnect.</td><td>Lose the connection, you're out, back to the launcher.  No ghosts standing in the world.</td></tr>
+<tr><td>The server decides what each client sees.</td><td>A hacked client can read anything it's sent, so it isn't sent anything it shouldn't have.</td></tr>
+<tr><td>One password is checked at a time.</td><td>On purpose.  A line of people at the door beats a crowd rushing it.  You're told your place.</td></tr>
+<tr><td>The password never leaves your machine.</td><td>Only its key does, and the server grinds that again.</td></tr>
+<tr><td>Every file of the client is checked at every start.</td><td>1.3 seconds for 655 MB.  Whatever's wrong gets fetched, one file at a time.</td></tr>
+<tr><td>The game loop never waits.</td><td>Database, disk and network are on other threads.  The beat is the beat.</td></tr>
+<tr><td>All time is UTC.</td><td>Every time you see ends with a Z.  No time-zone arguments, ever.</td></tr>
+<tr><td>The admin works through the web admin.</td><td>A page on my machine only (127.0.0.1): start, stop, accounts, kicks, bans, settings.</td></tr>
+</table>
+
+<h2 id="next">What isn't there yet</h2>
+<ul>
+  <li><b>The world on the client's screen.</b>  The server has the ground; Ensemble doesn't draw it yet.  The plan is a
+  rough "smoothed" map shipped with the client (through the patcher, as a file of its own) so the distance isn't
+  empty, with the chunks around you streamed over UDP.  This is the next big thing.</li>
+  <li><b>Movement.</b>  Nobody walks yet.  The movement check in the tick is empty.</li>
+  <li><b>Windows.</b>  Conductor builds and runs there; Soundcheck and the new Ensemble haven't been tried there at all.</li>
+  <li><b>The launcher patching itself</b> is written and untested, since the launcher doesn't ship beside the game yet.</li>
+  <li><b>A certificate for every client</b> (so the server can turn away any connection that isn't a real install) is
+  the long game, and the reason the launcher exists at all.</li>
+</ul>
+
+<p class="soft">The real documents: <code>Documentation/LLM/PROTOCOL.md</code> (every packet, byte for byte),
+<code>PATCH_MANIFEST.md</code> (the manifest and the web folder), <code>REGION_MAP.md</code> (the world's file), and
+<code>design/</code> (one file per piece, with what's settled and what's still open).</p>
+
+</main>
+</body>
+</html>
