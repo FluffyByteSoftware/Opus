@@ -3,7 +3,7 @@
 // Author:     Jacob Chacko
 // Finds a screen's layout.  The HUD's is the player's own file if there's a
 // good one, the default that ships with the game if not; every other screen
-// (the login) only ever has the one that ships.  Whatever it turns away, it
+// (the login, character select) only ever has the one that ships.  Whatever it turns away, it
 // says why in the log.
 
 using System;
@@ -19,6 +19,7 @@ namespace Opus.Hud
         public const int LayoutVersion = 1;
         public const string HudScreen = "hud";
         public const string LoginScreen = "login";
+        public const string CharacterSelectScreen = "character_select";
 
         // The biggest and smallest reference a layout can have.  8K at the
         // top; anything outside this is a broken file, not a screen.

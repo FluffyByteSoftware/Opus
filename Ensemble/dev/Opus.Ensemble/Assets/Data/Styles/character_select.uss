@@ -1,0 +1,95 @@
+/*
+ * File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Data/Styles/character_select.uss
+ * Component:  Ensemble
+ * Author:     Jacob Chacko
+ * Character select's look.  Only character select carries this sheet.  The
+ * words' colour and font are ScreenRoot's Login Text Color and Login Text
+ * Font, the same as the login's.  Sizes are in the layout's reference
+ * pixels.
+ */
+
+.widget {
+    overflow: hidden;
+}
+
+/* The background: black for now, a picture later. */
+.widget-character_select_background {
+    background-color: rgb(0, 0, 0);
+}
+
+/* The list: a title, then a row per slot. */
+.characters {
+    padding: 16px 20px;
+    background-color: rgb(24, 26, 32);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+}
+
+.characters-title {
+    font-size: 28px;
+    -unity-font-style: bold;
+    letter-spacing: 4px;
+    margin: 0 0 16px 0;
+    padding: 0;
+}
+
+.characters-note {
+    font-size: 20px;
+    white-space: normal;
+    margin: 0;
+    padding: 0;
+}
+
+.character-row {
+    flex-direction: row;
+    align-items: center;
+    height: 88px;
+    margin-bottom: 12px;
+    padding: 0 16px;
+    background-color: rgb(34, 38, 48);
+    border-radius: 4px;
+}
+
+.character-slot {
+    width: 40px;
+    font-size: 22px;
+    opacity: 0.6;
+    margin: 0;
+    padding: 0;
+}
+
+.character-name {
+    font-size: 26px;
+    margin: 0;
+    padding: 0;
+}
+
+/* An empty slot, and a character whose save won't load: both dimmed. */
+.character-row--empty {
+    opacity: 0.45;
+}
+
+.character-row--unplayable {
+    opacity: 0.35;
+}
+
+/* LOG OUT, the same look as the login's SUBMIT. */
+.character-select-log-out {
+    flex-grow: 1;
+    margin: 0;
+    font-size: 22px;
+    -unity-font-style: bold;
+    background-color: rgb(58, 86, 140);
+    border-width: 0;
+    border-radius: 4px;
+}
+
+.character-select-log-out:hover {
+    background-color: rgb(72, 104, 166);
+}
+
+.character-select-log-out:active {
+    background-color: rgb(40, 62, 104);
+    translate: 0 2px;
+}

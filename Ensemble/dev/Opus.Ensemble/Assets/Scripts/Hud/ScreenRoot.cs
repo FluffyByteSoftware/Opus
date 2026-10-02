@@ -2,10 +2,14 @@
 // Component:  Ensemble
 // Author:     Jacob Chacko
 // Sits on the GameObject beside the UI Document and owns every screen: the
-// login and the HUD, and which one is showing.  It finds a screen's layout,
-// checks it, and hands it to HudBuilder.  Right-click it in the Inspector
-// for Show Login, Show HUD and Reset HUD To Default.
+// login, character select and the HUD, and which one is showing.  It finds
+// a screen's layout, checks it, and hands it to HudBuilder.  The session
+// (Opus.Net's Session) switches between the login and character select;
+// this is where the network's threads get their turn on the main thread,
+// once a frame.  Right-click it in the Inspector for Show Login, Show HUD
+// and Reset HUD To Default.
 
+using Opus.Net;
 using UnityEngine;
 using UnityEngine.Serialization;
 using UnityEngine.UIElements;
@@ -23,13 +27,25 @@ namespace Opus.Hud
         [Tooltip("The login's look, Assets/Data/Styles/login.uss.")]
         public StyleSheet loginStyle;
 
-        [Tooltip("The colour of every word on the login: the names, what's typed, the button.  It can be "
-            + "changed in Play mode and shows at once.")]
+        [Tooltip("The colour of every word on the login and character select: the names, what's typed, the "
+            + "buttons.  It can be changed in Play mode and shows at once.")]
         public Color loginTextColor = new Color(0.91f, 0.89f, 0.84f);
 
-        [Tooltip("The font of every word on the login.  Empty is Unity's own.  It can be changed in Play mode "
-            + "and shows at once.")]
+        [Tooltip("The font of every word on the login and character select.  Empty is Unity's own.  It can be "
+            + "changed in Play mode and shows at once.")]
         public Font loginTextFont;
+
+        [Tooltip("The server's certificate, Assets/Data/Certs/conductor_crt.txt, a copy of "
+            + "Content/certs/conductor.crt.  The client trusts that server and no other.")]
+        public TextAsset serverCertificate;
+
+        [Header("Character select")]
+        [Tooltip("Character select's layout, Assets/Data/Layouts/character_select_default.json.  It ships "
+            + "with the game; there's never a player's own.")]
+        public TextAsset characterSelectLayout;
+
+        [Tooltip("Character select's look, Assets/Data/Styles/character_select.uss.")]
+        public StyleSheet characterSelectStyle;
 
         // The HUD's two slots were HudRoot's Default Layout and Style Sheet;
         // FormerlySerializedAs keeps what was dragged into them.
@@ -52,26 +68,65 @@ namespace Opus.Hud
 
         void OnEnable()
         {
+            Session.Certificate = serverCertificate != null ? serverCertificate.text : null;
+            Session.ReachedCharacterSelect += ShowCharacterSelect;
+            Session.BackAtLogin += BackAtLogin;
+            CharacterSelectForm.Filled += ApplyText;
+            LoginForm.Listen();
+            CharacterSelectForm.Listen();
             Show(showing);
         }
 
         void OnDisable()
         {
+            Session.ReachedCharacterSelect -= ShowCharacterSelect;
+            Session.BackAtLogin -= BackAtLogin;
+            CharacterSelectForm.Filled -= ApplyText;
+            LoginForm.StopListening();
+            CharacterSelectForm.StopListening();
             builder.Clear();
         }
 
         void OnDestroy()
         {
+            Session.Quit();
             if (ownSettings != null)
                 Destroy(ownSettings);
         }
 
+        // Whatever the network's threads have heard since the last frame.
+        void Update()
+        {
+            MainThread.Run();
+        }
+
+        // The game closing, or Play mode stopping: a Goodbye to the server,
+        // and the network's threads let go.
+        void OnApplicationQuit()
+        {
+            Session.Quit();
+        }
+
         // Unity calls this when a slot changes in the Inspector, so a new
-        // colour or font shows on the login straight away in Play mode.
+        // colour or font shows straight away in Play mode.
         void OnValidate()
         {
-            if (Application.isPlaying && showing == LayoutLoader.LoginScreen)
-                ApplyLoginText();
+            if (Application.isPlaying && showing != LayoutLoader.HudScreen)
+                ApplyText();
+        }
+
+        void ShowCharacterSelect()
+        {
+            Show(LayoutLoader.CharacterSelectScreen);
+        }
+
+        // The session is over.  The login says why (LoginForm hears it too);
+        // it's only built again if it isn't already showing, so a failed
+        // login keeps what was typed.
+        void BackAtLogin(string why, bool trouble)
+        {
+            if (showing != LayoutLoader.LoginScreen)
+                Show(LayoutLoader.LoginScreen);
         }
 
         void Show(string screen)
@@ -88,6 +143,13 @@ namespace Opus.Hud
                 layout = LayoutLoader.LoadHud(hudLayout);
                 style = hudStyle;
                 styleFile = "hud.uss onto ScreenRoot's Hud Style";
+            }
+            else if (screen == LayoutLoader.CharacterSelectScreen)
+            {
+                layout = LayoutLoader.LoadShipped(characterSelectLayout, LayoutLoader.CharacterSelectScreen,
+                                                  "Character Select Layout");
+                style = characterSelectStyle;
+                styleFile = "character_select.uss onto ScreenRoot's Character Select Style";
             }
             else
             {
@@ -122,18 +184,19 @@ namespace Opus.Hud
 
             builder.Build(root, LayoutChecker.Check(layout), screen, style);
 
-            if (screen == LayoutLoader.LoginScreen)
-                ApplyLoginText();
+            if (screen != LayoutLoader.HudScreen)
+                ApplyText();
         }
 
-        // The login's colour and font, on every piece of text in it.  Set on
-        // each one rather than once on the screen, since Unity's own theme
-        // gives the text in a box and on a button colours of their own, and
-        // a style set on the element itself is the only thing that beats it.
-        void ApplyLoginText()
+        // The login's colour and font, on every piece of text in it, and in
+        // character select.  Set on each one rather than once on the screen,
+        // since Unity's own theme gives the text in a box and on a button
+        // colours of their own, and a style set on the element itself is the
+        // only thing that beats it.  Not on the HUD, which has its own look.
+        void ApplyText()
         {
             VisualElement screen = builder.Screen;
-            if (screen == null)
+            if (screen == null || showing == LayoutLoader.HudScreen)
                 return;
 
             StyleFontDefinition font = loginTextFont != null

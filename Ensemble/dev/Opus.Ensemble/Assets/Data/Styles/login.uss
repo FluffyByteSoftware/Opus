@@ -96,3 +96,46 @@
     background-color: rgb(40, 62, 104);
     translate: 0 2px;
 }
+
+/* The status line under SUBMIT.  Trouble is a dark red band behind the
+   words, not a colour for them: the words' colour is ScreenRoot's. */
+.widget-login_status {
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 4px;
+}
+
+.widget-login_status.login-status--trouble {
+    background-color: rgba(140, 32, 32, 0.45);
+}
+
+.login-status {
+    font-size: 18px;
+    white-space: normal;
+    -unity-text-align: middle-center;
+    margin: 0;
+    padding: 0;
+}
+
+/* KICK OTHER SESSION and LOG OFF, side by side, only while the account
+   is already playing somewhere else. */
+.login-choice {
+    flex-direction: row;
+    justify-content: center;
+    margin-top: 8px;
+}
+
+.login-choice-button {
+    height: 40px;
+    margin: 0 6px;
+    padding: 0 16px;
+    font-size: 16px;
+    -unity-font-style: bold;
+    background-color: rgb(58, 86, 140);
+    border-width: 0;
+    border-radius: 4px;
+}
+
+.login-choice-button:hover {
+    background-color: rgb(72, 104, 166);
+}

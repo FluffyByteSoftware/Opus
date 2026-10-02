@@ -26,6 +26,10 @@ namespace Opus.Hud
             () => new LoginPasswordWidget(),
             () => new LoginRememberMeWidget(),
             () => new LoginSubmitWidget(),
+            () => new LoginStatusWidget(),
+            () => new CharacterSelectBackgroundWidget(),
+            () => new CharacterSelectListWidget(),
+            () => new CharacterSelectLogOutWidget(),
         };
 
         // A new widget for this id, or null when there's no widget called

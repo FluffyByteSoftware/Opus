@@ -36,6 +36,10 @@
     {
       "id": "login_submit", "anchor": "Center",
       "offset": { "x": 0, "y": 210 }, "size": { "width": 240, "height": 56 }, "layer": 1
+    },
+    {
+      "id": "login_status", "anchor": "Center",
+      "offset": { "x": 0, "y": 310 }, "size": { "width": 560, "height": 110 }, "layer": 1
     }
   ]
 }

@@ -1,9 +1,8 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/Widgets/LoginSubmitWidget.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// The login's SUBMIT button.  It turns the password into its key and keeps
-// or forgets the login (LoginForm.cs); logging in comes with the network
-// client.
+// The login's SUBMIT button.  It turns the password into its key and logs
+// in (LoginForm.cs).
 
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -34,6 +33,7 @@ namespace Opus.Hud
             button.AddToClassList("login-submit");
             button.clicked += LoginForm.Submit;
             box.Add(button);
+            LoginForm.SubmitBuilt(button);
         }
     }
 }
