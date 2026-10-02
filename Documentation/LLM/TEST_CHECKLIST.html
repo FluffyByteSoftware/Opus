@@ -200,44 +200,16 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <h2>2026-10-02 -- Soundcheck's first step: the login, and admin mode's manifest</h2>
 <p class="soft">
   Soundcheck is .NET, not Conductor, so these run with <code>dotnet</code>, from <code>Conductor/dev</code>
-  as always, with the server up and <code>testuser123</code> made.  The first build fetches Avalonia.
+  as always, with the server up and <code>testuser123</code> made.  The build, the window, a login and Remember
+  Me passed on 2026-10-02; these are what's left.
 </p>
 <ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Soundcheck builds clean: no errors, and say what warnings there are.
-    </span></label>
-    <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The window opens: black, FORGOTTEN LEGENDS across the top, the login's boxes, SUBMIT, PLAY greyed, and
-      <code>Soundcheck 0.0.1</code> bottom right.  The terminal says <code>Soundcheck 0.0.1.</code>
-    </span></label>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A login works: <code>10.0.0.84</code>, <code>9997</code>, <code>testuser123</code> /
-      <code>Testpass1!</code>, SUBMIT.  The status box goes grey through "Connecting", "Checking the
-      password" to "Logged in. The server's game port is UDP 9998 ...".  The terminal says TLS came up with
-      <code>Tls13</code>, and how many ms the key took (the question below).  The Connections tab shows the
-      login finished and the player LINKDEAD, since nothing took the ticket to UDP.
-    </span></label>
-  </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
       A wrong password: a red "Invalid Credentials", the boxes come back, and the next SUBMIT needs the
       password typed again.
     </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Remember Me: tick it, log in, close the window, run it again.  The boxes are filled, the Password box
-      says <code>(remembered)</code>, and SUBMIT logs in without a password.  The file holds the key and no
-      password.
-    </span></label>
-    <pre class="cmd">cat ~/.config/unity3d/FluffyByte/Opus.Ensemble/remembered_login.json</pre>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev</pre>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
@@ -272,15 +244,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
-<h2>Questions</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      How many ms did the key take in Soundcheck ("the password became its key in N ms" on the terminal)?
-      Unity took 2852.  Paste the number back with the message.
-    </span></label>
-  </li>
-</ul>
 
 <h2>Parked</h2>
 <ul class="checks">
