@@ -90,6 +90,13 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     build a new tool that converts a number into written words?  Up to one million".  **The grid**: "make
     it fit our actual chat size".  So the client draws the date, and the grid to its own chat box's width;
     being settled: what the packet carries, and where the words tool lives.
+  - **The packet** (Jacob, 2026-10-02): "I like the idea of a who being a packet a list of names and the
+    time from the server The Who was run".  **The time is seconds since today's midnight UTC** (his pick of
+    the two), and the client takes the date from its own clock.
+  - **Numbers into words**: "I'd make it a static class in c# but words isn't right... I think actually we
+    build a new lib.  This isn't anything like tools.  It's just a Translator and a Math object in here."
+    Up to the largest int ("Past that it would show the number").  Open: which side the lib is on, its
+    name, and what the Math object holds.
   - **Ensemble**: these lines only line up in a monospaced font, so the chat box needs one.
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
