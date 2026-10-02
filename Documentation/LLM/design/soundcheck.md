@@ -154,6 +154,32 @@ dump is a separate file**, compressed, with its own line in the manifest, "becau
 to need to be downloaded", and it isn't built or designed yet (TODO.md: Conductor's dump, and the client's
 side of it).
 
+### The shape after that (2026-10-02, the same chat; not built, not yet OKed)
+
+His next message undid the zip: "Actually we're gonna make it so the patcher knows if they're on linux or
+not and looks for linux_manifest.json or windows_manifest.json :P.  Fuck it!  Then we'll reach to the
+opusensemble.duckdns.org:8553/download/windows/<this will mimic the client directory so you find the file>
+and the same for Linux?  our admin patcher can pack and move the files where they need to be".
+
+So: **no zip, a file at a time, from a mirror of the client on the web folder.**
+
+- The web folder (`/opt/storage/WWW`, served at `http://opusensemble.duckdns.org:8553/`) holds
+  `linux_manifest.json` and `windows_manifest.json` at its root, and `download/linux/` and
+  `download/windows/`, each an exact copy of that platform's client folder.
+- **Admin mode** ticks the platform, takes the build folder, and *mirrors* it into `download/<platform>/`
+  in the web folder (copies what's new or changed, takes out what the build no longer has, skips Unity's
+  backup folder), then writes `<platform>_manifest.json` at the web folder's root from it.
+- **User mode**, at startup, blocking the login: knows its OS, fetches its manifest, hashes the install,
+  compares; each file that's missing or changed is fetched from `download/<platform>/<its path>` (the
+  path's segments URL-escaped), written to a temp beside the real one, checked against the manifest's
+  hash, and swapped in; then the check runs again.  A pass unlocks the login.  A second fail is "couldn't
+  repair the game".  Only when one of the launcher's own files was replaced does Soundcheck start itself
+  again and end (on Windows the running files are renamed aside first); a patch of the game alone needs
+  no restart.
+- What this buys over the zip: a player downloads only what's off, one wrong byte is one file, and most
+  patches never touch the launcher, so the restart is the rare case.  The manifest built today (format 2,
+  the platform inside, the file list) is already this shape; only its name and the download base change.
+
 ## Built and tested 2026-10-02: what the first build taught
 
 Every check passed: the build, the window, a login, a wrong password, Remember Me across a restart, the
