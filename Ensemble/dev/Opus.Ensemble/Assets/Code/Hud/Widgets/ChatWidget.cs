@@ -6,9 +6,9 @@
 // and echoes it as ">/chat hello" in yellow; what the server says is white.
 // The box stops taking keys at 300 characters.  The font is ScreenRoot's
 // Chat Font slot, a monospaced one, so /who's box lines up.  EverQuest's
-// keys (Jacob, 2026-10-02): with the field not focused, Enter or a "/"
-// anywhere on the screen brings the keys to it, the "/" already typed;
-// Escape, or a click away, drops them.
+// keys (Jacob, 2026-10-02): Enter or a "/" while the game has the keys
+// (GameFocus) brings them to the field, the "/" already typed; Escape,
+// or a click away, hands them back to the game.
 
 using Opus.Net;
 using UnityEngine;
@@ -49,10 +49,6 @@ namespace Opus.Hud
         VisualElement box;
         ScrollView lines;
         TextField input;
-
-        // The panel the box is on, for the screen-wide keys, kept so they
-        // can be let go when the box leaves it.
-        IPanel panel;
 
         // Ten letters, never shown, to measure how wide a letter is in
         // the chat's font and size.
@@ -103,7 +99,8 @@ namespace Opus.Hud
             // copy stops listening when its box goes.
             Session.ChatLine += ServerSaid;
             Session.WhoAnswered += DrawWho;
-            box.RegisterCallback<AttachToPanelEvent>(Arrived);
+            GameFocus.EnterPressed += TakeKeys;
+            GameFocus.SlashPressed += TakeKeysWithSlash;
             box.RegisterCallback<DetachFromPanelEvent>(Gone);
 
             // Straight to typing once the HUD is up.
@@ -121,30 +118,12 @@ namespace Opus.Hud
             within.Query<TextElement>().ForEach(text => text.style.unityFontDefinition = font);
         }
 
-        // Keys pressed anywhere on the screen reach the panel's root first,
-        // whatever has the focus, so that's where Enter and "/" are watched
-        // for.
-        void Arrived(AttachToPanelEvent e)
-        {
-            panel = e.destinationPanel;
-            panel.visualTree.RegisterCallback<KeyDownEvent>(KeyAnywhere, TrickleDown.TrickleDown);
-            // Enter with the focus off a text field reaches the panel as
-            // Unity's "submit" navigation event, with or without a key
-            // event of its own, so it's watched for both ways.
-            panel.visualTree.RegisterCallback<NavigationSubmitEvent>(SubmitAnywhere, TrickleDown.TrickleDown);
-        }
-
         void Gone(DetachFromPanelEvent e)
         {
             Session.ChatLine -= ServerSaid;
             Session.WhoAnswered -= DrawWho;
-            if (panel != null)
-            {
-                panel.visualTree.UnregisterCallback<KeyDownEvent>(KeyAnywhere, TrickleDown.TrickleDown);
-                panel.visualTree.UnregisterCallback<NavigationSubmitEvent>(SubmitAnywhere, TrickleDown.TrickleDown);
-            }
-            panel = null;
-            box.UnregisterCallback<AttachToPanelEvent>(Arrived);
+            GameFocus.EnterPressed -= TakeKeys;
+            GameFocus.SlashPressed -= TakeKeysWithSlash;
             box.UnregisterCallback<DetachFromPanelEvent>(Gone);
         }
 
@@ -158,47 +137,19 @@ namespace Opus.Hud
                 return;
             box.schedule.Execute(() =>
             {
-                if (panel != null && panel.focusController.focusedElement == null)
+                if (box.panel != null && box.panel.focusController.focusedElement == null)
                     GameFocus.Take();
             });
         }
 
-        // With the field not focused, Enter brings the keys to it, and "/"
-        // does the same and goes in as the first character (Jacob: "pressing
-        // enter or typing / immediately brings focus up to the chat window
-        // and starts typing that into the input").  The key is used up here
-        // so nothing else on the screen sees it.  With the field focused,
-        // its own KeyDown has Enter and the "/" is just typed.
-        void KeyAnywhere(KeyDownEvent e)
+        // "/" pressed while the game had the keys: it's the first character
+        // typed (Jacob: "pressing enter or typing / immediately brings
+        // focus up to the chat window and starts typing that into the
+        // input").
+        void TakeKeysWithSlash()
         {
-            if (FieldHas(e.target))
-                return;
-
-            bool enter = e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter
-                         || e.character == '\n' || e.character == '\r';
-            bool slash = e.character == '/';
-            if (!enter && !slash)
-                return;
-
-            if (slash)
-                input.value = input.value + "/";
+            input.value = input.value + "/";
             TakeKeys();
-            e.StopPropagation();
-        }
-
-        void SubmitAnywhere(NavigationSubmitEvent e)
-        {
-            if (FieldHas(e.target))
-                return;
-            TakeKeys();
-            e.StopPropagation();
-        }
-
-        // Whether the field, or something inside it, is where the event
-        // was going.
-        bool FieldHas(IEventHandler target)
-        {
-            return target is VisualElement element && (element == input || input.Contains(element));
         }
 
         // The field gets the keys, with the cursor at the end of whatever's
