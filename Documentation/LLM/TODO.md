@@ -106,7 +106,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     client draws the box at 79 with the count in digits.  `design/conductor-networking.md`, "/who", and
     PROTOCOL.md have it.
   - **A cooldown** (Jacob, 2026-10-02): "when a user sends a who request they need a temporary cooldown of
-    like 1 second to prevent spamming or flooding the server for who requests".  Being settled.
+    like 1 second to prevent spamming or flooding the server for who requests".  One cooldown for `/who`
+    and `/who list` ("yes"); a `/who` too soon gets a CommandRefused, which the client shows as "command
+    can't be run so soon".  Chat too, "not a second but maybe two full game ticks?  So 500 ms?"  Then:
+    "I think we're doing this stupid.  We can just make it so there's anti flood prevention on the server
+    for any chat commands right?"  So it's becoming one anti-flood rule for every command; being settled.
   - **Ensemble, with the chat box**: draw the WhoDelivery (the box to the chat box's width, the time in the
     player's time zone, the count with `NumberToWords()`), and put Spans back together (2 seconds).
 - **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up
