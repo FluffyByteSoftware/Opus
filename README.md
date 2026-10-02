@@ -16,8 +16,9 @@ game loop ticking over it, and a player can pick a character, stand in that worl
 else is there, though nothing moves yet.  Ensemble has an editor tool for the art, and screens built from
 layout files: it logs in over TLS, turning the password into a key before it's sent or kept, makes, deletes
 and picks a character at character select, and puts it in the world with a chat window over the scene,
-though there's no world on screen yet.  Soundcheck is just started: it logs in over TLS 1.3, and in admin
-mode writes the manifest of a client folder; the login is moving out of Ensemble into it.  Things will change
+though there's no world on screen yet.  Soundcheck is just started: it logs in over TLS 1.3 and in admin
+mode writes the manifest of a client folder, both tested; the login is moving out of Ensemble into it, and
+starting the game from it is next.  Things will change
 and things will break.
 
 **0.0.1 is released (2026-10-02): a player logs in, picks a character, and stands in the world chatting.**
@@ -48,7 +49,8 @@ The next milestone is movement.
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 | The 0.0.1 review: four bugs, seven risks fixed   | Built, tested and checked (`CODE_REVIEW_0.0.1.md`)     |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
-| Soundcheck, the launcher                         | Started: the login over TLS 1.3, admin mode's manifest |
+| Soundcheck, the launcher                         | Built and tested: the login over TLS 1.3, Remember Me, |
+|                                                  | admin mode's manifest, debug mode; PLAY still greyed   |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.

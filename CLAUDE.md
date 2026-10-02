@@ -1033,7 +1033,15 @@ When I say we're wrapping up:
   happen at close happens before then, not in a shutdown hook.
 - **Avalonia stays on the 11 line** (11.3.22 at 2026-10-02; 12 is out and
   untried).  A `NU1903` on a package Avalonia pulls in is fixed by moving to
-  the newest 11.3 patch first, a direct pin of that package second.
+  the newest 11.3 patch first, a direct pin of that package second.  **A
+  package version is looked up, never remembered**: 11.3.2 was pinned from
+  memory and was two years stale (`curl` on
+  `api.nuget.org/v3-flatcontainer/<package>/index.json` lists the versions).
+- **A guess at a crash's cause is written as a guess** until the build says
+  so: the global-menu comment said KDE's menu traffic crashed the program,
+  and it didn't (2026-10-02); the comment was corrected.  Avalonia's tracker
+  and its source (raw.githubusercontent.com reaches the session) are read
+  before a third guess.
 - **The ported files stay the same files.**  `Net/Protocol.cs`, `Packets.cs`,
   `ServerCertificate.cs`, `LoginConnection.cs`, `Security/PasswordKey.cs` and
   `RememberedLogin.cs` came from Ensemble with a new header and no Unity in

@@ -46,19 +46,29 @@ name is Forgotten Legends**; the project, its folders and code stay Opus.  Unity
 and its Product Name Opus.Ensemble.  Every file the game keeps for a player goes in
 `~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).  Ensemble speaks protocol version 10.
 
+**Soundcheck is the third program** (2026-10-02, `design/soundcheck.md`): the launcher players open, C# on
+.NET 10 with Avalonia 11, in `Soundcheck/dev/`.  **The login is moving out of Ensemble into it** ("like
+Monsters and Memories did"): Soundcheck does the TLS login (1.3 again, since it isn't Unity's .NET) to the
+Ticket, and will check every file of the installed client against a manifest the server holds before it
+starts Ensemble, which will open on character select over UDP and never speak TCP.  **Built and tested**:
+user mode logs in and remembers (the key takes 208 ms against Unity's 2852); admin mode (`--admin`) writes
+`patch_manifest.json` of a client folder (`PATCH_MANIFEST.md`); debug mode (`--debug`) skips the check and
+leaves the ticket in `debug_ticket.json` for an Ensemble in the editor.  PLAY is greyed: Ensemble can't take a
+ticket yet, and Conductor has no manifest check yet.  Soundcheck ends the process itself on Avalonia's `Exit`
+event, round an Avalonia shutdown crash on KDE's Wayland session (issue 19523).
+
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
 **The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
-the GitHub Release (a player in the world, chatting, from Ensemble; the review's eleven fixes and PleaseWait
-built, tested and checked).  `main`, `testing` and `unstable` are level, two docs commits past the tag
-(Jacob: "merge that all to main").  `main` moves when Jacob says.
+the GitHub Release.  `main` is two docs commits past the tag; `testing` and `unstable` are level with each
+other, Soundcheck's first step past `main`.  `main` moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor as released, 365 tests, every run check passed and out of
-TEST_CHECKLIST.html, which holds one Parked check (Spans for real).  **In Unity**: everything through the
-chat window, EverQuest's keys and PleaseWait passed.  **On Windows**: Conductor builds and runs, START
+**Built and tested on Linux**: all of Conductor as released, 365 tests, and Soundcheck's first step, every
+check passed; TEST_CHECKLIST.html holds one Parked check (Spans for real).  **In Unity**: everything through
+the chat window, EverQuest's keys and PleaseWait passed.  **On Windows**: Conductor builds and runs, START
 SERVER included, without a database; nothing since the world has been tried there (GitHub issue #10).
 
 ## Jacob's map (2026-09-30, and on)
@@ -133,77 +143,65 @@ found in testing: **"the client is told to wait and then pulled in"**, **"please
 before we release"**.  And at the hand-off, 0.0.1 up: **"next session we're gonna start on Soundcheck I
 think"**.  His to change.
 
-## Last session -- 2026-10-02, release prep: the review, the release docs, the four bugs
+The Soundcheck session (2026-10-02): **"we should remove login from the game like monsters and memories
+did.  The patcher should be what goes through the tcp and TLS then we hand over udp to the ensemble"**; the
+check is of every file, **"the world is the least of our concerns"**; **"we're gonna build two modes to
+Soundcheck one is the admin the other is a user"**; and a debug mode: **"every time I make a change to the
+client (Ensemble) I don't want to have to repatch!"**  At the hand-off: **"I'll build a copy of the game and
+put in a folder and we'll next session try to get it started from the patcher"**.  His to change.
 
-Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of all of Conductor.
+## Last session -- 2026-10-02, Soundcheck's first step
 
-- **The review** (`CODE_REVIEW_0.0.1.md`): every `.rs` file read against CLAUDE.md's rules, four crate
-  groups at a time, each claim checked against the code.  Four bugs, twenty-one risks (seven worth fixing
-  before the tag), nine inefficiencies, a page of stale words, and a "checked and fine" list so nothing is
-  re-investigated.  TODO.md's entry has the short version.
-- **`main` moved to `7d85f1f`** on Jacob's "merge everything into main": a fast-forward from `testing`, 58
-  commits.  (The session's clone was shallow and made the branches look unrelated; `git fetch --unshallow`
-  first, before trusting a count.)  `testing` has moved on since (the docs and the fixes below), and `main`
-  stays where it is until the fixes are built and tested: "Wait till we fix bugs and validate everything
-  works."
-- **The release docs**: `Documentation/HowTo/RELEASE.md` (testing to main, the version numbers, Conductor's
-  tar and Ensemble's zip, the GitHub Release, by hand or `gh`) and
-  `Documentation/HowTo/INSTALLATION_INSTRUCTIONS.md` (installing the two packages: Postgres, the key, the
-  three settings to change, accounts, the client), linked from README.md's "Running it".
-- **The version is 0.0.1** everywhere (Jacob: "we changing to version 0.0.1"): every crate's `Cargo.toml`
-  and its `Cargo.lock` line, and Unity's `bundleVersion` (`0.0.1`, which `client_versions` already lists).
-  `ProjectSettings.asset` was edited by hand, so Jacob pulls before Unity gets focus, or Unity's own
-  rewrite of it wins.
-- **The four bugs fixed, written and NOT BUILT**: the next session starts by expecting compile fixes.
-  - `sessions.rs`: `issue_in` refuses a ticket over a player in the world (`Issued::Playing`) under the one
-    lock, with a test; `tcp.rs`'s `talk()` goes round at most `ISSUE_TRIES` (3) times, asking the client
-    about the other session once (`ask_about_the_other()`) and kicking it each time it's back
-    (`log_the_other_out()`), then Login Unavailable.
-  - `regionmap.rs` and `heights.rs`: the grid's size is `checked_mul` on the numbers off the disk, a test
-    each with width and depth at 65,535.
-  - `wgui/accounts.rs`: a delete the database is late with still takes the player out.
-- **The four bugs built and tested by Jacob**: `cargo build` clean, 361 tests pass, the three new ones among
-  them.  The run checks (the double login, the account delete, the corrupt map) are still in
-  TEST_CHECKLIST.html.
-- **The seven risks fixed, built and tested** (Jacob's "Yes" to the plan; `cargo build` clean, 365 tests
-  pass), **and every run check passed** (the four bugs' and the seven risks', eight checks, 2026-10-02: the
-  blank passwords for `user`, the 3-second handshake, the fifth connection closed, the slow save off the
-  bell, the double login, the account delete, the corrupt map).  The first build caught a wrong line in the
-  review: the web admin's two passwords were
-  `Kind::Text`, not `Secret`, so they're a new `Kind::Password` (a Secret that can't be empty).
-  - R1 (`wgui/src/json.rs`, `lib.rs`): `json::settings()` takes the role, and a Secret goes out as `""` to
-    `user`; a test each side.
-  - R2 (`tcp.rs`, `ledger.rs`): `HANDSHAKE_WAIT` (3 s, inside the login deadline) on the handshake alone,
-    and `MOST_OPEN_PER_ADDRESS` (4) in the acceptor, a fifth closed at the door as `End::TooManyFromOne`
-    (new, with its words; the ledger's words test now names every ending).
-  - R3 (`udp.rs`): the refused Connect is Debug.  R4 (`tcp.rs`, `udp.rs`): a failing accept or receive is
-    one Warn, a Debug each time after, and said again only after a success.
-  - R5 (`diskman/cache.rs`): `forget_files()` keeps an entry with something waiting (the disk's stamp and a
-    clean copy forgotten, a dirty one kept whole), with a test.
-  - R6 (`notices.rs`): `MOST_OPEN` 1,000; past it the oldest go and the oldest left is rewritten to say how
-    many; `publish_in()` so the test has a list of its own.
-  - R7 (`archivist/status.rs`): the slow job is Debug, the label only made when slow.
-  - `design/conductor-networking.md`, `conductor-wgui.md` and `conductor-tools.md` say so.
-- The rest of the review (R8 on, the inefficiencies, the stale words) is the clean-up's list; nothing else
-  in the code changed.
+Jacob opened it with "Let us prepare development of a simpler app.  The c# avalonia app that will patch our
+client", and the design grew as we talked (`design/soundcheck.md` has every answer; the short of it is under
+"Where things stand").  Then the first step was built and every check passed.
+
+- **New component**: `Soundcheck/dev/`, a .NET 10 project with the three Avalonia packages (11.3.22, the
+  newest of the 11 line; 11.3.2, pinned from memory, was two years stale and pulled in a flagged DBus
+  package).  CLAUDE.md has a "Launcher rules (Soundcheck)" section.
+- **User mode**: Ensemble's login moved over as the same six files (`Net/Protocol.cs`, `Packets.cs`,
+  `ServerCertificate.cs`, `LoginConnection.cs`, `Security/PasswordKey.cs`, `RememberedLogin.cs`) with new
+  headers; `LoginConnection` asks for TLS 1.3 only and talks to the screen through `ILoginListener`.  The same
+  `remembered_login.json` in the same player folder, so Remember Me is one file.  The certificate is
+  `conductor.crt` beside the program.  The Ticket's token is dropped and PLAY stays greyed until Ensemble
+  can take one.
+- **Admin mode** (`--admin`): the client folder, the version, where to write, WRITE MANIFEST; remembers all
+  three in `soundcheck_admin.json` in the player folder.  `Patch/Manifest.cs` writes and reads
+  `patch_manifest.json`; `PATCH_MANIFEST.md` is its contract (format 1).
+- **Debug mode** (`--debug`): the file check (to come) is skipped, and the ticket goes to `debug_ticket.json`
+  in the player folder for an Ensemble running in Unity's editor.
+- **The crash on close** was Avalonia's, on KDE's Wayland session (issue 19523, open): a late DBus message
+  handed to the stopped window thread.  Not our threads, not the input method, not the global menu (a wrong
+  guess, corrected).  Soundcheck now ends the process on Avalonia's `Exit` event, before Avalonia's shutdown.
+- **Settled on the way**: PLAY is a second login; 3 MB pieces, no zip; Conductor serves the files itself at
+  15 Mbps, one client at a time, the rest in line; `serde` and `serde_json` are OKed for Conductor's reader;
+  the world's files go in `Assets/StreamingAssets/World/`; Soundcheck closes once Ensemble is up and
+  Ensemble starts Soundcheck again on its way out; the ticket goes to Ensemble in environment variables.
+- **Every check passed** (2026-10-02): the build, the window, the login, a wrong password, Remember Me across
+  a restart, the other-session choice, admin mode's manifest, debug mode.  TEST_CHECKLIST.html is back to
+  its one Parked check.
 
 ## Where the next session starts
 
-**0.0.1 is released**: `main` at `bc7009e`, tagged `0.0.1`, the two packages on the GitHub Release (Jacob made
-them by RELEASE.md, 2026-10-02).  Nothing waits on a build.  **Jacob's pick for next: Soundcheck**, the patcher
-("next session we're gonna start on Soundcheck I think").  It's in LONGTERM_TODO.md under "Soundcheck, the
-patcher, and a certificate for every client", with what's settled and what's open (what it's written in,
-where it lives, which is a new top-level folder and his call, and how a client's certificate is signed).
-It starts with those questions, planned before anything is built.  The review's rest
-(`CODE_REVIEW_0.0.1.md`: R8 onward, the inefficiencies, the stale words) and movement (0.0.0.12) wait.
+**Jacob's pick**: "I'll build a copy of the game and put in a folder and we'll next session try to get it
+started from the patcher."  So: a built Ensemble in a folder on his machine, and Soundcheck's PLAY starting it
+with the ticket.  That is PLAY's second login in Soundcheck, Soundcheck starting Ensemble with the ticket in
+its environment and closing, and Ensemble's half: reading the ticket at start, opening on character select,
+and quitting back to Soundcheck when its session ends (TODO.md, "Soundcheck").  How Soundcheck finds the
+game to start (beside itself, most likely, since they ship as one package) is to settle first.  Nothing waits
+on a build.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
 ## What's waiting
 
-- **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`, 2026-10-02): the four bugs and the seven risks
-  are fixed, built and tested; R8 onward, the inefficiencies and the stale words are the clean-up Jacob
-  named.  The biggest: Scribe writing to the console under its lock (R8), the Lua time limit not stopping a
+- **Soundcheck's next steps** (TODO.md, "Soundcheck", a step each): PLAY and Ensemble's half (above);
+  Conductor's half (the manifest packets after the Login, the downloader thread and its 15 Mbps line,
+  `patch.cfg` with `allow_debug_clients`, `Content/patch/` checked at START SERVER, `serde_json`); the check in
+  user mode; where Conductor finds the correct client folder; a log file on Windows; Soundcheck patching
+  itself; one package for a release.  Then Conductor's `tls12` feature can go.
+- **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale
+  words.  The biggest: Scribe writing to the console under its lock (R8), the Lua time limit not stopping a
   C call (R9), the page redrawing every tab every second (I2), DiskMan scanning its map per log line (I4),
   the all-air chunks (I1).
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
@@ -228,6 +226,6 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 - Archivist retrying on its own while disconnected; the Debug switch in `conductor_globals.cfg`; catching
   Ctrl-C in Conductor.
 - The server on Windows with a database.  GitHub issue #10.
-- **Soundcheck**, the patcher, and a certificate for every client.  LONGTERM_TODO.md.
+- **A certificate for every client** (mutual TLS), Soundcheck's second half.  LONGTERM_TODO.md.
 - **A GDD**: Jacob is writing one with another chat.  What it settles comes in through him and goes into
   these docs.

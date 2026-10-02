@@ -309,8 +309,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Ensemble             | The client players run.  Unity 6000.6, C#.              | Tested: tool, HUD, login, key,   |
 |                      |                                                         | logging in, character select,    |
 |                      |                                                         | the chat window and its keys     |
-| Soundcheck           | The launcher: the login, the manifest check, then      | Written 2026-10-02: the login    |
-|                      | Ensemble.  C# on .NET 10, Avalonia.                     | and admin mode; not built yet    |
+| Soundcheck           | The launcher: the login, the manifest check, then      | Tested 2026-10-02: the login,    |
+|                      | Ensemble.  C# on .NET 10, Avalonia.                     | admin mode, debug mode           |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |

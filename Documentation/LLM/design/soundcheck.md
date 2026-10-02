@@ -66,7 +66,10 @@ a patcher is that something.  The certificate half is still to come; this is the
   to the client (Ensemble) I don't want to have to repatch!"  So it's about the check, not the editor: a
   changed Ensemble, built or in the editor, plays without a new stamp.  Below.
 
-## Built 2026-10-02: what the first build taught
+## Built and tested 2026-10-02: what the first build taught
+
+Every check passed: the build, the window, a login, a wrong password, Remember Me across a restart, the
+other-session choice against the test client, admin mode's manifest, debug mode's ticket file.
 
 - **The key takes 208 ms** on .NET 10 against Unity's 2852.
 - **Avalonia 11.3.2 was two years stale**: 11.3.22 is the newest of the 11 line, and the NuGet warning on
