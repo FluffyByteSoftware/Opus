@@ -95,7 +95,9 @@ namespace Opus.Patch
                     throw new InvalidDataException("the copy at " + url + " isn't what the manifest says (" + size
                                                    + " bytes, hash " + hash.Substring(0, 12) + "...)");
                 }
-                if (want.Executable && !RuntimeInfo.IsWindows)
+                // The guard is OperatingSystem's own, the one the compiler's
+                // platform check knows (Manifest.IsExecutable says why).
+                if (want.Executable && !OperatingSystem.IsWindows())
                 {
                     File.SetUnixFileMode(temp, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute
                                                | UnixFileMode.GroupRead | UnixFileMode.GroupExecute

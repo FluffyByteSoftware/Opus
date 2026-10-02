@@ -139,10 +139,12 @@ namespace Opus.Patch
         }
 
         // Whether a file is a program here: Linux's owner-execute bit.
-        // Windows has no such bit, so there it's never.
+        // Windows has no such bit, so there it's never.  (The guard is
+        // OperatingSystem's own, which is the one the compiler's platform
+        // check knows; RuntimeInfo.IsWindows reads the same but it doesn't.)
         public static bool IsExecutable(string path)
         {
-            if (RuntimeInfo.IsWindows)
+            if (OperatingSystem.IsWindows())
                 return false;
             return (File.GetUnixFileMode(path) & UnixFileMode.UserExecute) != 0;
         }
