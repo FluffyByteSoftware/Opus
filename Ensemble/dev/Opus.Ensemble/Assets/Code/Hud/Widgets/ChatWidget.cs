@@ -55,10 +55,13 @@ namespace Opus.Hud
         // the chat's font and size.
         Label ruler;
 
-        // The frame the field last took the keys on.  The Enter that
-        // brought them can reach the field as a key event of its own in
-        // the same frame, and that one mustn't send the line.
+        // The frames the field last took the keys on, and last gave them
+        // back on.  One Enter is two events to Unity (the key, then its
+        // "submit"), and the focus moves between them: the Enter that
+        // brought the keys mustn't also send the line, and the Enter that
+        // sent the line mustn't also bring the keys back.
         int tookKeysFrame = -1;
+        int gaveKeysFrame = -1;
 
         public override WidgetInfo Info { get { return info; } }
 
@@ -100,7 +103,7 @@ namespace Opus.Hud
             // copy stops listening when its box goes.
             Session.ChatLine += ServerSaid;
             Session.WhoAnswered += DrawWho;
-            GameFocus.EnterPressed += TakeKeys;
+            GameFocus.EnterPressed += EnterFromGame;
             GameFocus.SlashPressed += TakeKeysWithSlash;
             box.RegisterCallback<DetachFromPanelEvent>(Gone);
 
@@ -123,7 +126,7 @@ namespace Opus.Hud
         {
             Session.ChatLine -= ServerSaid;
             Session.WhoAnswered -= DrawWho;
-            GameFocus.EnterPressed -= TakeKeys;
+            GameFocus.EnterPressed -= EnterFromGame;
             GameFocus.SlashPressed -= TakeKeysWithSlash;
             box.UnregisterCallback<DetachFromPanelEvent>(Gone);
         }
@@ -141,6 +144,15 @@ namespace Opus.Hud
                 if (box.panel != null && box.panel.focusController.focusedElement == null)
                     GameFocus.Take();
             });
+        }
+
+        // Enter while the game had the keys, unless it's the one that just
+        // gave them away (above).
+        void EnterFromGame()
+        {
+            if (Time.frameCount == gaveKeysFrame)
+                return;
+            TakeKeys();
         }
 
         // "/" pressed while the game had the keys: it's the first character
@@ -189,6 +201,7 @@ namespace Opus.Hud
             string line = input.value;
             input.value = "";
             e.StopPropagation();
+            gaveKeysFrame = Time.frameCount;
             GameFocus.Take();
             if (line.Trim() == "")
                 return;
