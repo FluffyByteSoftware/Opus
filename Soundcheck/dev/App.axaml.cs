@@ -29,6 +29,23 @@ namespace Opus.Soundcheck
                 bool debug = desktop.Args != null && Array.IndexOf(desktop.Args, "--debug") >= 0;
                 Log.Say("Soundcheck " + ClientVersion.Text + (admin ? ", admin mode." : debug ? ", debug mode." : "."));
                 desktop.MainWindow = new MainWindow(admin, debug);
+
+                // The window has closed and Avalonia is about to shut its
+                // own thread down.  We end the program here instead of
+                // letting it: on KDE's Wayland session, Avalonia's tidy-up
+                // after that point hands a late DBus message to the thread
+                // it just stopped and dies with an unhandled
+                // TaskCanceledException (Avalonia issue 19523, open at
+                // 2026-10-02; an X11 session doesn't show it).  Nothing of
+                // ours is left to do by then: Remember Me is written when
+                // the Ticket comes, and the log goes straight to the
+                // terminal.
+                desktop.Exit += (sender, e) =>
+                {
+                    Log.Say("Soundcheck closing.");
+                    Console.Out.Flush();
+                    Environment.Exit(e.ApplicationExitCode);
+                };
             }
             base.OnFrameworkInitializationCompleted();
         }

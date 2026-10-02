@@ -1026,6 +1026,11 @@ When I say we're wrapping up:
   plays without a new stamp.  The ticket also goes to `debug_ticket.json` in
   the player folder, for an Ensemble running in Unity's editor, which
   Soundcheck can't start.  The window says DEBUG MODE.  Never the default.
+- **Soundcheck ends the process itself on Avalonia's `Exit` event**
+  (`App.axaml.cs`), before Avalonia's own shutdown runs: on KDE's Wayland
+  session that shutdown dies with a TaskCanceledException out of the DBus
+  library (Avalonia issue 19523, open at 2026-10-02).  Anything that has to
+  happen at close happens before then, not in a shutdown hook.
 - **Avalonia stays on the 11 line** (11.3.22 at 2026-10-02; 12 is out and
   untried).  A `NU1903` on a package Avalonia pulls in is fixed by moving to
   the newest 11.3 patch first, a direct pin of that package second.

@@ -66,6 +66,19 @@ a patcher is that something.  The certificate half is still to come; this is the
   to the client (Ensemble) I don't want to have to repatch!"  So it's about the check, not the editor: a
   changed Ensemble, built or in the editor, plays without a new stamp.  Below.
 
+## Built 2026-10-02: what the first build taught
+
+- **The key takes 208 ms** on .NET 10 against Unity's 2852.
+- **Avalonia 11.3.2 was two years stale**: 11.3.22 is the newest of the 11 line, and the NuGet warning on
+  the DBus package it pulled in (`NU1903`) went with the bump.  12 is out and untried.
+- **The crash on close is Avalonia's, on KDE's Wayland session** (issue 19523, open): after the window's
+  thread stops, a late DBus message is handed to it, the DBus library takes the throw for a broken
+  connection, tells its listeners on the same dead thread, and that one is uncaught.  Not our threads (the
+  login's had ended seconds before), not the input method (none set), not the global menu (off, and still
+  crashed).  The way round it: on Avalonia's `Exit` event, which fires while the thread is still alive,
+  Soundcheck ends the process itself and skips Avalonia's tidy-up.  A launcher that has just started the game
+  has nothing left to tidy.
+
 ## The flow, user mode
 
 1. The player opens Soundcheck.  Server, port, username, password, Remember Me, SUBMIT: the login screen as
