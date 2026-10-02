@@ -61,7 +61,7 @@ into `conductor-player-commands` (built, 93 tests pass, chat works through it; i
 client is still in TEST_CHECKLIST.html).  **In Unity**: everything up to character select's PLAY passed; the
 chat window passed every check (the look on 1440p, chat both ways with the test client, the anti-flood's
 refusal, `/who`'s box in Retro, the 300 limit, `/camp`, and EverQuest's keys); the crate's run check passed
-too.  **The 0.0.1 review's seven risk fixes wait on a build** (2026-10-02; the four bug fixes built and tested); TEST_CHECKLIST.html has their checks, and one Parked check (Spans for real).  **On Windows**:
+too.  **The 0.0.1 review's four bug fixes and seven risk fixes are built and tested** (2026-10-02, 365 tests); their run checks are in TEST_CHECKLIST.html, with one Parked check (Spans for real).  **On Windows**:
 Conductor builds and runs, START SERVER included, without a database; nothing since the world has been tried
 there (GitHub issue #10).
 
@@ -162,8 +162,9 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
 - **The four bugs built and tested by Jacob**: `cargo build` clean, 361 tests pass, the three new ones among
   them.  The run checks (the double login, the account delete, the corrupt map) are still in
   TEST_CHECKLIST.html.
-- **The seven risks fixed, written and NOT BUILT** (Jacob's "Yes" to the plan): the next session starts by
-  expecting compile fixes.
+- **The seven risks fixed, built and tested** (Jacob's "Yes" to the plan; `cargo build` clean, 365 tests
+  pass).  The first build caught a wrong line in the review: the web admin's two passwords were
+  `Kind::Text`, not `Secret`, so they're a new `Kind::Password` (a Secret that can't be empty).
   - R1 (`wgui/src/json.rs`, `lib.rs`): `json::settings()` takes the role, and a Secret goes out as `""` to
     `user`; a test each side.
   - R2 (`tcp.rs`, `ledger.rs`): `HANDSHAKE_WAIT` (3 s, inside the login deadline) on the handshake alone,
@@ -182,10 +183,13 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
 
 ## Where the next session starts
 
-Jacob builds and tests the seven risks' fixes (`cargo build`, `cargo test`, the checks in
-TEST_CHECKLIST.html under "2026-10-02 -- the 0.0.1 fixes", the bugs' run checks included).  Then `main`
-moves to `testing`'s tip, the `v0.0.1` tag and the two packages (RELEASE.md).  The "major clean up" he
-named before is the rest of the review's list.
+The run checks in TEST_CHECKLIST.html under "2026-10-02 -- the 0.0.1 fixes".  **The kick bug Jacob found
+while testing** (2026-10-02): a second login that logs the other out and presses PLAY inside the
+character's one-second lock gets Kicked, reason 6, back to the login.  Planned, waiting on his OK: the
+client is told to wait (a new `PleaseWait` UDP packet, protocol version 10, the words on character
+select's status line) and Protogame waits the lock out, up to 5 s, then pulls them in.  Then `main` moves
+to `testing`'s tip, the `v0.0.1` tag and the two packages (RELEASE.md).  The "major clean up" he named
+before is the rest of the review's list.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
