@@ -8,8 +8,9 @@ Author:     Jacob Chacko
 
 Started 2026-10-02, the session after 0.0.1 went out.  Opus.Soundcheck is the program a player opens; the game
 (Ensemble) is what it starts.  It logs the player in, checks every file of the installed client against the
-manifest we stamped, mends what's wrong, and hands Ensemble a ticket for UDP.  The login, PLAY, admin mode's
-manifests and the check are built; mending (the download) isn't.  This file is the design as it settles.
+manifest we stamped, mends what's wrong, and hands Ensemble a ticket for UDP.  The login and PLAY are built and
+tested; admin mode's publish, the check at start and the patch are written and waiting on a build.  This
+file is the design as it settles.
 
 Why it exists at all is in LONGTERM_TODO.md ("Soundcheck, the patcher, and a certificate for every client").
 The short of it: a certificate for every client (mutual TLS) needs something that runs before the game, and
@@ -47,7 +48,8 @@ a patcher is that something.  The certificate half is still to come; this is the
   down the TCP connection after the login, as first designed (below): Conductor never sends it.  Where the
   *files* come from when something's off is still open: Conductor over TLS as designed, or the same web
   address.
-- **The check is the client's first, then the server's.**  "Most of the time its just gonna be a legit reason
+- **The check is the client's first, then the server's** (the first design; the web folder, below, took
+  the server out of it).  "Most of the time its just gonna be a legit reason
   and not a hacker."  After the login the player is made to download the manifest.  Soundcheck compares its
   own files with it; whatever's off, it asks for; the server sends those files; Soundcheck compares again.
   Then it sends its own manifest up as a report, and the server checks that against the stamp too.  A pass is
@@ -154,7 +156,7 @@ dump is a separate file**, compressed, with its own line in the manifest, "becau
 to need to be downloaded", and it isn't built or designed yet (TODO.md: Conductor's dump, and the client's
 side of it).
 
-### The shape after that (2026-10-02, the same chat; not built, not yet OKed)
+### The shape after that (2026-10-02, the same chat; OKed and written, not built)
 
 His next message undid the zip: "Actually we're gonna make it so the patcher knows if they're on linux or
 not and looks for linux_manifest.json or windows_manifest.json :P.  Fuck it!  Then we'll reach to the
@@ -177,8 +179,20 @@ So: **no zip, a file at a time, from a mirror of the client on the web folder.**
   again and end (on Windows the running files are renamed aside first); a patch of the game alone needs
   no restart.
 - What this buys over the zip: a player downloads only what's off, one wrong byte is one file, and most
-  patches never touch the launcher, so the restart is the rare case.  The manifest built today (format 2,
-  the platform inside, the file list) is already this shape; only its name and the download base change.
+  patches never touch the launcher, so the restart is the rare case.
+
+**Written 2026-10-02** (Jacob's "yup"), on top of the morning's code: PATCH_MANIFEST.md at format 3 (the
+names, the web folder's layout, `executable` for Linux programs, since a download comes with no
+permissions); `Patch/Mirror.cs` (admin mode's copy, by size and time, stale files taken out, Unity's backup
+folder skipped); `Patch/Patcher.cs` (the temp-and-swap, the hash check of each copy, the execute bit back,
+the rename-aside on Windows, `CleanUp` of the leftovers at the next start, `Restart` with `--patched`);
+`Patch/ManifestSource.cs` (the duckdns address, the manifest and the file fetches, one `HttpClient`, 15 s
+for the manifest and no limit on a file but the window closing); the admin screen's PUBLISH (the web
+folder, default `/opt/storage/WWW`); the login screen's check at start with the boxes locked, the patch,
+the second check, the restart, and the game's farewell kept in front of the check's words.  The rule for
+the restart: a replaced file *directly in the launcher's folder* means the launcher starts again (Unity's
+top-level files trip it too, which costs a second and nothing else); with `--game` pointing elsewhere it
+never does.  `--www <url>` replaced `--manifest`.
 
 ## Built and tested 2026-10-02: what the first build taught
 

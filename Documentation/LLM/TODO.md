@@ -408,35 +408,30 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 ### Soundcheck
 
 Started 2026-10-02 (`design/soundcheck.md`).  Built and tested: user mode's login over TLS 1.3 to the Ticket,
-PLAY, the way back, Ensemble's half.  **Written and not built** (2026-10-02, the manifests session): admin
-mode's two manifests and the check in user mode.  What's left, a step each:
+PLAY, the way back, Ensemble's half.  **Written and not built** (2026-10-02, the web folder session): admin
+mode's PUBLISH (the build mirrored into the web folder and the manifest written beside it), the check at
+start, the patch a file at a time, the launcher's restart.  What's left, a step each:
 
-- **The world's dump** (Jacob, 2026-10-02, with the zip redesign in `design/soundcheck.md`): Conductor
-  dumps a portable world to `Content/`, "a general shape of the world but 'smoothed'", for the client to
-  carry (region.map and the heights, the ground as Conductor would build it, so the distance doesn't
-  vanish; the chunks around the player stream over UDP and override it).  It ships as a file of its own,
-  compressed, with its own line in the manifest beside the client zip, "because this is much more likely to
-  need to be downloaded": a new world isn't a new client download.  Not designed yet: what's in it, how
-  "smoothed", where it lands in the install (`Ensemble_Data/StreamingAssets/World/`, the fifth folder), and
-  whether Conductor dumps it on START SERVER or on a button.  Its own session, after the patcher.
-- **The download, when the check fails**: today a fail is "install the game again".  Where the files come
-  from is open (`design/soundcheck.md`, "Open"): Conductor over the login's TLS connection in 3 MB pieces,
-  paced to 15 Mbps, one downloader thread with a queue and `PleaseWait` for the place in line; or the same
-  web address the manifests are at, one plain GET a file, which is far less to build.  Either way, on the
-  client: ask for what's off, write each file to a temp beside it and swap it in, check again, report.
-- **Conductor's half**: the manifest comes from the web address now, so Conductor never sends the stamp.
-  What's left: the report up after the check (the manifest in the protocol's own bytes, in pieces or past
-  the 4,096-byte frame cap) and Conductor checking it against its own copy; the files, if they come from
-  Conductor (above): `patch.cfg` (soft: the limit, the piece size, maybe the client folder),
-  `Content/patch/` read and checked against the manifests at START SERVER, a Warn and no downloads on a
-  mismatch; `serde` and `serde_json` (Jacob, 2026-10-02: "yes add it").  `PROTOCOL_VERSION` bumps;
-  `test_client.py` gets a `--client-folder`.
-- **The two manifests and the check are written, not built** (2026-10-02; PATCH_MANIFEST.md at format 2,
-  `design/soundcheck.md`): admin mode ticks Linux or Windows and writes `manifest_lin.json` or
-  `manifest_win.json` of that platform's folder (a folder remembered per platform, Unity's backup folder
-  left out); user mode knows its OS (`Platforms.Here`), fetches its manifest from
-  `http://opusensemble.com:8553/` after SUBMIT's Ticket (`--manifest <url>` for a test), hashes the game's
-  folder against it, and PLAY comes alive only on a pass.  TEST_CHECKLIST.html has the checks.
+- **The world's dump** (Jacob, 2026-10-02): Conductor dumps a portable world to `Content/`, "a general
+  shape of the world but 'smoothed'", for the client to carry (region.map and the heights, the ground as
+  Conductor would build it, so the distance doesn't vanish; the chunks around the player stream over UDP
+  and override it).  It ships as a file of its own, compressed, with its own line in the manifest beside
+  the client's files, "because this is much more likely to need to be downloaded": a new world isn't a new
+  client download.  Not designed yet: what's in it, how "smoothed", where it lands in the install
+  (`Ensemble_Data/StreamingAssets/World/`, the fifth folder), and whether Conductor dumps it on START
+  SERVER or on a button.  Its own session, after the patcher.
+- **The web folder, the check and the patch are written, not built** (2026-10-02; PATCH_MANIFEST.md at
+  format 3, `design/soundcheck.md`): `/opt/storage/WWW` served at `http://opusensemble.duckdns.org:8553/`,
+  `linux_manifest.json` and `windows_manifest.json` at its root and `download/<platform>/` an exact copy of
+  each client; admin mode's PUBLISH mirrors the build in and writes the manifest; user mode checks at
+  start with the login locked, fetches what's off a file at a time into a temp and swaps it in, checks
+  again, and starts itself again when one of its own files changed (`--patched` stops a loop).
+  TEST_CHECKLIST.html has the checks; the restart and the Windows rename-aside are guesses until run.
+- **Conductor's half**, what's left of it: the manifest and the files come from the web folder, so Conductor
+  sends nothing and serves nothing.  What could still be its: the client's report up after the check
+  (the manifest in the protocol's own bytes, in pieces or past the 4,096-byte frame cap) and Conductor
+  checking it against its own copy, so a changed client can't just skip the check; and `allow_debug_clients`
+  (below).  Neither is started, and whether the report is worth building is open.
 - **Ensemble's half is built and tested** (2026-10-02; `design/soundcheck.md`, "Ensemble's side"):
   the login screen and the TCP half of `Assets/Code/Net/` are gone; it starts on character select with the
   ticket read from its environment (`OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`, `OPUS_SOUNDCHECK`); no
@@ -454,35 +449,32 @@ mode's two manifests and the check in user mode.  What's left, a step each:
   environment, Soundcheck closing.  The game is beside the launcher, or `--game <path>` (remembered).  The
   Ensemble package's name for the game is `Ensemble.x86_64` on Linux; a Unity build also leaves an
   `Ensemble_BackUpThisFolder_ButDontShipItWithYourGame` folder beside it (the IL2CPP symbols), which the
-  one-package release step leaves out, and the manifest does (2026-10-02).
-- **The check runs on SUBMIT only**: PLAY's second login doesn't hash the install again (the design said
-  "the check runs again (quick: nothing's wrong)").  Hashing a Unity build takes seconds, so once is the
-  plain way; the server's look at the report would catch a file changed between the two one day.  Open.
-- **Where the correct client folder is on the server**: only matters if the files come from Conductor
-  (above).  Admin mode remembering its folders in the player folder (`soundcheck_admin.json`, one a
-  platform) is settled (Jacob, 2026-10-02: "where the Remember Me saves is where this should save"), but
-  Conductor doesn't read that, so it would still have to be told.  Open.
+  one-package release step leaves out, and the mirror and the manifest do (2026-10-02).
+- **The check runs once, at the start**: neither SUBMIT nor PLAY hashes the install again.  Hashing a
+  Unity build takes seconds, so once is the plain way; a file changed while the launcher sits open isn't
+  caught until the next start.  Open whether that matters.
 - **Debug mode's other halves** (`--debug` is in Soundcheck, 2026-10-02; `design/soundcheck.md`):
-  - **Conductor**: `allow_debug_clients` in `patch.cfg`, off by default; a client that says it won't send a
-    report is let through to the Ticket only when it's on, else refused with words that say so.  Part of
-    Conductor's half above.  Today `--debug` skips the check on the client alone, and nothing on the server
-    knows.
+  - **Conductor**: `allow_debug_clients`, off by default; a client that says it skipped the check is let
+    through to the Ticket only when it's on, else refused with words that say so.  Only means something
+    once the report up (above) exists; today `--debug` skips the check on the client alone, and nothing on
+    the server knows.
   - **Ensemble in the editor**: done with Ensemble's half (dev mode: the start screen watches for
     `debug_ticket.json` and joins the world when a fresh one lands, editor only).
 - **Shipping to a player on Windows** (Jacob, 2026-10-02: "get this all ready to ship to another person on
-  Windows... make sure soundcheck is set up properly to validate off the host"): the check is written
-  (above); then a Windows build of Ensemble (`Ensemble.exe`) and of Soundcheck, neither tried yet, and
-  `manifest_win.json` written of the Windows build; whether `Process.Start` and the environment hand-off
-  behave the same there; one package (below); the other person's server reachable (`bind_address`, the
-  firewall on TCP 9997 and UDP 9998, `client_versions`); the two manifests up at `opusensemble.com:8553`.
+  Windows... make sure soundcheck is set up properly to validate off the host"): the check and the patch
+  are written (above); then a Windows build of Ensemble (`Ensemble.exe`) and of Soundcheck, neither tried
+  yet, published as the Windows half of the web folder; whether `Process.Start`, the environment hand-off
+  and the rename-aside behave there; one package (below); the other person's server reachable
+  (`bind_address`, the firewall on TCP 9997 and UDP 9998, `client_versions`); the web folder up at
+  `opusensemble.duckdns.org:8553`.  The install has to be somewhere the player can write (not `Program
+  Files`), and INSTALLATION_INSTRUCTIONS.md will say so.
 - **A log file for Soundcheck**: on Windows a windowed program has no terminal, so `Log.cs` shows nothing
   there.  A file in the player folder, probably.
-- **Soundcheck patching itself**: a running program can't overwrite its own files on Windows.  The first
-  step says "download the launcher again" (a manifest for another version does, 2026-10-02); later, the
-  new file written beside and swapped on the next start.
-- **A new build of Ensemble as a patch**, or a fresh download: a call for when there's a second build.
-- **One package for a release**, Soundcheck and Ensemble together, with RELEASE.md's steps for writing the
-  two manifests in admin mode and putting them up at `opusensemble.com:8553`.
+- **A new build of Ensemble as a patch**: with a file at a time from the web folder, a new build is just a
+  big patch (hundreds of files).  Whether the first install is still a zip to download by hand, or the
+  launcher alone with the game fetched by the patcher, is a call for the one-package step.
+- **One package for a release**, Soundcheck and Ensemble together, with RELEASE.md's steps for PUBLISH in
+  admin mode, both platforms, and the web folder served.
 - **The certificate for every client**: LONGTERM_TODO.md.  Soundcheck is where it goes.
 
 ### The rest
