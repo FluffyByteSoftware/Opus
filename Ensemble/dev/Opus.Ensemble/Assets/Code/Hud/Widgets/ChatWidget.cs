@@ -63,6 +63,11 @@ namespace Opus.Hud
         public override void Build(VisualElement box)
         {
             this.box = box;
+            // The box holds the keys whenever the field doesn't (below,
+            // LostKeys): Unity's runtime panel gives the focus back to the
+            // last thing that had it on the next key, so if nothing held
+            // them, Escape would drop them for one key only.
+            box.focusable = true;
 
             var header = new Label("Chat");
             header.AddToClassList("chat-header");
@@ -81,6 +86,7 @@ namespace Opus.Hud
             // Caught on the way down (TrickleDown), before the text field
             // does anything of its own with Enter.
             input.RegisterCallback<KeyDownEvent>(KeyDown, TrickleDown.TrickleDown);
+            input.RegisterCallback<FocusOutEvent>(LostKeys);
 
             ruler = new Label("MMMMMMMMMM");
             ruler.AddToClassList("chat-line");
@@ -135,6 +141,20 @@ namespace Opus.Hud
             box.UnregisterCallback<DetachFromPanelEvent>(Gone);
         }
 
+        // The field lost the keys to nothing (a click on the scene): the
+        // box takes them, a frame later, since the focus is still changing
+        // hands while this runs.
+        void LostKeys(FocusOutEvent e)
+        {
+            if (e.relatedTarget != null)
+                return;
+            box.schedule.Execute(() =>
+            {
+                if (panel != null && panel.focusController.focusedElement == null)
+                    box.Focus();
+            });
+        }
+
         // With the field not focused, Enter brings the keys to it, and "/"
         // does the same and goes in as the first character (Jacob: "pressing
         // enter or typing / immediately brings focus up to the chat window
@@ -166,7 +186,7 @@ namespace Opus.Hud
             // come back to.
             if (e.keyCode == KeyCode.Escape)
             {
-                input.Blur();
+                box.Focus();
                 e.StopPropagation();
                 return;
             }
