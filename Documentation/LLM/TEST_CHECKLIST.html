@@ -197,6 +197,115 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>Soundcheck: the two manifests, and the check in user mode (2026-10-02)</h2>
+<p>Not built by me yet: the first <code>dotnet build</code> may want a fix or two.  Admin mode first, on the
+0.0.12 build; then user mode against a web server on this machine, standing in for
+<code>opusensemble.com:8553</code> until the two files are up there.  The server has to be running with
+the door open for the login, as before.</p>
+<pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --admin</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Admin mode opens with Linux ticked (this machine), and the small line under the write-to box says the
+      file is <code>manifest_lin.json</code>, for <code>http://opusensemble.com:8553/manifest_lin.json</code>.
+      The folder box is blank (the old settings file remembered one folder, not one a platform) and the
+      write-to box is a folder now, not a file.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Pick <code>/opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12</code> as the client folder, a folder
+      outside it to write in (<code>/opt/storage/Coding/Opus/Content/patch</code>, say), WRITE MANIFEST: the
+      progress bar runs, and the status says "Wrote manifest_lin.json: N files, M MB, in S s, to ..." and
+      where to put it.  Nothing from <code>Ensemble_BackUpThisFolder_ButDontShipItWithYourGame</code> is
+      in it, and it says <code>"platform": "linux"</code> and <code>"format": 2</code>.
+    </span></label>
+  </li>
+</ul>
+<pre class="cmd">grep -c BackUpThisFolder /opt/storage/Coding/Opus/Content/patch/manifest_lin.json; grep -m2 '"platform"\|"format"' /opt/storage/Coding/Opus/Content/patch/manifest_lin.json</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Tick Windows: the folder box empties (a folder is remembered per platform) and the line says
+      <code>manifest_win.json</code>.  Point it at any folder and write: <code>manifest_win.json</code> lands
+      beside the Linux one with <code>"platform": "windows"</code>.  Close admin mode and open it again: it
+      comes back on Windows with that folder, and ticking Linux brings the 0.0.12 folder back.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Writing into the client folder itself is refused with "Write the manifest outside the client folder".
+    </span></label>
+  </li>
+</ul>
+<p>User mode.  A web server on this machine serving the folder the manifests were written in (the second
+command, in its own terminal; Ctrl-C ends it), and Soundcheck pointed at it with <code>--manifest</code>.</p>
+<pre class="cmd">python3 -m http.server 8553 --directory /opt/storage/Coding/Opus/Content/patch</pre>
+<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --game /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble.x86_64 --manifest http://127.0.0.1:8553/manifest_lin.json</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The terminal's first line says <code>Soundcheck 0.0.1 on linux</code> and the manifest's address.
+      SUBMIT: the login works, the status says "Fetching the linux manifest from ...", then "Checking N of
+      M: &lt;file&gt;" with the progress bar running, then "Every file checks out (M files). Press PLAY to
+      start the game.", and PLAY is on.  The log has the manifest's version, count and when it was
+      written, and the check's time.  PLAY starts the game as before.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      PLAY before SUBMIT (a remembered login) is greyed; the files are checked on every SUBMIT.
+    </span></label>
+  </li>
+</ul>
+<p>A manifest that doesn't match: the first file's hash broken on purpose (the command changes one
+character of it), then SUBMIT again.  Admin mode writes a good one back afterwards.</p>
+<pre class="cmd">sed -i '0,/"sha256": "/s/"sha256": "./"sha256": "z/' /opt/storage/Coding/Opus/Content/patch/manifest_lin.json</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      SUBMIT: a red "The game's files don't match the server's: 1 file changed (&lt;the first file&gt;).
+      Downloading what's off isn't built yet, so install the game again."  PLAY stays off, and pressing it
+      anyway says the files haven't passed the check.  The log has a WARN line with the same.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A file the manifest doesn't know (<code>touch</code> one in the 0.0.12 folder, and delete it after):
+      the check still passes, with "1 file here isn't in the manifest and was left alone (&lt;name&gt;)."
+      on the end.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>--manifest http://127.0.0.1:8553/nothing.json</code>: "Logged in, but the game's files couldn't
+      be checked: http://127.0.0.1:8553/nothing.json answered 404 ...".  With the web server stopped:
+      "... couldn't reach http://127.0.0.1:8553/manifest_lin.json (...)".  PLAY off both times, and the
+      boxes come back so SUBMIT can be pressed again.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>--manifest http://127.0.0.1:8553/manifest_win.json</code> on this machine: "... is the windows
+      manifest, and this machine is linux".
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>--debug</code>: no fetch, no check; the status says "debug mode, so the game's files weren't
+      checked", the ticket file is written and PLAY is on, as before.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Once <code>manifest_lin.json</code> is up at <code>opusensemble.com:8553</code>: without
+      <code>--manifest</code>, the log says "this is linux, so the manifest is
+      http://opusensemble.com:8553/manifest_lin.json" and the check passes against it.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

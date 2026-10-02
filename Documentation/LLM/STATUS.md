@@ -39,9 +39,13 @@ close the game without.  A game with no ticket (started by hand, or in Unity's e
 screen**: "Start Forgotten Legends from the launcher." and QUIT.  In the editor that screen is **dev mode**:
 it watches for the ticket Soundcheck's `--debug` SUBMIT writes to `debug_ticket.json` and joins the world when
 a fresh one lands.  Soundcheck finds the game beside itself (`Ensemble.x86_64`), or `--game <path>`,
-remembered.  Admin mode (`--admin`) writes `patch_manifest.json` of a client folder.  **The manifest check
-isn't built**: Soundcheck logs in and starts the game without checking a single file against the server, and
-Conductor has no manifest packets, no downloader and no `patch.cfg` yet.  **The game's name is Forgotten
+remembered.  **Admin mode (`--admin`) writes one manifest a platform**, `manifest_lin.json` or
+`manifest_win.json` (PATCH_MANIFEST.md, format 2), of the client folder for the platform ticked.  **User mode
+checks the install** (written 2026-10-02, not built): after SUBMIT's Ticket it fetches the manifest for the OS
+it's on from `http://opusensemble.com:8553/` (`--manifest <url>` for a test), hashes the game's folder against
+it, and PLAY comes alive only when every file checks out; a fail says "install the game again", since **the
+download isn't built**, and Conductor has no part in it yet (no report up, no downloader, no
+`patch.cfg`).  **The game's name is Forgotten
 Legends**; the project, its folders and code stay Opus.  Ensemble speaks protocol version 10.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
@@ -54,16 +58,12 @@ the GitHub Release.  `main` is two docs commits past the tag; `testing` and `uns
 other, this session's work past `main`.  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor as released (365 tests), Soundcheck through PLAY and the way
-back, and Ensemble through the start screen, dev mode and the launcher's ticket; every check this session
-passed, and TEST_CHECKLIST.html is back to its one Parked check (Spans for real).  **On Windows**: Conductor
-builds and runs, START SERVER included, without a database; nothing since the world has been tried there
-(GitHub issue #10), and neither Soundcheck nor the new Ensemble has been built there at all.
-
-**One thing not yet on GitHub** (at this hand-off): Jacob's `.meta` round for this session.  The old
-login's files are still in the repo (`git ls-files` shows 30 of them) and the new files' `.meta`s aren't.
-On his machine the `git rm` was run and Unity made the `.meta`s; `git meta` from `Conductor/dev` commits
-and pushes both.  The next session checks `git ls-files Ensemble/dev/Opus.Ensemble/Assets | grep Login`
-before anything else, and asks for `git meta` if it still lists them.
+back, and Ensemble through the start screen, dev mode and the launcher's ticket.  **Not built yet**: this
+session's Soundcheck (the two manifests and the check); TEST_CHECKLIST.html has its checks, and the first
+`dotnet build` may want a fix or two.  **On Windows**: Conductor builds and runs, START SERVER included,
+without a database; nothing since the world has been tried there (GitHub issue #10), and neither Soundcheck
+nor the new Ensemble has been built there at all.  The `.meta` round from the login's move landed before
+this session (`git ls-files` shows none of the old login's files).
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -96,65 +96,59 @@ yes"** (the game watches for the ticket file, no button); on the world's files, 
 **"keep going with PLAY"**; the game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a
 0.0.12").  At the hand-off: **"next session we need to get this all ready to ship to another person on
 Windows... I need to make sure soundcheck is set up properly to validate off the host and I don't think it is
-yet"**.  He's right: it isn't (above).  His to change.
+yet"**.  His to change.
 
-## Last session -- 2026-10-02, the login out of Ensemble, PLAY, and the way back
+The manifests session (2026-10-02): **"we need to fix up soundcheck now so that admin mode builds a working
+manifest for Windows and Linux -- then Soundcheck needs to know which environment its being run from in its
+user mode... and then look for that manifest which we're gonna store at this web address
+http://opusensemble.com:8553/manifest_win.json and http://opusensemble.com:8553/manifest_lin.json"**.  So
+the stamp comes from a web address, not down the TCP connection from Conductor as first designed.
 
-Three steps, each planned, OKed, built and checked on its own.
+## Last session -- 2026-10-02, the two manifests and the check in user mode
 
-- **Ensemble's half of the login move.**  Jacob asked what still used the old login; the answer was all of
-  Ensemble's (by design: that half was left for this step) and three small things in Conductor (`tls12`,
-  `0.0.0.1` in `client_versions`, a comment).  So the login screen, `LoginConnection.cs`,
-  `ServerCertificate.cs`, the `Security/` folder, the eleven Login widgets, `login_default.json`,
-  `login.uss` and `Data/Certs/` left Ensemble; `Net/Ticket.cs` reads the launcher's ticket from the
-  environment (and, in the editor, Soundcheck's `debug_ticket.json`); `Session.cs` lost `LogIn()`,
-  `Choose()` and the login's stages and events, and gained `Enter()`, `Notice`, `SessionOver` and
-  `BackToTheLauncher()`; the start screen (`start_default.json`, `start.uss`, three widgets) replaced the
-  login on ScreenRoot, whose Login Text Color and Font became Screen Text Color and Font
-  (`FormerlySerializedAs`).  **The session couldn't delete the old files**: the harness refused the `git rm`
-  as destructive, so the line went to Jacob and he ran it.  Every check passed in the editor.
-- **PLAY in Soundcheck.**  A second login with the key in memory; its Ticket starts the game
-  (`GameLauncher.cs`, `Process.Start` with the four variables in the environment), and the window closes.
-  The server hands the second login a new ticket and lets the first die, so no "already logged in".  The
-  game is beside the launcher, or `--game <path>`, remembered in `soundcheck_dev.json` since the game can't
-  pass `--game` along on the way back.  Soundcheck's window grew to 840 x 1040 (debug mode's words didn't
-  fit).  Every check passed against a fresh 0.0.12 build (the 0.0.1 build still had the login screen in it).
-- **The way back says why.**  A KICK closed the game and Soundcheck opened knowing nothing, so Ensemble now
-  hands it `OPUS_SESSION_OVER` and `OPUS_SESSION_TROUBLE`, shown in the status box at start, red for
-  trouble.  Jacob: "this works locally".
-- **Conductor wasn't touched.**  `tls12` and `0.0.0.1` can go now that nothing speaks 1.2 (TODO.md).
+One step, from Jacob's one message (above), written and pushed, not built.  Taken as read, since he wasn't
+in the chat to ask: the check runs after SUBMIT's login (his "AFTER LOGIN ONLY BUT BEFORE WE GO TO
+ENSEMBLE"), and a fail blocks PLAY.
+
+- **The manifest is per platform** (`Patch/Manifest.cs`, PATCH_MANIFEST.md at format 2): a `platform` field,
+  `linux` or `windows`, and the file is `manifest_lin.json` or `manifest_win.json` by it.  Unity's
+  `Ensemble_BackUpThisFolder_ButDontShipItWithYourGame` is skipped, since the package leaves it out, and a
+  manifest at the folder's root under any of its names.  `Platforms.Here` is which OS this is.
+- **Admin mode** (`Screens/AdminScreen`): Linux / Windows radio buttons, a client folder remembered per
+  platform (`Patch/AdminSettings.cs`: `LinuxFolder`, `WindowsFolder`, `Platform`, `WriteTo`), and the
+  write-to box is a folder now; the file's name is the platform's, and the line under the box says so, with
+  the address it goes to.  The old `soundcheck_admin.json` remembered one folder, which won't fill the new
+  boxes; one pick and it's remembered again.
+- **User mode** (`Patch/ManifestSource.cs`, `Patch/ManifestCheck.cs`, `Screens/LoginScreen`): after SUBMIT's
+  Ticket, the manifest for this OS is fetched over plain HTTP with .NET's `HttpClient` (15 s, nothing new
+  added), checked for format, platform and the client's version, then the game's folder (beside the
+  launcher, or `--game`'s) is hashed on a worker thread with a progress bar, and compared.  A listed file
+  missing or changed fails it, named in a red status box with "install the game again"; a file that's there
+  and not listed is said and left alone.  PLAY is on only after a pass (debug mode skips all of it).  A
+  SUBMIT re-checks; PLAY's own login doesn't.
+- **`--manifest <url>`** on the command line points at another copy, for a test against
+  `python3 -m http.server 8553` on this machine until the files are up at `opusensemble.com:8553`.
+- **Nothing in Conductor changed.**  What's left of its half shrank (TODO.md): it never sends the stamp now.
+  Where the *files* come from when a check fails is open, Conductor over TLS or the same web address.
 
 ## Where the next session starts
 
-**Jacob's pick**: ship to another person on Windows, and Soundcheck validating off the host first, since it
-doesn't yet.  What that takes, unordered (TODO.md, "Soundcheck", has each):
+**The build.**  `dotnet build` on this session's Soundcheck, then TEST_CHECKLIST.html's checks: admin mode
+on the 0.0.12 build (both platforms, the folder remembered per platform), user mode against a local web
+server with `--manifest`, a broken hash, an extra file, a 404, the wrong platform's file, `--debug`, and
+the real address once the files are up.
 
-- **Conductor's half of the manifest**: after the Login, the stamp down and the report up (the manifest in
-  the protocol's own bytes, past the 4,096-byte frame cap or in pieces), the ask for files, a file in 3 MB
-  pieces, the download's end; `PleaseWait` for the place in line; one downloader thread with a queue, paced
-  to 15 Mbps; `patch.cfg` (soft: the limit, the piece size, the client folder, `allow_debug_clients`);
-  `Content/patch/` checked at START SERVER; `serde` and `serde_json` (OKed).  `PROTOCOL_VERSION` bumps.
-  Where the correct client folder is on the server is still open.
-- **The check in user mode**: hash the install, compare with the stamp, ask for what's off, write each file
-  to a temp beside it and swap it in, check again, report.  `--debug` skips it, only if the server allows.
-- **Windows**: a Windows build of Ensemble (`Ensemble.exe`) and of Soundcheck, Soundcheck's log file (a
-  windowed program has no terminal there), and whether `Process.Start` and the environment hand-off behave
-  the same.  Nothing of either has been built on Windows yet.
-- **One package**: Soundcheck and Ensemble together, the manifest written in admin mode and put in
-  `Content/patch/`, with Unity's `Ensemble_BackUpThisFolder_ButDontShipItWithYourGame` left out.
-  RELEASE.md's steps change.
-- **The other person's server**: Conductor's `bind_address` and firewall (TCP 9997, UDP 9998), and
-  `client_versions` listing Soundcheck's version; `0.0.0.1` and `tls12` out.
-
-Nothing waits on a build, but the `.meta` round above has to land first.
+Then, unordered (TODO.md, "Soundcheck", has each): the download when a check fails (where the files come
+from is Jacob's call); the Windows builds of Ensemble and Soundcheck and `manifest_win.json` of the
+Windows one; Soundcheck's log file for Windows; one package; the other person's server.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
 ## What's waiting
 
-- **Soundcheck's rest** (above, and TODO.md): Conductor's half, the check in user mode, Windows, one
-  package, Soundcheck patching itself, a new build as a patch; and the certificate for every client
-  (LONGTERM_TODO.md).
+- **Soundcheck's rest** (above, and TODO.md): the download, Conductor's half (the report, debug clients,
+  maybe the files), Windows, one package, Soundcheck patching itself, a new build as a patch; and the
+  certificate for every client (LONGTERM_TODO.md).
 - **The world's files on the client** (`Assets/StreamingAssets/World/`, a fifth folder of ours), left out of
   this session's pass.
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale

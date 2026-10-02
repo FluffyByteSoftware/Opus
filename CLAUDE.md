@@ -129,7 +129,7 @@ Opus/
         ├── PROTOCOL.md    # server/client contract: the packets
         ├── REGION_MAP.md  # server/client contract: region.map, byte for byte
         ├── HUD_FORMATS.md # the HUD's layout and catalog files: the game and the web editor's contract
-        ├── PATCH_MANIFEST.md # patch_manifest.json, field by field: Soundcheck's and Conductor's contract
+        ├── PATCH_MANIFEST.md # manifest_lin.json and manifest_win.json, field by field: the launcher's contract
         ├── WRITINGSTYLE.md # my voice for public docs and comments
         ├── TEST_CHECKLIST.html # what's still to check on testing, with boxes to tick
         ├── CODE_REVIEW_0.0.1.md # the pre-release review of Conductor: every finding, file and line
@@ -1055,19 +1055,39 @@ When I say we're wrapping up:
   Soundcheck again on its way out and can't pass `--game` along.  The
   ticket goes in the game's environment, never on its command line.
 - **After the login, before Ensemble, the manifest check** (Jacob: "this
-  happens AFTER LOGIN ONLY BUT BEFORE WE GO TO ENSEMBLE").  The server hands
-  the client the stamp, the client checks itself first ("most of the time its
-  just gonna be a legit reason and not a hacker"), asks for what's off, then
-  reports its own manifest for the server to check too.  PLAY is a second
-  login.  Conductor's half isn't built yet (TODO.md).
+  happens AFTER LOGIN ONLY BUT BEFORE WE GO TO ENSEMBLE").  The client
+  checks itself first ("most of the time its just gonna be a legit reason
+  and not a hacker"), asks for what's off, then reports its own manifest
+  for the server to check too.  PLAY is a second login.  **The check is
+  written** (2026-10-02, `Patch/ManifestCheck.cs`): after SUBMIT's Ticket,
+  the manifest for this OS is fetched, the game's folder (beside the
+  launcher, or `--game`'s) is hashed on a worker thread, and PLAY comes
+  alive only when every listed file is there with the same size and hash.
+  A fail names the files and says "install the game again", since the
+  download isn't built; a file that's there and not listed is said and
+  left alone.  The report up and Conductor's half aren't built (TODO.md).
+- **The manifests come from a web address, not from Conductor** (Jacob,
+  2026-10-02): `http://opusensemble.com:8553/manifest_lin.json` and
+  `manifest_win.json`, plain HTTP, fetched with .NET's `HttpClient`.
+  Soundcheck knows which OS it's on (`Platforms.Here` in
+  `Patch/Manifest.cs`) and fetches its own; a manifest says its platform
+  inside, so the wrong file under the right name is caught.  The address
+  is a constant in `Patch/ManifestSource.cs`; **`--manifest <url>`** points
+  at another copy for a test (`python3 -m http.server 8553` on the folder
+  the manifests were written in).  Where the *files* come from when a
+  check fails is open (Conductor over TLS, or the same address).
 - **Two modes, one program.**  User mode is the player's.  Admin mode
-  (`--admin`) runs on the server's machine and writes `patch_manifest.json`
-  from the correct client folder, which goes to `Content/patch/`.
+  (`--admin`) runs on the server's machine: tick Linux or Windows, point it
+  at that platform's correct client folder, and it writes that platform's
+  manifest in the folder given (a folder remembered per platform in
+  `soundcheck_admin.json`); the two files then go up to the web address.
   **`PATCH_MANIFEST.md` is the JSON's contract**, byte for byte, like
   PROTOCOL.md is the packets': `Patch/Manifest.cs` is written from it, a
-  change bumps `format`, and the two change together.  The manifest covers
-  every file of the client, Soundcheck's own included; the only thing skipped
-  is a manifest at the folder's root.
+  change bumps `format` (2 at 2026-10-02), and the two change together.
+  The manifest covers every file of the client, Soundcheck's own included;
+  the only things skipped are a manifest at the folder's root and Unity's
+  `Ensemble_BackUpThisFolder_ButDontShipItWithYourGame`, which the package
+  leaves out too.
 - **Debug mode is `--debug`** (Jacob, 2026-10-02: "every time I make a
   change to the client (Ensemble) I don't want to have to repatch!").  The
   login runs as always and the file check is skipped (once it exists, only if
@@ -1127,9 +1147,8 @@ When I say we're wrapping up:
   checklist's `--game` line points at it.  A reply that changes Ensemble's
   half says "a fresh build first".
 - **Nothing of Soundcheck or the new Ensemble has been built on Windows**
-  (at 2026-10-02), and Soundcheck checks no file against the server yet:
-  "validate off the host" is Conductor's half of the manifest and the check
-  in user mode, both in TODO.md.
+  (at 2026-10-02).  "Validate off the host" is the check in user mode
+  (written, above); mending what's off is the download, in TODO.md.
 
 ---
 

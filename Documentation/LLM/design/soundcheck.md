@@ -8,8 +8,8 @@ Author:     Jacob Chacko
 
 Started 2026-10-02, the session after 0.0.1 went out.  Opus.Soundcheck is the program a player opens; the game
 (Ensemble) is what it starts.  It logs the player in, checks every file of the installed client against the
-manifest we stamped, mends what's wrong, and hands Ensemble a ticket for UDP.  Nothing is built yet: this file
-is the design as it settles.
+manifest we stamped, mends what's wrong, and hands Ensemble a ticket for UDP.  The login, PLAY, admin mode's
+manifests and the check are built; mending (the download) isn't.  This file is the design as it settles.
 
 Why it exists at all is in LONGTERM_TODO.md ("Soundcheck, the patcher, and a certificate for every client").
 The short of it: a certificate for every client (mutual TLS) needs something that runs before the game, and
@@ -31,15 +31,34 @@ a patcher is that something.  The certificate half is still to come; this is the
   it opens on character select with a ticket in hand.  The login screen, `LoginConnection.cs`, the server's
   certificate copy, `PasswordKey.cs` and Remember Me leave Ensemble for Soundcheck.  They're plain C# with no
   Unity in them, so they move as they are.
-- **Two modes, admin and user.**  Admin mode runs on the server's machine: Jacob points it at the "correct"
-  client folder and presses WRITE MANIFEST, which reads every file, takes its length and its checksum, and
-  writes `patch_manifest.json`.  That file goes to `Content/patch/patch_manifest.json`.  User mode is the
-  player's: it logs in, is handed that manifest, and checks itself against it.
+- **Two modes, admin and user.**  Admin mode runs on the server's machine: Jacob ticks Linux or Windows,
+  points it at the "correct" client folder for that platform and presses WRITE MANIFEST, which reads every
+  file, takes its length and its checksum, and writes that platform's manifest, `manifest_lin.json` or
+  `manifest_win.json`, in the folder he gives.  User mode is the player's: it logs in, fetches the manifest
+  for the OS it's on, and checks itself against it.
+- **One manifest a platform, from a web address, not from Conductor** (Jacob, 2026-10-02: "admin mode builds
+  a working manifest for Windows and Linux -- then Soundcheck needs to know which environment its being run
+  from in its user mode... and then look for that manifest which we're gonna store at this web address").
+  The two files sit at `http://opusensemble.com:8553/manifest_lin.json` and
+  `http://opusensemble.com:8553/manifest_win.json`, plain HTTP; Soundcheck asks .NET which OS it's on
+  (`Platforms.Here`) and fetches its own.  A manifest says its platform inside, so the wrong file under the
+  right name is caught.  The address is a constant in `Patch/ManifestSource.cs`; `--manifest <url>` points
+  at another copy for a test (a `python3 -m http.server 8553` on this machine).  So the stamp doesn't come
+  down the TCP connection after the login, as first designed (below): Conductor never sends it.  Where the
+  *files* come from when something's off is still open: Conductor over TLS as designed, or the same web
+  address.
 - **The check is the client's first, then the server's.**  "Most of the time its just gonna be a legit reason
   and not a hacker."  After the login the player is made to download the manifest.  Soundcheck compares its
   own files with it; whatever's off, it asks for; the server sends those files; Soundcheck compares again.
   Then it sends its own manifest up as a report, and the server checks that against the stamp too.  A pass is
-  the Ticket.  A second fail on the client's side is an error the player reads, not a third try.
+  the Ticket.  A second fail on the client's side is an error the player reads, not a third try.  **The
+  client's half of the compare is built** (2026-10-02, `Patch/ManifestCheck.cs`): after SUBMIT's Ticket the
+  manifest is fetched, the install (the game's folder) is hashed with the same walk admin mode uses, and PLAY
+  comes alive only when every listed file is there with the same size and hash.  A listed file missing or
+  changed fails it, with the names in the status box and "install the game again", since the download isn't
+  built; a file that's there and not listed is said and left alone (a patcher mends, it doesn't delete).  A
+  manifest for another client version stops at "download the launcher again".  `--debug` skips the check.
+  The report up and the server's half aren't built.
 - **The manifest covers the whole client**, not just the world: "it needs to validate more than just the
   world... All of them."  The world is the least of it: the client carries a "broad stroke" map (region.map
   and the heights file, the ground as Conductor would build it) so the distance doesn't vanish, and the chunks
@@ -112,11 +131,13 @@ other-session choice against the test client, admin mode's manifest, debug mode'
 2. Soundcheck connects over TLS 1.3 to Conductor's TCP port, trusting its copy of `conductor.crt` byte for
    byte.  Hello, the version, the Login.  The server's answers are PROTOCOL.md's: Invalid Credentials, the
    other-session choice, Unavailable.
-3. **New**: the password passed, and instead of the Ticket the server sends the manifest.  Soundcheck hashes
-   every file under its install folder and compares.
+3. **Built**: the Ticket comes, and Soundcheck fetches the manifest for its OS from the web address and
+   hashes every file under its install folder (the game's folder: beside the launcher, or `--game`'s) and
+   compares.  Fetching it, or a manifest for another version, failing is words in the status box and no PLAY.
 4. Everything matches: Soundcheck sends its manifest up as the report, the server compares it with the stamp,
    and the Ticket comes.  On to 7.
-5. Something doesn't: Soundcheck asks for the files by name and goes in the download line.  In line it
+5. Something doesn't (**not built**: today this is "install the game again" and no PLAY): Soundcheck asks
+   for the files by name and goes in the download line.  In line it
    hears its place now and then ("2 ahead of you", `PleaseWait`).  At the front, the server sends each file
    in 3 MB pieces, paced to the limit.  Soundcheck writes the pieces to a temp file beside the real one and
    swaps it in when the last piece lands, so a download that dies halfway leaves the old file whole.
@@ -133,9 +154,12 @@ fresh token and nothing waits on a download.
 ## The flow, admin mode
 
 Started with `--admin` on the command line (it reads a folder on this machine and talks to no server, so
-there's nothing to log in to).  One screen: the client folder, WRITE MANIFEST, and where it wrote.  It walks
-the folder, hashes every file, and writes `patch_manifest.json` where Jacob says; he puts it in
-`Content/patch/`.  The manifest never sits inside the client folder, or it would have to list itself.
+there's nothing to log in to).  One screen: Linux or Windows, that platform's client folder, the version, the
+folder to write in, WRITE MANIFEST, and where it wrote.  It walks the folder, hashes every file, and writes
+`manifest_lin.json` or `manifest_win.json` there; Jacob puts the two up at the web address.  A folder is
+remembered per platform, so writing both for a release is tick, write, tick, write.  The manifest never
+sits inside the client folder, or it would have to list itself, and Unity's
+`Ensemble_BackUpThisFolder_ButDontShipItWithYourGame` is left out, since the package leaves it out.
 
 ## Debug mode
 
@@ -161,19 +185,19 @@ Debug mode is Soundcheck's switch, not Ensemble's: a built Ensemble started by S
 
 ## The manifest
 
-`patch_manifest.json`.  The client's version (what the Login carries), then one entry per file: its path
-(forward slashes, relative to the install folder, so the same file has the same name on Linux and Windows),
-its size in bytes, and its SHA-256 as 64 lowercase hex.  The exact shape is a contract between admin mode,
-user mode and Conductor, and gets its own document the way the packets and region.map have one; it's written
-with the first one.
+`manifest_lin.json` and `manifest_win.json`, one a platform.  Which platform it's for, the client's version
+(what the Login carries), then one entry per file: its path (forward slashes, relative to the install
+folder, so the same file has the same name on Linux and Windows), its size in bytes, and its SHA-256 as 64
+lowercase hex.  The exact shape is a contract between admin mode, user mode and Conductor, and has its own
+document the way the packets and region.map have one: PATCH_MANIFEST.md, at format 2.
 
 SHA-256 rather than MD5: Conductor already has the `sha2` crate for the password's key, .NET has it built in,
 and MD5 buys nothing here.
 
-Over TCP the manifest goes as the protocol's own bytes (a count, then path, size and hash each), the same
-packet down (the stamp) and up (the report), not the JSON text.  The JSON is the file on disk.  A TCP frame is
-capped at 4,096 bytes today (`MAX_PACKET_BYTES`), and a Unity build is a few hundred files, so the manifest
-goes in pieces the way Spans do, or the cap rises for these packets.
+The stamp comes down from the web address as the JSON itself (above), so no packet carries it.  If the
+report still goes up over TCP for the server's half, it goes as the protocol's own bytes (a count, then path,
+size and hash each), not the JSON text; a TCP frame is capped at 4,096 bytes today (`MAX_PACKET_BYTES`), and
+a Unity build is a few hundred files, so it would go in pieces the way Spans do, or the cap rises for it.
 
 ## The pieces
 
@@ -186,11 +210,14 @@ on the downloader thread only.
 
 ## Conductor's side
 
-- **`Content/patch/`**: `patch_manifest.json`, and the correct client folder Conductor sends files from.
-  Whether the folder sits in `Content/patch/` too or is pointed at by a setting is open (below).  Either
-  way it's gitignored like the logs and the world.  At START SERVER the files are checked against the
-  manifest once, so Conductor never sends a file that wouldn't pass; a mismatch is a Warn and the downloads
-  are refused until it's fixed.  How long that check takes on a Unity build is a guess until it's measured.
+- **Nothing of it is built**, and the manifest coming from the web address (2026-10-02) shrinks it: Conductor
+  never sends the stamp.  What's left, if the files come from Conductor: `Content/patch/` with the two
+  manifests and the correct client folders Conductor sends files from (whether they sit in `Content/patch/`
+  too or are pointed at by a setting is open, below; either way gitignored like the logs and the world); at
+  START SERVER the files checked against the manifests once, so Conductor never sends a file that wouldn't
+  pass, a mismatch a Warn and the downloads refused until it's fixed (how long that takes on a Unity build is
+  a guess until it's measured).  If the files come from the web address instead, none of this, and
+  Conductor's half is the report and `allow_debug_clients` only.
 - **The download thread.**  The login pool is 8 threads (`login_threads`) with a 30-second deadline, and a
   download holds a connection for minutes, so it can't run there.  Sending the manifest and reading the
   report are quick and stay on the login thread; a connection that asks for files is handed, TLS and all, to
@@ -198,8 +225,8 @@ on the downloader thread only.
   pacing its writes; when the download's done the connection goes back for the report and the Ticket.
 - **`patch.cfg`** (soft), most likely: the limit in Mbps, the piece size, the client folder.  A new config
   file is one entry in Constellations' table and shows up on the Settings tab on its own.
-- **The protocol**: the manifest packet (both ways), the ask for files, a file's piece, and the download's
-  end; `PleaseWait` reused for the place in line; `PROTOCOL_VERSION` bumps.  Conductor speaks the same bytes
+- **The protocol**: the report (one way, up), the ask for files, a file's piece, and the download's end;
+  `PleaseWait` reused for the place in line; `PROTOCOL_VERSION` bumps.  Conductor speaks the same bytes
   to Soundcheck as it did to Ensemble up to the Login, so `test_client.py` keeps working with a
   `--client-folder` of its own.
 - **The version in the Login** becomes Soundcheck's: it and Ensemble ship as one package, and
@@ -239,8 +266,13 @@ on the downloader thread only.
 
 ## Open
 
+- **Where the files come from when the check fails**: Conductor over the login's TLS connection, in 3 MB
+  pieces, paced (the design above), or the same web address the manifests are at, one plain GET a file
+  (far less to build in Conductor, and the web server does the pacing).  Jacob's call.  Until it's made, a
+  fail says "install the game again".
 - **Where the correct client folder is on the server**: inside `Content/patch/` beside the manifest, or
   anywhere, pointed at by a setting in `patch.cfg`.  Admin mode's remembered folder is settled (the player
   folder), but Conductor doesn't read that, so it still has to be told.
 - **Which comes first to build**: answered by doing it.  Soundcheck's user mode came first (2026-10-02),
-  then Ensemble's half and PLAY the same day; Conductor's half (the manifest) is what's left.
+  then Ensemble's half and PLAY the same day, then the two manifests and the check; the download and
+  Conductor's half are what's left.
