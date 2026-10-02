@@ -97,6 +97,24 @@ all there (PROTOCOL.md, "Character select"), so this is Ensemble's alone.
   `.gitignore` keeps out every `*.key`.  A new key pair is made with README's openssl command, and its
   certificate copied in as `conductor_crt.txt`.
 
+### As written (2026-10-02, waiting on Unity)
+
+- **`GameConnection.Ask(kind, params string[] fields)`**: every ask with fields carries strings only.  It
+  reads CharacterCreateResult, CharacterDeleteResult, CommandAccepted and CharacterEnteredWorld now
+  (`PacketReader.F32()` for its x, y, z).
+- **`Session.cs`**: `CreateCharacter(name)`, `DeleteCharacter(uuid, typed)`, `ResetHome(uuid)` and
+  `Play(uuid)`, and a stage past character select, `InWorld`.  `Asking` is the ask out (its packet type), so a
+  CommandAccepted or CommandRefused goes to the ask it answers: the list's trouble in the list, the rest on the
+  status line (`Said`).  A made or deleted character asks for the list again, since the answers don't say
+  which slot.  The name rule (`NameRule`, `NameFollowsRule()`) and DELETE are checked before anything is
+  sent, in the server's own words.  `CharactersChanged` became `CharacterSelectChanged` (anything on the
+  screen), with `AskAnswered` before it so a card closes on a yes.
+- **Seven new widgets**: `character_select_status`, `character_select_play`, `_create`, `_delete`,
+  `_reset_home`, and `character_select_create_card` and `_delete_card` on layer 2 over the list, hidden
+  until opened.  Enter is a card's button, Escape closes it.  `CharacterSelectForm.cs` holds the pick and
+  which card is open, and fills it all in.  The layout puts the list, the line, the four buttons in a row
+  and LOG OUT down the middle.
+
 ## Later
 
 - The key taking longer than the server's 10-second login deadline on a slow machine: the server hangs up, and

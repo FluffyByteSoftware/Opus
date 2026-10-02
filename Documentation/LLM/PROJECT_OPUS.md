@@ -167,7 +167,8 @@ Opus/
 │           │   │   ├── HudBuilder.cs  # a screen: the layers and a box per widget, placed from its anchor
 │           │   │   └── Widgets/       # the HUD's health, minimap, chat (placeholders); the login's nine, and
 │           │   │                      #   LoginForm.cs, where they meet: SUBMIT, Remember Me, the status line;
-│           │   │                      #   character select's three, and CharacterSelectForm.cs, its list
+│           │   │                      #   character select's ten, and CharacterSelectForm.cs, where they meet:
+│           │   │                      #   the list and its pick, PLAY, CREATE, DELETE, RESET HOME, the two cards
 │           │   ├── Net/               # the client's net code, namespace Opus.Net (design/ensemble-networking.md)
 │           │   │   ├── Protocol.cs    # the version, the packet types, the answers, the Kicked reasons' words
 │           │   │   ├── Packets.cs     # PacketWriter and PacketReader: PROTOCOL.md's bytes
@@ -175,7 +176,7 @@ Opus/
 │           │   │   ├── LoginConnection.cs # the login over TLS, its own thread, to the Ticket
 │           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks; Kicked and the quiet timer end it
 │           │   │   ├── MainThread.cs  # what the threads hand to Unity's main thread, run once a frame
-│           │   │   └── Session.cs     # the flow from SUBMIT back to the login, and the screens' events
+│           │   │   └── Session.cs     # the flow from SUBMIT back to the login, character select's asks, the events
 │           │   └── Security/          # namespace Opus.Security (design/client-security.md)
 │           │       ├── PasswordKey.cs # the password's key, made on SUBMIT: what's sent and kept, never the password
 │           │       └── RememberedLogin.cs # Remember Me's file, in the player's own folder for the game

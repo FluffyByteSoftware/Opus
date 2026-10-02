@@ -338,9 +338,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     sure it will do 1.3".  Unity's .NET has no `SslProtocols.Tls13` (the first compile), so it's done.
   - **The client version**: "we're not ready for 0.0.1 yet".  Ensemble sends Player Settings' Version,
     `0.0.0.1`, and `networking.cfg`'s `client_versions` takes it.
-  - **Next** (Jacob, at the hand-off: "create/delete/select/play character next round"): CREATE, DELETE
-    and PLAY at character select.  `GameConnection.Ask()` takes only a type today, so the asks with fields
-    come with it; what the client shows on CharacterEnteredWorld is still to be said.
+  - **Next** (Jacob, at the hand-off: "create/delete/select/play character next round"): CREATE, DELETE,
+    RESET HOME and PLAY at character select.  **Written** (2026-10-02), waiting on Unity:
+    `design/ensemble-networking.md`, "Character select, the rest of it".  On CharacterEnteredWorld the
+    client says "In the world as <name>" with LOG OUT; the world on screen is still to come.
 - **Stale words in the code**, for whichever session next touches each file:
   - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and
     Blacklist), and a comment the same.
