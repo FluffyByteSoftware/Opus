@@ -11,8 +11,10 @@ client who has never seen Conductor's code.  Conductor's half is `Conductor/dev/
 and the Python test client beside the crate (`networking/test_client.py`) is the other half until Ensemble
 speaks it; when either disagrees with this document, it is the code that gets fixed.
 
-Protocol version **6**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 6 (2026-10-01)
+Protocol version **7**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 7 (2026-10-02)
+made the Login's fourth string the password's key instead of the password (below, "The password's key").
+Version 6 (2026-10-01)
 added the spawn: UserPressPlay and CharacterEnteredWorld (`0x27`, `0x28`), and reason `6`, character
 locked for a moment, to Kicked.  Version 5 (2026-09-30)
 added character select (`0x20` to `0x26`) and the two general answers, CommandAccepted and CommandRefused
@@ -85,7 +87,7 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 | Type   | Name           | Way              | Payload                                                  |
 |--------|----------------|------------------|----------------------------------------------------------|
 | `0x10` | Hello          | server to client | u8: protocol version                                     |
-| `0x11` | Login          | client to server | string version, string secret word, string username, string password |
+| `0x11` | Login          | client to server | string version, string secret word, string username, string key |
 | `0x12` | InLine         | server to client | u32 how many logins are ahead, u32 about how many ms     |
 | `0x13` | LoginResult    | server to client | u8 answer, string message                                |
 | `0x14` | SessionChoice  | client to server | u8: 0 log the other session out, 1 hang this one up      |
@@ -112,8 +114,8 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 1. The client connects and TLS comes up.  The client has until the server's login deadline (10 seconds by
    default) from the moment it connected to get through step 3.
 2. The server sends **Hello** with the protocol version.
-3. The client sends one **Login**: its version, the secret word, the username and the password.  The
-   username is folded to lowercase on the server.  The secret word is not a secret from anybody with a copy
+3. The client sends one **Login**: its version, the secret word, the username and the password's key
+   (below), never the password as typed.  The username is folded to lowercase on the server.  The secret word is not a secret from anybody with a copy
    of the client; it turns port scanners away before they cost the server a hash.
 4. While the password is checked, the server may send **InLine** once a second: how many logins are ahead
    of this one and about how long that is, since the server checks one password at a time.  A client
@@ -124,7 +126,8 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
    - **LoginResult** with answer `1`, "Invalid Credentials": the secret word, the username or the password
      was wrong.  One answer for all three, on purpose.  The address then can't connect for 2 seconds (the
      hold; answers `3` and `4` don't start one).  A username, once lowercased, is 8 to 32 characters of
-     `a-z`, `0-9` and `_`; one that isn't gets this answer without the server looking it up.
+     `a-z`, `0-9` and `_`; one that isn't gets this answer without the server looking it up.  So does a
+     key that isn't 64 characters of `0-9` and `a-f` (a password sent as typed, say).
    - **LoginResult** with answer `2`, "This account is already logged in.": the password was right, and the
      account is in the world from somewhere else.  Only ever sent after the right password.  The
      connection stays open, and the client has 30 seconds to answer with a **SessionChoice**: `0` logs the
@@ -140,6 +143,23 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 
    Every answer takes at least 150 ms from the moment the Login arrived, whichever it is, so the time it
    takes can't tell a real username from a made-up one.
+
+### The password's key
+
+The client never sends the password as typed.  It sends a key made from it, and the server only ever sees
+the key: the account's stored hash is of the key.  The client may keep the key on the player's disk
+(Remember Me) and send it again without the password.  The key is:
+
+- **PBKDF2 with HMAC-SHA256**, over the password's UTF-8 bytes as typed (the password rules keep it to
+  printable ASCII).
+- **Salted** with the UTF-8 bytes of `Opus login v1:` followed by the username with `A` to `Z` made
+  lowercase and nothing else touched.  So `Jacob_01` and `jacob_01` make the same key.
+- **600,000 rounds, 32 bytes**, written as **64 lowercase hex characters**.  That string is the Login's
+  fourth string.
+
+`jacob_01` with the password `Correct horse 1!` makes
+`fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855`.  Changing any of this locks out every
+account there is.
 
 Anything out of turn as the first packet after the Hello (a type the server doesn't expect, a Login it
 can't read) is treated as a failed login.  While the server waits on a SessionChoice, anything but a
@@ -267,16 +287,22 @@ characters):
 ## A worked example
 
 A Login as `jacob_01` with the password `Correct horse 1!`, client version `0.0.1`, secret word `potato`,
-as the bytes go over TLS.  The length is 1 + (4 + 5) + (4 + 6) + (4 + 8) + (4 + 16) = 52, which is `0x34`:
+as the bytes go over TLS.  What goes is the password's key, 64 characters.  The length is 1 + (4 + 5) +
+(4 + 6) + (4 + 8) + (4 + 64) = 100, which is `0x64`:
 
 ```text
-34 00 00 00                                   length 52
+64 00 00 00                                   length 100
 11                                            Login
 05 00 00 00  30 2E 30 2E 31                   "0.0.1"
 06 00 00 00  70 6F 74 61 74 6F                "potato"
 08 00 00 00  6A 61 63 6F 62 5F 30 31          "jacob_01"
-10 00 00 00  43 6F 72 72 65 63 74 20 68 6F    "Correct horse 1!"
-             72 73 65 20 31 21
+40 00 00 00  66 63 37 31 66 30 63 39 34 36    "fc71f0c94665dfd6ff4e217891cd7ff8
+             36 35 64 66 64 36 66 66 34 65     1c8fd8ed7b20cf498c122c1bbd1f8855",
+             32 31 37 38 39 31 63 64 37 66     the key for "Correct horse 1!"
+             66 38 31 63 38 66 64 38 65 64
+             37 62 32 30 63 66 34 39 38 63
+             31 32 32 63 31 62 62 64 31 66
+             38 38 35 35
 ```
 
 The server's answer when it works, with a token shown short and UDP port 9998 (`0x270E`):

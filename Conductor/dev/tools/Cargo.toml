@@ -13,6 +13,11 @@
 # random source, so that side of it (and the crates behind it) stays out.
 # "alloc" is for the fallback when a hash wants more memory than the arena
 # holds, and "password-hash" is the PHC string format.
+#
+# pbkdf2 and sha2 make the password's key (PBKDF2 with HMAC-SHA256), the
+# same way the client makes it, for Security's password_key().  The same
+# people as argon2.  sha2 and hmac were already in the build through
+# postgres.
 
 [package]
 name = "conductor-tools"
@@ -21,4 +26,6 @@ edition = "2024"
 
 [dependencies]
 argon2 = { version = "0.6", default-features = false, features = ["alloc", "password-hash"] }
+pbkdf2 = "0.13"
 postgres = "0.19"
+sha2 = "0.11"

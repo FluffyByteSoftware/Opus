@@ -91,6 +91,19 @@
 //! logs a password, not even a wrong one.  Standard library plus argon2,
 //! our second crate.  Nobody should write their own password hash, and
 //! that includes us.
+//!
+//! # The password's key
+//!
+//! A player's password never reaches us as typed.  The client turns it
+//! into a key first (PBKDF2 with HMAC-SHA256, the account's name in the
+//! salt, 600,000 rounds), and the key is what it sends and what Remember
+//! Me keeps on the player's disk.  So the "password" in a login is the
+//! key, and the line in the accounts table is Argon2 of the key.  When
+//! the admin makes an account or changes a password on the web admin,
+//! the typed password is turned into the same key here
+//! (`password_key()`), so both ends make it the same way to the byte.
+//! `design/client-security.md` has the contract.  The pbkdf2 and sha2
+//! crates make it, from the same people as argon2.
 
 use std::fmt;
 use std::sync::Mutex;
@@ -101,6 +114,7 @@ use std::time::{Duration, Instant};
 
 use argon2::password_hash::phc::{Output, ParamsString, Salt};
 use argon2::{Algorithm, Argon2, Block, Params, PasswordHash, Version};
+use sha2::Sha256;
 
 use crate::fingerprinter;
 use crate::pending::NotRunning;
@@ -175,6 +189,21 @@ const MIN_LOGIN_MILLIS: u64 = 150;
 /// send us.
 const MIN_PASSWORD_CHARS: usize = 8;
 const MAX_PASSWORD_CHARS: usize = 128;
+
+/// The password's key: what goes in front of the account's name in the
+/// salt.  The `v1` is so a different recipe one day can be told apart.
+/// Changing any of these three locks out every account there is: the
+/// client makes the key the same way (Ensemble's `PasswordKey.cs`).
+const KEY_SALT_PREFIX: &str = "Opus login v1:";
+
+/// How many rounds of PBKDF2 make the key.  Jacob's: "Make this the full
+/// 600,000".  It's slow on purpose, on the player's machine, so a copied
+/// Remember Me file doesn't give the password back cheaply.
+const KEY_ROUNDS: u32 = 600_000;
+
+/// How long the key is, in bytes.  Written as twice as many hex
+/// characters: 64.
+const KEY_BYTES: usize = 32;
 
 /// What one hash is assumed to take until the worker has done one and
 /// measured it: the benchmark's 30 ms.  After that the running average
@@ -627,6 +656,31 @@ pub fn check_password_rules(password: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// The password's key, the way the client makes it: PBKDF2 with
+/// HMAC-SHA256 over the password's bytes, salted with KEY_SALT_PREFIX and
+/// the account's name (A to Z made lowercase, nothing else touched),
+/// KEY_ROUNDS rounds, written as 64 lowercase hex characters.
+///
+/// It takes a moment (600,000 rounds), on the caller's thread, so the
+/// caller is one that can wait: the account desk.  It doesn't check the
+/// password rules; call `check_password_rules()` first.  Never log what
+/// it hands back: it logs in as well as the password does.
+pub fn password_key(username: &str, password: &str) -> String {
+    let salt = format!("{KEY_SALT_PREFIX}{}", username.to_ascii_lowercase());
+    let mut key = [0u8; KEY_BYTES];
+    pbkdf2::pbkdf2_hmac::<Sha256>(password.as_bytes(), salt.as_bytes(), KEY_ROUNDS, &mut key);
+    key.iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
+/// Whether `text` has the shape of a key: 64 characters, each 0 to 9 or
+/// a to f.  The shape is no secret, so a login that fails it can be
+/// turned away without a hash.
+pub fn looks_like_key(text: &str) -> bool {
+    text.len() == KEY_BYTES * 2 && text.bytes().all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+}
+
 /// Makes a login attempt take at least MIN_LOGIN_MILLIS from `started`,
 /// however much or little work it did.  The caller notes the clock when
 /// the attempt arrives, does the work (or skips it, for a name that
@@ -763,6 +817,27 @@ mod tests {
     /// A hash at the cheap settings, with a fixed salt.
     fn cheap_hash(password: &str, arena: &mut Arena) -> String {
         hash_with(&cheap_params(), password.as_bytes(), b"sixteen sevens 7", arena).unwrap()
+    }
+
+    #[test]
+    fn the_key_matches_the_worked_example() {
+        // design/client-security.md's example, which Ensemble and Python
+        // both make to the byte.  The full 600,000 rounds, so it takes a
+        // few seconds in a test build.  The name's capitals don't count.
+        let expected = "fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855";
+        assert_eq!(password_key("jacob_01", "Correct horse 1!"), expected);
+        assert_eq!(password_key("Jacob_01", "Correct horse 1!"), expected);
+    }
+
+    #[test]
+    fn only_64_lowercase_hex_looks_like_a_key() {
+        assert!(looks_like_key("fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855"));
+        assert!(!looks_like_key("FC71F0C94665DFD6FF4E217891CD7FF81C8FD8ED7B20CF498C122C1BBD1F8855"));
+        assert!(!looks_like_key("fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f885"));
+        assert!(!looks_like_key("fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855a"));
+        assert!(!looks_like_key("gc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855"));
+        assert!(!looks_like_key("Correct horse 1!"));
+        assert!(!looks_like_key(""));
     }
 
     #[test]

@@ -406,6 +406,12 @@ When I say we're wrapping up:
   one arena of memory kept for the server's life, one login hashed at a
   time, hard limit, with everybody else in line.  Nothing else calls the
   argon2 crate, and nothing ever logs a password.
+  **What's hashed is the password's key, never the password** (protocol
+  version 7, `design/client-security.md`): the client sends the key, and
+  the account desk makes it from what the admin types with Security's
+  `password_key()`, the same recipe to the byte.  Nothing else calls the
+  pbkdf2 crate, and a key is never logged either: it logs in as well as
+  the password does.
 - **Every account goes through `conductor-accounts`.**  Nothing else writes
   SQL for the `accounts` table or the `player_characters` table (making or
   deleting a character writes both, so one crate writes them, in one
@@ -544,8 +550,8 @@ When I say we're wrapping up:
   the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`,
   and so does a new value in a packet's enum (each new Kicked reason did):
   `protocol.rs`, PROTOCOL.md and `test_client.py` all change together, and
-  the document gets a line saying what the version added.  It's at 6
-  (the spawn, 2026-10-01).
+  the document gets a line saying what the version added.  It's at 7
+  (the password's key in the Login, 2026-10-02).
 - **Character select is Protogame's** (`protogame.rs` in networking, its own
   thread and Services line): "the character selection and character
   construction are proto game then become game objects after load".  The

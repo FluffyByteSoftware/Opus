@@ -16,6 +16,12 @@
 //! in the middle of still gets its hash and its write.  A job handed in
 //! while it's stopped is turned away on the spot.
 //!
+//! The password the admin types is never what's stored, or what a player
+//! sends: the desk turns it into the password's key first (Security's
+//! `password_key()`, the same key the client makes), and the key is what
+//! gets hashed.  Making the key takes a moment too, so it's done here,
+//! on the desk's thread, and the typed password goes no further.
+//!
 //! What each job came to is kept for the page to ask about, the newest
 //! KEEP_RESULTS of them, in memory only.  Never the password.
 
@@ -209,7 +215,10 @@ fn create(account: Account, password: String) -> Outcome {
         Err(e) => return failed(&format!("The accounts table couldn't be read: {e}.")),
     }
 
-    let hash = match security::hash_password(&password).wait() {
+    // The key, then the key's hash.  The typed password stops here.
+    let key = security::password_key(&name, &password);
+    drop(password);
+    let hash = match security::hash_password(&key).wait() {
         Ok(hash) => hash,
         Err(e) => return failed(&format!("The password couldn't be hashed: {e}.  Nothing was written.")),
     };
@@ -226,7 +235,9 @@ fn create(account: Account, password: String) -> Outcome {
 }
 
 fn password_change(username: &str, password: &str) -> Outcome {
-    let hash = match security::hash_password(password).wait() {
+    // The key, then the key's hash, the same as a new account.
+    let key = security::password_key(username, password);
+    let hash = match security::hash_password(&key).wait() {
         Ok(hash) => hash,
         Err(e) => return failed(&format!("The password couldn't be hashed: {e}.  Nothing was written.")),
     };

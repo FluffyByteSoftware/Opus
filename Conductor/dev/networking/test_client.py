@@ -15,6 +15,13 @@
 # document disagree, the document wins.  To try "already logged in", leave
 # one running and start a second in another terminal; it asks what to do.
 #
+# The password is typed as it is, and the script turns it into the
+# password's key before the Login, the way Ensemble does (protocol version
+# 7): PBKDF2 with HMAC-SHA256, 600,000 rounds, the name in the salt.  The
+# key is printed in the Login's bytes like everything else; it's a test
+# account's.  --no-key sends the password as typed instead, to see the
+# server turn it away without a hash.
+#
 #   python3 test_client.py jacob_01 'Correct horse 1!'
 #   python3 test_client.py --host 127.0.0.1 --cert ../../../Content/certs/conductor.crt jacob_01 'Correct horse 1!'
 #   python3 test_client.py --go-quiet jacob_01 'Correct horse 1!'   (stops the keep-alives, to see the 40 s drop)
@@ -23,10 +30,12 @@
 #   python3 test_client.py --delete Jacob jacob_01 'Correct horse 1!'   (types DELETE; --delete-word to type another)
 #   python3 test_client.py --reset-home Jacob jacob_01 'Correct horse 1!'   (puts it back at 0, 0, 0)
 #   python3 test_client.py --play Jacob jacob_01 'Correct horse 1!'   (brings Jacob into the world)
+#   python3 test_client.py --no-key jacob_01 'Correct horse 1!'   (sends the password, not its key: refused)
 #
 # Standard library only.
 
 import argparse
+import hashlib
 import os
 import socket
 import ssl
@@ -34,7 +43,13 @@ import struct
 import sys
 import time
 
-PROTOCOL_VERSION = 6
+PROTOCOL_VERSION = 7
+
+# The password's key.  Changing any of these locks out every account; the
+# server and Ensemble make it the same way.
+KEY_SALT_PREFIX = "Opus login v1:"
+KEY_ROUNDS = 600000
+KEY_BYTES = 32
 
 HELLO = 0x10
 LOGIN = 0x11
@@ -74,6 +89,17 @@ CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots f
 DELETE_ANSWERS = {0: "approved", 1: "denied"}
 KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin",
                 5: "ACCOUNT TERMINATED", 6: "character locked for a moment; log in again"}
+
+
+def password_key(username, password):
+    """The password's key, as Ensemble and the server make it: 64 lowercase
+    hex.  The name's A to Z are made lowercase, nothing else."""
+    lower = "".join(c.lower() if "A" <= c <= "Z" else c for c in username)
+    salt = (KEY_SALT_PREFIX + lower).encode("utf-8")
+    started = time.monotonic()
+    key = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, KEY_ROUNDS, KEY_BYTES).hex()
+    print("Made the password's key in %d ms." % int((time.monotonic() - started) * 1000))
+    return key
 
 
 def put_string(text):
@@ -168,8 +194,13 @@ def log_in(args):
         print("Pausing %d s before the Login." % args.pause_before_login, flush=True)
         time.sleep(args.pause_before_login)
 
+    if args.no_key:
+        key = args.password
+        print("Sending the password as typed, not its key (--no-key).")
+    else:
+        key = password_key(args.username, args.password)
     tcp.send(LOGIN, put_string(args.version) + put_string(args.secret) + put_string(args.username)
-             + put_string(args.password))
+             + put_string(key))
     sent_at = time.monotonic()
 
     while True:
@@ -447,6 +478,8 @@ def main():
                         help="the server's certificate to trust (default: Content/certs/conductor.crt if it's there)")
     parser.add_argument("--version", default="0.0.1", help="the client version to claim")
     parser.add_argument("--secret", default="potato", help="the secret word")
+    parser.add_argument("--no-key", action="store_true",
+                        help="send the password as typed instead of its key, to see it refused")
     parser.add_argument("--leave-other-alone", action="store_true",
                         help="when the account is already logged in, hang up without asking")
     parser.add_argument("--leave-after", type=float, default=0,

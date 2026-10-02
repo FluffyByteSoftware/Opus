@@ -43,10 +43,14 @@
 //! Version 6 (2026-10-01) is the spawn: UserPressPlay picks a character
 //! at character select, and CharacterEnteredWorld says it's in the world
 //! and where.  Jacob's names.
+//!
+//! Version 7 (2026-10-02) is the password's key: the Login's fourth string
+//! is no longer the password as typed but the key the client makes from
+//! it (Security's `password_key()` has the recipe), 64 lowercase hex.
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 6;
+pub const PROTOCOL_VERSION: u8 = 7;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -74,7 +78,7 @@ pub enum PacketType {
     /// Server to client, right after TLS.  One byte: PROTOCOL_VERSION.
     Hello = 0x10,
     /// Client to server.  Four strings: the client's version, the secret
-    /// word, the username, the password.
+    /// word, the username, the password's key.
     Login = 0x11,
     /// Server to client, once a second while the login waits in
     /// Security's line.  A u32 for how many are ahead, and a u32 for
@@ -354,13 +358,16 @@ pub struct Packet {
     pub payload: Vec<u8>,
 }
 
-/// What a Login says.  No `Debug` on purpose: it holds a password, and a
-/// `{:?}` in a log line would print it.
+/// What a Login says.  No `Debug` on purpose: it holds the password's
+/// key, which logs in as well as the password does, and a `{:?}` in a log
+/// line would print it.
 pub struct LoginRequest {
     pub client_version: String,
     pub secret_word: String,
     pub username: String,
-    pub password: String,
+    /// The password's key, as the client made it: 64 lowercase hex if
+    /// it's a real one.  Not checked here; the login does that.
+    pub key: String,
 }
 
 // ---------------------------------------------------------------------------
@@ -582,15 +589,15 @@ pub fn entered_world(ask: u32, character: &EnteredCharacter) -> Vec<u8> {
 // ---------------------------------------------------------------------------
 
 /// The payload of a Login: the client's version, the secret word, the
-/// username, then the password.
+/// username, then the password's key.
 pub fn read_login(payload: &[u8]) -> Result<LoginRequest, String> {
     let mut at = 0;
     let client_version = take_string(payload, &mut at)?;
     let secret_word = take_string(payload, &mut at)?;
     let username = take_string(payload, &mut at)?;
-    let password = take_string(payload, &mut at)?;
+    let key = take_string(payload, &mut at)?;
     finished(payload, at)?;
-    Ok(LoginRequest { client_version, secret_word, username, password })
+    Ok(LoginRequest { client_version, secret_word, username, key })
 }
 
 /// The payload of a SessionChoice: exactly one byte, 0 or 1.
@@ -740,19 +747,22 @@ mod tests {
         assert_eq!(kicked(KickReason::CharacterLocked), vec![0x34, 6, 0, 0, 0]);
     }
 
+    /// The key for `jacob_01` / `Correct horse 1!`, PROTOCOL.md's example.
+    const KEY: &str = "fc71f0c94665dfd6ff4e217891cd7ff81c8fd8ed7b20cf498c122c1bbd1f8855";
+
     #[test]
     fn a_login_reads_back() {
-        let payload = strings(&["0.0.1", "potato", "jacob", "Correct horse 1!"]);
+        let payload = strings(&["0.0.1", "potato", "jacob_01", KEY]);
         let login = read_login(&payload).unwrap();
         assert_eq!(login.client_version, "0.0.1");
         assert_eq!(login.secret_word, "potato");
-        assert_eq!(login.username, "jacob");
-        assert_eq!(login.password, "Correct horse 1!");
+        assert_eq!(login.username, "jacob_01");
+        assert_eq!(login.key, KEY);
     }
 
     #[test]
     fn broken_logins_are_refused() {
-        let payload = strings(&["0.0.1", "potato", "jacob", "Correct horse 1!"]);
+        let payload = strings(&["0.0.1", "potato", "jacob_01", KEY]);
 
         // Cut off anywhere short of the end.
         for cut in 0..payload.len() {

@@ -13,9 +13,8 @@ keeps.  "I suppose there will be a few moments where its in memory": the typed s
 memory until it's reused, since C# can't wipe a string.
 
 **The client's half is built and tested** (Ensemble, 2026-10-01, all six checks passed; the key matched
-Python's to the byte).  **Conductor's half is
-written down below and not built**: it's a session of its own, and until it's in, a key sent as the password
-won't match any account.  Nothing sends one yet (there's no network client).
+Python's to the byte).  **Conductor's half is written** (2026-10-02, protocol version 7) **and waiting on
+Jacob's build.**  Ensemble doesn't send one yet (there's no network client); `test_client.py` does.
 
 What a key does and doesn't do, said when it was planned: the key logs in as well as the password would, so
 whoever copies the Remember Me file can log in as that player.  What they can't do is learn the password and
@@ -70,7 +69,7 @@ In `Assets/Code/`:
     box puts it back.  Typing a password drops the remembered key, and so does changing the username, since
     the key was made from it.
 
-## Conductor's half (to build, a session of its own)
+## Conductor's half (written 2026-10-02, not built yet)
 
 1. **The Login carries the key**: `PROTOCOL_VERSION` 7.  The Login's fourth string is the password's key, 64
    lowercase hex, made as above.  `protocol.rs`, PROTOCOL.md (its example gets the key above) and
@@ -84,12 +83,27 @@ In `Assets/Code/`:
    (`desk.rs`) checks it against the password rules, makes the key from the account's name and the password,
    and hands the key to `security::hash_password()`.  The stored hash is Argon2 of the key.  The plaintext is
    dropped there.
-   - **This needs two crates, `pbkdf2` and `sha2`** (RustCrypto, the same people as the `argon2` crate
-     already in use).  Asked again when that session plans, since every new dependency is OKed first.
+   - **Two crates, `pbkdf2` 0.13 and `sha2` 0.11**, in `conductor-tools` (Jacob OKed them, 2026-10-02).
+     RustCrypto, the same people as `argon2`; `sha2` and `hmac` were already in the build through
+     `postgres`, so `pbkdf2` is the only new code.
    - Making a key takes a moment (600,000 rounds); it runs on the desk's thread, the same as the hash.
 4. **Every account is deleted** (Jacob: "we'll delete all accounts then").  Their stored hashes are of the
-   password, so none would match a key.  Jacob deletes them (DELETE ACCOUNT on the Accounts tab, or SQL that
-   session writes for him to run), then makes them again.  Their characters go with them.
+   password, so none would match a key.  **Done** (2026-10-02, Jacob, before the build); he makes them again
+   on the Accounts tab once the new build is up.  Their characters went with them.
+
+As built:
+
+- **`tools/src/security.rs`**: `password_key(username, password)` (the recipe, with `KEY_SALT_PREFIX`,
+  `KEY_ROUNDS` and `KEY_BYTES` beside the Argon2 numbers) and `looks_like_key()`.  Tested against the worked
+  example above, the full 600,000 rounds, so `cargo test -p conductor-tools` takes a few seconds longer.
+- **`accounts/src/desk.rs`**: NEW ACCOUNT and CHANGE PASSWORD make the key on the desk's thread and hash
+  that.  The page and its routes didn't change; the password rules still check what the admin types.
+- **`networking/src/protocol.rs`**: `PROTOCOL_VERSION` 7; `LoginRequest`'s fourth field is `key`.
+- **`networking/src/tcp.rs`**: a Login whose key isn't 64 of `0-9a-f` is Invalid Credentials without a
+  hash, logged on the Security channel without what was sent.
+- **`networking/test_client.py`**: version 7; the password typed on its command line is made into the key
+  with `hashlib.pbkdf2_hmac` (about 150 ms) and printed how long it took.  `--no-key` sends the password as
+  typed, to see it turned away.
 
 ## Later
 

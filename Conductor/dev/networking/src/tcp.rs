@@ -27,10 +27,13 @@
 //! the slowest thread needs to notice, never a deadline.
 //!
 //! The login, in order: we say Hello, the client sends its version, the
-//! secret word, the username and the password in one Login, and we answer
-//! with a Ticket or a LoginResult.  An old version is told so before the
-//! password is looked at, and a wrong secret word or a name that couldn't
-//! be an account fails without a hash.  A name that could be one has its
+//! secret word, the username and the password's key in one Login, and we
+//! answer with a Ticket or a LoginResult.  (The key is what the client
+//! makes from the password, and it stands in for the password from here
+//! on: "password" below means the key.)  An old version is told so before
+//! the password is looked at, and a wrong secret word, a name that
+//! couldn't be an account, or a key that couldn't be one fails without a
+//! hash.  A name that could be one has its
 //! password hash read (conductor-accounts), and its password checked
 //! through Security, in Security's line: a name with no account still
 //! costs a hash there, so a stopwatch can't tell the two apart.  Every
@@ -781,6 +784,15 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
         return Outcome::Refused;
     }
 
+    // The same for a password that isn't a key.  The client sends the
+    // password's key, never the password (protocol version 7), and a key
+    // is 64 of 0-9 and a-f.  That's no secret either.  What was sent
+    // isn't logged: it could be somebody's password.
+    if !security::looks_like_key(&login.key) {
+        scribe::info(Channel::Security, &format!("Login from {peer} as {account} didn't send a key, and failed."));
+        return Outcome::Refused;
+    }
+
     // The account's row, waited for on this thread.  Archivist's worker
     // does the reading; we only sleep until it's done.
     ledger::set(id, Stage::Checking);
@@ -795,8 +807,8 @@ fn log_in(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, logi
 
     // Into Security's line, one way or the other, and the same wait.
     let verified = match &stored {
-        Some(hash) => wait_in_line(stream, id, security::verify_password(&login.password, hash), stopping),
-        None => wait_in_line(stream, id, security::verify_no_account(&login.password), stopping)
+        Some(hash) => wait_in_line(stream, id, security::verify_password(&login.key, hash), stopping),
+        None => wait_in_line(stream, id, security::verify_no_account(&login.key), stopping)
             .map(|answer| answer.map(|()| false)),
     };
 
