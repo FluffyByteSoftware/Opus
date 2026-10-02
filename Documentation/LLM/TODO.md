@@ -105,6 +105,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     (`0x3A`); `Translator.NumberToWords()` in Ensemble now ("a"), its `.meta` from Jacob's machine; the test
     client draws the box at 79 with the count in digits.  `design/conductor-networking.md`, "/who", and
     PROTOCOL.md have it.
+  - **A cooldown** (Jacob, 2026-10-02): "when a user sends a who request they need a temporary cooldown of
+    like 1 second to prevent spamming or flooding the server for who requests".  Being settled.
   - **Ensemble, with the chat box**: draw the WhoDelivery (the box to the chat box's width, the time in the
     player's time zone, the count with `NumberToWords()`), and put Spans back together (2 seconds).
 - **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up
