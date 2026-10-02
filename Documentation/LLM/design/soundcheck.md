@@ -51,7 +51,19 @@ a patcher is that something.  The certificate half is still to come; this is the
   beside it.  `serde` and `serde_json` come in for reading the manifest (Jacob: "yes add it").
 - **PLAY is a second login.**  The first login patches; PLAY logs in again with the key still in memory, the
   check runs again (quick: nothing's wrong), and that Ticket starts Ensemble.  So no connection is ever held
-  open while a player sits at the launcher.
+  open while a player sits at the launcher.  **Built 2026-10-02** (waiting on a build): SUBMIT's Ticket
+  turns PLAY on; PLAY finds the game first (so a login never happens for nothing), logs in again, and its
+  Ticket starts the game (`GameLauncher.cs`: `Process.Start` with the four variables in the game's
+  environment, the working directory the game's folder) and closes the window, which ends Soundcheck.  The
+  server hands the second login a new ticket and lets the first die, so there's no "already logged in" in
+  the way.  A game that won't start leaves the launcher open saying why, and PLAY can be pressed again.
+- **Where the game is**: beside the launcher, `Ensemble.x86_64` (Linux; Unity's name for it), `Ensemble`
+  or `Ensemble.exe`, since the two ship as one package.  **`--game` and a path** points at a build anywhere
+  (Jacob's, while Soundcheck runs out of `bin/Debug/`), and that path is remembered in
+  `soundcheck_dev.json` in the player folder, because Ensemble starts Soundcheck again on its way out and
+  can't pass `--game` along: the order is `--game`, beside the launcher, then the remembered path.  Under
+  `dotnet run` the process can be `dotnet` itself, which started alone is no launcher, so `OPUS_SOUNDCHECK`
+  is then the program beside the dll.
 - **The hand-off is environment variables**, read by Ensemble at start.  On Linux a process's command line is
   readable by every user on the machine for as long as it runs, while its environment is its own user's, and
   a one-use token shouldn't sit in `ps`.  **The four** (settled with Ensemble's half, 2026-10-02; the
@@ -226,5 +238,5 @@ on the downloader thread only.
 - **Where the correct client folder is on the server**: inside `Content/patch/` beside the manifest, or
   anywhere, pointed at by a setting in `patch.cfg`.  Admin mode's remembered folder is settled (the player
   folder), but Conductor doesn't read that, so it still has to be told.
-- **Which comes first to build**: Soundcheck's user mode against today's Conductor (it logs in and gets the
-  Ticket, with no manifest yet), or Conductor's side.
+- **Which comes first to build**: answered by doing it.  Soundcheck's user mode came first (2026-10-02),
+  then Ensemble's half and PLAY the same day; Conductor's half (the manifest) is what's left.

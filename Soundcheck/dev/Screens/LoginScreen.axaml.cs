@@ -5,14 +5,19 @@
 // remembered login fills the boxes; SUBMIT turns the password into its key
 // at once and starts the login (LoginConnection.cs) while the key is still
 // being made; the status box says how it's going; once a Ticket comes,
-// Remember Me keeps the key.  The login's thread talks to this screen
-// through ILoginListener, and every call is put back on the window's
-// thread first.  The key is never logged.
+// Remember Me keeps the key and PLAY comes alive.  PLAY is a second login
+// with the key still in memory (so no connection sits open while the
+// player reads the launcher), and its Ticket starts the game
+// (GameLauncher.cs) with the ticket in the game's environment; then this
+// window closes.  The login's thread talks to this screen through
+// ILoginListener, and every call is put back on the window's thread
+// first.  The key is never logged.
 //
 // Debug mode (--debug) is for Jacob testing a fix in Unity's editor without
-// a patch round: the file check (when it exists) is skipped, and the ticket
-// goes to debug_ticket.json in the player folder (Net/DebugTicket.cs) for
-// the editor's Ensemble, instead of into a started Ensemble's environment.
+// a patch round: the file check (when it exists) is skipped, and SUBMIT's
+// ticket also goes to debug_ticket.json in the player folder
+// (Net/DebugTicket.cs) for the editor's Ensemble.  PLAY starts a build
+// all the same.
 
 using System;
 using System.Diagnostics;
@@ -37,8 +42,18 @@ namespace Opus.Soundcheck.Screens
         // Debug mode: skip the file check, leave the ticket in a file.
         readonly bool debug;
 
+        // --game's path, or null for the game beside the launcher.
+        readonly string gameAsked;
+
         // The login under way, if one is.  Null between logins.
         LoginConnection login;
+
+        // True while the login under way is PLAY's, whose Ticket starts the
+        // game; false while it's SUBMIT's.
+        bool playing;
+
+        // The game PLAY found, to start when its Ticket comes.
+        string gameFound;
 
         // The key SUBMIT uses instead of hashing the box, and the username
         // (lowercase) it was made for.  Null once the player types a
@@ -57,14 +72,15 @@ namespace Opus.Soundcheck.Screens
 
         // For Avalonia's XAML loader and the designer, which want a
         // constructor with nothing in it.  User mode.
-        public LoginScreen() : this(false)
+        public LoginScreen() : this(false, null)
         {
         }
 
-        public LoginScreen(bool debug)
+        public LoginScreen(bool debug, string gameAsked)
         {
             InitializeComponent();
             this.debug = debug;
+            this.gameAsked = gameAsked;
 
             RememberedLogin remembered = RememberedLogin.Load();
             if (remembered != null)
@@ -128,42 +144,23 @@ namespace Opus.Soundcheck.Screens
             if (login != null)
                 return;
 
-            string host = (ServerBox.Text ?? "").Trim();
-            string portText = (PortBox.Text ?? "").Trim();
-            string name = UsernameBox.Text ?? "";
-            string typed = PasswordBox.Text ?? "";
+            string host, name;
             ushort port;
-            if (host == "")
-            {
-                ShowStatus("Type the server's address.", true);
+            if (!ReadBoxes(out host, out port, out name))
                 return;
-            }
-            if (!ushort.TryParse(portText, out port) || port == 0)
-            {
-                ShowStatus("The server port is a number from 1 to 65535.", true);
-                return;
-            }
-            if (name == "")
-            {
-                ShowStatus("Type your username.", true);
-                return;
-            }
+            string typed = PasswordBox.Text ?? "";
             if (key == null && typed == "")
             {
                 ShowStatus("Type your password.", true);
                 return;
             }
 
-            byte[] certificate = ServerCertificate.Load();
+            byte[] certificate = LoadCertificate();
             if (certificate == null)
-            {
-                Log.Error("Login: there's no server certificate to check the server against.  Copy "
-                          + "Content/certs/conductor.crt to " + ServerCertificate.FilePath + ".");
-                ShowStatus("This launcher has no copy of the server's certificate, so it can't log in.", true);
                 return;
-            }
 
             bool keep = RememberMeBox.IsChecked == true;
+            string portText = (PortBox.Text ?? "").Trim();
             toKeep = keep ? new RememberedLogin { ServerIp = host, ServerPort = portText, Username = name } : null;
             if (!keep)
                 RememberedLogin.Forget();
@@ -183,6 +180,7 @@ namespace Opus.Soundcheck.Screens
                 sentKey = Task.FromResult(key);
             }
 
+            playing = false;
             ShowChoice(false);
             SetBoxesEnabled(false);
             PlayButton.IsEnabled = false;
@@ -210,14 +208,107 @@ namespace Opus.Soundcheck.Screens
             }
         }
 
+        // The server, port and username out of their boxes, or false with
+        // the status box saying which is missing.
+        bool ReadBoxes(out string host, out ushort port, out string name)
+        {
+            host = (ServerBox.Text ?? "").Trim();
+            string portText = (PortBox.Text ?? "").Trim();
+            name = UsernameBox.Text ?? "";
+            port = 0;
+            if (host == "")
+            {
+                ShowStatus("Type the server's address.", true);
+                return false;
+            }
+            if (!ushort.TryParse(portText, out port) || port == 0)
+            {
+                ShowStatus("The server port is a number from 1 to 65535.", true);
+                return false;
+            }
+            if (name == "")
+            {
+                ShowStatus("Type your username.", true);
+                return false;
+            }
+            return true;
+        }
+
+        // The server's certificate, or null with the status box and the
+        // log saying there isn't one.
+        byte[] LoadCertificate()
+        {
+            byte[] certificate = ServerCertificate.Load();
+            if (certificate == null)
+            {
+                Log.Error("Login: there's no server certificate to check the server against.  Copy "
+                          + "Content/certs/conductor.crt to " + ServerCertificate.FilePath + ".");
+                ShowStatus("This launcher has no copy of the server's certificate, so it can't log in.", true);
+            }
+            return certificate;
+        }
+
         // The key we have is no good (or the player started typing), so
-        // the password has to be typed.  A remembered file stays until the
-        // next login that works writes over it or forgets it.
+        // the password has to be typed, and PLAY waits for a SUBMIT.  A
+        // remembered file stays until the next login that works writes
+        // over it or forgets it.
         void DropKey()
         {
             key = null;
             keyFor = null;
             PasswordBox.Watermark = PasswordHint;
+            PlayButton.IsEnabled = false;
+        }
+
+        // ---------------------------------------------------------------
+        // PLAY
+        // ---------------------------------------------------------------
+
+        void PlayClicked(object sender, RoutedEventArgs e)
+        {
+            Play();
+        }
+
+        // A second login with the key SUBMIT's made (or remembered), and
+        // its Ticket starts the game.  The server hands out a new ticket and
+        // lets SUBMIT's die unused, so there's no "already logged in" here.
+        // The game is found first, so a login never happens for nothing.
+        void Play()
+        {
+            if (login != null)
+                return;
+            if (key == null)
+            {
+                ShowStatus("Type your password and press SUBMIT first.", true);
+                PlayButton.IsEnabled = false;
+                return;
+            }
+
+            string host, name;
+            ushort port;
+            if (!ReadBoxes(out host, out port, out name))
+                return;
+            byte[] certificate = LoadCertificate();
+            if (certificate == null)
+                return;
+
+            string why;
+            gameFound = GameLauncher.Find(gameAsked, out why);
+            if (gameFound == null)
+            {
+                Log.Error("Play: " + why + ".");
+                ShowStatus("Can't find the game to start: " + why + ".", true);
+                return;
+            }
+
+            playing = true;
+            toKeep = null;
+            sentKey = Task.FromResult(key);
+            ShowChoice(false);
+            SetBoxesEnabled(false);
+            PlayButton.IsEnabled = false;
+            ShowStatus("Logging in to play...", false);
+            login = LoginConnection.Start(host, port, certificate, ClientVersion.Text, name, sentKey, this);
         }
 
         void SetBoxesEnabled(bool enabled)
@@ -326,11 +417,16 @@ namespace Opus.Soundcheck.Screens
                 if (from != login)
                     return;
                 login = null;
+                bool wasPlaying = playing;
+                playing = false;
                 StopCountdown();
                 ShowChoice(false);
                 if (wrongPassword)
                     DropKey();
                 SetBoxesEnabled(true);
+                // A PLAY that failed for any reason but the key can be
+                // pressed again.
+                PlayButton.IsEnabled = wasPlaying && key != null;
                 ShowStatus(why, true);
             });
         }
@@ -344,6 +440,13 @@ namespace Opus.Soundcheck.Screens
                 login = null;
                 StopCountdown();
 
+                if (playing)
+                {
+                    playing = false;
+                    StartTheGame(host, udpPort, token);
+                    return;
+                }
+
                 if (toKeep != null && sentKey != null && sentKey.Status == TaskStatus.RanToCompletion)
                 {
                     toKeep.Key = sentKey.Result;
@@ -353,6 +456,7 @@ namespace Opus.Soundcheck.Screens
                 }
 
                 SetBoxesEnabled(true);
+                PlayButton.IsEnabled = true;
                 if (debug)
                 {
                     // For an Ensemble already running in Unity's editor.
@@ -361,7 +465,8 @@ namespace Opus.Soundcheck.Screens
                         DebugTicket.Save(host, udpPort, token);
                         Log.Say("Login: debug mode, so the ticket went to " + DebugTicket.FilePath + ".");
                         ShowStatus("Logged in (debug mode). The ticket is in " + DebugTicket.FilePath + " for an "
-                                   + "Ensemble running in the editor. It's good once, for 30 seconds.", false);
+                                   + "Ensemble running in the editor, good once, for 30 seconds. Or press PLAY to "
+                                   + "start a built game.", false);
                     }
                     catch (Exception e)
                     {
@@ -371,13 +476,34 @@ namespace Opus.Soundcheck.Screens
                     return;
                 }
 
-                // The token is good once, for 30 seconds, and nothing can
-                // use it yet: Ensemble doesn't take a ticket from Soundcheck
-                // until its next step.  So it's dropped here, unlogged, and
-                // the screen says the login worked.
-                ShowStatus("Logged in. The server's game port is UDP " + udpPort + ". PLAY comes with Ensemble's "
-                           + "next step; the ticket was dropped.", false);
+                // SUBMIT's token is good once, for 30 seconds, and PLAY logs
+                // in again for its own, so this one is dropped here,
+                // unlogged.  (The manifest check goes in between, one day.)
+                ShowStatus("Logged in. Press PLAY to start the game.", false);
             });
+        }
+
+        // PLAY's Ticket: the game starts with it in its environment, and
+        // this window closes, which ends Soundcheck (App.axaml.cs).  If the
+        // game won't start, the launcher stays, says why, and PLAY can be
+        // pressed again (another login, another ticket: this one dies).
+        void StartTheGame(string host, ushort udpPort, string token)
+        {
+            string why;
+            if (GameLauncher.Start(gameFound, host, udpPort, token, out why))
+            {
+                Log.Say("Play: the game is starting, " + gameFound + ", for " + host + ":" + udpPort
+                        + ".  Soundcheck is closing.");
+                ShowStatus("Starting the game...", false);
+                Window window = TopLevel.GetTopLevel(this) as Window;
+                if (window != null)
+                    window.Close();
+                return;
+            }
+            Log.Error("Play: " + why + ".");
+            SetBoxesEnabled(true);
+            PlayButton.IsEnabled = true;
+            ShowStatus("Logged in, but " + why + ".", true);
         }
     }
 }

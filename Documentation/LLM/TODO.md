@@ -430,9 +430,12 @@ step each:
   insist on 1.3).  `networking/Cargo.toml`'s feature list and the comment in `tls.rs`; and `0.0.0.1` comes
   out of `client_versions` in `Content/cfg/networking.cfg` (Ensemble's old pre-release version; the Login's
   version is Soundcheck's now, `0.0.1`).  A small Conductor step.
-- **PLAY in Soundcheck**: a second login, Ensemble started with the ticket in its environment (the four
-  variables above), Soundcheck closing.  How Soundcheck finds the game to start (beside itself, most likely,
-  since they ship as one package) is to settle first.
+- **PLAY in Soundcheck is written** (2026-10-02, waiting on a build; `design/soundcheck.md`, "PLAY is a
+  second login" and "Where the game is"): a second login, the game started with the ticket in its
+  environment, Soundcheck closing.  The game is beside the launcher, or `--game <path>` (remembered).  The
+  Ensemble package's name for the game is `Ensemble.x86_64` on Linux; a Unity build also leaves an
+  `Ensemble_BackUpThisFolder_ButDontShipItWithYourGame` folder beside it (the IL2CPP symbols), which the
+  one-package release step has to leave out, and the manifest with it.
 - **The check in user mode**: hash the install, compare with the stamp, ask for what's off, write each file
   to a temp beside it and swap it in, check again, report.  Waits on Conductor's half.
 - **Where the correct client folder is on the server**: inside `Content/patch/` beside the manifest, or

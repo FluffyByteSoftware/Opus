@@ -1027,9 +1027,21 @@ When I say we're wrapping up:
   is why Conductor took 1.2), Hello, the version, the Login with the key, the
   other-session choice, the Ticket.  Ensemble starts on character select
   with the ticket from its environment and never speaks TCP (its half,
-  2026-10-02: "Client rules" has the four variables).  Until PLAY is built,
-  Soundcheck drops the Ticket's token unlogged and PLAY stays greyed; in
-  `--debug` the ticket goes to the file the editor's game watches.
+  2026-10-02: "Client rules" has the four variables).  **PLAY is a second
+  login** (written 2026-10-02): SUBMIT's Ticket turns PLAY on and is
+  dropped unlogged (the manifest check goes in between one day); PLAY
+  finds the game, logs in again with the key in memory, and its Ticket
+  starts the game with the four variables in its environment
+  (`GameLauncher.cs`), then the window closes and Soundcheck ends.  In
+  `--debug` SUBMIT's ticket also goes to the file the editor's game
+  watches, and PLAY still starts a build.
+- **The game is beside the launcher** (`Ensemble.x86_64` on Linux, Unity's
+  name for it; `Ensemble.exe` on Windows), since the two ship as one
+  package.  **`--game <path>`** points at a build anywhere, for Jacob while
+  Soundcheck runs out of `bin/Debug/`, and is remembered in
+  `soundcheck_dev.json` in the player folder, since Ensemble starts
+  Soundcheck again on its way out and can't pass `--game` along.  The
+  ticket goes in the game's environment, never on its command line.
 - **After the login, before Ensemble, the manifest check** (Jacob: "this
   happens AFTER LOGIN ONLY BUT BEFORE WE GO TO ENSEMBLE").  The server hands
   the client the stamp, the client checks itself first ("most of the time its

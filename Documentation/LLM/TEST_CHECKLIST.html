@@ -197,16 +197,51 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>Parked</h2>
+<h2>Soundcheck: PLAY starts the game (2026-10-02)</h2>
+<p>First a fresh build of Ensemble from today's code (File &gt; Build Profiles, Linux), since the 0.0.1
+build still has the old login screen in it.  Then build Soundcheck and run it pointed at the game (change the
+path if the build went somewhere else):</p>
+<pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --game /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.1/Ensemble.x86_64</pre>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      A built Ensemble, once Soundcheck's PLAY starts it: no start screen beyond "Joining the world...",
-      straight to character select; <code>/camp</code> (and KICK from the web admin) closes the game and
-      Soundcheck's window opens in its place; <code>/camp desktop</code> closes it and nothing opens; the
-      game double-clicked on its own shows the start screen with no DEV MODE line, and QUIT closes it.
+      SUBMIT: "Logged in. Press PLAY to start the game." and PLAY comes alive.  PLAY: "Logging in to
+      play...", then the game opens straight on character select (no start screen beyond "Joining the
+      world..."), and Soundcheck's window closes; its terminal says "Play: the game is starting" and
+      "Soundcheck closing".
     </span></label>
   </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      In the game, PLAY a character, then <code>/camp</code>: the game closes and Soundcheck's window opens
+      in its place, started with no <code>--game</code> and saying on its terminal that it's using the game
+      <code>--game</code> pointed at last time.  SUBMIT and PLAY there work a second time round.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      KICK from the web admin's Connections tab does the same as <code>/camp</code>: the game closes and
+      Soundcheck opens.  <code>/camp desktop</code> closes the game and nothing opens.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The game double-clicked on its own (or run from a terminal with no variables) shows the start screen
+      with no DEV MODE line, and QUIT closes it.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Soundcheck with <code>--game</code> and a wrong path: PLAY says it can't find the game, with the path,
+      and the launcher stays open.  With <code>--debug</code> as well as <code>--game</code>: SUBMIT writes
+      the ticket file as before, and PLAY still starts the build.
+    </span></label>
+  </li>
+</ul>
+
+<h2>Parked</h2>
+<ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
       Spans for real: a <code>/who list</code> with thirty-odd characters in the world goes out in pieces and

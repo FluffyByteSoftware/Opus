@@ -6,7 +6,7 @@ Author:     Jacob Chacko
 The login screen, as Ensemble had it: server and port, username and
 password, Remember Me, SUBMIT, the status box under it (with the two buttons
 for an account already playing elsewhere), and PLAY, which comes alive once
-the login's done.
+the login's done and starts the game.
 -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -47,9 +47,9 @@ the login's done.
               Click="LogOffClicked" />
     </Grid>
 
-    <!-- Greyed until Ensemble can take a ticket from Soundcheck (its next step). -->
+    <!-- Greyed until a login's worked; then a second login, and its ticket starts the game. -->
     <Button x:Name="PlayButton" Classes="primary" Content="PLAY" HorizontalAlignment="Stretch"
-            Margin="0,16,0,0" IsEnabled="False" />
+            Margin="0,16,0,0" IsEnabled="False" Click="PlayClicked" />
 
   </StackPanel>
 

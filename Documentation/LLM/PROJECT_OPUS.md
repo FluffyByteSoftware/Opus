@@ -218,6 +218,8 @@ Opus/
 │       ├── MainWindow.axaml           # the one window: the game's name, the screen, the version in the corner
 │       ├── MainWindow.axaml.cs        # puts the right screen in; stops a login when the window closes
 │       ├── ClientVersion.cs           # the <Version> read off the program: what the Login carries
+│       ├── GameLauncher.cs            # finds the game (beside the launcher, or --game's path, remembered) and
+│       │                              #   starts it with the ticket in its environment (the four OPUS_ variables)
 │       ├── Log.cs                     # Say, Warn, Error on the terminal, UTC with a Z; never a password, key or token
 │       ├── PlayerFiles.cs             # Ensemble's player folder, built without Unity, so Remember Me is one file
 │       ├── Certs/conductor.crt        # a copy of Content/certs/conductor.crt, copied beside the program at build

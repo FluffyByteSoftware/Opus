@@ -18,7 +18,8 @@ layout files: it starts with the launcher's ticket, makes, deletes and picks a c
 and puts it in the world with a chat window over the scene, though there's no world on screen yet.
 Soundcheck is the launcher, just started: it logs in over TLS 1.3, turning the password into a key before
 it's sent or kept, and in admin mode writes the manifest of a client folder, both tested.  The login has
-moved out of Ensemble into it; Soundcheck starting the game is next.  Things will change
+moved out of Ensemble into it, and PLAY starts the game with the ticket (written, waiting on a build).
+Things will change
 and things will break.
 
 **0.0.1 is released (2026-10-02): a player logs in, picks a character, and stands in the world chatting.**
@@ -51,7 +52,8 @@ The next milestone is movement.
 | The 0.0.1 review: four bugs, seven risks fixed   | Built, tested and checked (`CODE_REVIEW_0.0.1.md`)     |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
 | Soundcheck, the launcher                         | Built and tested: the login over TLS 1.3, Remember Me, |
-|                                                  | admin mode's manifest, debug mode; PLAY still greyed   |
+|                                                  | admin mode's manifest, debug mode                      |
+| Soundcheck's PLAY starting the game              | Written, waiting on a build                            |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.
@@ -143,8 +145,9 @@ ticket, checks every file of the installed game against a manifest the server ho
 written by Soundcheck's own admin mode from the folder we ship), mends what's wrong, and starts Ensemble
 with the ticket, which goes straight to character select over UDP.  Today the login works, admin mode
 writes a manifest, and Ensemble's half is written: it takes the ticket from its environment, starts on
-character select, and goes back to the launcher when the session ends.  The check, Conductor's half of it
-and Soundcheck's PLAY are to come.
+character select, and goes back to the launcher when the session ends; and PLAY is written: a second
+login, and the game started with the ticket in its environment.  The check and Conductor's half of it are
+to come.
 
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
 each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).  The manifest's shape is
