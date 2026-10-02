@@ -53,7 +53,8 @@ hand-off.  `main` moves when Jacob says.
 **Built and tested on Linux**: all of Conductor up to chat, `world_size`, the password's key and TLS 1.2
 included; `/chat` passed all nine checks (protocol version 8).  **Written and not built yet**: `/who` and `/who
 list`, Spans (protocol version 9), the command table and the anti-flood, the test client's Ctrl-C and
-`--type-gap`, and Ensemble's `Translator.cs` (Unity hasn't compiled it, and its `.meta` isn't committed).
+`--type-gap`.  Ensemble's `Translator.cs` is in, its `.meta` committed by Jacob (`f9f1c6a`, with
+`Content/cfg/game.cfg`).
 **Expect compile fixes**, in networking and the GameClock.  **In Unity**: everything up to character select's
 PLAY passed.  TEST_CHECKLIST.html has this hand-off's checks waiting, and two Parked (Spans for real, and the
 chat box drawing `/who`).  **On Windows**: Conductor builds and runs, START SERVER included, without a
@@ -149,7 +150,7 @@ and PROTOCOL.md have all of it; TODO.md has every answer in his words.
 
 **Ensemble** (Jacob: "we'll go work on Ensemble again").  Before anything else, the build of this session:
 `cargo test -p conductor-networking -p conductor-gameclock` and `cargo build`, expecting compile fixes, then
-the checklist; and Unity compiling `Translator.cs`, its `.meta` committed.  For the client's chat box,
+the checklist.  For the client's chat box,
 TODO.md's chat entry has what's settled: a line typed goes out as a PlayerCommand as typed; ChatDelivery's
 lines are printed; the box stops taking keys at 300; WhoDelivery drawn as the box (monospaced, to the chat
 box's width, `NumberToWords()` for the count, the time in the player's time zone); Spans put back together;
@@ -160,7 +161,7 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 
 ## What's waiting
 
-- **This session's build and checks**: `/who`, Spans, the anti-flood, the test client, `Translator.cs`.
+- **This session's build and checks**: `/who`, Spans, the anti-flood, the test client.
 - **Ensemble's chat box**, and drawing `/who` in it (TODO.md).  Then 0.0.1 can go to `main`, Jacob's call.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class
