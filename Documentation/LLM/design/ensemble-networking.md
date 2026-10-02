@@ -74,9 +74,30 @@ On the screens (`design/ensemble-hud.md` has the layouts):
 - **The login is only built again if it isn't showing**, so a failed login keeps what was typed.  Back from
   character select, it's built fresh: the remembered key, or the password typed again.
 
+## Character select, the rest of it (2026-10-02)
+
+Jacob: "we're ready for the next segment which is character select/delete/play/create!"  Conductor's half is
+all there (PROTOCOL.md, "Character select"), so this is Ensemble's alone.
+
+### Settled (Jacob, 2026-10-02)
+
+- **The screen, as proposed**: a click on a row selects it; PLAY, DELETE and CREATE are widgets of their own
+  under the list.  PLAY is greyed until a playable character is picked; DELETE takes any character, an
+  unplayable one too (the server lets it); CREATE shows only while a slot is empty.  CREATE and DELETE each
+  open a card: a name to type, or DELETE to type.  A status line under the list, like the login's.  The
+  buttons grey while an ask waits on its answer, since the server takes one at a time.
+- **On CharacterEnteredWorld**: "Just display a message "in the world as <Shortname>" and then a log out
+  button."  So the list gives way to that line, and LOG OUT stays.  No HUD yet.
+- **The client checks the name rule before it sends**: "we may as well prevent spamming the server if
+  possible.  The server will hard check too".  Same words as the server's answer 1.
+- **RESET HOME is a button too** ("oh yes yes yes yes").
+- **No double-click to play**: "you need to explicitly hit play".
+- **The server's TLS key had gone into git** with the `.meta` commit (`Assets/Data/Certs/conductor.key`,
+  Jacob's yes that it's the real one).  Taken out with the two copies of the certificate beside it, and the
+  `.gitignore` keeps out every `*.key`.  A new key pair is made with README's openssl command, and its
+  certificate copied in as `conductor_crt.txt`.
+
 ## Later
 
-- CREATE, DELETE and PLAY at character select, and what the client does with CharacterEnteredWorld (the HUD).
-- An ask with fields after its number (`GameConnection.Ask()` takes only the type today).
 - The key taking longer than the server's 10-second login deadline on a slow machine: the server hangs up, and
   the player sees "The server hung up."  2852 ms in the Unity editor, so not today's problem.
