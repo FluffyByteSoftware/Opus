@@ -462,7 +462,8 @@ namespace Opus.Soundcheck.Screens
             Progress.IsVisible = true;
             int hashing = ++phase;
             ManifestCheck result = await Task.Run(
-                () => ManifestCheck.Run(install, stamp, (done, total, path) => Report(hashing, done, total, path), cancel),
+                () => ManifestCheck.Run(install, stamp,
+                                        (done, total, path) => Report(hashing, done, total, path), cancel),
                 cancel);
             phase++;
             Progress.Value = 1;
