@@ -4,29 +4,34 @@
 // What the login screen does: Ensemble's LoginForm.cs, moved here.  A
 // remembered login fills the boxes; SUBMIT turns the password into its key
 // at once and starts the login (LoginConnection.cs) while the key is still
-// being made; the status box says how it's going; once a Ticket comes,
-// Remember Me keeps the key and PLAY comes alive.  PLAY is a second login
-// with the key still in memory (so no connection sits open while the
-// player reads the launcher), and its Ticket starts the game
-// (GameLauncher.cs) with the ticket in the game's environment; then this
-// window closes.  The login's thread talks to this screen through
-// ILoginListener, and every call is put back on the window's thread
-// first.  The key is never logged.
+// being made; the status box says how it's going.  Once a Ticket comes,
+// Remember Me keeps the key, and the game's files are checked: the
+// manifest for this OS is fetched from the web address
+// (Patch/ManifestSource.cs), the install is hashed and held against it
+// (Patch/ManifestCheck.cs), and PLAY comes alive only when every file
+// checks out.  PLAY is a second login with the key still in memory (so no
+// connection sits open while the player reads the launcher), and its
+// Ticket starts the game (GameLauncher.cs) with the ticket in the game's
+// environment; then this window closes.  The login's thread talks to this
+// screen through ILoginListener, and every call is put back on the
+// window's thread first.  The key is never logged.
 //
 // Debug mode (--debug) is for Jacob testing a fix in Unity's editor without
-// a patch round: the file check (when it exists) is skipped, and SUBMIT's
-// ticket also goes to debug_ticket.json in the player folder
-// (Net/DebugTicket.cs) for the editor's Ensemble.  PLAY starts a build
-// all the same.
+// a patch round: the file check is skipped, and SUBMIT's ticket also goes
+// to debug_ticket.json in the player folder (Net/DebugTicket.cs) for the
+// editor's Ensemble.  PLAY starts a build all the same.
 
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Opus.Net;
+using Opus.Patch;
 using Opus.Security;
 
 namespace Opus.Soundcheck.Screens
@@ -45,6 +50,9 @@ namespace Opus.Soundcheck.Screens
         // --game's path, or null for the game beside the launcher.
         readonly string gameAsked;
 
+        // --manifest's URL, or null for the web address for this OS.
+        readonly string manifestUrl;
+
         // The login under way, if one is.  Null between logins.
         LoginConnection login;
 
@@ -54,6 +62,12 @@ namespace Opus.Soundcheck.Screens
 
         // The game PLAY found, to start when its Ticket comes.
         string gameFound;
+
+        // The file check: set while it runs, and whether the install passed
+        // it since the last SUBMIT.  PLAY needs a pass (debug mode doesn't).
+        bool checking;
+        bool passed;
+        CancellationTokenSource checkCancel;
 
         // The key SUBMIT uses instead of hashing the box, and the username
         // (lowercase) it was made for.  Null once the player types a
@@ -72,15 +86,16 @@ namespace Opus.Soundcheck.Screens
 
         // For Avalonia's XAML loader and the designer, which want a
         // constructor with nothing in it.  User mode.
-        public LoginScreen() : this(false, null)
+        public LoginScreen() : this(false, null, null)
         {
         }
 
-        public LoginScreen(bool debug, string gameAsked)
+        public LoginScreen(bool debug, string gameAsked, string manifestUrl)
         {
             InitializeComponent();
             this.debug = debug;
             this.gameAsked = gameAsked;
+            this.manifestUrl = manifestUrl;
 
             RememberedLogin remembered = RememberedLogin.Load();
             if (remembered != null)
@@ -130,12 +145,16 @@ namespace Opus.Soundcheck.Screens
             };
         }
 
-        // The window is closing: stop a login in the middle without a word.
+        // The window is closing: stop a login, or a file check, in the
+        // middle without a word.
         public void WindowClosing()
         {
             LoginConnection open = login;
             if (open != null)
                 open.Cancel();
+            CancellationTokenSource check = checkCancel;
+            if (check != null)
+                check.Cancel();
         }
 
         // ---------------------------------------------------------------
@@ -152,7 +171,7 @@ namespace Opus.Soundcheck.Screens
         // the key is made, and comes back to the window's thread to finish.
         async void Submit()
         {
-            if (login != null)
+            if (login != null || checking)
                 return;
 
             string host, name;
@@ -191,7 +210,9 @@ namespace Opus.Soundcheck.Screens
                 sentKey = Task.FromResult(key);
             }
 
+            // A new login is a new check.
             playing = false;
+            passed = false;
             ShowChoice(false);
             SetBoxesEnabled(false);
             PlayButton.IsEnabled = false;
@@ -272,6 +293,108 @@ namespace Opus.Soundcheck.Screens
         }
 
         // ---------------------------------------------------------------
+        // The file check
+        // ---------------------------------------------------------------
+
+        // SUBMIT's login worked, so now the install is held against the
+        // server's manifest for this OS, and PLAY comes alive only when it
+        // passes.  The boxes stay off while it runs.  Downloading what's
+        // off isn't built yet, so a fail is words: install the game again.
+        async void CheckInstall()
+        {
+            checking = true;
+            passed = false;
+            checkCancel = new CancellationTokenSource();
+            CancellationToken cancel = checkCancel.Token;
+            string here = Platforms.Here;
+            string url = manifestUrl ?? ManifestSource.UrlFor(here);
+            try
+            {
+                string why;
+                string game = GameLauncher.Find(gameAsked, out why);
+                if (game == null)
+                {
+                    Log.Error("Check: " + why + ".");
+                    ShowStatus("Logged in, but can't find the game to check: " + why + ".", true);
+                    return;
+                }
+                string install = Path.GetDirectoryName(game);
+
+                Log.Say("Check: this is " + here + ", so the manifest is " + url + ".");
+                ShowStatus("Logged in. Fetching the " + here + " manifest from " + url + "...", false);
+                Manifest stamp = await ManifestSource.FetchAsync(url, here, cancel);
+                Log.Say("Check: the manifest is client " + stamp.ClientVersion + ", " + stamp.Files.Count
+                        + " files, written " + stamp.Written + ".");
+                if (stamp.ClientVersion != ClientVersion.Text)
+                {
+                    Log.Warn("Check: the manifest is for client " + stamp.ClientVersion + " and this launcher is "
+                             + ClientVersion.Text + ".");
+                    ShowStatus("The server's client is version " + stamp.ClientVersion + " and this launcher is "
+                               + ClientVersion.Text + ". Download the launcher again.", true);
+                    return;
+                }
+
+                ShowStatus("Checking the game's files in " + install + "...", false);
+                Progress.Value = 0;
+                Progress.IsVisible = true;
+                var clock = Stopwatch.StartNew();
+                ManifestCheck result = await Task.Run(() => ManifestCheck.Run(install, stamp, Report, cancel), cancel);
+                Progress.Value = 1;
+
+                string extras = "";
+                if (result.Extra.Count > 0)
+                {
+                    extras = " " + result.Extra.Count + (result.Extra.Count == 1
+                        ? " file here isn't in the manifest and was left alone ("
+                        : " files here aren't in the manifest and were left alone (")
+                        + ManifestCheck.FirstFew(result.Extra) + ").";
+                }
+                if (result.Passed)
+                {
+                    passed = true;
+                    Log.Say("Check: every file checks out, " + result.Listed + " files, "
+                            + (result.InstallBytes / (1024.0 * 1024.0)).ToString("0.0") + " MB, in "
+                            + clock.Elapsed.TotalSeconds.ToString("0.0") + " s." + extras);
+                    ShowStatus("Every file checks out (" + result.Listed + " files). Press PLAY to start the game."
+                               + extras, false);
+                    PlayButton.IsEnabled = true;
+                    return;
+                }
+                Log.Warn("Check: the game's files don't match the manifest: " + result.Trouble() + "." + extras);
+                ShowStatus("The game's files don't match the server's: " + result.Trouble() + ". Downloading what's "
+                           + "off isn't built yet, so install the game again." + extras, true);
+            }
+            catch (OperationCanceledException)
+            {
+                // The window closed in the middle.  Nothing to say.
+            }
+            catch (Exception e)
+            {
+                Log.Error("Check: the game's files couldn't be checked (" + e.Message + ").");
+                ShowStatus("Logged in, but the game's files couldn't be checked: " + e.Message + ".", true);
+            }
+            finally
+            {
+                checking = false;
+                checkCancel = null;
+                Progress.IsVisible = false;
+                SetBoxesEnabled(true);
+            }
+        }
+
+        // From the check's worker thread, after each file.
+        void Report(int done, int total, string path)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (!checking)
+                    return;
+                Progress.Value = total == 0 ? 1 : (double)done / total;
+                ShowStatus("Checking " + done + " of " + total + ": " + path, false);
+            });
+        }
+
+        // ---------------------------------------------------------------
         // PLAY
         // ---------------------------------------------------------------
 
@@ -286,11 +409,17 @@ namespace Opus.Soundcheck.Screens
         // The game is found first, so a login never happens for nothing.
         void Play()
         {
-            if (login != null)
+            if (login != null || checking)
                 return;
             if (key == null)
             {
                 ShowStatus("Type your password and press SUBMIT first.", true);
+                PlayButton.IsEnabled = false;
+                return;
+            }
+            if (!passed && !debug)
+            {
+                ShowStatus("The game's files haven't passed the check. Press SUBMIT first.", true);
                 PlayButton.IsEnabled = false;
                 return;
             }
@@ -436,7 +565,7 @@ namespace Opus.Soundcheck.Screens
                     DropKey();
                 SetBoxesEnabled(true);
                 // A PLAY that failed for any reason but the key can be
-                // pressed again.
+                // pressed again: the check it passed still stands.
                 PlayButton.IsEnabled = wasPlaying && key != null;
                 ShowStatus(why, true);
             });
@@ -466,18 +595,23 @@ namespace Opus.Soundcheck.Screens
                     Log.Say("Login: remembered for next time, in " + RememberedLogin.FilePath + ".");
                 }
 
-                SetBoxesEnabled(true);
-                PlayButton.IsEnabled = true;
+                // SUBMIT's token is good once, for 30 seconds, and PLAY logs
+                // in again for its own, so this one is dropped here,
+                // unlogged.
                 if (debug)
                 {
-                    // For an Ensemble already running in Unity's editor.
+                    // No check, and the ticket to a file for an Ensemble
+                    // already running in Unity's editor.
+                    SetBoxesEnabled(true);
+                    PlayButton.IsEnabled = true;
                     try
                     {
                         DebugTicket.Save(host, udpPort, token);
-                        Log.Say("Login: debug mode, so the ticket went to " + DebugTicket.FilePath + ".");
-                        ShowStatus("Logged in (debug mode). The ticket is in " + DebugTicket.FilePath + " for an "
-                                   + "Ensemble running in the editor, good once, for 30 seconds. Or press PLAY to "
-                                   + "start a built game.", false);
+                        Log.Say("Login: debug mode, so the files weren't checked, and the ticket went to "
+                                + DebugTicket.FilePath + ".");
+                        ShowStatus("Logged in (debug mode, so the game's files weren't checked). The ticket is in "
+                                   + DebugTicket.FilePath + " for an Ensemble running in the editor, good once, for 30 "
+                                   + "seconds. Or press PLAY to start a built game.", false);
                     }
                     catch (Exception e)
                     {
@@ -487,10 +621,8 @@ namespace Opus.Soundcheck.Screens
                     return;
                 }
 
-                // SUBMIT's token is good once, for 30 seconds, and PLAY logs
-                // in again for its own, so this one is dropped here,
-                // unlogged.  (The manifest check goes in between, one day.)
-                ShowStatus("Logged in. Press PLAY to start the game.", false);
+                // The boxes stay off until the check's done.
+                CheckInstall();
             });
         }
 

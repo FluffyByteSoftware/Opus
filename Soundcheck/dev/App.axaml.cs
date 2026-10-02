@@ -6,12 +6,15 @@
 // is debug mode (a login that skips the file check and leaves the ticket in
 // a file for an Ensemble running in Unity's editor); --game and a path says
 // where the game is when it isn't beside the launcher (GameLauncher.cs);
-// anything else is a player logging in.
+// --manifest and a URL says where the manifest is when it isn't at the
+// web address (Patch/ManifestSource.cs); anything else is a player logging
+// in.
 
 using System;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Opus.Patch;
 
 namespace Opus.Soundcheck
 {
@@ -29,15 +32,13 @@ namespace Opus.Soundcheck
                 string[] args = desktop.Args ?? new string[0];
                 bool admin = Array.IndexOf(args, "--admin") >= 0;
                 bool debug = Array.IndexOf(args, "--debug") >= 0;
-                string game = null;
-                int at = Array.IndexOf(args, "--game");
-                if (at >= 0 && at + 1 < args.Length)
-                    game = args[at + 1];
-                else if (at >= 0)
-                    Log.Warn("--game needs the game's path after it.  Ignored.");
-                Log.Say("Soundcheck " + ClientVersion.Text + (admin ? ", admin mode." : debug ? ", debug mode." : ".")
-                        + (game != null ? "  The game is " + game + "." : ""));
-                desktop.MainWindow = new MainWindow(admin, debug, game);
+                string game = ValueOf(args, "--game", "the game's path");
+                string manifest = ValueOf(args, "--manifest", "the manifest's URL");
+                Log.Say("Soundcheck " + ClientVersion.Text + " on " + Platforms.Here
+                        + (admin ? ", admin mode." : debug ? ", debug mode." : ".")
+                        + (game != null ? "  The game is " + game + "." : "")
+                        + (manifest != null ? "  The manifest is " + manifest + "." : ""));
+                desktop.MainWindow = new MainWindow(admin, debug, game, manifest);
 
                 // The window has closed and Avalonia is about to shut its
                 // own thread down.  We end the program here instead of
@@ -57,6 +58,19 @@ namespace Opus.Soundcheck
                 };
             }
             base.OnFrameworkInitializationCompleted();
+        }
+
+        // The word after a flag, or null when the flag isn't there.  A flag
+        // with nothing after it is said and ignored.
+        static string ValueOf(string[] args, string flag, string what)
+        {
+            int at = Array.IndexOf(args, flag);
+            if (at < 0)
+                return null;
+            if (at + 1 < args.Length)
+                return args[at + 1];
+            Log.Warn(flag + " needs " + what + " after it.  Ignored.");
+            return null;
         }
     }
 }

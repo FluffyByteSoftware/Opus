@@ -2,9 +2,10 @@
 // Component:  Soundcheck
 // Author:     Jacob Chacko
 // What admin mode remembers between runs, so Jacob doesn't type the client
-// folder in every time: the folder, the version he gave it, and where the
-// manifest was written.  One small file beside Remember Me in the player
-// folder (PlayerFiles.cs).  Nothing secret in it.
+// folders in every time: a folder per platform, the version he gave the
+// client, which platform he had picked, and the folder the manifests are
+// written to.  One small file beside Remember Me in the player folder
+// (PlayerFiles.cs).  Nothing secret in it.
 
 using System;
 using System.IO;
@@ -17,8 +18,12 @@ namespace Opus.Patch
     {
         public const string FileName = "soundcheck_admin.json";
 
-        public string ClientFolder { get; set; }
+        public string LinuxFolder { get; set; }
+        public string WindowsFolder { get; set; }
         public string ClientVersion { get; set; }
+        public string Platform { get; set; }
+
+        // A folder: the file in it is named by the platform.
         public string WriteTo { get; set; }
 
         static readonly JsonSerializerOptions Pretty = new JsonSerializerOptions { WriteIndented = true };
@@ -26,6 +31,19 @@ namespace Opus.Patch
         public static string FilePath
         {
             get { return PlayerFiles.PathOf(FileName); }
+        }
+
+        public string FolderFor(string platform)
+        {
+            return platform == Platforms.Windows ? WindowsFolder : LinuxFolder;
+        }
+
+        public void SetFolder(string platform, string folder)
+        {
+            if (platform == Platforms.Windows)
+                WindowsFolder = folder;
+            else
+                LinuxFolder = folder;
         }
 
         // The remembered settings, or a blank set when there's no file or
