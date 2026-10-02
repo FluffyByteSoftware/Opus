@@ -154,3 +154,15 @@ Every check passed (Jacob: "That was smooth!").
   boxes in.  `LoginForm.cs` beside the widgets is where they meet.  `design/client-security.md` has it.
 - **The colour and font are set on each piece of text**, not once on the screen: Unity's theme gives the
   text in a box and on a button colours of their own, and only a style on the element itself beats it.
+
+### The status line and character select (2026-10-02, written, not built yet)
+
+With the client's net code (`design/ensemble-networking.md`):
+
+- **`login_status`**, a ninth widget on the login, under SUBMIT (560 x 110 on the 1080p layout): what's happening,
+  why a login didn't work, why the player is back.  Trouble is a dark red band behind the words.  KICK OTHER
+  SESSION and LOG OFF show under it when the account is already playing somewhere else.
+- **Character select is a layout**, `character_select_default.json`, 1920 x 1080, with `character_select.uss`:
+  `character_select_background` (fills the screen, black), `character_select_list` (CHARACTERS and a row per
+  slot, a name or Empty, greyed when it can't be played) and `character_select_log_out`.  Look only for now.
+  ScreenRoot has its Character Select Layout and Style slots, and puts the login's text colour and font on it.

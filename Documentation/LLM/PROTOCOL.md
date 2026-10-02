@@ -7,9 +7,10 @@ Author:     Jacob Chacko
 # Opus -- Protocol
 
 What Conductor and its clients say to each other, down to the byte.  Written for somebody building a
-client who has never seen Conductor's code.  Conductor's half is `Conductor/dev/networking/src/protocol.rs`,
-and the Python test client beside the crate (`networking/test_client.py`) is the other half until Ensemble
-speaks it; when either disagrees with this document, it is the code that gets fixed.
+client who has never seen Conductor's code.  Conductor's half is `Conductor/dev/networking/src/protocol.rs`.
+The Python test client beside the crate (`networking/test_client.py`) speaks all of it, and Ensemble
+(`Assets/Code/Net/`, 2026-10-02) the login and character select's list so far; when any of them disagrees with
+this document, it is the code that gets fixed.
 
 Protocol version **7**.  The number goes up when a packet changes, and the server says it in the first
 thing it sends, so a client built against another version can stop right there.  Version 7 (2026-10-02)

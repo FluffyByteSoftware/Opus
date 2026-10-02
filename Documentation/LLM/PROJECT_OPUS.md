@@ -165,19 +165,32 @@ Opus/
 │           │   │   ├── LayoutLoader.cs # a screen's shipped layout; the HUD's can be the player's file instead
 │           │   │   ├── LayoutChecker.cs # the load rules: skipped, clamped, moved back on
 │           │   │   ├── HudBuilder.cs  # a screen: the layers and a box per widget, placed from its anchor
-│           │   │   └── Widgets/       # the HUD's health, minimap, chat (placeholders); the login's eight, and
-│           │   │                      #   LoginForm.cs, where they meet: SUBMIT and Remember Me
+│           │   │   └── Widgets/       # the HUD's health, minimap, chat (placeholders); the login's nine, and
+│           │   │                      #   LoginForm.cs, where they meet: SUBMIT, Remember Me, the status line;
+│           │   │                      #   character select's three, and CharacterSelectForm.cs, its list
+│           │   ├── Net/               # the client's net code, namespace Opus.Net (design/ensemble-networking.md)
+│           │   │   ├── Protocol.cs    # the version, the packet types, the answers, the Kicked reasons' words
+│           │   │   ├── Packets.cs     # PacketWriter and PacketReader: PROTOCOL.md's bytes
+│           │   │   ├── ServerCertificate.cs # the one certificate trusted, matched byte for byte
+│           │   │   ├── LoginConnection.cs # the login over TLS, its own thread, to the Ticket
+│           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks; Kicked and the quiet timer end it
+│           │   │   ├── MainThread.cs  # what the threads hand to Unity's main thread, run once a frame
+│           │   │   └── Session.cs     # the flow from SUBMIT back to the login, and the screens' events
 │           │   └── Security/          # namespace Opus.Security (design/client-security.md)
 │           │       ├── PasswordKey.cs # the password's key, made on SUBMIT: what's sent and kept, never the password
 │           │       └── RememberedLogin.cs # Remember Me's file, in the player's own folder for the game
 │           ├── Scripts/
-│           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the login, the HUD) and
-│           │                          #   which is showing; the login's text colour and font
+│           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the login, character select,
+│           │                          #   the HUD) and which is showing; the text colour and font; the server's
+│           │                          #   certificate; runs MainThread once a frame
 │           └── Data/                  # our own data files
 │               ├── Layouts/hud_default.json # the HUD's default layout, 2560 x 1440
 │               ├── Layouts/login_default.json # the login's layout, 1920 x 1080
+│               ├── Layouts/character_select_default.json # character select's layout, 1920 x 1080
 │               ├── Styles/hud.uss     # the HUD's look
-│               └── Styles/login.uss   # the login's look
+│               ├── Styles/login.uss   # the login's look
+│               ├── Styles/character_select.uss # character select's look
+│               └── Certs/conductor_crt.txt # a copy of Content/certs/conductor.crt: the one server trusted
 ├── Content/                           # committed, except Assets/, logs/ and world/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
@@ -227,6 +240,7 @@ Opus/
             ├── gameclock.md           # the GameClock: the beat, the order of the checks, a late cycle; what's open
             ├── world.md               # the world: regions, chunks, blocks, its files; GameWorld; what's open
             ├── ensemble-hud.md        # the HUD and its layouts; the login screen
+            ├── ensemble-networking.md # the client's net code: the login, UDP, character select
             └── client-security.md     # the password's key: the contract, the client's half and Conductor's
 ```
 
@@ -237,7 +251,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Name                 | What it is                                              | State                            |
 |----------------------|---------------------------------------------------------|----------------------------------|
 | Conductor            | The server.  It owns the game state.                    | Tested on Linux; runs on Windows |
-| Ensemble             | The client players run.  Unity 6000.6, C#.              | Editor tool; HUD; login, its key |
+| Ensemble             | The client players run.  Unity 6000.6, C#.              | Tested: tool, HUD, login, key.  |
+|                      |                                                         | Written: logging in, char select |
 | Soundcheck           | The patcher: hands each client a certificate.           | Named, not started               |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |

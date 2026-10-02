@@ -203,8 +203,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   whether Connections keeps its own lock.  CLAUDE.md's rule gets rewritten with it.
 - **`access_list` switchable from the page at once.**  Today it takes on the next START SERVER, while the
   lists take at once.  Jacob's call if the reboot is a bother.
-- The protocol version in the Hello is `6` and the client versions are a list in `networking.cfg`.
-  Whether Ensemble reports a version string or a number is Ensemble's call.
+- The client versions are a list in `networking.cfg`.  Ensemble sends Player Settings' Version as it is
+  (`0.0.0.1`, 2026-10-02: "we're not ready for 0.0.1 yet"); the list is `0.0.0.1, 0.0.1` for it and the test
+  client.  Its default in `constellations/files.rs` is still `0.0.1`.
 - Reverse DNS on macOS: `dns/other.rs` hands back no name.  macOS has `getnameinfo` with its own
   `sockaddr` layout (a length byte first).  Waits on a Mac.
 
@@ -260,8 +261,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   as each player leaves.  A new table, so its own session.
 - **Where the test client lives** and what it's called, once it outgrows `networking/`.
 - Monitor on macOS: `proc_pidinfo` / `proc_pid_rusage` from libproc.  Waits on a Mac to test on.
-- Ensemble has no way to find `Content/` yet, if it ever needs to (it needs the certificate,
-  `Content/certs/conductor.crt`, to check the server).  Whichever Ensemble session first needs it.
+- Ensemble has no way to find `Content/` yet, if it ever needs to.  The certificate didn't need it: the
+  client carries a copy, `Assets/Data/Certs/conductor_crt.txt` (2026-10-02).
 - **The purchased art lives in Ensemble** (2026-10-01): `Assets/Purchased/` in the Unity project, ignored
   like the rest of `Assets/` but our four folders.  It isn't in the repo at all, LFS or not.  Whether
   `Content/Assets/` (ignored, empty) still has a use is open; nothing reads it.
@@ -319,17 +320,16 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **The Remember Me file is readable by other users on the same Linux machine**: Unity's .NET can't set
     a file's permissions without reaching into the OS (a `chmod` through libc).  Worth doing before
     players have it.
-  - Still to come: the client checking the server's TLS certificate, `Content/certs/conductor.crt` (the
-    entry on Ensemble finding `Content/`); and, further off, Soundcheck handing each client a certificate
-    of its own (LONGTERM_TODO.md).
+  - The client checking the server's TLS certificate is written (2026-10-02, with the net code).  Further
+    off, Soundcheck handing each client a certificate of its own (LONGTERM_TODO.md).
 - **The login screen, later** (2026-10-01): what SUBMIT does once there's a network client (it makes
   the key and keeps or forgets it now; logging in, sending the key, comes with the network client).
   Remember Me is built (`design/client-security.md`).  The effects between screens ("cool ass
   effects if we can", "I don't know yet"); then character select's layout.
 - **The client's net code** (Jacob, 2026-10-02: "its time to build up the client to submit and move over
-  to character selection!").  Being built.  The plan: `Assets/Code/Net/` (the protocol, the login over
-  TLS, the server's certificate, UDP), a `login_status` line under SUBMIT, character select's screen.
-  Jacob's answers:
+  to character selection!").  **Written, not built yet** (2026-10-02): `design/ensemble-networking.md`
+  has it.  `Assets/Code/Net/` (the protocol, the login over TLS, the server's certificate, UDP), a
+  `login_status` line under SUBMIT, character select's screen.  Jacob's answers:
   - **Get there this session**: character select shows the account's characters and LOG OUT.  CREATE,
     DELETE and PLAY are a session of their own.
   - **Already logged in elsewhere**: the client offers to log the other session out or to log off, for

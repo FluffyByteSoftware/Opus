@@ -14,7 +14,8 @@ memory until it's reused, since C# can't wipe a string.
 
 **The client's half is built and tested** (Ensemble, 2026-10-01, all six checks passed; the key matched
 Python's to the byte).  **Conductor's half is built and tested** (2026-10-02, protocol version 7, every
-check passed).  Ensemble doesn't send one yet (there's no network client); `test_client.py` does.
+check passed).  Ensemble sends it since 2026-10-02 (`design/ensemble-networking.md`, written, not built yet), and
+Remember Me is written only once a login works.
 
 What a key does and doesn't do, said when it was planned: the key logs in as well as the password would, so
 whoever copies the Remember Me file can log in as that player.  What they can't do is learn the password and
