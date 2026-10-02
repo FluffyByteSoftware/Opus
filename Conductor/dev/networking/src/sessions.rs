@@ -203,6 +203,17 @@ impl Book {
 // touches it.
 static BOOK: LazyLock<Mutex<Book>> = LazyLock::new(|| Mutex::new(Book::new()));
 
+/// What `issue()` did.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Issued {
+    /// The ticket's token.  The account had no player in the world.
+    Ticket(String),
+    /// No ticket: the account is in the world from this address, and
+    /// the caller deals with that first (asks the client, kicks).  The
+    /// book is as it was.
+    Playing(SocketAddr),
+}
+
 /// What a Connect got.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Connected {
@@ -336,12 +347,17 @@ pub fn playing(account: &str) -> Option<SocketAddr> {
 
 /// A new ticket for `account`, which just logged in on ledger row `door`.
 /// Any older unused ticket for the account dies, and its row goes
-/// LINKDEAD.  Fails only if Fingerprinter can't make a token, which means
-/// the OS won't give random bytes.
-pub fn issue(account: &str, door: u64) -> io::Result<String> {
+/// LINKDEAD.  An account with a player in the world gets no ticket and
+/// `Issued::Playing` instead, checked under the same lock as the issue,
+/// so a player who came in between the caller's look and this can't be
+/// written over (the 0.0.1 review's B1).  Fails only if Fingerprinter
+/// can't make a token, which means the OS won't give random bytes.
+pub fn issue(account: &str, door: u64) -> io::Result<Issued> {
     let token = fingerprinter::new_token()?;
-    with_book(|book| issue_in(book, account, &token, door, Instant::now()));
-    Ok(token)
+    Ok(with_book(|book| match issue_in(book, account, &token, door, Instant::now()) {
+        Ok(()) => Issued::Ticket(token.clone()),
+        Err(playing_from) => Issued::Playing(playing_from),
+    }))
 }
 
 /// A Connect from `from` with `token`.  A ticket used for the first time
@@ -527,16 +543,24 @@ pub fn drop_where(matches: impl Fn(SocketAddr) -> bool) -> Vec<(SocketAddr, Stri
 // The work, on whatever book is handed in
 // ---------------------------------------------------------------------------
 
-fn issue_in(book: &mut Book, account: &str, token: &str, door: u64, now: Instant) {
+/// `Err` is the address the account is playing from: no ticket then, and
+/// nothing changes.  The caller asked `playing()` and dealt with that (a
+/// kick, or the new login hung up) before issuing, but a player can come
+/// in between that look and this one, and a ticket written over them
+/// would leave them in the book with nothing pointing at them.
+fn issue_in(book: &mut Book, account: &str, token: &str, door: u64, now: Instant) -> Result<(), SocketAddr> {
     let name = account.to_string();
-    // An older ticket for the same account is no good any more.  A player
-    // in the world stays: the caller asked `playing()` and dealt with that
-    // (a kick, or the new login hung up) before issuing.
-    if let Some(Whereabouts::Ticket(old)) = book.accounts.get(&name).cloned() {
-        remove_ticket_in(book, &old, Gone::TicketTaken);
+    match book.accounts.get(&name).cloned() {
+        Some(Whereabouts::Playing(address)) => return Err(address),
+        // An older ticket for the same account is no good any more.
+        Some(Whereabouts::Ticket(old)) => {
+            remove_ticket_in(book, &old, Gone::TicketTaken);
+        }
+        None => {}
     }
     book.tickets.insert(token.to_string(), Ticket { account: name.clone(), issued: now, door });
     book.accounts.insert(name, Whereabouts::Ticket(token.to_string()));
+    Ok(())
 }
 
 fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> Connected {
@@ -807,7 +831,7 @@ mod tests {
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
         let elsewhere = address("10.0.0.6:50000");
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
 
         assert_eq!(connect_in(&mut book, "abc", home, now), Connected::Accepted("jacob".to_string()));
         // The answer got lost and the client asked again.
@@ -827,7 +851,7 @@ mod tests {
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
         let stranger = address("10.0.0.9:50000");
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
         connect_in(&mut book, "abc", home, now);
 
         assert_eq!(begin_ask_in(&mut book, stranger, 1, now), Ask::Stranger);
@@ -860,7 +884,7 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
         connect_in(&mut book, "abc", home, now);
 
         // Not the ask being worked on, not the account, nobody there.
@@ -880,7 +904,7 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
         connect_in(&mut book, "abc", home, now);
         begin_ask_in(&mut book, home, 1, now);
         assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
@@ -899,7 +923,7 @@ mod tests {
         let home = address("10.0.0.5:50000");
         let half = Duration::from_millis(500);
         let second = Duration::from_secs(1);
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
         connect_in(&mut book, "abc", home, now);
 
         // The first goes through, and leaves a second's wait (a /who).
@@ -922,9 +946,9 @@ mod tests {
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
         let brother = address("10.0.0.6:50000");
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
         connect_in(&mut book, "abc", home, now);
-        issue_in(&mut book, "brother", "def", 2, now);
+        issue_in(&mut book, "brother", "def", 2, now).unwrap();
         connect_in(&mut book, "def", brother, now);
         assert!(in_world_in(&book).is_empty());
 
@@ -941,7 +965,7 @@ mod tests {
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
         let uuid = jacob().uuid;
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
         connect_in(&mut book, "abc", home, now);
         begin_ask_in(&mut book, home, 1, now);
         assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
@@ -993,7 +1017,7 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
         connect_in(&mut book, "abc", home, now);
         begin_ask_in(&mut book, home, 1, now);
         assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
@@ -1006,7 +1030,7 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "abc", 1, now);
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
         connect_in(&mut book, "abc", home, now);
         remove_player_in(&mut book, home, Gone::WentQuiet);
         assert!(book.leaving.is_empty());
@@ -1026,8 +1050,8 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "first", 2, now);
-        issue_in(&mut book, "jacob", "second", 3, now);
+        issue_in(&mut book, "jacob", "first", 2, now).unwrap();
+        issue_in(&mut book, "jacob", "second", 3, now).unwrap();
 
         assert_eq!(book.tickets.len(), 1);
         // The first login's row: its ticket was never used.
@@ -1037,13 +1061,36 @@ mod tests {
     }
 
     #[test]
+    fn no_ticket_is_issued_over_a_player_in_the_world() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "first", 2, now).unwrap();
+        connect_in(&mut book, "first", home, now);
+
+        // The player came in between the login's look and its issue: the
+        // ticket is refused, and the book is as it was.
+        assert_eq!(issue_in(&mut book, "jacob", "second", 3, now), Err(home));
+        assert!(book.tickets.is_empty());
+        assert_eq!(book.accounts.get("jacob"), Some(&Whereabouts::Playing(home)));
+        assert!(book.players.contains_key(&home));
+        assert!(book.gone.is_empty());
+
+        // Once they're kicked, the ticket goes through.
+        assert_eq!(kick_in(&mut book, "jacob", address("10.0.0.6:50000")), Some((home, None)));
+        assert_eq!(issue_in(&mut book, "jacob", "second", 3, now), Ok(()));
+        assert_eq!(book.accounts.get("jacob"), Some(&Whereabouts::Ticket("second".to_string())));
+        assert!(book.players.is_empty());
+    }
+
+    #[test]
     fn playing_is_only_true_in_the_world() {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
         assert_eq!(book.accounts.get("jacob"), None);
 
-        issue_in(&mut book, "jacob", "abc", 4, now);
+        issue_in(&mut book, "jacob", "abc", 4, now).unwrap();
         assert_eq!(book.accounts.get("jacob"), Some(&Whereabouts::Ticket("abc".to_string())));
 
         connect_in(&mut book, "abc", home, now);
@@ -1055,7 +1102,7 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "abc", 5, now);
+        issue_in(&mut book, "jacob", "abc", 5, now).unwrap();
         connect_in(&mut book, "abc", home, now);
 
         assert_eq!(remove_player_in(&mut book, home, Gone::SaidGoodbye), Some("jacob".to_string()));
@@ -1075,11 +1122,11 @@ mod tests {
 
         let second_login = address("10.0.0.5:50001");
 
-        issue_in(&mut book, "jacob", "abc", 6, now);
+        issue_in(&mut book, "jacob", "abc", 6, now).unwrap();
         assert_eq!(kick_in(&mut book, "jacob", second_login), None);
         assert!(book.tickets.is_empty() && book.accounts.is_empty());
 
-        issue_in(&mut book, "jacob", "abd", 7, now);
+        issue_in(&mut book, "jacob", "abd", 7, now).unwrap();
         connect_in(&mut book, "abd", home, now);
         assert_eq!(kick_in(&mut book, "jacob", second_login), Some((home, None)));
         assert!(book.players.is_empty() && book.accounts.is_empty());
@@ -1095,8 +1142,8 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "abc", 20, now);
-        issue_in(&mut book, "brother", "def", 21, now);
+        issue_in(&mut book, "jacob", "abc", 20, now).unwrap();
+        issue_in(&mut book, "brother", "def", 21, now).unwrap();
         connect_in(&mut book, "abc", home, now);
 
         // Row 20's player is in the world; row 21 only has its ticket.
@@ -1116,9 +1163,9 @@ mod tests {
         let timeout = Duration::from_secs(40);
         let deadline = Duration::from_secs(30);
 
-        issue_in(&mut book, "jacob", "abc", 8, start);
-        issue_in(&mut book, "brother", "def", 9, start);
-        issue_in(&mut book, "friend", "ghi", 10, start);
+        issue_in(&mut book, "jacob", "abc", 8, start).unwrap();
+        issue_in(&mut book, "brother", "def", 9, start).unwrap();
+        issue_in(&mut book, "friend", "ghi", 10, start).unwrap();
         connect_in(&mut book, "abc", home, start);
         connect_in(&mut book, "def", away, start);
 
@@ -1146,8 +1193,8 @@ mod tests {
         let start = Instant::now();
         let home = address("10.0.0.5:50000");
         let away = address("10.0.0.6:50000");
-        issue_in(&mut book, "jacob", "abc", 11, start);
-        issue_in(&mut book, "brother", "def", 12, start);
+        issue_in(&mut book, "jacob", "abc", 11, start).unwrap();
+        issue_in(&mut book, "brother", "def", 12, start).unwrap();
         connect_in(&mut book, "abc", home, start);
         connect_in(&mut book, "def", away, start + Duration::from_secs(5));
         book.players.get_mut(&home).unwrap().last_heard = start + Duration::from_secs(8);
@@ -1170,8 +1217,8 @@ mod tests {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
-        issue_in(&mut book, "jacob", "abc", 30, now);
-        issue_in(&mut book, "brother", "def", 31, now);
+        issue_in(&mut book, "jacob", "abc", 30, now).unwrap();
+        issue_in(&mut book, "brother", "def", 31, now).unwrap();
         connect_in(&mut book, "abc", home, now);
 
         assert_eq!(terminate_in(&mut book, "jacob"), Terminated::Player(home));
@@ -1187,8 +1234,8 @@ mod tests {
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
         let away = address("192.168.1.9:50000");
-        issue_in(&mut book, "jacob", "abc", 13, now);
-        issue_in(&mut book, "brother", "def", 14, now);
+        issue_in(&mut book, "jacob", "abc", 13, now).unwrap();
+        issue_in(&mut book, "brother", "def", 14, now).unwrap();
         connect_in(&mut book, "abc", home, now);
         connect_in(&mut book, "def", away, now);
 

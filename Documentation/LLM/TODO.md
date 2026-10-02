@@ -404,8 +404,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   slow database never kicks its player), seven risks worth fixing before the tag (`user` can read every
   password through `/Opus/settings`, idle TLS connections tie up the login pool, a spoofed UDP Connect is
   a disk-written Info line, accept failures flood the bell, a DiskMan write during a config swap is lost,
-  notices have no cap, a Warn per world save over `slow_job_ms`), and the rest.  Jacob picks what's fixed
-  before the tag and what waits; nothing's been fixed yet.
+  notices have no cap, a Warn per world save over `slow_job_ms`), and the rest.  **The four bugs are fixed**
+  (2026-10-02, waiting on a build).  The seven risks are next, on Jacob's OK; the rest waits.
 
 - **Scribe: the Debug switch** in `conductor_globals.cfg` that drops Debug lines when off.  Then go
   through every log line and move the routine ones to Debug, per CLAUDE.md.  Archivist's connect, schema

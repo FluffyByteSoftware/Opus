@@ -61,7 +61,11 @@ impl Heights {
         let south = reader.i16("the southmost column")? as i32;
         let width = reader.u16("the width")? as i32;
         let depth = reader.u16("the depth")? as i32;
-        reader.take((width * depth) as usize, "the heights")?;
+        // Both numbers came off the disk, so the multiply is checked (see
+        // regionmap.rs): a corrupt header must be turned away, not a panic.
+        let cells = (width as usize).checked_mul(depth as usize)
+            .ok_or_else(|| "a heights grid too big to be ours".to_string())?;
+        reader.take(cells, "the heights")?;
         reader.finish()?;
         Ok(Heights { seed, west, south, width, depth, contents })
     }
@@ -142,6 +146,17 @@ mod tests {
     fn a_short_file_is_turned_away() {
         let mut bytes = make(5, 0, 0, 8, 8, |_| true).unwrap();
         bytes.pop();
+        assert!(Heights::from_contents(Arc::new(bytes)).is_err());
+    }
+
+    #[test]
+    fn a_header_claiming_a_grid_too_big_to_count_is_turned_away() {
+        // The width and the depth are the last four bytes of the header.
+        // At 65,535 each the count overflows an i32: a plain "no", not a
+        // panic.
+        let mut bytes = make(5, 0, 0, 8, 8, |_| true).unwrap();
+        bytes[HEADER - 4..HEADER - 2].copy_from_slice(&u16::MAX.to_le_bytes());
+        bytes[HEADER - 2..HEADER].copy_from_slice(&u16::MAX.to_le_bytes());
         assert!(Heights::from_contents(Arc::new(bytes)).is_err());
     }
 }

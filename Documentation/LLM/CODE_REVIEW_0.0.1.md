@@ -22,14 +22,15 @@ Each entry is a file and line, what's wrong, when it bites, and the fix.  Severi
 behaviour, reachable), **Risk** (reachable by abuse or by bad luck, or a rule broken), **Inefficiency**,
 **Cleanliness** (dead code, stale words).  Line numbers are as of `7d85f1f`.
 
-Nothing here has been fixed.  Jacob picks what's fixed before the tag and what waits (CODE_REVIEW in
-TODO.md).
+**The four bugs were fixed the same day** (2026-10-02, waiting on Jacob's build; each says so below).  The
+rest is Jacob's to pick from, before the tag or after (CODE_REVIEW in TODO.md).
 
 ---
 
 ## Bugs
 
-**B1. A double login can give one account two players.**
+**B1. A double login can give one account two players.**  *Fixed 2026-10-02: `issue_in` refuses a ticket
+over a player in the world (`Issued::Playing`), and `tcp.rs`'s login goes round again, asking the client once.*
 `networking/src/sessions.rs:530-540`, `issue_in()`.  It only clears an old *ticket* for the account; if
 `accounts[name]` says `Playing(address)`, the player stays in `players` and the line
 `book.accounts.insert(name, Ticket(token))` wipes the entry that pointed at them.  The comment says the
@@ -46,7 +47,8 @@ despawns and saves player 1's copy from under them.
 `Issued(token)` / `AlreadyPlaying(address)` / `Kicked(address, character_id)`, and `talk()` acts on that.
 A book test: `issue_in` on a Playing account must not leave a player that `accounts` no longer points at.
 
-**B2. `region.map` with a corrupt header panics GameWorld's thread.**
+**B2. `region.map` with a corrupt header panics GameWorld's thread.**  *Fixed 2026-10-02: `checked_mul`, and a
+test with width and depth at 65,535.*
 `gameworld/src/regionmap.rs:231`: `reader.take((width * depth * rows as i32) as usize, ...)` multiplies
 three `i32`s read off the disk; `width` and `depth` are `u16 as i32`, so 65,535 × 65,535 × 11 overflows.
 In a debug build (what `cargo build` and `cargo run` make, what Jacob runs) that's a panic, "attempt to
@@ -57,13 +59,14 @@ depth "can go to 65,535", so a legitimate big map reaches it too, not only two f
 *Fix:* `let cells = (width as usize).checked_mul(depth as usize).and_then(|n| n.checked_mul(rows as
 usize)).ok_or("the grid is too big to be ours")?;` and a test with width = depth = 0xFFFF.
 
-**B3. The same overflow on the heights file.**
+**B3. The same overflow on the heights file.**  *Fixed 2026-10-02, the same way.*
 `gameworld/src/heights.rs:64`: `reader.take((width * depth) as usize, "the heights")` on the same two
 numbers.  The heights file is the big one on disk (134 MB at `world_size` 16), so a damaged header is the
 likelier of the two.  Same fix.  (`heights.rs:98` has the same expression in `make()`, where the numbers
 are ours, so that one's fine.)
 
-**B4. Deleting an account on a slow database never kicks its player.**
+**B4. Deleting an account on a slow database never kicks its player.**  *Fixed 2026-10-02: the player is taken
+out on the late answer too, since the row goes when Archivist gets there.*
 `wgui/src/accounts.rs:178-187`: `conductor_networking::terminate(&name)` only runs on `Some(Ok(_))`.  On
 `None` (Archivist slower than `DATABASE_WAIT`, 5 s) the route answers 503 "it may still happen", and it
 does: the job is in Archivist's mailbox, the row and its characters go a moment later (`ON DELETE
@@ -375,7 +378,7 @@ each struct's `saved()` directly.  Not urgent at 25 to 50 players.
 - `wgui/src/json.rs:71` and `wgui/Cargo.toml:8`: "Network Admin tabs"; the sections are CONFIGURATION and
   GAME MANAGEMENT.
 - `Cargo.toml` (every crate): `version = "0.1.0"`, Cargo's default, against a release called 0.0.1.
-  Nothing reads it.  No `[profile.release]` in the workspace either; `lto = true` and `codegen-units = 1`
+  Nothing reads it.  *Set to 0.0.1 on 2026-10-02, Unity's Version too.*  No `[profile.release]` in the workspace either; `lto = true` and `codegen-units = 1`
   are the usual two for a release binary, worth a measurement, never `panic = "abort"` (the poisoned-lock
   recovery everywhere is built to survive a thread's panic).
 

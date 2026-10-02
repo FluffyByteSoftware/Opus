@@ -37,19 +37,19 @@ That commit is the release.  Everything below is built from it.
 
 ## 2. The version number
 
-The tag is `v` and the version: `v0.0.1`.  Three places carry a number of their own, and they should all
-say the same thing before the tag is made:
+The tag is `v` and the version: `v0.0.1`.  Three places carry a number of their own, and they all say the
+same thing before the tag is made:
 
 - **The tag**, made on GitHub in step 5.
-- **Unity's Version** (Player Settings > Version, `bundleVersion` in `ProjectSettings.asset`).  Unity's
-  own field, and it takes four parts, so `0.0.1` is `0.0.1.0` there.  Unity only writes
-  `ProjectSettings.asset` on File > Save Project or on closing, so save after changing it, and commit it with
-  the usual two-folder `git add`.
-- **The crates' `version`** in each `Cargo.toml` under `Conductor/dev/`.  They're at `0.1.0`, Cargo's default
-  for a new crate, and nothing reads them yet.  Changing them changes `Cargo.lock` too, so it's a build
-  and a commit.
+- **Unity's Version** (Player Settings > Version, `bundleVersion` in `ProjectSettings.asset`).  It's what
+  the client sends with its login, so `networking.cfg`'s `client_versions` has to list it.  Unity only
+  writes `ProjectSettings.asset` on File > Save Project or on closing, so a change made in the editor is
+  saved before it's committed, with the usual two-folder `git add`.
+- **The crates' `version`** in each `Cargo.toml` under `Conductor/dev/`, and their lines in `Cargo.lock`.
+  Nothing reads them yet.
 
-A number changed after the tag is a lie in the package, so this comes before step 3.
+All three went to `0.0.1` on 2026-10-02.  A number changed after the tag is a lie in the package, so the
+next version's bump comes before step 3.
 
 ## 3. Conductor's package
 

@@ -130,7 +130,7 @@ checksum = "0c9ea0ac24bc397ab3c98583a3c9ba74fa56b09a4449bbe172b9b1ddb016027a"
 
 [[package]]
 name = "conductor-accounts"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-primlib",
  "conductor-tools",
@@ -138,7 +138,7 @@ dependencies = [
 
 [[package]]
 name = "conductor-gameclock"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-accounts",
  "conductor-gameworld",
@@ -148,14 +148,14 @@ dependencies = [
 
 [[package]]
 name = "conductor-gameworld"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-tools",
 ]
 
 [[package]]
 name = "conductor-launcher"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-accounts",
  "conductor-gameclock",
@@ -170,7 +170,7 @@ dependencies = [
 
 [[package]]
 name = "conductor-lua-parser"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-primlib",
  "conductor-tools",
@@ -179,14 +179,14 @@ dependencies = [
 
 [[package]]
 name = "conductor-monitor"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-tools",
 ]
 
 [[package]]
 name = "conductor-networking"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-accounts",
  "conductor-gameclock",
@@ -198,7 +198,7 @@ dependencies = [
 
 [[package]]
 name = "conductor-player-commands"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-gameclock",
  "conductor-networking",
@@ -207,11 +207,11 @@ dependencies = [
 
 [[package]]
 name = "conductor-primlib"
-version = "0.1.0"
+version = "0.0.1"
 
 [[package]]
 name = "conductor-tools"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "argon2",
  "pbkdf2",
@@ -221,7 +221,7 @@ dependencies = [
 
 [[package]]
 name = "conductor-wgui"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "conductor-accounts",
  "conductor-monitor",

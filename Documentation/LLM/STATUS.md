@@ -61,7 +61,7 @@ into `conductor-player-commands` (built, 93 tests pass, chat works through it; i
 client is still in TEST_CHECKLIST.html).  **In Unity**: everything up to character select's PLAY passed; the
 chat window passed every check (the look on 1440p, chat both ways with the test client, the anti-flood's
 refusal, `/who`'s box in Retro, the 300 limit, `/camp`, and EverQuest's keys); the crate's run check passed
-too.  Nothing waits on a build; TEST_CHECKLIST.html has one Parked check (Spans for real).  **On Windows**:
+too.  **The 0.0.1 review's four bug fixes wait on a build** (2026-10-02); TEST_CHECKLIST.html has their checks, and one Parked check (Spans for real).  **On Windows**:
 Conductor builds and runs, START SERVER included, without a database; nothing since the world has been tried
 there (GitHub issue #10).
 
@@ -130,58 +130,54 @@ At this hand-off (2026-10-02, the chat window and the commands crate): **"Next c
 major clean up of code and documentation"**, and, asked whether to release: **"not yet we're gonna do code
 clean up next session then merge to main and release 0.0.1"**.  His to change.
 
-## Last session -- 2026-10-02, the chat window (Ensemble) and conductor-player-commands
+## Last session -- 2026-10-02, release prep: the review, the release docs, the four bugs
 
-Two steps, each planned, OKed and pushed on its own.  `design/ensemble-hud.md` ("The chat window"),
-`design/ensemble-networking.md` ("In the world: chat and /who") and `design/conductor-networking.md`
-("Commands and the anti-flood", the last bullet) have the detail; TODO.md's chat entry has Jacob's answers.
+Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of all of Conductor.
 
-- **The chat window, built, compiled and chatting.**  After PLAY the HUD comes up over the Unity scene ("the
-  HUD as it is", "render the game scene for now"), and character select's "In the world as" line and LOG OUT
-  are gone.  The window is Jacob's spec: lower left, a "Chat" header, the input field on the bottom row, his
-  lines echoed as `>/chat hello` in yellow, the server's in white, the whole window 50% black.  350 x 200
-  with 16 px text as asked, then on 1440p "holy shit we need to make the font bigger... and the window needs
-  to be twice as wide!": 700 x 300, 24 px lines, a 28 px header ("much better!").  The font is a slot,
-  Chat Font on ScreenRoot: **Retro** from his Font Nation pack (purchased, never committed; `fc-query` found
-  it and Arcade to be the pack's two monospaced fonts, and Fatality isn't one).  `Session.SendLine()`,
-  `GameConnection` reading ChatDelivery, WhoDelivery and Spans (2 seconds), `WhoBox.cs` drawing the box to
-  the window's width in letters, `/camp` and `/camp desktop` caught on the client, `Translator.NumberToWords()`
-  in the footer at last.
-- **`conductor-player-commands`, built and tested** (lib, `Conductor/dev/player-commands/`).  `commands.rs`,
-  `chat.rs` and `who.rs` moved whole; networking's `typed.rs` keeps `Asker`, `Outcome` and the slot the
-  launcher fills with `conductor_player_commands::wire()` in `start_server()`, with the GameClock's two
-  senders.  Networking never names the crate.  "Commands Unavailable" with nothing in the slot.  Admin
-  commands, when they come: "its a permissions difference but the commands will otherwise be the same".
-- **EverQuest's keys, built and tested** (after the first hand-off; Jacob tested EQ for it: "we're mimicking
-  their behavior after all").  `GameFocus` (`Assets/Code/Hud/GameFocus.cs`, Jacob's "focus place holder for
-  the game") is an invisible focusable element on the HUD that holds the keyboard whenever no widget does;
-  Enter or `/` on it shifts the keys to the chat field (`/` already typed); Enter in the field sends the line
-  and hands them back, and so do Escape and a click away.  Four rounds in Unity to get there: a plain
-  `Blur()` lasts one key (Unity's runtime panel hands the focus back to the last widget on the next key),
-  Enter off a text field comes as a NavigationSubmitEvent and not a key event, and one Enter is two events
-  with the focus moving between them, so each direction has a frame guard (`tookKeysFrame`,
-  `gaveKeysFrame`).  `GameFocus.Has`, `Taken` and `Lost` are for movement.  "The window I last used" with
-  more than one window is in TODO.md.
-- Jacob's `Cargo.lock`, `WhoBox.cs.meta` and `GameFocus.cs.meta` commits may still be on his machine at
-  this hand-off: the next session fetches first.
+- **The review** (`CODE_REVIEW_0.0.1.md`): every `.rs` file read against CLAUDE.md's rules, four crate
+  groups at a time, each claim checked against the code.  Four bugs, twenty-one risks (seven worth fixing
+  before the tag), nine inefficiencies, a page of stale words, and a "checked and fine" list so nothing is
+  re-investigated.  TODO.md's entry has the short version.
+- **`main` moved to `7d85f1f`** on Jacob's "merge everything into main": a fast-forward from `testing`, 58
+  commits.  (The session's clone was shallow and made the branches look unrelated; `git fetch --unshallow`
+  first, before trusting a count.)  `testing` has moved on since (the docs and the fixes below), and `main`
+  stays where it is until the fixes are built and tested: "Wait till we fix bugs and validate everything
+  works."
+- **The release docs**: `Documentation/HowTo/RELEASE.md` (testing to main, the version numbers, Conductor's
+  tar and Ensemble's zip, the GitHub Release, by hand or `gh`) and
+  `Documentation/HowTo/INSTALLATION_INSTRUCTIONS.md` (installing the two packages: Postgres, the key, the
+  three settings to change, accounts, the client), linked from README.md's "Running it".
+- **The version is 0.0.1** everywhere (Jacob: "we changing to version 0.0.1"): every crate's `Cargo.toml`
+  and its `Cargo.lock` line, and Unity's `bundleVersion` (`0.0.1`, which `client_versions` already lists).
+  `ProjectSettings.asset` was edited by hand, so Jacob pulls before Unity gets focus, or Unity's own
+  rewrite of it wins.
+- **The four bugs fixed, written and NOT BUILT**: the next session starts by expecting compile fixes.
+  - `sessions.rs`: `issue_in` refuses a ticket over a player in the world (`Issued::Playing`) under the one
+    lock, with a test; `tcp.rs`'s `talk()` goes round at most `ISSUE_TRIES` (3) times, asking the client
+    about the other session once (`ask_about_the_other()`) and kicking it each time it's back
+    (`log_the_other_out()`), then Login Unavailable.
+  - `regionmap.rs` and `heights.rs`: the grid's size is `checked_mul` on the numbers off the disk, a test
+    each with width and depth at 65,535.
+  - `wgui/accounts.rs`: a delete the database is late with still takes the player out.
+- The seven risks are next, on Jacob's OK, then the rest of the review: nothing else in the code changed.
 
 ## Where the next session starts
 
-**"Major clean up of code and documentation"** (Jacob).  Nothing is planned for it yet; it's his to lay
-out.  Things seen along the way that a clean-up could take: TODO.md's "stale words in the code" entry;
-`design/conductor-networking.md` still describes networking as holding the commands in places (the "Chat"
-and "/who" sections were patched, not rewritten); STATUS.md's "Where things stand" has grown long;
-`design/ensemble-hud.md`'s "The chat window" grew by patches through the keys' four rounds.
+Jacob builds and tests the fixes (`cargo build`, `cargo test`, the checks in TEST_CHECKLIST.html under
+"2026-10-02 -- the 0.0.1 fixes").  Then the seven risks from the review, each a small fix, planned and
+OKed as one step; then `main` moves to `testing`'s tip, the `v0.0.1` tag and the two packages
+(RELEASE.md).  The "major clean up" he named before is the rest of the review's list.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
 ## What's waiting
 
-- **The 0.0.1 release**: `main` is at the release commit; the `v0.0.1` tag, the version numbers (Unity's
-  `0.0.0.1`, the crates' `0.1.0`) and the two packages are still to do.  `Documentation/HowTo/RELEASE.md`.
-- **The 0.0.1 code review's findings** (`CODE_REVIEW_0.0.1.md`, 2026-10-02): four bugs and seven risks
-  worth fixing before the tag, then the inefficiencies and the stale words.  Nothing fixed yet; Jacob
-  picks.  The clean-up he named for next can start from it.
+- **The 0.0.1 release**: the version numbers are set; `main` moves again once the review's fixes are built
+  and tested (Jacob: "wait till we fix bugs and validate everything works"), then the `v0.0.1` tag and the
+  two packages.  `Documentation/HowTo/RELEASE.md`.
+- **The 0.0.1 code review's findings** (`CODE_REVIEW_0.0.1.md`, 2026-10-02): the four bugs are fixed and
+  waiting on a build; the seven risks are next, on Jacob's OK; then the inefficiencies and the stale words.
+  The clean-up he named for next can start from it.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class
   on the client**: TODO.md.

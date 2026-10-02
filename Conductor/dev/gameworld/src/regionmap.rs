@@ -228,7 +228,14 @@ impl RegionMap {
             regions.push(Region { name, ground });
         }
 
-        let grid = reader.take((width * depth * rows as i32) as usize, "the chunks")?.to_vec();
+        // The three numbers came off the disk, so the multiply is checked:
+        // a corrupt header (or a map at the top of the u16 range) would
+        // overflow an i32 and, in a debug build, take GameWorld's thread
+        // down with it.
+        let cells = (width as usize).checked_mul(depth as usize)
+            .and_then(|cells| cells.checked_mul(rows as usize))
+            .ok_or_else(|| "a grid too big to be ours".to_string())?;
+        let grid = reader.take(cells, "the chunks")?.to_vec();
         reader.finish()?;
         if let Some(bad) = grid.iter().find(|&&number| number as usize >= regions.len()) {
             return Err(format!("a chunk is in region {bad}, and there are only {} regions", regions.len()));
@@ -291,5 +298,17 @@ mod tests {
         bytes[last] = 9;
         assert!(RegionMap::from_bytes(&bytes).is_err());
         assert!(RegionMap::from_bytes(&bytes[..100]).is_err());
+    }
+
+    #[test]
+    fn a_header_claiming_a_grid_too_big_to_count_is_turned_away() {
+        // The width and the depth sit after the tag, the version, the seed,
+        // the west and the south: 8 + 2 + 8 + 2 + 2.  At 65,535 each, times
+        // eleven rows, the count overflows an i32; it has to be a plain
+        // "no", not a panic.
+        let mut bytes = RegionMap::first(7, 16).to_bytes();
+        bytes[22..24].copy_from_slice(&u16::MAX.to_le_bytes());
+        bytes[24..26].copy_from_slice(&u16::MAX.to_le_bytes());
+        assert!(RegionMap::from_bytes(&bytes).is_err());
     }
 }

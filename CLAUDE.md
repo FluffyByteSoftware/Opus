@@ -892,7 +892,7 @@ When I say we're wrapping up:
   keep-alives are sent from a thread, not `Update()`, so they go on with
   the window in the background.  The client trusts one certificate, its
   copy in `Assets/Data/Certs/`, byte for byte.  The Login carries Player
-  Settings' Version (`0.0.0.1` today, Jacob: "we're not ready for 0.0.1
+  Settings' Version (`0.0.1` since the release, 2026-10-02; it was `0.0.0.1`, Jacob: "we're not ready for 0.0.1
   yet"), which `networking.cfg`'s `client_versions` has to list.
 - **A slot filled in the Inspector lives in the scene**, which isn't
   committed: the reply that asks for one says File > Save after.  On

@@ -26,7 +26,7 @@ failed on TLS 1.3 (below, "TLS"); after that it compiled clean.
   has no `SslProtocols.Tls13` ("'SslProtocols' does not contain a definition for 'Tls13'"), so the client
   asks for 1.2 and Conductor takes it.
 - **The client version**: "we're not ready for 0.0.1 yet".  The Login carries Player Settings' Version as it is
-  (`Application.version`, `0.0.0.1` today), and `networking.cfg`'s `client_versions` is `0.0.0.1, 0.0.1` (the
+  (`Application.version`, `0.0.1` since 2026-10-02), and `networking.cfg`'s `client_versions` is `0.0.0.1, 0.0.1` (the
   second for `test_client.py`, whose default is still `0.0.1`).
 
 ## As written

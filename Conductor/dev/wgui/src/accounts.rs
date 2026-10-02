@@ -183,7 +183,16 @@ pub(crate) fn delete(request: &Request, role: Role) -> (Answer, Next) {
             Answer::new("200 OK", "application/json", format!("{{\"deleted\":true,\"kicked\":{kicked}}}"))
         }
         Some(Err(e)) => Answer::plain("503 Service Unavailable", &format!("The account couldn't be deleted: {e}.")),
-        None => database_late(),
+        // The database is late, not failed: the delete is in Archivist's
+        // mailbox and the row goes when it gets there.  The player is taken
+        // out now all the same, or they'd go on playing on a deleted
+        // account until they left (the 0.0.1 review's B4).
+        None => {
+            let kicked = conductor_networking::terminate(&name);
+            scribe::info(Channel::Security, &format!("The admin deleted the account {name}; the database is late \
+                with the row, and its player was taken out ({kicked})."));
+            database_late()
+        }
     };
     (answer, Next::KeepGoing)
 }

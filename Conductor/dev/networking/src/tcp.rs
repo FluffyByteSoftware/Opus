@@ -81,7 +81,8 @@ use crate::access::{self, Verdict};
 use crate::ledger::{self, End, Stage};
 use crate::protocol::{self, Choice, KickReason, LoginAnswer, LoginRequest, Packet, PacketType};
 use crate::settings::Settings;
-use crate::{dns, sessions, timed_out, udp, wake_address};
+use crate::sessions::{self, Issued};
+use crate::{dns, timed_out, udp, wake_address};
 
 /// How long a player gets to answer "this account is already logged in".
 /// A person is reading a prompt, so it's longer than the login deadline.
@@ -109,6 +110,12 @@ const PLACE_EVERY: Duration = Duration::from_secs(1);
 /// database is stuck, and the login gets Login Unavailable rather than
 /// bring the character in on the save before.
 const OLD_SAVE_WAIT: Duration = Duration::from_secs(5);
+
+/// How many times a login goes round the "is the account in the world"
+/// check before it gives up with Login Unavailable.  More than one means
+/// somebody keeps coming into the world on the account from somewhere
+/// else while this login waits for the last one's save; three is plenty.
+const ISSUE_TRIES: usize = 3;
 
 /// How much we ask TLS for in one read.  Bigger than any packet we take,
 /// so one read can hold a whole one.
@@ -668,79 +675,119 @@ fn talk(stream: &mut TlsStream, id: u64, peer: SocketAddr, setup: &Setup, deadli
         }
     };
 
-    // The password was right.  Is the account already in the world?
-    if let Some(elsewhere) = sessions::playing(&account) {
-        scribe::info(Channel::Security, &format!("{account} is already in the world from {elsewhere}.  Asking \
-            {peer} what to do."));
-        if send(stream, &protocol::login_result(LoginAnswer::AlreadyLoggedIn)).is_err() {
-            return End::HungUp;
-        }
-        ledger::set(id, Stage::Asked);
-        let packet = match read_packet(stream, &mut incoming, Instant::now() + CHOICE_DEADLINE) {
-            Ok(packet) => packet,
-            Err(trouble) => {
-                scribe::debug(Channel::Network, &format!("{peer} didn't say what to do about the other session.  \
-                    Closing it; the other session stands."));
-                return match trouble {
-                    Trouble::Timeout => End::TimedOut,
-                    Trouble::Bad(_) => End::Junk,
-                    Trouble::HungUp | Trouble::Io(_) => End::HungUp,
-                };
-            }
-        };
-        if packet.kind != PacketType::SessionChoice as u8 {
-            scribe::debug(Channel::Network, &format!("{peer} sent packet type 0x{:02X} instead of a \
-                SessionChoice.  Closing it; the other session stands.", packet.kind));
-            return End::Junk;
-        }
-        match protocol::read_session_choice(&packet.payload) {
-            Ok(Choice::LogTheOtherOut) => {
-                let kicked = sessions::kick(&account, peer);
-                if let Some((address, _)) = kicked {
-                    udp::tell(address, &protocol::kicked(KickReason::LoggedInElsewhere));
+    // The password was right.  Is the account already in the world?  If
+    // so the client is asked what to do, and a yes logs the other session
+    // out.  The ticket is only issued if nobody is in the world on the
+    // account at that moment: a player who came in between the look and
+    // the issue (another login on the account during the wait for the
+    // kicked session's save, say) sends it round again, and the client
+    // isn't asked twice: it already said to log the other out.
+    let mut chose_to_log_out = false;
+    for _ in 0..ISSUE_TRIES {
+        if let Some(elsewhere) = sessions::playing(&account) {
+            if !chose_to_log_out {
+                if let Err(end) = ask_about_the_other(stream, id, peer, &account, elsewhere, &mut incoming) {
+                    return end;
                 }
-                scribe::info(Channel::Security, &format!("{peer} logged the other session on {account} out."));
-                // Its character has been asked out of the world.  Its save
-                // lands before this login's ticket goes out.
-                if let Some((_, Some(character_id))) = kicked {
-                    if !wait_for_save(character_id, stopping) {
-                        if stopping.load(Ordering::SeqCst) {
-                            return End::Stopped;
-                        }
-                        scribe::warn(Channel::Game, &format!("{account}'s character still didn't have its save in \
-                            the database {} s after {peer} logged the other session out.  {peer} gets Login \
-                            Unavailable rather than come in on the save before.", OLD_SAVE_WAIT.as_secs()));
-                        let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
-                        return End::Unavailable;
-                    }
-                }
+                chose_to_log_out = true;
             }
-            Ok(Choice::HangUp) => {
-                scribe::info(Channel::Security, &format!("{peer} left the other session on {account} alone and \
-                    hung up."));
-                return End::LeftAlone;
+            if let Err(end) = log_the_other_out(stream, peer, &account, stopping) {
+                return end;
             }
-            Err(why) => {
-                scribe::debug(Channel::Network, &format!("{peer} sent {why}.  Closing it; the other session \
-                    stands."));
-                return End::Junk;
+        }
+        match sessions::issue(&account, id) {
+            Ok(Issued::Ticket(token)) => {
+                scribe::info(Channel::Security, &format!("{peer} logged in as {account} and has a ticket for UDP."));
+                let _ = send(stream, &protocol::ticket(&token, setup.udp_port));
+                return End::LoggedIn;
+            }
+            Ok(Issued::Playing(elsewhere)) => {
+                scribe::debug(Channel::Security, &format!("{account} came into the world from {elsewhere} while \
+                    {peer} was logging in.  Round again."));
+            }
+            Err(e) => {
+                scribe::error(Channel::Security, &format!("NO TICKET FOR {account}: Fingerprinter couldn't make a \
+                    token ({e}).  Nobody can get past the login until the OS gives random bytes again."));
+                let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
+                return End::Unavailable;
             }
         }
     }
+    scribe::warn(Channel::Security, &format!("{account} kept coming into the world from somewhere else while {peer} \
+        was logging in, {ISSUE_TRIES} times over.  {peer} gets Login Unavailable."));
+    let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
+    End::Unavailable
+}
 
-    match sessions::issue(&account, id) {
-        Ok(token) => {
-            scribe::info(Channel::Security, &format!("{peer} logged in as {account} and has a ticket for UDP."));
-            let _ = send(stream, &protocol::ticket(&token, setup.udp_port));
-            End::LoggedIn
+/// The account is in the world from `elsewhere`: tells the client so and
+/// reads its SessionChoice.  `Ok` means log the other session out; an
+/// `Err` is how the login ended instead (the client hung up, chose to
+/// leave the other session alone, sent junk, or ran out of time).
+fn ask_about_the_other(stream: &mut TlsStream, id: u64, peer: SocketAddr, account: &str, elsewhere: SocketAddr,
+                       incoming: &mut Vec<u8>) -> Result<(), End> {
+    scribe::info(Channel::Security, &format!("{account} is already in the world from {elsewhere}.  Asking {peer} \
+        what to do."));
+    if send(stream, &protocol::login_result(LoginAnswer::AlreadyLoggedIn)).is_err() {
+        return Err(End::HungUp);
+    }
+    ledger::set(id, Stage::Asked);
+    let packet = match read_packet(stream, incoming, Instant::now() + CHOICE_DEADLINE) {
+        Ok(packet) => packet,
+        Err(trouble) => {
+            scribe::debug(Channel::Network, &format!("{peer} didn't say what to do about the other session.  \
+                Closing it; the other session stands."));
+            return Err(match trouble {
+                Trouble::Timeout => End::TimedOut,
+                Trouble::Bad(_) => End::Junk,
+                Trouble::HungUp | Trouble::Io(_) => End::HungUp,
+            });
         }
-        Err(e) => {
-            scribe::error(Channel::Security, &format!("NO TICKET FOR {account}: Fingerprinter couldn't make a token \
-                ({e}).  Nobody can get past the login until the OS gives random bytes again."));
-            let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
-            End::Unavailable
+    };
+    if packet.kind != PacketType::SessionChoice as u8 {
+        scribe::debug(Channel::Network, &format!("{peer} sent packet type 0x{:02X} instead of a SessionChoice.  \
+            Closing it; the other session stands.", packet.kind));
+        return Err(End::Junk);
+    }
+    match protocol::read_session_choice(&packet.payload) {
+        Ok(Choice::LogTheOtherOut) => Ok(()),
+        Ok(Choice::HangUp) => {
+            scribe::info(Channel::Security, &format!("{peer} left the other session on {account} alone and hung \
+                up."));
+            Err(End::LeftAlone)
+        }
+        Err(why) => {
+            scribe::debug(Channel::Network, &format!("{peer} sent {why}.  Closing it; the other session stands."));
+            Err(End::Junk)
         }
     }
+}
+
+/// Logs the account's other session out, for a client that chose to, and
+/// waits for its character's save to land before the ticket goes out.  An
+/// `Err` is how the login ended instead: the server stopping, or the save
+/// taking too long.
+fn log_the_other_out(stream: &mut TlsStream, peer: SocketAddr, account: &str, stopping: &AtomicBool)
+                     -> Result<(), End> {
+    let kicked = sessions::kick(account, peer);
+    if let Some((address, _)) = kicked {
+        udp::tell(address, &protocol::kicked(KickReason::LoggedInElsewhere));
+    }
+    scribe::info(Channel::Security, &format!("{peer} logged the other session on {account} out."));
+    // Its character has been asked out of the world.  Its save lands
+    // before this login's ticket goes out.
+    if let Some((_, Some(character_id))) = kicked {
+        if !wait_for_save(character_id, stopping) {
+            if stopping.load(Ordering::SeqCst) {
+                return Err(End::Stopped);
+            }
+            scribe::warn(Channel::Game, &format!("{account}'s character still didn't have its save in the database \
+                {} s after {peer} logged the other session out.  {peer} gets Login Unavailable rather than come in \
+                on the save before.", OLD_SAVE_WAIT.as_secs()));
+            let _ = send(stream, &protocol::login_result(LoginAnswer::Unavailable));
+            return Err(End::Unavailable);
+        }
+    }
+    Ok(())
 }
 
 /// How a login ended.
