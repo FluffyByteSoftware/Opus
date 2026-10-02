@@ -29,12 +29,24 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   it can once there's movement.  Where it goes then (0,0,0, the nearest edge) is Jacob's call.
 
 - **Chat** (Jacob, 2026-09-30: the 0.0.1 goal is "get a player spawned in the world and able to chat").
-  Nothing designed: who hears whom (everybody, or those nearby), what the packets are (a protocol bump),
-  whether the web admin sees it.  **The order** (Jacob, 2026-10-02): "next session we're gonna make it so
-  when you log in you get a chat box -- server doesn't support this yet so that will be thes ession after
-  next".  So the client's box first, the server's side after.  Open: where "when you log in" puts the box
-  (in the world after PLAY, or the HUD with Phase 1's chat placeholder), and what it does until the server
-  carries chat.
+  **The order changed** (Jacob, 2026-10-02, "rewinding a bit"): the server's side first, the client's box
+  after.  Being settled, the server's side:
+  - **The command** (Jacob, 2026-10-02): "since EverQuest set precedent it will be `/chat <message>` (up to
+    300 chars)", and it posts `[Chat] <Player>: Yo yo yo`.  Only a player whose character is in the world
+    can chat.
+  - **Who hears it: everybody in the world** (Jacob, 2026-10-02: "for now its going to be everyone this is
+    our 0.0.1 release milestone").  Nearby chat waits on movement and positions.
+  - **The plan put to Jacob**: protocol version 8; a `PlayerCommand` packet (`0x37`, an ask number and the
+    line as typed) that the server reads `/chat` out of; CommandAccepted or CommandRefused back; a
+    `ChatMessage` packet (`0x38`) out to everybody in the world; done on the UDP thread straight from the
+    book (no database, no `World`), sent once (a lost line is lost); each line a Debug in the log;
+    Ensemble's `Protocol.cs` to 8 so it still logs in.
+  - **Still open**: the whole typed line or the message alone in the packet; the finished line or its
+    pieces (channel, name, text) going out; which characters a message may hold (printable ASCII, or
+    anything); whether the speaker hears their own line back from the server.
+  - Later: a limit on how fast one player can chat, whether the web admin sees chat, nearby chat.
+  - The client's box after: where "when you log in" puts it (in the world after PLAY, or the HUD with
+    Phase 1's chat placeholder).
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
   kept below.  Settled for its database side, the first step:
