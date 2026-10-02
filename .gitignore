@@ -81,7 +81,7 @@ Ensemble/dev/**/[Uu]ser[Ss]ettings/
 Soundcheck/build/
 Soundcheck/dev/bin/
 Soundcheck/dev/obj/
-# The stamps of the shipped client (manifest_lin.json, manifest_win.json)
-# before they go up to the web address, and the client itself if it sits
-# there.  This machine's, not the repo's.
+# Spare now: admin mode publishes the manifests and the client's copy into
+# the web folder (/opt/storage/WWW) instead.  Anything put here is this
+# machine's, not the repo's.
 Content/patch/

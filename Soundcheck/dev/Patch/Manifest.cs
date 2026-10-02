@@ -3,11 +3,12 @@
 // Author:     Jacob Chacko
 // The manifest: every file of the installed client, with its size and its
 // SHA-256, the client's version, and which players' machines it's for.
-// There's one a platform, manifest_lin.json and manifest_win.json, since
-// a Linux build and a Windows build are different files.  Admin mode
-// writes one from the correct client folder; user mode fetches the one for
-// the OS it's running on from the web address (ManifestSource.cs) and
-// makes one of its own install to hold against it (ManifestCheck.cs).
+// There's one a platform, linux_manifest.json and windows_manifest.json,
+// since a Linux build and a Windows build are different files.  Admin mode
+// writes one from the mirror of the client in the web folder (Mirror.cs);
+// user mode fetches the one for the OS it's running on from the web folder
+// (ManifestSource.cs) and makes one of its own install to hold against it
+// (ManifestCheck.cs).
 // Documentation/LLM/PATCH_MANIFEST.md is the contract: the JSON's shape,
 // byte for byte, and this file is written from it.
 
@@ -53,24 +54,36 @@ namespace Opus.Patch
         // 64 lowercase hex characters.
         [JsonPropertyName("sha256")]
         public string Sha256 { get; set; }
+
+        // True when the file is a program on Linux (its owner's execute
+        // bit is set), so a fetched copy is made runnable again; a download
+        // comes with no permissions.  Left out of the JSON when false, and
+        // never set by a manifest written on Windows.
+        [JsonPropertyName("executable")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool Executable { get; set; }
     }
 
     public class Manifest
     {
         // The shape of the JSON.  Bumps when the shape changes, with
         // PATCH_MANIFEST.md.
-        public const int FormatVersion = 2;
+        public const int FormatVersion = 3;
 
-        // The file's name, by the platform it's for: the same name on the
-        // disk and at the web address.
+        // The file's name, by the platform it's for: at the web folder's
+        // root, beside download/.
         public static string FileNameFor(string platform)
         {
-            return platform == Platforms.Windows ? "manifest_win.json" : "manifest_lin.json";
+            return platform + "_manifest.json";
         }
 
         // Every name a manifest has had, so one sitting at the folder's
         // root is skipped whichever it is (a manifest can't list itself).
-        static readonly string[] FileNames = { "manifest_lin.json", "manifest_win.json", "patch_manifest.json" };
+        static readonly string[] FileNames =
+        {
+            "linux_manifest.json", "windows_manifest.json", "manifest_lin.json", "manifest_win.json",
+            "patch_manifest.json",
+        };
 
         // Unity leaves this folder beside a build: the IL2CPP symbols,
         // hundreds of megabytes a player never needs.  It doesn't ship, so
@@ -111,13 +124,27 @@ namespace Opus.Patch
             }
         }
 
-        // What the walk leaves out: a manifest at the folder's root, and
-        // Unity's backup folder.  `relative` has forward slashes.
+        // What the walk leaves out: a manifest at the folder's root, Unity's
+        // backup folder, and the patcher's own leftovers (a download on its
+        // way in, a launcher file renamed aside on Windows).  `relative` has
+        // forward slashes.
         public static bool Skipped(string relative)
         {
             if (Array.IndexOf(FileNames, relative) >= 0)
                 return true;
+            if (relative.EndsWith(Patcher.TempSuffix, StringComparison.Ordinal)
+                || relative.EndsWith(Patcher.AsideSuffix, StringComparison.Ordinal))
+                return true;
             return relative.StartsWith(UnityBackupFolder + "/", StringComparison.Ordinal);
+        }
+
+        // Whether a file is a program here: Linux's owner-execute bit.
+        // Windows has no such bit, so there it's never.
+        public static bool IsExecutable(string path)
+        {
+            if (RuntimeInfo.IsWindows)
+                return false;
+            return (File.GetUnixFileMode(path) & UnixFileMode.UserExecute) != 0;
         }
 
         // Walks a folder and hashes every file in it.  Slow for a whole
@@ -160,7 +187,13 @@ namespace Opus.Patch
                     size = stream.Length;
                     hash = Convert.ToHexStringLower(SHA256.HashData(stream));
                 }
-                manifest.Files.Add(new ManifestFile { Path = entry.Key, Size = size, Sha256 = hash });
+                manifest.Files.Add(new ManifestFile
+                {
+                    Path = entry.Key,
+                    Size = size,
+                    Sha256 = hash,
+                    Executable = IsExecutable(entry.Value),
+                });
                 done++;
                 if (progress != null)
                     progress(done, entries.Count, entry.Key);

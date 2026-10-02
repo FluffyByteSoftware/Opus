@@ -1,11 +1,11 @@
 // File:       Opus/Soundcheck/dev/Patch/AdminSettings.cs
 // Component:  Soundcheck
 // Author:     Jacob Chacko
-// What admin mode remembers between runs, so Jacob doesn't type the client
+// What admin mode remembers between runs, so Jacob doesn't type the build
 // folders in every time: a folder per platform, the version he gave the
-// client, which platform he had picked, and the folder the manifests are
-// written to.  One small file beside Remember Me in the player folder
-// (PlayerFiles.cs).  Nothing secret in it.
+// client, which platform he had picked, and the web folder the mirror and
+// the manifests go in.  One small file beside Remember Me in the player
+// folder (PlayerFiles.cs).  Nothing secret in it.
 
 using System;
 using System.IO;
@@ -18,13 +18,14 @@ namespace Opus.Patch
     {
         public const string FileName = "soundcheck_admin.json";
 
+        // Where the web folder is unless told otherwise: Jacob's.
+        public const string DefaultWebFolder = "/opt/storage/WWW";
+
         public string LinuxFolder { get; set; }
         public string WindowsFolder { get; set; }
         public string ClientVersion { get; set; }
         public string Platform { get; set; }
-
-        // A folder: the file in it is named by the platform.
-        public string WriteTo { get; set; }
+        public string WebFolder { get; set; }
 
         static readonly JsonSerializerOptions Pretty = new JsonSerializerOptions { WriteIndented = true };
 

@@ -2,13 +2,14 @@
 // Component:  Soundcheck
 // Author:     Jacob Chacko
 // Opens the window once Avalonia is up.  --admin on the command line opens
-// it in admin mode (the manifest writer, for the server's machine); --debug
-// is debug mode (a login that skips the file check and leaves the ticket in
-// a file for an Ensemble running in Unity's editor); --game and a path says
+// it in admin mode (the publisher, for the server's machine); --debug is
+// debug mode (a login with no file check, and the ticket left in a file
+// for an Ensemble running in Unity's editor); --game and a path says
 // where the game is when it isn't beside the launcher (GameLauncher.cs);
-// --manifest and a URL says where the manifest is when it isn't at the
-// web address (Patch/ManifestSource.cs); anything else is a player logging
-// in.
+// --www and a URL says where the web folder is when it isn't at the real
+// address (Patch/ManifestSource.cs); --patched is what a launcher that
+// has just patched itself starts the new one with (Patch/Patcher.cs);
+// anything else is a player logging in.
 
 using System;
 using Avalonia;
@@ -32,13 +33,15 @@ namespace Opus.Soundcheck
                 string[] args = desktop.Args ?? new string[0];
                 bool admin = Array.IndexOf(args, "--admin") >= 0;
                 bool debug = Array.IndexOf(args, "--debug") >= 0;
+                bool patched = Array.IndexOf(args, Patcher.PatchedFlag) >= 0;
                 string game = ValueOf(args, "--game", "the game's path");
-                string manifest = ValueOf(args, "--manifest", "the manifest's URL");
+                string www = ValueOf(args, "--www", "the web folder's URL");
                 Log.Say("Soundcheck " + ClientVersion.Text + " on " + Platforms.Here
                         + (admin ? ", admin mode." : debug ? ", debug mode." : ".")
+                        + (patched ? "  Started again after a patch." : "")
                         + (game != null ? "  The game is " + game + "." : "")
-                        + (manifest != null ? "  The manifest is " + manifest + "." : ""));
-                desktop.MainWindow = new MainWindow(admin, debug, game, manifest);
+                        + (www != null ? "  The web folder is " + www + "." : ""));
+                desktop.MainWindow = new MainWindow(admin, debug, game, www, patched);
 
                 // The window has closed and Avalonia is about to shut its
                 // own thread down.  We end the program here instead of

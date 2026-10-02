@@ -15,14 +15,15 @@ namespace Opus.Soundcheck
         // Avalonia's XAML loader and the designer look for a constructor
         // with nothing in it, and warn when there isn't one.  Plain user
         // mode; the program itself uses the one below.
-        public MainWindow() : this(false, false, null, null)
+        public MainWindow() : this(false, false, null, null, false)
         {
         }
 
         // `game` is --game's path, or null for the game beside the
-        // launcher; `manifest` is --manifest's URL, or null for the web
-        // address.
-        public MainWindow(bool admin, bool debug, string game, string manifest)
+        // launcher; `www` is --www's URL, or null for the real web folder;
+        // `patched` says this launcher was started by one that had just
+        // patched itself.
+        public MainWindow(bool admin, bool debug, string game, string www, bool patched)
         {
             InitializeComponent();
             VersionLine.Text = "Soundcheck " + ClientVersion.Text;
@@ -39,7 +40,7 @@ namespace Opus.Soundcheck
                     Title = "Forgotten Legends - DEBUG MODE";
                     VersionLine.Text += " - DEBUG MODE";
                 }
-                var login = new LoginScreen(debug, game, manifest);
+                var login = new LoginScreen(debug, game, www, patched);
                 ScreenHost.Content = login;
                 Closing += (sender, e) => login.WindowClosing();
             }
