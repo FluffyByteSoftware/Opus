@@ -50,8 +50,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     characters": the chat box stops taking keys at 300.  For the chat box's session.
   - **One fixed channel** (Jacob, 2026-10-02, asked whether the server sends the pieces): "nah a fixed chat
     channel is sufficient like the way the old shit muds did it!"  The server sends the finished line.
-  - **Written, waiting on Jacob's build** (2026-10-02): `design/conductor-networking.md`, "Chat", and
-    PROTOCOL.md have it.  The plan, OKed: protocol version 8; `PlayerCommand` (`0x37`, an ask number and the
+  - **Built and tested** (2026-10-02, all nine checks passed): `design/conductor-networking.md`, "Chat",
+    and PROTOCOL.md have it.  The plan, OKed: protocol version 8; `PlayerCommand` (`0x37`, an ask number and the
     line) answered with CommandAccepted or CommandRefused; the line into a chat mailbox in the GameClock;
     the broadcast check sends `ChatDelivery` (`0x38`, a count and the lines) to everybody in the world,
     through a function networking hands the GameClock at its start.

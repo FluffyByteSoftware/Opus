@@ -197,74 +197,7 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>2026-10-02, Conductor: /chat, to everybody in the world (protocol version 8)</h2>
-<p class="soft">Conductor running from a terminal, START SERVER pressed.  Two accounts in the world at once take two
-terminals, each in <code>Conductor/dev</code>.  The second account is new: <code>testuser456</code> /
-<code>Testpass1!</code>, made on the Accounts tab.</p>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The tests pass, networking's and the GameClock's, and the build has no warnings.
-    </span></label>
-    <pre class="cmd">cargo test -p conductor-networking -p conductor-gameclock</pre>
-    <pre class="cmd">cargo build</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      NEW ACCOUNT on the Accounts tab makes <code>testuser456</code>, password <code>Testpass1!</code>.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      First terminal: Tester comes into the world and sits there, KeepAlive answered once a second.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester testuser123 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Second terminal: Chatter is made and comes into the world, and its <code>/chat</code> gets a CommandAccepted.
-      Both terminals then print a ChatDelivery of 1 line, <code>[Chat] Chatter: Yo yo yo!</code>, within a
-      quarter of a second.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --create Chatter --play Chatter --type '/chat Yo yo yo!' testuser456 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Ctrl-C in the second terminal, then this: four CommandRefused, saying "Saying things without a command
-      isn't in yet.  Use /chat.", "There's no command by that name.  For now there's only /chat.", "Say
-      something after /chat." and "Chat is plain English: letters, numbers, punctuation and spaces."  Nothing
-      reaches the first terminal.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter --type 'Yo yo yo!' --type '/shout hi' --type '/chat' --type '/chat héllo' --leave-after 3 testuser456 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Everything after 300 characters is dropped: a CommandAccepted, and the line in the first terminal is 300
-      x's with no CUT on the end.  <code>/CHAT</code> in capitals works the same.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter --type "/CHAT $(python3 -c 'print("x" * 300 + "CUT")')" --leave-after 3 testuser456 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      At character select (no <code>--play</code>), a <code>/chat</code> gets a CommandRefused, "You can chat
-      once your character is in the world.", and nothing reaches the first terminal.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --type '/chat Hello?' --leave-after 3 testuser456 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The Log tab has a Debug line for each line said, on the Game channel:
-      <code>Chat, from testuser456: [Chat] Chatter: Yo yo yo!</code>, and nothing for the refused ones.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Ensemble still logs in (it speaks version 8 now) and PLAY puts a character in the world.  With it there,
-      the second terminal's chat makes Unity's Console say "Game: the server sent ChatDelivery, which this
-      client doesn't handle yet.  Ignored."
-    </span></label>
-  </li>
-</ul>
+<p class="soft">Nothing to check on testing right now.</p>
 
 </div>
 <aside class="message" id="message-panel">

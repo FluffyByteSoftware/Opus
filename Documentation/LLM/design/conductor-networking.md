@@ -293,7 +293,8 @@ session before (`design/gameclock.md`).
 ## Chat (2026-10-02)
 
 Jacob's command and packets, protocol version 8, the 0.0.1 release ("If we can get it where people can log
-in and chat with each other... that's release 0.0.1").  PROTOCOL.md has the bytes.
+in and chat with each other... that's release 0.0.1").  PROTOCOL.md has the bytes.  Built and tested on Linux,
+all nine checks passed, Ensemble still logging in on version 8.
 
 - **The client sends what was typed**: "whatever is sent there is sent as a plaintext string to the server
   and the server goes "oh hey that started with / that means look for a command"".  **PlayerCommand**
