@@ -116,8 +116,8 @@ worked!"); nothing waits on a build.  `design/ensemble-networking.md`, "Characte
   beside two copies of the certificate).  All three are out, the `.gitignore` keeps out every `*.key`, and
   Jacob made a new pair with README's openssl command and copied the certificate in as `conductor_crt.txt`.
   The old key is still in git's history, but nothing uses it now.
-- **Jacob's commit of the new `.meta` files and the new `conductor.crt`** hadn't reached GitHub at the
-  hand-off.  If it hasn't landed, the next session asks for it before touching Ensemble.
+- **Jacob's commit of the new `.meta` files and the new certificate** landed (`06571e6`): the seven widgets'
+  `.meta`s, `conductor_crt.txt`, and `Content/certs/conductor.crt`, the two the same bytes, no `.key`.
 
 ## Where the next session starts
 
