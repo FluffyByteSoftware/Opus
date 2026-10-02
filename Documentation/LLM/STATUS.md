@@ -131,8 +131,7 @@ goes up as the key is worked out, and the Login goes the moment it's ready.
 Remember Me's file moved there from Unity's `persistentDataPath` (`.../FluffyByte/Opus_Ensemble/`, Unity
 makes the dot an underscore), and the HUD's layout from `.../Opus.Ensemble/Unity/`.  Unity's names are
 FluffyByte and Opus.Ensemble (Jacob's screenshot: "the screenshot is right"), so the docs that said
-FluffyByte Studios and Forgotten Legends were fixed.  **Not compiled yet**: the next session expects
-Jacob's Console from it.
+FluffyByte Studios and Forgotten Legends were fixed.  **Built and tested in Unity**, all three checks passed.
 
 ## What's waiting
 
