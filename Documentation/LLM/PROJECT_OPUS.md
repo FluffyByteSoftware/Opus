@@ -237,7 +237,8 @@ Opus/
 └── Documentation/
     ├── HowTo/                         # how-tos for a person, not the sessions' working docs
     │   ├── WINDOWS_INSTALL.md         # building Conductor on Windows: MSVC and the Build Tools
-    │   └── RELEASE.md                 # releasing a version: main, the tag, the packages
+    │   ├── RELEASE.md                 # releasing a version: main, the tag, the packages
+    │   └── INSTALLATION_INSTRUCTIONS.md # installing a released package, server and client
     └── LLM/
         ├── STATUS.md                  # the bridge between sessions
         ├── TODO.md                    # deferred work and ideas
@@ -249,6 +250,7 @@ Opus/
         ├── HUD_LAYOUT_SYSTEM.md       # Jacob's brief for the HUD, kept as he wrote it
         ├── WRITINGSTYLE.md            # Jacob's voice for anything in the repo
         ├── TEST_CHECKLIST.html        # what's still to check on testing, a page with boxes; a passed check comes out
+        ├── CODE_REVIEW_0.0.1.md       # the pre-release review of Conductor, 2026-10-02: findings by file and line
         └── design/
             ├── conductor-tools.md     # the tools crate
             ├── conductor-accounts.md  # the accounts crate

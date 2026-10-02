@@ -106,7 +106,8 @@ Opus/
 └── Documentation/
     ├── HowTo/             # how-tos for a person, public docs in my voice
     │   ├── WINDOWS_INSTALL.md # building Conductor on Windows; grows as Windows is tried
-    │   └── RELEASE.md         # testing to main, the tag, the two packages, the GitHub Release
+    │   ├── RELEASE.md         # testing to main, the tag, the two packages, the GitHub Release
+    │   └── INSTALLATION_INSTRUCTIONS.md # installing a released package, server and client; linked from README
     └── LLM/               # working docs
         ├── STATUS.md      # bridge between sessions
         ├── TODO.md        # pending work + future ideas
@@ -117,6 +118,7 @@ Opus/
         ├── HUD_FORMATS.md # the HUD's layout and catalog files: the game and the web editor's contract
         ├── WRITINGSTYLE.md # my voice for public docs and comments
         ├── TEST_CHECKLIST.html # what's still to check on testing, with boxes to tick
+        ├── CODE_REVIEW_0.0.1.md # the pre-release review of Conductor: every finding, file and line
         └── design/        # one markdown file per system or feature
 ```
 

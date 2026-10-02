@@ -179,7 +179,9 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 
 - **The 0.0.1 release**: `main` is at the release commit; the `v0.0.1` tag, the version numbers (Unity's
   `0.0.0.1`, the crates' `0.1.0`) and the two packages are still to do.  `Documentation/HowTo/RELEASE.md`.
-- **The clean-up** Jacob named for next.
+- **The 0.0.1 code review's findings** (`CODE_REVIEW_0.0.1.md`, 2026-10-02): four bugs and seven risks
+  worth fixing before the tag, then the inefficiencies and the stale words.  Nothing fixed yet; Jacob
+  picks.  The clean-up he named for next can start from it.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class
   on the client**: TODO.md.

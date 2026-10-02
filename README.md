@@ -122,6 +122,10 @@ each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 9).
 
 ## Running it
 
+This is running Conductor from a build of your own.  To install a released package instead, the server and
+the client both, see [INSTALLATION_INSTRUCTIONS.md](Documentation/HowTo/INSTALLATION_INSTRUCTIONS.md); how a
+release is made is in [RELEASE.md](Documentation/HowTo/RELEASE.md).
+
 **The TLS certificate.**  Conductor doesn't make one.  Make it once from the `Opus` folder; the key stays
 out of git, and the certificate goes in, since a client needs a copy to trust (Ensemble carries one as
 `Assets/Data/Certs/conductor_crt.txt`, so a new certificate is copied over there too):
@@ -207,7 +211,7 @@ Opus/
 │   ├── logs/                      one log file per UTC day, never committed
 │   └── Assets/                    the purchased art, never committed
 └── Documentation/
-    ├── HowTo/                     how-tos, like building on Windows and releasing a version
+    ├── HowTo/                     how-tos: installing a release, making one, building on Windows
     └── LLM/                       the working docs: status, TODOs, the protocol, region.map, the designs
 ```
 
