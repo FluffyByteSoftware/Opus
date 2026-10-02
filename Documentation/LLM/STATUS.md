@@ -110,7 +110,8 @@ in and chat with each other... that's release 0.0.1 then movement is 0.0.12"**, 
 is **"0.0.0.12"**.  His to change.
 
 At this hand-off (2026-10-02, after `/who` and the anti-flood): **"wrap our documents up and we'll go work on
-Ensemble again"**.  His to change.
+Ensemble again"**, and then, every check passed: **"next one we're gonna integrate chat into the client"**.
+His to change.
 
 ## Last session -- 2026-10-02, chat, /who and the anti-flood (Conductor)
 
@@ -146,7 +147,7 @@ and PROTOCOL.md have all of it; TODO.md has every answer in his words.
 
 ## Where the next session starts
 
-**Ensemble** (Jacob: "we'll go work on Ensemble again").  Conductor's side of chat and `/who` is built and
+**Chat in Ensemble** (Jacob: "next one we're gonna integrate chat into the client").  Conductor's side of chat and `/who` is built and
 tested, so the client's chat box has a server to talk to.  For it,
 TODO.md's chat entry has what's settled: a line typed goes out as a PlayerCommand as typed; ChatDelivery's
 lines are printed; the box stops taking keys at 300; WhoDelivery drawn as the box (monospaced, to the chat
