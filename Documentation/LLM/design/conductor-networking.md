@@ -87,10 +87,11 @@ because of the CPU cost.
   gives the login threads 2 seconds and the DNS thread 1 before a Warn and going on without them.  The only
   timers: the UDP thread wakes once a second to sweep and check in, a login thread in Security's line wakes
   once a second to send an InLine, and a failed accept or receive rests 100 ms so a broken socket can't spin.
-- **The login is one packet.**  Hello, then one Login (client version, secret word, username, password),
-  then the answer.  Cheapest checks first: the version (an old client is told so without a hash), the
-  secret word, the name's shape (the rule is in the schema, so a quick no gives nothing away), and only then
-  the accounts table and Security's line.  A name that could be an account but isn't still costs a hash
+- **The login is one packet.**  Hello, then one Login (client version, secret word, username, and the
+  password's key, never the password: protocol version 7, `design/client-security.md`), then the answer.
+  Cheapest checks first: the version (an old client is told so without a hash), the secret word, the name's
+  shape (the rule is in the schema, so a quick no gives nothing away), the key's shape (64 of `0-9a-f`), and
+  only then the accounts table and Security's line.  A name that could be an account but isn't still costs a hash
   (`verify_no_account()`), and `pad_login_time()` evens out the rest.  Every failure gets the same answer,
   and puts the address on a 2-second hold: the acceptor closes its next connection without queuing it,
   rather than a thread sleeping out the hold.
