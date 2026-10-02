@@ -207,7 +207,11 @@ by creating `./Content` when neither works.
   "How to talk to me"). I paste back what happens and we go from there.
   Conductor is run from a terminal, not from inside RustRover: on
   2026-10-01 RustRover's code analysis running beside the server locked
-  the whole machine up, and from a terminal it ran clean.
+  the whole machine up, and from a terminal it ran clean.  When a key
+  does nothing in my terminal, ask me to try it on something plain
+  (`sleep 30`, Ctrl-C) before changing code: on 2026-10-02 Ctrl-C "doing
+  nothing" in the test client was my terminal, and a fix went in for a
+  problem the script didn't have.
 - Do not predict or number future sessions ("next session is X, then Y").
   I pick what to open next and I'm free to change my mind.  When I lay
   out an order myself, it's written down as mine, in my words, under
@@ -262,7 +266,10 @@ When I say we're wrapping up:
 
 - Simple and readable over clever. If there's a clever way and a plain way, use
   the plain way.
-- **All time is UTC.** Any time shown to a person ends with `Z`.
+- **All time is UTC.** Any time shown to a person ends with `Z`.  The one
+  exception is Jacob's (2026-10-02): `/who`'s time goes to the client as
+  seconds since midnight UTC, and the client shows it in the player's own
+  time zone.
 - **Most log lines are Debug.** Routine things (loaded a file, connected, ran
   the schemas, a job finished) go to Scribe as Debug. Info is for the few
   milestones an admin cares about (starting, shutting down, a service coming up
@@ -588,9 +595,38 @@ When I say we're wrapping up:
 - **TLS 1.3 and 1.2** (2026-10-02): rustls's `tls12` feature is on, since
   Unity's .NET has no TLS 1.3 (`SslProtocols.Tls13` doesn't exist there).
   `test_client.py` still insists on 1.3.
+- **What a player types is a command** (`commands.rs`, protocol version
+  8): the client sends the line as typed in a PlayerCommand, and the
+  server finds the word after the `/` in `COMMANDS`, a table of name,
+  wait and `run()`, each command in a file of its own under `commands/`
+  ("make a command interface and then make it so we could easily stuff
+  new commands in").  A new command is a new file and a new line.  **The
+  anti-flood is in that one lookup**: after a command, the player waits
+  its wait before the next, `DEFAULT_WAIT` 500 ms ("two full game
+  ticks"), longer for a command that costs more ("if we make a command
+  that hits the database a bunch maybe that needs longer"; `/who` is 1
+  second).  Too soon is a CommandRefused and doesn't push the wait back.
+  A line without a `/` is refused until saying things nearby exists.
+- **Chat is one fixed channel** ("like the way the old shit muds did
+  it"): `/chat` sends `[Chat] Jacob: Yo yo yo!` to everybody in the world,
+  the speaker too, plain ASCII, anything past 300 characters dropped.
+  **`/who`** sends the names (and, with `/who list`, the blocks) and the
+  client draws the box.
+- **What goes out on the GameClock's beat goes through networking's
+  functions**: the GameClock can't depend on networking (networking
+  depends on it, and Rust won't build two crates that need each other),
+  so networking hands it plain functions as it starts
+  (`set_chat_sender()`, `set_who_sender()`), and the broadcast check calls
+  them.  The positions will go out the same way.
+- **An answer too big for one packet goes in Spans** (version 9):
+  `udp.rs`'s `send_answer()` splits anything over 1200 bytes into pieces,
+  each "X of Y" with the ask number, and the client waits 2 seconds for
+  them all.
 - **`test_client.py`** beside the crate is how networking is tested where
   Ensemble doesn't reach yet (it logs in and lists characters, 2026-10-02).  Python 3, standard library only.  I run it and paste
-  back what it prints, the same as the server.
+  back what it prints, the same as the server.  `--type` types lines in
+  the chat window, `--type-gap` (1.1 s) apart so the anti-flood lets them
+  through; Ctrl-C anywhere sends a Goodbye.
 - **Client management** (a player limit, reconnect tokens, messaging a
   player from the web admin) is not this iteration.  It's in TODO.md.
   Kicking from the web admin is built: KICK on the Connections tab.
@@ -832,6 +868,11 @@ When I say we're wrapping up:
   2026-10-02 the Server Certificate slot was found empty after a check had
   edited the certificate's file, and a stray `.meta` for an editor's
   backup of it was left in `Data/Certs/`.
+- **A number written out goes through `Translator.NumberToWords()`**
+  (`Assets/Code/Translator.cs`, a static class, every int there is),
+  British with the "and" ("IN the honor of Discworld!"): "one hundred and
+  four", "one thousand and one".  A Math class beside it waits for a
+  formula used in more than one place (TODO.md).
 - An editor plugin is a menu item under **Tools > Opus** (the first,
   2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
 - **Jacob runs Unity**, the same as Conductor: the session writes the C#, he

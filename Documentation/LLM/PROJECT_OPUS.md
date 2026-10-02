@@ -73,16 +73,21 @@ Opus/
 │       │           └── other.rs       # macOS and the rest: not measured yet
 │       ├── networking/                # lib -- a server piece
 │       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -gameclock, -primlib, -lua-parser
-│       │   │                          #   and rustls (ring, TLS 1.3 only)
+│       │   │                          #   and rustls (ring, TLS 1.3 and 1.2)
 │       │   ├── test_client.py         # the stand-in client, Python 3: logs in, connects over UDP, character
-│       │   │                          #   select (--create, --delete, --reset-home), --play, keeps alive; sends the password's key
+│       │   │                          #   select (--create, --delete, --reset-home), --play, --type lines (chat,
+│       │   │                          #   /who, drawn in the box), keeps alive; Ctrl-C says Goodbye anywhere
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(), status(); the two helpers both sides share
 │       │       ├── settings.rs        # networking.cfg as networking reads it; the file itself is Constellations'
 │       │       ├── tls.rs             # reads the certificate and key, builds rustls's server settings
 │       │       ├── protocol.rs        # the packets, byte for byte; PROTOCOL.md is the other half
 │       │       ├── sessions.rs        # the book: tickets by token, players by address (and their character in
-│       │       │                      #   the world), accounts by name only; the one-second lockout
+│       │       │                      #   the world, their last command), accounts by name only; the lockout
+│       │       ├── commands.rs        # what a player types: the table of commands (name, wait, run), the
+│       │       │                      #   anti-flood; a command each in commands/
+│       │       ├── commands/chat.rs   # /chat: the line into the GameClock's chat mailbox, and out to everybody
+│       │       ├── commands/who.rs    # /who from the book, /who list through the GameClock
 │       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login, the failure hold, the kick
 │       │       ├── ledger.rs          # the ledger: every TCP connection since START SERVER, where it is, LINKDEAD
 │       │       ├── access.rs          # the whitelist and the blacklist: the files, the entries and ranges, the verdict
@@ -92,7 +97,8 @@ Opus/
 │       │       ├── dns/other.rs       # macOS and the rest: no names yet
 │       │       ├── protogame.rs       # Protogame: character select's asks, on their own thread, answered over UDP;
 │       │       │                      #   playing a character brings it into the world through the GameClock
-│       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; hands asks on
+│       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; hands asks on;
+│       │                              #   answers a typed line; an answer too big goes in Spans
 │       ├── lua-parser/                # lib, conductor-lua-parser -- a server piece
 │       │   ├── Cargo.toml             # depends on conductor-tools, conductor-primlib and mlua (Lua 5.4)
 │       │   └── src/
@@ -131,6 +137,8 @@ Opus/
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(), ready(); five checks of 50 ms to a 250 ms cycle; the Game
 │       │       ├── checks.rs          # the five checks in order; only housekeeping runs until the ground is in
+│       │       ├── chat.rs            # the chat's mailbox; the broadcast check sends it through networking
+│       │       ├── who.rs             # /who list's mailbox; the broadcast check answers it through networking
 │       │       ├── players.rs         # the mailbox (enter(), leave()) and the players' characters in the world
 │       │       └── saving.rs          # the world save every world_save_seconds; the saves on their way
 │       ├── wgui/                      # lib
@@ -158,6 +166,7 @@ Opus/
 │           ├── Code/                  # the plain C#
 │           │   ├── InputSystem.cs     # Unity's Input System actions, generated (Jacob's), and its .inputactions
 │           │   ├── PlayerFiles.cs     # the one folder every player file goes in: ~/.config/unity3d/FluffyByte/Opus.Ensemble/
+│           │   ├── Translator.cs      # NumberToWords(int): a number written out, British ("one hundred and four")
 │           │   ├── Hud/               # every screen from a layout, namespace Opus.Hud (design/ensemble-hud.md)
 │           │   │   ├── Widget.cs      # what every widget is, and WidgetInfo, its catalog entry
 │           │   │   ├── WidgetRegistry.cs # every widget there is, a line each
@@ -258,11 +267,13 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |
-| conductor-networking | Lib: the login over TLS, the game over UDP.             | Tested                           |
+| conductor-networking | Lib: the login over TLS, the game over UDP.             | Tested; chat tested; /who, Spans |
+|                      |                                                         | and the anti-flood not yet built |
 | conductor-lua-parser | Lib: runs the Lua scripts, locked down.                 | Tested                           |
 | conductor-primlib    | Lib: the game library, an ECS.                          | Tested; players' characters spawn|
 | conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested; world_size      |
-| conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input and housekeeping   |
+| conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input, broadcast (chat), |
+|                      |                                                         | housekeeping; /who list unbuilt  |
 | conductor-wgui       | Lib: the web admin on 127.0.0.1.                        | Tested                           |
 | conductor-launcher   | Bin: the program.  Boots, then waits on the Server tab. | Tested                           |
 | DiskMan              | Every file read and write, one worker thread.           | Tested                           |
@@ -276,5 +287,5 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | The server's switch  | Stopped / starting / running / stopping.                | Tested                           |
 | The clock            | UTC date and time.                                      | Tested                           |
 | The access lists     | The whitelist and the blacklist at the door.            | Tested                           |
-| The protocol         | What Conductor and a client say to each other.          | Version 6                        |
+| The protocol         | What Conductor and a client say to each other.          | Version 9                        |
 | region.map           | Which region every chunk is in, for server and client.  | Version 2                        |

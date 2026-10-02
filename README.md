@@ -35,7 +35,9 @@ a character and puts it in the world, though there's no world on screen yet.  Th
 | Spawning in the world, and leaving it, saved     | Built and tested with the test client                  |
 | The world (GameWorld)                            | Made and loaded; nothing changes a block yet           |
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
-| Movement, chat                                   | Not started                                            |
+| Chat: `/chat` to everybody in the world          | Built and tested with the test client                  |
+| `/who` and `/who list`, the anti-flood           | Written; not built yet                                 |
+| Movement                                         | Not started                                            |
 | Ensemble                                         | An editor tool; the login and the HUD, from layouts    |
 | Ensemble logging in, character select, PLAY      | Built and tested; the world isn't on screen yet        |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
@@ -102,7 +104,7 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
 - **launcher** -- the program itself.  Boots, then starts and stops the server on the web admin's say.
 
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
-each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 5).
+each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 9).
 
 ## What it needs
 
@@ -172,8 +174,9 @@ running on.
 Ensemble logs in and does all of character select.  For poking at the server without it,
 `Conductor/dev/networking/test_client.py` stands in for it: Python 3, standard library only.  It logs in, takes the ticket to UDP, lists the account's characters, keeps alive, and prints every
 packet both ways.  `--create Name`, `--delete Name` and `--reset-home Name` do the rest of character select,
-and `--play Name` brings that character into the world.  Make a test account on the web admin's Accounts tab
-first (players can't make one), then, from the `Opus` folder:
+and `--play Name` brings that character into the world.  `--type '/chat Yo yo yo!'` types a line in the
+chat window once it's there (`/who` and `/who list` too), and every chat it hears is printed.  Make a
+test account on the web admin's Accounts tab first (players can't make one), then, from the `Opus` folder:
 
 ```
 python3 Conductor/dev/networking/test_client.py some_account 'Its password 1!'
