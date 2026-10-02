@@ -68,6 +68,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     has a sub-chat box inside of itself at the bottom row of the chat window is an "input field" for
     typing your local commands in."  "The chat box will echo your commands as `>commandhere` in yellow
     font", and "Commands coming from the server are in white over 50% transparent black background".
+  - **The font** (2026-10-02): `/who`'s box needs a monospaced one.  Fatality FPS Gaming Font, which Jacob
+    has, isn't.  Of his Font Nation pack (`Assets/Purchased/Font Nation/TTF Fonts/`, purchased, so a slot on
+    ScreenRoot and never committed), `fc-query` says two are: **Arcade** and **Retro**.  Which, still open.
 - **`/who`** (Jacob, 2026-10-02, after chat passed, "we're barely 30% so we're gonna keep going"): "a /who
   that shows all connected players", each as "[PlayerName] is currently at [x,y,z]".  Planning: who counts as
   connected, who sees the answer, where the positions come from, the line's exact form.  His answers:
