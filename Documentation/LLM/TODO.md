@@ -153,9 +153,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **The chat field and the Input System, once there's movement** (2026-10-02, Jacob: "Do we need to
   add or adjust anything in the new Unity input system?").  Not for the keys to the field: UI Toolkit's
   KeyDownEvents already reach it, and the panel's root sees them first.  Once WASD drives the character
-  (`InputSystem_Actions.inputactions`), a focused field has to swallow those keys and an unfocused one let
-  them through: the Player action map off while the field has the keys, on when Escape or a click drops
-  them.  Part of movement.
+  (`InputSystem_Actions.inputactions`), a focused field takes every key, movement included, and an
+  unfocused one lets them through: the Player action map off while the field has the keys, on when Escape
+  or a click drops them.  **Settled** (Jacob, 2026-10-02, from EQ): "if you move while chatting your
+  movement keys just go to the chat when its focused... everything does its gotten me killed a few times
+  before I realized I was chatting".  So no key is ever both; the game never moves you while you're typing.
+  Part of movement.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
