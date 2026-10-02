@@ -37,7 +37,7 @@ break.
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Movement, chat                                   | Not started                                            |
 | Ensemble                                         | An editor tool; the login and the HUD, from layouts    |
-| The password's key, made on the client           | Client half tested; Conductor's half still to build    |
+| The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.

@@ -227,7 +227,7 @@ Opus/
             ├── gameclock.md           # the GameClock: the beat, the order of the checks, a late cycle; what's open
             ├── world.md               # the world: regions, chunks, blocks, its files; GameWorld; what's open
             ├── ensemble-hud.md        # the HUD and its layouts; the login screen
-            └── client-security.md     # the password's key: the contract, the client's half, Conductor's to build
+            └── client-security.md     # the password's key: the contract, the client's half and Conductor's
 ```
 
 ## The named pieces

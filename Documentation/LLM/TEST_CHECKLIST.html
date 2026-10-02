@@ -197,49 +197,7 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>2026-10-02, Conductor: the password's key in the Login (protocol version 7)</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      NEW ACCOUNT on the Accounts tab makes <code>testuser123</code> / <code>Testpass1!</code> again: "Made the
-      account testuser123."  The old accounts are gone, so this is the first.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The test client logs in: it prints "Made the password's key in ... ms", the Hello says version 7, and a
-      Ticket comes back.  The Login's bytes end in 64 hex characters, not the password.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 testuser123 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A wrong password gets Invalid Credentials, after the usual wait in Security's line.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 testuser123 'Testpass2!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The password sent as typed (<code>--no-key</code>) gets Invalid Credentials without waiting in line (no
-      InLine), and the Log tab says "didn't send a key, and failed" without the password in it.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --no-key testuser123 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      CHANGE PASSWORD on testuser123's card to <code>Testpass2!</code>: the test client logs in with
-      <code>Testpass2!</code> and is refused with <code>Testpass1!</code>.  Change it back after.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 testuser123 'Testpass2!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A character made and played still comes into the world: CharacterEnteredWorld, and it shows on the
-      Connections tab beside the account.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --create Tester --play Tester testuser123 'Testpass1!'</pre>
-  </li>
-</ul>
+<p class="soft">Nothing to check on testing right now.</p>
 
 </div>
 <aside class="message" id="message-panel">

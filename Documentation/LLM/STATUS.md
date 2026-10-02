@@ -134,8 +134,8 @@ FluffyByte Studios and Forgotten Legends were fixed.  **Built and tested in Unit
 
 ## What's waiting
 
-- **Conductor's half of the password's key: written 2026-10-02, built clean, tests pass**; the checks on
-  `testing` are next (this session, still open).  Protocol version 7, a Login that isn't a key refused without a hash, the account desk making the
+- **Conductor's half of the password's key: built and tested 2026-10-02**, all six checks passed (this
+  session, still open).  Protocol version 7, a Login that isn't a key refused without a hash, the account desk making the
   key (`pbkdf2` and `sha2`, OKed), `test_client.py` making it.  Jacob deleted every account first.  `design/client-security.md`, "As built"; TEST_CHECKLIST.html.
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
 - **Ensemble's client code**: the network client, character select's layout,

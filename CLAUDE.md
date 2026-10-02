@@ -801,8 +801,8 @@ When I say we're wrapping up:
   and what Remember Me keeps (`remembered_login.json`, in the player's
   folder, below).  `design/client-security.md` is the recipe, and
   Conductor makes the same key from what the admin types on the Accounts
-  tab.  Any change to the recipe locks every account out.  Conductor's
-  half isn't built yet (it's written down there).
+  tab.  Any change to the recipe locks every account out.  Both halves
+  are built and tested (Conductor's, protocol version 7, 2026-10-02).
 - An editor plugin is a menu item under **Tools > Opus** (the first,
   2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
 - **Jacob runs Unity**, the same as Conductor: the session writes the C#, he

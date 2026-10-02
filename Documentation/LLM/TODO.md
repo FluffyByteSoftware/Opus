@@ -294,9 +294,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     `design/ensemble-hud.md`, "The login, as written"); character select's layout is still to come.
 - **Security in the client** (Jacob, 2026-10-01, at the login's hand-off: "next conversation we start
   building security into the client").  **The client's half is built and tested** (2026-10-01, every check
-  passed); `design/client-security.md` has the contract and **Conductor's half, to build in a session of
-  its own** (protocol version 7, the key refused if it isn't one, the account desk making the key from what
-  the admin types, with the `pbkdf2` and `sha2` crates to be OKed then, and every account deleted).  What it
+  passed); `design/client-security.md` has the contract.  **Conductor's half is built and tested**
+  (2026-10-02, every check passed): protocol version 7, the key refused if it isn't one, the account desk
+  making the key from what the admin types (`pbkdf2` and `sha2`, OKed), every account deleted.  What it
   covers, Jacob's answers:
   - **The password is turned into a key on the client**, in `Assets/Code/`, on SUBMIT and for Remember
     Me: "even though its going over TLS we don't want to save it to their local disk as plain text!"
