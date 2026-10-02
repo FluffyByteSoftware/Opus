@@ -130,7 +130,8 @@ The release session (2026-10-02): **"we are ready to prepare for release 0.0.1"*
 Conductor first; then **"merge everything into main"**, and once the review was in, **"Wait till we fix bugs
 and validate everything works"** before `main` moved again; **"we changing to version 0.0.1"**; the kick
 found in testing: **"the client is told to wait and then pulled in"**, **"please add the PleaseWait feature
-before we release"**.  Movement is next by his earlier numbering (0.0.0.12).  His to change.
+before we release"**.  And at the hand-off, 0.0.1 up: **"next session we're gonna start on Soundcheck I
+think"**.  His to change.
 
 ## Last session -- 2026-10-02, release prep: the review, the release docs, the four bugs
 
@@ -189,9 +190,12 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
 ## Where the next session starts
 
 **0.0.1 is released**: `main` at `bc7009e`, tagged `0.0.1`, the two packages on the GitHub Release (Jacob made
-them by RELEASE.md, 2026-10-02).  Nothing waits on a build.  What's next is his: the "major clean up" is the rest of
-the review's list (`CODE_REVIEW_0.0.1.md`: R8 onward, the inefficiencies, the stale words), or movement
-(0.0.0.12), or whatever he opens.
+them by RELEASE.md, 2026-10-02).  Nothing waits on a build.  **Jacob's pick for next: Soundcheck**, the patcher
+("next session we're gonna start on Soundcheck I think").  It's in LONGTERM_TODO.md under "Soundcheck, the
+patcher, and a certificate for every client", with what's settled and what's open (what it's written in,
+where it lives, which is a new top-level folder and his call, and how a client's certificate is signed).
+It starts with those questions, planned before anything is built.  The review's rest
+(`CODE_REVIEW_0.0.1.md`: R8 onward, the inefficiencies, the stale words) and movement (0.0.0.12) wait.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
