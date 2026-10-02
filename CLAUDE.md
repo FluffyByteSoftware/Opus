@@ -1068,7 +1068,8 @@ When I say we're wrapping up:
   `--patched` and ends (on Windows a file in use is renamed aside as
   `.old`; the leftovers go at the next start); a `--patched` launcher that
   fails again says "couldn't repair the game" and stops.  `--debug` skips
-  all of it.  Written, not built, at 2026-10-02.
+  all of it.  Built and tested 2026-10-02 on Linux against the real web
+  folder, the restart excepted; hashing the 655 MB build takes 1.3 s.
 - **The manifests and the files come from the web folder, not from
   Conductor** (Jacob, 2026-10-02): `/opt/storage/WWW` on his machine,
   served as it is at `http://opusensemble.duckdns.org:8553/`, with
@@ -1140,7 +1141,13 @@ When I say we're wrapping up:
   on the login's thread; the screen puts every call back on the window's
   thread with `Dispatcher.UIThread.Post()`.  Anything slow (the key, hashing a
   folder) runs on a worker thread and reports back the same way, so the
-  window never stops drawing.
+  window never stops drawing.  **A worker's last progress message can land
+  after the words that follow it** (2026-10-02: PUBLISH ended on "Hashing
+  193 of 193" instead of "Published"), so every progress message carries
+  the phase it was sent in and a late one is dropped.
+- **A platform guard the compiler knows is `OperatingSystem.IsWindows()`**,
+  not our own `RuntimeInfo.IsWindows`: the CA1416 check on a Unix-only call
+  (`File.GetUnixFileMode`) only sees the first (2026-10-02).
 - **The certificate is a file beside the program**, `conductor.crt`, copied
   from `Soundcheck/dev/Certs/` at build, so the manifest can patch it one day
   without a new build.  A missing one is said on the status box with the path.

@@ -9,8 +9,8 @@ Author:     Jacob Chacko
 Started 2026-10-02, the session after 0.0.1 went out.  Opus.Soundcheck is the program a player opens; the game
 (Ensemble) is what it starts.  It logs the player in, checks every file of the installed client against the
 manifest we stamped, mends what's wrong, and hands Ensemble a ticket for UDP.  The login and PLAY are built and
-tested; admin mode's publish, the check at start and the patch are written and waiting on a build.  This
-file is the design as it settles.
+tested; admin mode's publish, the check at start and the patch are built and tested on Linux; the launcher's
+own restart and Windows aren't.  This file is the design as it settles.
 
 Why it exists at all is in LONGTERM_TODO.md ("Soundcheck, the patcher, and a certificate for every client").
 The short of it: a certificate for every client (mutual TLS) needs something that runs before the game, and
@@ -156,7 +156,7 @@ dump is a separate file**, compressed, with its own line in the manifest, "becau
 to need to be downloaded", and it isn't built or designed yet (TODO.md: Conductor's dump, and the client's
 side of it).
 
-### The shape after that (2026-10-02, the same chat; OKed and written, not built)
+### The shape after that (2026-10-02, the same chat; OKed, built and tested the same evening)
 
 His next message undid the zip: "Actually we're gonna make it so the patcher knows if they're on linux or
 not and looks for linux_manifest.json or windows_manifest.json :P.  Fuck it!  Then we'll reach to the
@@ -193,6 +193,18 @@ the second check, the restart, and the game's farewell kept in front of the chec
 the restart: a replaced file *directly in the launcher's folder* means the launcher starts again (Unity's
 top-level files trip it too, which costs a second and nothing else); with `--game` pointing elsewhere it
 never does.  `--www <url>` replaced `--manifest`.
+
+**Built and tested 2026-10-02** against the real web folder at `opusensemble.duckdns.org:8553`: PUBLISH of
+the 0.0.12 build (193 files, 655.5 MB), the check at start, a two-file patch, the game's own program
+deleted and fetched back runnable, an extra file left alone, the web server down, a 404, a file missing from
+the web folder, a bad hash caught, `--debug`, and the farewell kept after a KICK.  **The check costs 1.3 s**
+for the 655 MB (the disk cache doing most of it; a cold start will be slower).  Three things the build
+taught: the platform guard the compiler knows is `OperatingSystem.IsWindows()`, not our own
+`RuntimeInfo.IsWindows` (two CA1416 warnings); a worker's last "193 of 193" can reach the window after the
+"Published" line and write over it, so every progress message carries the phase it was sent in and a late
+one is dropped; and the check has to start from the game's *folder*, since a deleted `Ensemble.x86_64` is
+exactly what it's for, and `GameLauncher.Find` had stopped it at "can't find the game".  The launcher's own
+restart after a patch is untested (Parked until Soundcheck ships beside the game).
 
 ## Built and tested 2026-10-02: what the first build taught
 

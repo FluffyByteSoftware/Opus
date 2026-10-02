@@ -317,8 +317,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 |                      |                                                         | logging in, character select,    |
 |                      |                                                         | the chat window and its keys     |
 | Soundcheck           | The launcher: the login, the manifest check, then      | Tested 2026-10-02: the login,    |
-|                      | Ensemble.  C# on .NET 10, Avalonia.                     | PLAY, debug mode; written: the   |
-|                      |                                                         | web folder, the check, the patch |
+|                      | Ensemble.  C# on .NET 10, Avalonia.                     | PLAY, debug mode, the web folder,|
+|                      |                                                         | the check, the patch (Linux)     |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |

@@ -408,9 +408,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 ### Soundcheck
 
 Started 2026-10-02 (`design/soundcheck.md`).  Built and tested: user mode's login over TLS 1.3 to the Ticket,
-PLAY, the way back, Ensemble's half.  **Written and not built** (2026-10-02, the web folder session): admin
-mode's PUBLISH (the build mirrored into the web folder and the manifest written beside it), the check at
-start, the patch a file at a time, the launcher's restart.  What's left, a step each:
+PLAY, the way back, Ensemble's half.  **Built and tested on Linux** (2026-10-02, the web folder
+session): admin mode's PUBLISH, the check at start (1.3 s for 655 MB), the patch a file at a time.  The
+launcher's own restart after a patch is written and untested.  What's left, a step each:
 
 - **The world's dump** (Jacob, 2026-10-02): Conductor dumps a portable world to `Content/`, "a general
   shape of the world but 'smoothed'", for the client to carry (region.map and the heights, the ground as
@@ -420,13 +420,14 @@ start, the patch a file at a time, the launcher's restart.  What's left, a step 
   client download.  Not designed yet: what's in it, how "smoothed", where it lands in the install
   (`Ensemble_Data/StreamingAssets/World/`, the fifth folder), and whether Conductor dumps it on START
   SERVER or on a button.  Its own session, after the patcher.
-- **The web folder, the check and the patch are written, not built** (2026-10-02; PATCH_MANIFEST.md at
+- **The web folder, the check and the patch are built and tested** (2026-10-02; PATCH_MANIFEST.md at
   format 3, `design/soundcheck.md`): `/opt/storage/WWW` served at `http://opusensemble.duckdns.org:8553/`,
   `linux_manifest.json` and `windows_manifest.json` at its root and `download/<platform>/` an exact copy of
   each client; admin mode's PUBLISH mirrors the build in and writes the manifest; user mode checks at
   start with the login locked, fetches what's off a file at a time into a temp and swaps it in, checks
   again, and starts itself again when one of its own files changed (`--patched` stops a loop).
-  TEST_CHECKLIST.html has the checks; the restart and the Windows rename-aside are guesses until run.
+  Untested: the launcher's own restart (Parked in TEST_CHECKLIST.html until Soundcheck ships beside the
+  game) and the Windows rename-aside.
 - **Conductor's half**, what's left of it: the manifest and the files come from the web folder, so Conductor
   sends nothing and serves nothing.  What could still be its: the client's report up after the check
   (the manifest in the protocol's own bytes, in pieces or past the 4,096-byte frame cap) and Conductor

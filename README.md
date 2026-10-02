@@ -18,10 +18,11 @@ layout files: it starts with the launcher's ticket, makes, deletes and picks a c
 and puts it in the world with a chat window over the scene, though there's no world on screen yet.
 Soundcheck is the launcher, just started: it logs in over TLS 1.3, turning the password into a key before
 it's sent or kept, and in admin mode writes the manifest of a client folder, both tested.  The login has
-moved out of Ensemble into it, and PLAY starts the game with the ticket, both tested.  The patcher is written
-and not yet built: admin mode publishes a build into a web folder (a copy of the client and its manifest),
-and at start the launcher hashes the game's files against the manifest, fetches whatever's off a file at a
-time, and only then lets you log in.  Nothing of Soundcheck has been built on Windows.
+moved out of Ensemble into it, and PLAY starts the game with the ticket, both tested.  The patcher is built and
+tested on Linux: admin mode publishes a build into a web folder (a copy of the client and its manifest),
+and at start the launcher hashes the game's files against the manifest (1.3 s for 655 MB), fetches
+whatever's off a file at a time, and only then lets you log in.  Nothing of Soundcheck has been built on
+Windows.
 Things will change
 and things will break.
 
@@ -57,7 +58,7 @@ The next milestone is movement.
 | Soundcheck, the launcher                         | Built and tested: the login over TLS 1.3, Remember Me, |
 |                                                  | admin mode's manifest, debug mode                      |
 | Soundcheck's PLAY starting the game              | Built and tested, the way back with the reason too     |
-| Soundcheck's web folder, check and patch         | Written, not built: Linux and Windows, a file at a time|
+| Soundcheck's web folder, check and patch         | Built and tested on Linux, a file at a time            |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.
@@ -151,7 +152,7 @@ copies the folder we ship into the web folder at `http://opusensemble.duckdns.or
 what's wrong a file at a time, and starts Ensemble with the ticket, which goes straight to character select
 over UDP.  Today the login works, PLAY starts the game, and Ensemble takes the ticket from its environment
 and goes back to the launcher when the session ends, all tested; admin mode's publish, the check at start
-and the patch are written and waiting on a build.
+and the patch are built and tested on Linux.
 
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
 each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).  The manifest's shape is
