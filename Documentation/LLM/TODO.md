@@ -322,10 +322,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     players have it.
   - The client checking the server's TLS certificate is written (2026-10-02, with the net code).  Further
     off, Soundcheck handing each client a certificate of its own (LONGTERM_TODO.md).
-- **The login screen, later** (2026-10-01): what SUBMIT does once there's a network client (it makes
-  the key and keeps or forgets it now; logging in, sending the key, comes with the network client).
-  Remember Me is built (`design/client-security.md`).  The effects between screens ("cool ass
-  effects if we can", "I don't know yet"); then character select's layout.
+- **The login screen, later** (2026-10-01): SUBMIT logs in and Remember Me works (2026-10-02).  Still
+  open: the effects between screens ("cool ass effects if we can", "I don't know yet").
 - **The client's net code** (Jacob, 2026-10-02: "its time to build up the client to submit and move over
   to character selection!").  **Built and tested** (2026-10-02, ten checks): `design/ensemble-networking.md`
   has it.  `Assets/Code/Net/` (the protocol, the login over TLS, the server's certificate, UDP), a
@@ -340,6 +338,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     sure it will do 1.3".  Unity's .NET has no `SslProtocols.Tls13` (the first compile), so it's done.
   - **The client version**: "we're not ready for 0.0.1 yet".  Ensemble sends Player Settings' Version,
     `0.0.0.1`, and `networking.cfg`'s `client_versions` takes it.
+  - **Next** (Jacob, at the hand-off: "create/delete/select/play character next round"): CREATE, DELETE
+    and PLAY at character select.  `GameConnection.Ask()` takes only a type today, so the asks with fields
+    come with it; what the client shows on CharacterEnteredWorld is still to be said.
 - **Stale words in the code**, for whichever session next touches each file:
   - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and
     Blacklist), and a comment the same.

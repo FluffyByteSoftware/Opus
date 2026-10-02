@@ -13,9 +13,9 @@ and Conductor decides.
 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
 game loop ticking over it, and a player can pick a character and stand in that world, though nothing moves
-yet.  Ensemble has an editor tool for the art, and a login screen and a HUD built from layout files, so far; the
-login turns the password into a key before it's sent or kept.  Things will change and things will
-break.
+yet.  Ensemble has an editor tool for the art, and screens built from layout files: it logs in over TLS,
+turning the password into a key before it's sent or kept, and shows the account's characters.  Picking one
+isn't in the game yet.  Things will change and things will break.
 
 **The first goal, 0.0.1, is a player spawned in the world and able to chat.**
 
@@ -37,6 +37,7 @@ break.
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Movement, chat                                   | Not started                                            |
 | Ensemble                                         | An editor tool; the login and the HUD, from layouts    |
+| Ensemble logging in, to character select         | Built and tested; the list only, LOG OUT to leave      |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
@@ -63,10 +64,11 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
   held in memory: it's read from its row when needed and every change goes straight back, so there's only
   ever one copy.  Three characters to an account, each with a name that's unique on the server.
 - **monitor** -- once a second, CPU, memory, disk and threads for Conductor and the machine.
-- **networking** -- the front door.  TCP is only the login: TLS (1.3, or 1.2 for the Unity client), a username and password, and the
-  player gets a ticket for UDP, where everything after happens, starting with character select (list,
-  make, delete, reset home), answered by Protogame on a thread of its own, and then the pick: the
-  character is loaded from its save and put in the world, and taken out and saved when the player goes.
+- **networking** -- the front door.  TCP is only the login: TLS (1.3, or 1.2 for the Unity client), a
+  username and password, and the player gets a ticket for UDP, where everything after happens, starting
+  with character select (list, make, delete, reset home), answered by Protogame on a thread of its own,
+  and then the pick: the character is loaded from its save and put in the world, and taken out and saved
+  when the player goes.
   A whitelist and a blacklist, which take at once without a reboot, because a ban that waited for a STOP
   SERVER wouldn't be much of a ban.
 - **lua-parser** -- the game's content is going to be written in Lua 5.4.  For now every script under
@@ -115,7 +117,8 @@ each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 5).
 ## Running it
 
 **The TLS certificate.**  Conductor doesn't make one.  Make it once from the `Opus` folder; the key stays
-out of git, and the certificate goes in, since a client needs a copy to trust:
+out of git, and the certificate goes in, since a client needs a copy to trust (Ensemble carries one as
+`Assets/Data/Certs/conductor_crt.txt`, so a new certificate is copied over there too):
 
 ```
 mkdir -p Content/certs && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout Content/certs/conductor.key -out Content/certs/conductor.crt -days 3650 -subj "/CN=Opus Conductor" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
@@ -166,8 +169,8 @@ running on.
 
 ## Talking to it
 
-Until Ensemble can, `Conductor/dev/networking/test_client.py` stands in for it: Python 3, standard library
-only.  It logs in, takes the ticket to UDP, lists the account's characters, keeps alive, and prints every
+Ensemble logs in and lists the account's characters.  For the rest, and for poking at the server,
+`Conductor/dev/networking/test_client.py` stands in for it: Python 3, standard library only.  It logs in, takes the ticket to UDP, lists the account's characters, keeps alive, and prints every
 packet both ways.  `--create Name`, `--delete Name` and `--reset-home Name` do the rest of character select,
 and `--play Name` brings that character into the world.  Make a test account on the web admin's Accounts tab
 first (players can't make one), then, from the `Opus` folder:

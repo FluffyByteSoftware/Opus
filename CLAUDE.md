@@ -89,7 +89,8 @@ Opus/
 │   │           ├── Editor/    # editor plugins, under Tools > Opus
 │   │           ├── Code/      # the plain C#: the networking, say
 │   │           ├── Scripts/   # the scripts
-│   │           └── Data/      # our own data files: layouts in Data/Layouts/, styles in Data/Styles/
+│   │           └── Data/      # our own data files: layouts in Data/Layouts/, styles in Data/Styles/,
+│   │                          #   the server's certificate in Data/Certs/
 │   └── build/             # compiled output -- never committed
 ├── Content/               # data both programs read and write -- committed, except Assets/, logs/ and world/
 │   ├── Assets/            # purchased art -- never committed
@@ -549,8 +550,9 @@ When I say we're wrapping up:
   test client are written from it; when either disagrees with the document,
   the code is what gets fixed.  A packet change bumps `PROTOCOL_VERSION`,
   and so does a new value in a packet's enum (each new Kicked reason did):
-  `protocol.rs`, PROTOCOL.md and `test_client.py` all change together, and
-  the document gets a line saying what the version added.  It's at 7
+  `protocol.rs`, PROTOCOL.md, `test_client.py` and Ensemble's
+  `Assets/Code/Net/Protocol.cs` all change together, and the document gets
+  a line saying what the version added.  It's at 7
   (the password's key in the Login, 2026-10-02).
 - **Character select is Protogame's** (`protogame.rs` in networking, its own
   thread and Services line): "the character selection and character
@@ -575,9 +577,14 @@ When I say we're wrapping up:
 - **The TLS pair is made by hand** with the openssl command in README.md, in
   `Content/certs/`.  The key is gitignored, the certificate committed.
   Conductor never makes one and never crashes without one: the Services tab
-  says it's missing and the log says the command.
-- **`test_client.py`** beside the crate is how networking is tested until
-  Ensemble exists.  Python 3, standard library only.  I run it and paste
+  says it's missing and the log says the command.  **A new certificate is
+  copied to Ensemble too** (`Assets/Data/Certs/conductor_crt.txt`), or the
+  game refuses the server.
+- **TLS 1.3 and 1.2** (2026-10-02): rustls's `tls12` feature is on, since
+  Unity's .NET has no TLS 1.3 (`SslProtocols.Tls13` doesn't exist there).
+  `test_client.py` still insists on 1.3.
+- **`test_client.py`** beside the crate is how networking is tested where
+  Ensemble doesn't reach yet (it logs in and lists characters, 2026-10-02).  Python 3, standard library only.  I run it and paste
   back what it prints, the same as the server.
 - **Client management** (a player limit, reconnect tokens, messaging a
   player from the web admin) is not this iteration.  It's in TODO.md.
@@ -803,6 +810,21 @@ When I say we're wrapping up:
   Conductor makes the same key from what the admin types on the Accounts
   tab.  Any change to the recipe locks every account out.  Both halves
   are built and tested (Conductor's, protocol version 7, 2026-10-02).
+- **The client's net code is `Assets/Code/Net/`** (namespace `Opus.Net`,
+  `design/ensemble-networking.md`).  The connections run on threads of
+  their own and never touch the screen: what they hear goes through
+  `MainThread.Post()`, run from ScreenRoot's `Update()`, to `Session`,
+  which owns the flow and tells the screens through its events.  The
+  keep-alives are sent from a thread, not `Update()`, so they go on with
+  the window in the background.  The client trusts one certificate, its
+  copy in `Assets/Data/Certs/`, byte for byte.  The Login carries Player
+  Settings' Version (`0.0.0.1` today, Jacob: "we're not ready for 0.0.1
+  yet"), which `networking.cfg`'s `client_versions` has to list.
+- **A slot filled in the Inspector lives in the scene**, which isn't
+  committed: the reply that asks for one says File > Save after.  On
+  2026-10-02 the Server Certificate slot was found empty after a check had
+  edited the certificate's file, and a stray `.meta` for an editor's
+  backup of it was left in `Data/Certs/`.
 - An editor plugin is a menu item under **Tools > Opus** (the first,
   2026-10-01, is Tools > Opus > Copy Anims From FBX Pack).
 - **Jacob runs Unity**, the same as Conductor: the session writes the C#, he

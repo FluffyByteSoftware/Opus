@@ -26,32 +26,32 @@ admin's Server tab.
 
 Ensemble is Unity 6000.6: its project settings and our four folders under `Assets/` (`Editor/`, `Code/`,
 `Scripts/`, `Data/`) are committed, the rest is on Jacob's machine, the purchased art in
-`Assets/Purchased/`.  It has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and two screens built
-from layout files by our own builder: **the login** and the HUD (`design/ensemble-hud.md`).  ScreenRoot,
-beside the UI Document component, owns both and starts on the login.  **The login turns the password into
-a key** on SUBMIT, and Remember Me keeps the key, never the password (`design/client-security.md`).
-**Conductor takes the key** where it took the password (protocol version 7, 2026-10-02).  Ensemble has no
-networking yet.  **The
-game's name is Forgotten Legends**; the project, its folders and code stay Opus.  Unity's Company Name is
-FluffyByte and its Product Name Opus.Ensemble.  Every file the game keeps for a player goes in
-`~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).
+`Assets/Purchased/`.  It has one editor tool, Tools > Opus > Copy Anims From FBX Pack, and three screens built
+from layout files by our own builder: **the login**, character select and the HUD
+(`design/ensemble-hud.md`).  ScreenRoot, beside the UI Document component, owns them and starts on the
+login.  **The login turns the password into a key** on SUBMIT, and Remember Me keeps the key, never the
+password (`design/client-security.md`).  **Ensemble logs in** (2026-10-02, `design/ensemble-networking.md`):
+over TLS 1.2 to the Ticket, then UDP, and on to **character select**, a third screen that lists the account's
+characters, look only, with LOG OUT.  **The game's name is Forgotten Legends**; the project, its folders and
+code stay Opus.  Unity's Company Name is FluffyByte and its Product Name Opus.Ensemble.  Every file the game
+keeps for a player goes in `~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
-**The branches**: `main` is at `33c418e`, released 2026-10-02 (Jacob: "merge everything to main please"),
-a fast-forward from `testing` carrying everything since the release of 2026-09-30 (`8bf9f70`).  `unstable`
-and `testing` are level with each other, and only this line ahead of `main`.  `main` moves when Jacob
-says.
+**The branches**: `main` is at `33c418e`, released 2026-10-02 (Jacob: "merge everything to main please").
+`unstable` and `testing` are level with each other, ahead of `main` by this session (the client's net code
+and TLS 1.2).  `main` moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor, `world_size` and the password's key (protocol version 7)
-included.  **In Unity**: Copy Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1, the login, and
-the password's key with Remember Me, every check passed.  TEST_CHECKLIST.html is empty: the Windows check that
-sat Parked there is GitHub issue #10 now (Jacob opened it, "Windows x86/x64 Untested").  **On Windows**:
-Conductor builds and runs, START SERVER included, without a database; the world, the characters, character
-select, the world save, the spawn and the password's key haven't been tried there.
+**Built and tested on Linux**: all of Conductor, `world_size`, the password's key (protocol version 7) and TLS
+1.2 included.  **In Unity**: Copy Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1, the login,
+the password's key with Remember Me, and logging in to character select, every check passed.
+TEST_CHECKLIST.html is empty: the Windows check that sat Parked there is GitHub issue #10 now (Jacob opened
+it, "Windows x86/x64 Untested").  **On Windows**: Conductor builds and runs, START SERVER included, without a
+database; the world, the characters, character select, the world save, the spawn and the password's key
+haven't been tried there.
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -86,60 +86,60 @@ At this hand-off (2026-10-01): **"next one is going to be brutal we'll start the
 client"**, then, told Conductor doesn't take the key yet: **"we'll do netcode update on server next
 then"**.  So Conductor's half of the password's key came first.  His to change.
 
-At this hand-off (2026-10-02), Conductor's half done: **"wrap up here back to Ensemble"**.  So the client's
-net code is what his earlier word put next.  His to change.
+At the hand-off of Conductor's half of the key (2026-10-02): **"wrap up here back to Ensemble"**.  So the
+client's net code came next.
 
-## Last session -- 2026-10-02, Conductor's half of the password's key
+At this hand-off (2026-10-02), the client logging in to character select: **"Hand off to
+create/delete/select/play character next round"**.  His to change.
 
-**Built and tested on Linux**, all six checks passed; nothing waits on a build.  `design/client-security.md`,
-"Conductor's half" and "As built", has all of it.
+## Last session -- 2026-10-02, the client's net code (Ensemble)
 
-- **Jacob's ask**: "we just made it so the client is going to pass a hashed password instead of plaintext
-  (this is so it can save it on the client)".  Built as the plan in the design file said; his OK on the two
-  crates: "Yes".
-- **Protocol version 7**: the Login's fourth string is the password's key, 64 lowercase hex.
-  `protocol.rs` (`LoginRequest.key`), PROTOCOL.md (a section "The password's key", the worked example's
-  bytes redone, 100 long) and `test_client.py` changed together.
-- **A Login that isn't a key** is Invalid Credentials at once, without a hash (`tcp.rs`, beside the name
-  check), logged without what was sent.  Otherwise the key goes through Security's line as the password did.
-- **Security makes the key** (`password_key()`, `looks_like_key()` in `tools/src/security.rs`), with the
-  **`pbkdf2` 0.13 and `sha2` 0.11 crates** (OKed; `sha2` and `hmac` were already in the build through
-  `postgres`).  Tested against the worked example, the full 600,000 rounds.
-- **The account desk** (`desk.rs`) makes the key from what the admin types, on its own thread, and hashes
-  that.  The Accounts tab didn't change.
-- **`test_client.py`** makes the key with `hashlib` from the password on its command line; `--no-key`
-  sends the password as typed, to see it refused.
-- **Every account was deleted** by Jacob before the build; `testuser123` / `Testpass1!` was made again on
-  the Accounts tab, and logs in.
+**Built and tested** in Unity against Conductor on Linux, all ten checks passed; nothing waits on a build.
+`design/ensemble-networking.md` has all of it.
 
-## The session before -- 2026-10-01, security in the client (Ensemble)
-
-Built and tested in Unity.  The key: PBKDF2 with HMAC-SHA256, the salt `Opus login v1:` plus the username
-with A to Z made lowercase, 600,000 rounds (Jacob: "Make this the full 600,000"; 2852 ms in the Unity
-editor), 32 bytes as 64 lowercase hex.  `Assets/Code/Security/PasswordKey.cs` makes it on a worker thread,
-`Security/RememberedLogin.cs` keeps Remember Me's file (the server, the port, the username and the key),
-`Hud/Widgets/LoginForm.cs` is SUBMIT's work.  **SUBMIT still doesn't log in**: there's no network client.
-At its hand-off every player file went into one folder, `~/.config/unity3d/FluffyByte/Opus.Ensemble/`
-(`Assets/Code/PlayerFiles.cs`).
+- **Jacob's ask**: "its time to build up the client to submit and move over to character selection!"  His
+  answers: get there this session (the list and LOG OUT; making, deleting and playing are their own
+  session); an account already playing gets KICK OTHER SESSION or LOG OFF for 30 seconds, and no answer
+  logs this one off ("if no answer it disconnects this session not the existing"); the client carries a
+  copy of the certificate; TLS 1.2 if Unity can't do 1.3; the client version is Player Settings' `0.0.0.1`
+  ("we're not ready for 0.0.1 yet"), and `networking.cfg`'s `client_versions` is `0.0.0.1, 0.0.1`.
+- **`Assets/Code/Net/`**, namespace `Opus.Net`: `Protocol.cs`, `Packets.cs`, `ServerCertificate.cs`,
+  `LoginConnection.cs` (TLS on its own thread, connecting while the key is made), `GameConnection.cs` (UDP,
+  a listening thread and a sending one: Connect, KeepAlive once a second, asks resent every half second, 15
+  seconds of quiet and it's gone), `MainThread.cs` (run from ScreenRoot's `Update()`), `Session.cs` (the
+  flow and the screens' events).
+- **The screens**: `login_status`, a line under SUBMIT (a dark red band for trouble, the two buttons when
+  asked); character select, `character_select_default.json` and `.uss` with three widgets and
+  `CharacterSelectForm.cs`.  ScreenRoot got Server Certificate, Character Select Layout and Character Select
+  Style slots.  **Remember Me is written only once the login works.**
+- **TLS 1.2**: the first compile failed on `SslProtocols.Tls13`, which Unity's .NET doesn't have.  The client
+  asks for 1.2, and Conductor's `rustls` got its `tls12` feature (Jacob had OKed it for this case).  The
+  handshake took 3 ms on Conductor's side.  `test_client.py` still insists on 1.3.
+- **Two scares that weren't the code**: a first SUBMIT went to the web admin's port (Conductor's log had no
+  "Connection from" line, and the web admin timed out reading a request; Jacob: "a local network issue"),
+  and after the certificate check ScreenRoot's Server Certificate slot was empty and a stray
+  `conductor_crt.b4.meta` was left in `Data/Certs/`.  Refilling the slot and restarting the client fixed it.
+- **The new `.meta` files weren't pushed** at the hand-off: Jacob's commit of them (`git add -A` of
+  `Assets` and `ProjectSettings`) is still to come.  If it hasn't landed, the next session asks for it
+  before touching Ensemble.
 
 ## Where the next session starts
 
-**Back to Ensemble** (Jacob: "wrap up here back to Ensemble").  By his earlier word that's the client's
-net code (his to change): the login over TLS (PROTOCOL.md, version 7: the Login carries the key), the
-client checking the server's certificate (TODO.md), and how far into UDP the first step goes.  **SUBMIT
-connects while the key is made** (Jacob's pick, "in the background while the player moves forward in
-login"): the TLS connection goes up as the key is worked out, and the Login goes the moment it's ready.
-`test_client.py` is the working example of every byte the client sends and reads.
+**Character select, the rest of it** (Jacob: "create/delete/select/play character next round").  The
+packets are all there and tested with `test_client.py` (PROTOCOL.md, "Character select"): CreateCharacter,
+DeleteCharacter (the player types DELETE), UserPressPlay and CharacterEnteredWorld, and Kicked reason 6 for
+a locked character.  On the client: `GameConnection.Ask()` takes only a type today, so the asks with fields
+come in; CREATE isn't offered with three slots full; an unplayable character is greyed and can't be picked;
+and what the screen does on CharacterEnteredWorld (the HUD, most likely) is Jacob's to say.
 
-Accounts to log in with: `testuser123` / `Testpass1!` (made again after the switch).
+Accounts to log in with: `testuser123` / `Testpass1!`.
 
 ## What's waiting
 
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
-- **Ensemble's client code**: the network client (Conductor takes the key now), character select's layout,
-  stitching the login, character select and the world together, and the HUD's Phases 2 and 3 (the
-  catalog's export, the web layout editor).  **Ensemble's project files in git** (Packages/, the .csproj
-  files, LFS for scenes): TODO.md.
+- **Ensemble's client code**: CREATE, DELETE and PLAY at character select, then the world on screen, and the
+  HUD's Phases 2 and 3 (the catalog's export, the web layout editor).  **Ensemble's project files in git**
+  (Packages/, the .csproj files, LFS for scenes): TODO.md.
 - **Chat**, the rest of the 0.0.1 goal.  Not designed (TODO.md).
 - **What the client is sent after CharacterEnteredWorld**: the world around it (chunks, `region.map`),
   other players, movement.  `design/world.md`, `design/gameclock.md`.
