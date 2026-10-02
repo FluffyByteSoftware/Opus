@@ -163,7 +163,10 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
   them.  The run checks (the double login, the account delete, the corrupt map) are still in
   TEST_CHECKLIST.html.
 - **The seven risks fixed, built and tested** (Jacob's "Yes" to the plan; `cargo build` clean, 365 tests
-  pass).  The first build caught a wrong line in the review: the web admin's two passwords were
+  pass), **and every run check passed** (the four bugs' and the seven risks', eight checks, 2026-10-02: the
+  blank passwords for `user`, the 3-second handshake, the fifth connection closed, the slow save off the
+  bell, the double login, the account delete, the corrupt map).  The first build caught a wrong line in the
+  review: the web admin's two passwords were
   `Kind::Text`, not `Secret`, so they're a new `Kind::Password` (a Secret that can't be empty).
   - R1 (`wgui/src/json.rs`, `lib.rs`): `json::settings()` takes the role, and a Secret goes out as `""` to
     `user`; a test each side.
@@ -183,7 +186,7 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
 
 ## Where the next session starts
 
-The run checks in TEST_CHECKLIST.html under "2026-10-02 -- the 0.0.1 fixes".  **The kick bug Jacob found
+**The kick bug Jacob found
 while testing** (2026-10-02): a second login that logs the other out and presses PLAY inside the
 character's one-second lock gets Kicked, reason 6, back to the login.  **Built from his "please add the
 PleaseWait feature before we release", written and NOT BUILT, Conductor and Ensemble both**: protocol
