@@ -65,7 +65,27 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     version 8 already (the number only) and logs a ChatDelivery as one it doesn't handle yet.
 - **`/who`** (Jacob, 2026-10-02, after chat passed, "we're barely 30% so we're gonna keep going"): "a /who
   that shows all connected players", each as "[PlayerName] is currently at [x,y,z]".  Planning: who counts as
-  connected, who sees the answer, where the positions come from, the line's exact form.
+  connected, who sees the answer, where the positions come from, the line's exact form.  His answers:
+  - **Characters in the world only** ("I agree characters in the world only").  Only the one who asked
+    sees the answer.
+  - **The line**: `[Aldric] is currently at [0, 0, 0]`, brackets and all.  "Eventually we will be putting
+    in a biome name there (or zone)".
+  - **Whole blocks**: "1, 0, -2 a block is the width of a player so they can only really fit on one".
+  - **Everybody seeing everybody's position**: "thats fine for now".  Who may see positions is for later.
+  - **The look** (his old MUD's, 79 wide), "except it will says ] Forgotten Legends [" and "There are
+    seven legends currently online.":
+
+    ```text
+    ----------------------======] Realms of the Dragon [======---------------------
+                                Fri Oct  2 03:53:24 2026
+    ----------------------------------] Players [----------------------------------
+    Bujin    Eetius   Guesty   Kriket   Malachy  Trzk     Zeleya
+    --------------> There are seven players in the Realms right now. <-------------
+    ```
+
+    Open: whether the Players part is that grid of names or a line each with the position; the date and
+    the UTC rule's `Z`; columns for names up to 20 letters.
+  - **Ensemble**: these lines only line up in a monospaced font, so the chat box needs one.
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
   kept below.  Settled for its database side, the first step:
