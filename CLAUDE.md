@@ -575,7 +575,11 @@ When I say we're wrapping up:
   in networking's slot (`typed.rs`: `Asker`, `Outcome`, `set_runner()`) and the two
   senders in the GameClock's, the way networking used to.  No thread, no service,
   nothing to stop.  Admin commands, when they come, are "a permissions difference but
-  the commands will otherwise be the same" (Jacob).
+  the commands will otherwise be the same" (Jacob).  **A crate that leans on one that
+  calls it gets a slot**: Rust won't build two crates that name each other, so the
+  lower one keeps the types both need and a `set_*()` for a plain function, and the
+  launcher fills it (the GameClock's senders, networking's runner).  Built and tested
+  2026-10-02.
 - **Character select is Protogame's** (`protogame.rs` in networking, its own
   thread and Services line): "the character selection and character
   construction are proto game then become game objects after load".  The
@@ -886,6 +890,25 @@ When I say we're wrapping up:
   2026-10-02 the Server Certificate slot was found empty after a check had
   edited the certificate's file, and a stray `.meta` for an editor's
   backup of it was left in `Data/Certs/`.
+- **A purchased font is a slot too** (2026-10-02): Jacob's Font Nation
+  pack lives in `Assets/Purchased/`, out of git, so a font from it reaches
+  the code through a slot on ScreenRoot (Chat Font is Retro), never a copy
+  in our four folders.  The pack's names say nothing about the font
+  (`Arcade`, `Retro`); `fc-query -f '%{spacing}'` on the `.ttf` says
+  whether it's monospaced (100), which `/who`'s box needs.  An Asset Store
+  font that's free is still the store's licence, so it goes the same way.
+- **Sizes on the HUD are judged on Jacob's 1440p monitor**, in the
+  layout's 2560 x 1440 pixels: the chat window's first 350 x 200 with 16 px
+  text was his spec and "holy shit" too small once seen; 700 x 300 and
+  24 px was "much better!".  A font size goes in the `.uss` as a plain
+  number, so the next tune is one line.
+- **The chat window** (`ChatWidget.cs`, `design/ensemble-hud.md`): the
+  HUD comes up over the Unity scene on `Session.ReachedWorld`; a line typed
+  goes out as typed through `Session.SendLine()`, which catches `/camp`
+  (to the login) and `/camp desktop` (closes the game) before anything is
+  sent; what comes back is `ChatLine` (white) and `WhoAnswered`
+  (`WhoBox.cs`, to the window's width in letters).  The player's own
+  lines are yellow.  Rich text is off on every line.
 - **A number written out goes through `Translator.NumberToWords()`**
   (`Assets/Code/Translator.cs`, a static class, every int there is),
   British with the "and" ("IN the honor of Discworld!"): "one hundred and

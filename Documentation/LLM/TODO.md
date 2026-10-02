@@ -148,8 +148,15 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **What `admin_commands` means** (Jacob, 2026-10-02): "its a permissions difference but the commands
     will otherwise be the same".  So the same table, with who may run each; from where, still open.
   - **Built** (2026-10-02, the same session as the chat window, "we got tokens"; waiting on a build):
-    `design/conductor-networking.md`, "Commands and the anti-flood", has how it leans.
-: today a command too soon is only refused.  Whether
+    `design/conductor-networking.md`, "Commands and the anti-flood", has how it leans.  Built, 93 tests
+    pass, chat works through it (Jacob, 2026-10-02).
+- **A major clean-up of code and documentation** (Jacob, 2026-10-02, at the chat window's hand-off: "Next
+  conversation we're gonna do major clean up of code and documentation").  His to lay out.  Candidates seen
+  on the way: the stale words entry below; `design/conductor-networking.md`'s "Chat" and "/who" sections,
+  patched for the commands' move rather than rewritten; STATUS.md's "Where things stand" paragraph, which
+  has grown to a page; `ChatWidget`'s `Font` being a static set by ScreenRoot, which works but is the only
+  slot handed over that way (the login's font goes through `ApplyText()`).
+- **Kicking a player who keeps flooding** (2026-10-02): today a command too soon is only refused.  Whether
   enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's call.
 - **`/help`** (2026-10-02): could list the table of commands.  Its own feature.
   - **Ensemble, with the chat box**: draw the WhoDelivery (the box to the chat box's width, the time in the

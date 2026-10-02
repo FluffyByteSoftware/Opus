@@ -38,11 +38,13 @@ login.  **The login turns the password into a key** on SUBMIT, and Remember Me k
 password (`design/client-security.md`).  **Ensemble logs in** (2026-10-02, `design/ensemble-networking.md`):
 over TLS 1.2 to the Ticket, then UDP, and on to **character select**, a third screen: the account's
 characters, a click to pick one, PLAY, CREATE, DELETE and RESET HOME, and LOG OUT.  PLAY puts the character in
-the world, and the screen says "In the world as <name>" with LOG OUT; there's no world on screen yet.  **The game's name is Forgotten Legends**; the project, its folders and
-code stay Opus.  Unity's Company Name is FluffyByte and its Product Name Opus.Ensemble.  Every file the game
-keeps for a player goes in `~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).  Ensemble has
-no chat box yet; it speaks protocol version 9 (the number only) and has `Translator.NumberToWords()` waiting
-for `/who`'s footer.
+the world, and **the HUD comes up over the Unity scene** (2026-10-02): the placeholder health bar and minimap,
+and **the chat window**, bottom-left, 700 x 300, 50% black, in Jacob's Retro font: what's typed goes to the
+server as typed and is echoed in yellow, the chat, refusals and `/who`'s box come back in white, Spans are put
+back together, and `/camp` (to the login) and `/camp desktop` (closes the game) are the way out.  **The game's
+name is Forgotten Legends**; the project, its folders and code stay Opus.  Unity's Company Name is FluffyByte
+and its Product Name Opus.Ensemble.  Every file the game keeps for a player goes in
+`~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).  Ensemble speaks protocol version 9.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -53,12 +55,12 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 `testing` and Jacob kept it there ("Keep in testing for now").  `unstable` and `testing` are level at this
 hand-off.  `main` moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor up to chat, `world_size`, the password's key and TLS 1.2
-included; `/chat` (protocol version 8), and `/who`, `/who list`, Spans (version 9), the command table and the
-anti-flood, and the test client's Ctrl-C: every check passed, nothing waits on a build.  **In Unity**:
-everything up to character select's PLAY passed, and `Translator.cs` compiles (its `.meta` committed by Jacob,
-`f9f1c6a`, with `Content/cfg/game.cfg`).  The test client's two typing checks passed too (2026-10-02); TEST_CHECKLIST.html
-has two Parked (Spans for real, and the chat box drawing `/who`).  **On Windows**: Conductor builds and runs, START SERVER included, without a
+**Built and tested on Linux**: all of Conductor up to chat, `/who` and the anti-flood, and the commands' move
+into `conductor-player-commands` (built, 93 tests pass, chat works through it; its one run check with the test
+client is still in TEST_CHECKLIST.html).  **In Unity**: everything up to character select's PLAY passed; the
+chat window compiles and chats, and its look passed on 1440p; its other checks (the test client hearing it,
+the anti-flood's refusal, `/who`'s box, the 300 limit, `/camp`) are in TEST_CHECKLIST.html with one Parked
+(Spans for real).  **On Windows**: Conductor builds and runs, START SERVER included, without a
 database; nothing since the world has been tried there (GitHub issue #10).
 
 ## Jacob's map (2026-09-30, and on)
@@ -118,56 +120,53 @@ His to change.
 
 During the chat window (2026-10-02): **"we need to rip the commands out of networking and put them into their
 own crate I think... conductor::player_commands then we'll probably also have admin_commands"**, and "make
-that todo for next session that seems urgent to me before we get too deep in commands".  TODO.md has it.
-His to change.
+that todo for next session that seems urgent to me before we get too deep in commands".  Then, the chat
+window pushed: **"Okay let's go ahead and push those commands to their own crate please we got tokens."**
+Done, the same session.
 
-## Last session -- 2026-10-02, chat, /who and the anti-flood (Conductor)
+At this hand-off (2026-10-02, the chat window and the commands crate): **"Next conversation we're gonna do
+major clean up of code and documentation"**.  His to change.
 
-Jacob, "rewinding a bit": the server's side of chat before the client's box.  Four pieces, each planned and
-OKed in its own commits.  `design/conductor-networking.md` ("Chat", "/who", "Commands and the anti-flood")
-and PROTOCOL.md have all of it; TODO.md has every answer in his words.
+## Last session -- 2026-10-02, the chat window (Ensemble) and conductor-player-commands
 
-- **`/chat`, built and tested** (protocol version 8, all nine checks passed).  The client sends the line as
-  typed in a PlayerCommand (`0x37`); `/chat <message>` ("since EverQuest set precedent"), plain ASCII,
-  anything past 300 characters dropped; everybody in the world gets `[Chat] Jacob: Yo yo yo!`, the speaker
-  too, one fixed channel ("like the way the old shit muds did it!"), in a ChatDelivery (`0x38`) from the
-  GameClock's broadcast check, once a cycle ("every beat").  Networking hands the GameClock its sender as a
-  plain function, since the GameClock can't depend on networking.  A line without a `/` is refused until
-  saying things nearby exists.
-- **`/who` and `/who list`, built and tested** (protocol version 9).  WhoDelivery (`0x39`): the names of
-  the characters in the world, A to Z, and with `/who list` each one's block (`[Aldric] is currently at [0,
-  0, 0]`), and the time as seconds since midnight UTC.  The client draws Jacob's old MUD's box ("]
-  Forgotten Legends [", "There are seven legends currently online."), in the player's time zone and to its
-  chat box's width.  `/who` is answered from the book; `/who list` goes through the GameClock for positions.
-  **Spans** (`0x3A`, Jacob's "span packet"): an answer over 1200 bytes in pieces, each "X of Y", the
-  client waiting 2 seconds.  **Ensemble**: `Translator.NumberToWords(int)`, British ("IN the honor of
-  Discworld!"), and `Protocol.cs` at 9.
-- **The command table and the anti-flood, built and tested.**  "I think we're doing this stupid.  We can
-  just make it so there's anti flood prevention on the server for any chat commands right?", and "make a
-  command interface... we could easily stuff new commands in".  `COMMANDS` in `commands.rs`: name, wait,
-  `run()`, a file each in `commands/`.  After a command, the player waits its wait before the next: 500 ms
-  by default ("two full game ticks"), `/who` 1 second, longer for anything heavy later.  Too soon gets
-  "You can't do that again so soon.", and doesn't push the wait back.
-- **test_client.py**: lines typed live in its terminal once in the world (Jacob: "write it so we can do it
-  that way"), `--type` lines, the `/who` box drawn at 79 wide, Spans joined, `--type-gap` (1.1 s by
-  default; 0 floods), keep-alives printed only when unanswered, and Ctrl-C caught anywhere with a Goodbye.  Ctrl-C "doing nothing" turned out to be
-  Jacob's terminal; a SIGINT line added for it was taken out again.
+Two steps, each planned, OKed and pushed on its own.  `design/ensemble-hud.md` ("The chat window"),
+`design/ensemble-networking.md` ("In the world: chat and /who") and `design/conductor-networking.md`
+("Commands and the anti-flood", the last bullet) have the detail; TODO.md's chat entry has Jacob's answers.
+
+- **The chat window, built, compiled and chatting.**  After PLAY the HUD comes up over the Unity scene ("the
+  HUD as it is", "render the game scene for now"), and character select's "In the world as" line and LOG OUT
+  are gone.  The window is Jacob's spec: lower left, a "Chat" header, the input field on the bottom row, his
+  lines echoed as `>/chat hello` in yellow, the server's in white, the whole window 50% black.  350 x 200
+  with 16 px text as asked, then on 1440p "holy shit we need to make the font bigger... and the window needs
+  to be twice as wide!": 700 x 300, 24 px lines, a 28 px header ("much better!").  The font is a slot,
+  Chat Font on ScreenRoot: **Retro** from his Font Nation pack (purchased, never committed; `fc-query` found
+  it and Arcade to be the pack's two monospaced fonts, and Fatality isn't one).  `Session.SendLine()`,
+  `GameConnection` reading ChatDelivery, WhoDelivery and Spans (2 seconds), `WhoBox.cs` drawing the box to
+  the window's width in letters, `/camp` and `/camp desktop` caught on the client, `Translator.NumberToWords()`
+  in the footer at last.
+- **`conductor-player-commands`, built and tested** (lib, `Conductor/dev/player-commands/`).  `commands.rs`,
+  `chat.rs` and `who.rs` moved whole; networking's `typed.rs` keeps `Asker`, `Outcome` and the slot the
+  launcher fills with `conductor_player_commands::wire()` in `start_server()`, with the GameClock's two
+  senders.  Networking never names the crate.  "Commands Unavailable" with nothing in the slot.  Admin
+  commands, when they come: "its a permissions difference but the commands will otherwise be the same".
+- Jacob's `Cargo.lock` and `WhoBox.cs.meta` commits may still be on his machine at this hand-off: the next
+  session fetches first.
 
 ## Where the next session starts
 
-**Chat in Ensemble** (Jacob: "next one we're gonna integrate chat into the client").  Conductor's side of chat and `/who` is built and
-tested, so the client's chat box has a server to talk to.  For it,
-TODO.md's chat entry has what's settled: a line typed goes out as a PlayerCommand as typed; ChatDelivery's
-lines are printed; the box stops taking keys at 300; WhoDelivery drawn as the box (monospaced, to the chat
-box's width, `NumberToWords()` for the count, the time in the player's time zone); Spans put back together;
-"You can't do that again so soon." shown like any refusal.  Still to ask: where "when you log in" puts the
-box (in the world after PLAY, or the HUD with Phase 1's chat placeholder).
+**"Major clean up of code and documentation"** (Jacob).  Nothing is planned for it yet; it's his to lay
+out.  Things seen along the way that a clean-up could take: TODO.md's "stale words in the code" entry;
+`design/conductor-networking.md` still describes networking as holding the commands in places (the "Chat"
+and "/who" sections were patched, not rewritten); STATUS.md's "Where things stand" has grown long; the
+checklist's chat checks are still to run, and a tick-back of them comes first.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
 ## What's waiting
 
-- **Ensemble's chat box**, and drawing `/who` in it (TODO.md).  Then 0.0.1 can go to `main`, Jacob's call.
+- **The chat window's checks** and the commands crate's run check, in TEST_CHECKLIST.html.  Then 0.0.1
+  (a player in the world, chatting, from Ensemble) can go to `main`, Jacob's call.
+- **The clean-up** Jacob named for next.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class
   on the client**: TODO.md.
