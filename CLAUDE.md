@@ -909,8 +909,9 @@ When I say we're wrapping up:
   sent; what comes back is `ChatLine` (white) and `WhoAnswered`
   (`WhoBox.cs`, to the window's width in letters).  The player's own
   lines are yellow.  Rich text is off on every line.  **The keys are
-  EverQuest's**: Enter or `/` anywhere brings them to the field, Escape
-  or a click away hands them to **`GameFocus`** (`Assets/Code/Hud/
+  EverQuest's**: Enter or `/` on **`GameFocus`** brings them to the field,
+  Enter in the field sends the line and hands them back, and so do Escape
+  and a click away, to `GameFocus` (`Assets/Code/Hud/
   GameFocus.cs`), the game's invisible place-holder for the focus on the
   HUD.  Never to nothing: Unity's runtime panel hands the focus back to
   the last widget on the next key, so a `Blur()` lasts one key.  Movement

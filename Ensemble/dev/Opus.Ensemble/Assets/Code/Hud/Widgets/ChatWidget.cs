@@ -7,8 +7,9 @@
 // The box stops taking keys at 300 characters.  The font is ScreenRoot's
 // Chat Font slot, a monospaced one, so /who's box lines up.  EverQuest's
 // keys (Jacob, 2026-10-02): Enter or a "/" while the game has the keys
-// (GameFocus) brings them to the field, the "/" already typed; Escape,
-// or a click away, hands them back to the game.
+// (GameFocus) brings them to the field, the "/" already typed; Enter in
+// the field sends the line and hands the keys back; so do Escape and a
+// click away.
 
 using Opus.Net;
 using UnityEngine;
@@ -181,9 +182,14 @@ namespace Opus.Hud
                 return;
             }
 
+            // Enter sends the line and hands the keys back to the game, as
+            // EverQuest does (Jacob, 2026-10-02: "if you press enter into
+            // the text chat it needs to switch to the other input window");
+            // an empty Enter only hands them back.
             string line = input.value;
             input.value = "";
             e.StopPropagation();
+            GameFocus.Take();
             if (line.Trim() == "")
                 return;
 

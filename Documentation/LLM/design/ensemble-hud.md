@@ -191,7 +191,9 @@ entry has his answers in his words.
   enter as a key on the other focus and when its played just make it shift").  Enter off a text field
   reaches the panel as Unity's NavigationSubmitEvent, with or without a KeyDownEvent of its own, so both are
   watched (seen 2026-10-02: the key event alone never came), and an Enter that brought the keys is never also
-  the Enter that sends the line (`tookKeysFrame`).  With the field focused, the keys are
+  the Enter that sends the line (`tookKeysFrame`).  **Enter in the field sends the line and hands the keys
+  back to the game** (Jacob: "if you press enter into the text chat it needs to switch to the other input
+  window"); an empty Enter only hands them back.  So a round of chat is Enter, type, Enter.  With the field focused, the keys are
   the field's own, and **Escape drops them**, as does a click away (Jacob, from EverQuest: "if I press enter
   or / it immediately starts focus into the chat window I last used's input bar... clicking away makes it
   lose focus.  So does hitting ESC").  The keys go to **`GameFocus`** (`Assets/Code/Hud/GameFocus.cs`), the
