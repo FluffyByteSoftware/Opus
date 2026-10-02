@@ -51,10 +51,10 @@ is up from the moment the launcher runs.  The server (Fingerprinter, Security, A
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
-**The branches**: `main` is at `bc7009e`, **released 2026-10-02 as 0.0.1**, tagged `0.0.1` on GitHub with
-the two packages on the Release (a player in the world, chatting, from Ensemble; the review's eleven fixes
-and PleaseWait built, tested and checked).  `unstable` and `testing` move on from there.  `main` moves when
-Jacob says.
+**The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
+the GitHub Release (a player in the world, chatting, from Ensemble; the review's eleven fixes and PleaseWait
+built, tested and checked).  `main`, `testing` and `unstable` are level, two docs commits past the tag
+(Jacob: "merge that all to main").  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor as released, 365 tests, every run check passed and out of
 TEST_CHECKLIST.html, which holds one Parked check (Spans for real).  **In Unity**: everything through the
