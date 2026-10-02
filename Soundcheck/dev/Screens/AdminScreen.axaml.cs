@@ -1,12 +1,14 @@
 // File:       Opus/Soundcheck/dev/Screens/AdminScreen.axaml.cs
 // Component:  Soundcheck
 // Author:     Jacob Chacko
-// What admin mode does: reads every file of the correct client folder,
-// hashes it, and writes patch_manifest.json (Patch/Manifest.cs), on a
-// worker thread with the progress bar following it.  The folder, the
-// version and the output path are remembered between runs
-// (Patch/AdminSettings.cs).  The manifest can't be written inside the
-// folder it describes, since it would have to list itself.
+// What admin mode does: PUBLISH mirrors the build folder for the platform
+// picked into download/<platform>/ in the web folder (Patch/Mirror.cs),
+// then hashes the mirror and writes that platform's manifest at the web
+// folder's root (Patch/Manifest.cs), on a worker thread with the progress
+// bar following it.  The web server serves the folder as it is, and a
+// player's launcher fetches the manifest and then any file by its path.
+// A folder per platform, the version, the platform picked and the web
+// folder are remembered between runs (Patch/AdminSettings.cs).
 
 using System;
 using System.Collections.Generic;
@@ -26,18 +28,70 @@ namespace Opus.Soundcheck.Screens
     {
         readonly AdminSettings settings;
 
-        // Set while a manifest is being written, so a second click waits.
-        bool writing;
+        // Which platform the screen is on.
+        string platform;
+
+        // Set while a publish runs, so a second click waits.
+        bool publishing;
 
         public AdminScreen()
         {
             InitializeComponent();
             settings = AdminSettings.Load();
-            FolderBox.Text = settings.ClientFolder ?? "";
             VersionBox.Text = string.IsNullOrEmpty(settings.ClientVersion)
                 ? ClientVersion.Text
                 : settings.ClientVersion;
-            WriteToBox.Text = settings.WriteTo ?? "";
+            WebFolderBox.Text = string.IsNullOrEmpty(settings.WebFolder)
+                ? AdminSettings.DefaultWebFolder
+                : settings.WebFolder;
+            WebFolderBox.TextChanged += (sender, e) => SayWhere();
+
+            // The platform picked last time, else the one this machine is;
+            // ticking the button fills the folder box (PlatformChanged).
+            string picked = Platforms.IsKnown(settings.Platform) ? settings.Platform : Platforms.Here;
+            if (picked == Platforms.Windows)
+                WindowsButton.IsChecked = true;
+            else
+                LinuxButton.IsChecked = true;
+        }
+
+        // ---------------------------------------------------------------
+        // Linux or Windows
+        // ---------------------------------------------------------------
+
+        // One of the two buttons changed.  Avalonia fires this for the one
+        // going off as well as the one going on, and while the screen is
+        // still being built (before `settings` is set), so both are
+        // checked for.
+        void PlatformChanged(object sender, RoutedEventArgs e)
+        {
+            RadioButton button = sender as RadioButton;
+            if (settings == null || button == null || button.IsChecked != true)
+                return;
+            string picked = button == WindowsButton ? Platforms.Windows : Platforms.Linux;
+            if (picked == platform)
+                return;
+            if (platform != null)
+                settings.SetFolder(platform, (FolderBox.Text ?? "").Trim());
+            platform = picked;
+            FolderBox.Text = settings.FolderFor(platform) ?? "";
+            SayWhere();
+        }
+
+        // The line under the web folder: where the copy and the manifest go.
+        void SayWhere()
+        {
+            if (platform == null)
+                return;
+            string www = (WebFolderBox.Text ?? "").Trim();
+            if (www == "")
+            {
+                WhereLine.Text = "";
+                return;
+            }
+            WhereLine.Text = "The copy goes to " + Mirror.FolderFor(www, platform) + ", the manifest to "
+                             + Path.Combine(www, Manifest.FileNameFor(platform)) + ".  Players fetch both from "
+                             + ManifestSource.Base(null) + ".";
         }
 
         // ---------------------------------------------------------------
@@ -46,62 +100,49 @@ namespace Opus.Soundcheck.Screens
 
         async void BrowseFolderClicked(object sender, RoutedEventArgs e)
         {
+            string path = await PickFolder("The " + platform + " build folder");
+            if (path != null)
+                FolderBox.Text = path;
+        }
+
+        async void BrowseWebFolderClicked(object sender, RoutedEventArgs e)
+        {
+            string path = await PickFolder("The web folder");
+            if (path != null)
+                WebFolderBox.Text = path;
+        }
+
+        async Task<string> PickFolder(string title)
+        {
             IStorageProvider storage = TopLevel.GetTopLevel(this)?.StorageProvider;
             if (storage == null)
-                return;
+                return null;
             IReadOnlyList<IStorageFolder> picked = await storage.OpenFolderPickerAsync(new FolderPickerOpenOptions
             {
-                Title = "The client folder",
+                Title = title,
                 AllowMultiple = false,
             });
             if (picked.Count == 0)
-                return;
-            string path = picked[0].TryGetLocalPath();
-            if (path == null)
-                return;
-            FolderBox.Text = path;
-            // A first manifest goes beside the folder, not in it.
-            if (string.IsNullOrEmpty(WriteToBox.Text))
-            {
-                string parent = Path.GetDirectoryName(Path.GetFullPath(path)) ?? path;
-                WriteToBox.Text = Path.Combine(parent, Manifest.FileName);
-            }
-        }
-
-        async void BrowseWriteToClicked(object sender, RoutedEventArgs e)
-        {
-            IStorageProvider storage = TopLevel.GetTopLevel(this)?.StorageProvider;
-            if (storage == null)
-                return;
-            IStorageFile picked = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = "Write the manifest to",
-                SuggestedFileName = Manifest.FileName,
-                DefaultExtension = "json",
-                ShowOverwritePrompt = true,
-            });
-            if (picked == null)
-                return;
-            string path = picked.TryGetLocalPath();
-            if (path != null)
-                WriteToBox.Text = path;
+                return null;
+            return picked[0].TryGetLocalPath();
         }
 
         // ---------------------------------------------------------------
-        // WRITE MANIFEST
+        // PUBLISH
         // ---------------------------------------------------------------
 
-        async void WriteClicked(object sender, RoutedEventArgs e)
+        async void PublishClicked(object sender, RoutedEventArgs e)
         {
-            if (writing)
+            if (publishing)
                 return;
 
             string folder = (FolderBox.Text ?? "").Trim();
             string version = (VersionBox.Text ?? "").Trim();
-            string writeTo = (WriteToBox.Text ?? "").Trim();
+            string www = (WebFolderBox.Text ?? "").Trim();
             if (folder == "" || !Directory.Exists(folder))
             {
-                ShowStatus("Pick the client folder first; there's no folder at \"" + folder + "\".", true);
+                ShowStatus("Pick the " + platform + " build folder first; there's no folder at \"" + folder + "\".",
+                           true);
                 return;
             }
             if (version == "")
@@ -109,66 +150,89 @@ namespace Opus.Soundcheck.Screens
                 ShowStatus("Type the client's version.", true);
                 return;
             }
-            if (writeTo == "")
+            if (www == "")
             {
-                ShowStatus("Say where to write the manifest.", true);
+                ShowStatus("Say which folder the web server serves.", true);
                 return;
             }
-            string fullFolder = Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar)
-                                + Path.DirectorySeparatorChar;
-            string fullWriteTo = Path.GetFullPath(writeTo);
-            if (fullWriteTo.StartsWith(fullFolder, StringComparison.Ordinal))
+            string fullFolder = WithSlash(folder);
+            string fullWww = WithSlash(www);
+            if (fullWww.StartsWith(fullFolder, StringComparison.Ordinal)
+                || fullFolder.StartsWith(fullWww, StringComparison.Ordinal))
             {
-                ShowStatus("Write the manifest outside the client folder, or it would have to list itself.", true);
+                ShowStatus("The build folder and the web folder can't be inside each other: the copy would be copying "
+                           + "itself.", true);
                 return;
             }
+            string mirror = Mirror.FolderFor(www, platform);
+            string manifestPath = Path.Combine(www, Manifest.FileNameFor(platform));
 
-            settings.ClientFolder = folder;
+            settings.SetFolder(platform, folder);
             settings.ClientVersion = version;
-            settings.WriteTo = writeTo;
+            settings.Platform = platform;
+            settings.WebFolder = www;
             settings.Save();
 
-            writing = true;
+            publishing = true;
             SetEnabled(false);
             Progress.Value = 0;
             Progress.IsVisible = true;
-            ShowStatus("Reading " + folder + "...", false);
-            Log.Say("Admin: writing a manifest of " + folder + " (version " + version + ") to " + writeTo + ".");
+            ShowStatus("Copying " + folder + " to " + mirror + "...", false);
+            Log.Say("Admin: publishing the " + platform + " build at " + folder + " (version " + version + ") into "
+                    + www + ".");
 
             var clock = Stopwatch.StartNew();
             try
             {
-                Manifest manifest = await Task.Run(() => Manifest.Of(folder, version, Report, CancellationToken.None));
-                manifest.Save(writeTo);
+                MirrorResult copied = await Task.Run(
+                    () => Mirror.Run(folder, mirror,
+                                     (done, total, path) => Report("Copying", done, total, path),
+                                     CancellationToken.None));
+                Log.Say("Admin: the copy is at " + mirror + ": " + copied.Copied + " copied, " + copied.Kept
+                        + " already there, " + copied.Removed + " removed.");
+                Manifest manifest = await Task.Run(
+                    () => Manifest.Of(mirror, platform, version,
+                                      (done, total, path) => Report("Hashing", done, total, path),
+                                      CancellationToken.None));
+                manifest.Save(manifestPath);
                 int count = manifest.Files.Count;
-                string words = "Wrote " + count + (count == 1 ? " file" : " files") + ", "
-                               + Megabytes(manifest.TotalBytes) + " MB, in "
-                               + clock.Elapsed.TotalSeconds.ToString("0.0") + " s, to " + writeTo + ".";
+                string words = "Published " + platform + " in " + clock.Elapsed.TotalSeconds.ToString("0.0") + " s: "
+                               + copied.Copied + " copied, " + copied.Kept + " already there, " + copied.Removed
+                               + " removed; the manifest lists " + count + (count == 1 ? " file, " : " files, ")
+                               + Megabytes(manifest.TotalBytes) + " MB.  The copy is at " + mirror
+                               + ", the manifest at " + manifestPath + ".";
                 Log.Say("Admin: " + words);
                 ShowStatus(words, false);
                 Progress.Value = 1;
             }
             catch (Exception ex)
             {
-                Log.Error("Admin: the manifest couldn't be written (" + ex.Message + ").");
-                ShowStatus("Couldn't write the manifest: " + ex.Message, true);
+                Log.Error("Admin: the publish failed (" + ex.Message + ").");
+                ShowStatus("Couldn't publish: " + ex.Message, true);
                 Progress.IsVisible = false;
             }
             finally
             {
-                writing = false;
+                publishing = false;
                 SetEnabled(true);
             }
         }
 
         // From the worker thread, after each file.
-        void Report(int done, int total, string path)
+        void Report(string doing, int done, int total, string path)
         {
             Dispatcher.UIThread.Post(() =>
             {
                 Progress.Value = total == 0 ? 1 : (double)done / total;
-                ShowStatus(done + " of " + total + ": " + path, false);
+                ShowStatus(doing + " " + done + " of " + total + ": " + path, false);
             });
+        }
+
+        // A folder's full path with the separator on the end, so "inside"
+        // is a plain StartsWith.
+        static string WithSlash(string folder)
+        {
+            return Path.GetFullPath(folder).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
         }
 
         static string Megabytes(long bytes)
@@ -178,12 +242,14 @@ namespace Opus.Soundcheck.Screens
 
         void SetEnabled(bool enabled)
         {
+            LinuxButton.IsEnabled = enabled;
+            WindowsButton.IsEnabled = enabled;
             FolderBox.IsEnabled = enabled;
             VersionBox.IsEnabled = enabled;
-            WriteToBox.IsEnabled = enabled;
+            WebFolderBox.IsEnabled = enabled;
             BrowseFolderButton.IsEnabled = enabled;
-            BrowseWriteToButton.IsEnabled = enabled;
-            WriteButton.IsEnabled = enabled;
+            BrowseWebFolderButton.IsEnabled = enabled;
+            PublishButton.IsEnabled = enabled;
         }
 
         void ShowStatus(string words, bool trouble)

@@ -214,7 +214,7 @@ Opus/
 │       ├── app.manifest               # Windows only: says the program is written for Windows 10 and up
 │       ├── Program.cs                 # where it starts: builds the Avalonia app and runs the window
 │       ├── App.axaml                  # the theme, and our own looks over it, in the login's colours
-│       ├── App.axaml.cs               # opens the window; --admin is admin mode, --debug is debug mode
+│       ├── App.axaml.cs               # opens the window; --admin, --debug, --game <path>, --www <url>, --patched
 │       ├── MainWindow.axaml           # the one window: the game's name, the screen, the version in the corner
 │       ├── MainWindow.axaml.cs        # puts the right screen in; stops a login when the window closes
 │       ├── ClientVersion.cs           # the <Version> read off the program: what the Login carries
@@ -233,11 +233,19 @@ Opus/
 │       │   ├── PasswordKey.cs         # the password's key, the same recipe as Ensemble's and Conductor's
 │       │   └── RememberedLogin.cs     # Remember Me's file, the same file Ensemble wrote, read with System.Text.Json
 │       ├── Patch/                     # namespace Opus.Patch
-│       │   ├── Manifest.cs            # patch_manifest.json (PATCH_MANIFEST.md): walk a folder, hash every file, write, read
-│       │   └── AdminSettings.cs       # what admin mode remembers: the folder, the version, where it wrote
+│       │   ├── Manifest.cs            # linux_manifest.json / windows_manifest.json (PATCH_MANIFEST.md): walk a folder,
+│       │   │                          #   hash every file, write, read; Platforms.Here is which OS this is
+│       │   ├── ManifestSource.cs      # the web folder (http://opusensemble.duckdns.org:8553/): the manifest's and a
+│       │   │                          #   file's address, and the fetches
+│       │   ├── ManifestCheck.cs       # the install hashed and held against the manifest: missing, changed, extra
+│       │   ├── Patcher.cs             # what's off fetched to a temp and swapped in; the leftovers; the launcher's restart
+│       │   ├── Mirror.cs              # admin mode's copy of the build into download/<platform>/ in the web folder
+│       │   └── AdminSettings.cs       # what admin mode remembers: a folder per platform, the version, the web folder
 │       └── Screens/                   # namespace Opus.Soundcheck.Screens, a .axaml and its code each
-│           ├── LoginScreen.axaml(.cs) # the login: the boxes, SUBMIT, the status box, the other-session buttons, PLAY
-│           └── AdminScreen.axaml(.cs) # admin mode: the client folder, the version, where to write, WRITE MANIFEST
+│           ├── LoginScreen.axaml(.cs) # the check at start with the boxes locked, the patch, the restart; then the
+│           │                          #   login: the boxes, SUBMIT, the status box, the other-session buttons, PLAY
+│           └── AdminScreen.axaml(.cs) # admin mode: Linux or Windows, that build folder, the version, the web folder,
+│                                      #   PUBLISH
 ├── Content/                           # committed, except Assets/, logs/, world/ and patch/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)
@@ -256,7 +264,8 @@ Opus/
 │   ├── world/region.map               # the game's save starts here: which region every chunk is in -- never committed
 │   ├── world/Regions/Omega/omega.heights # Omega's hills, made once from the seed -- never committed
 │   ├── world/Regions/<Region>/*.chunk # a chunk somebody changed, whole (none yet) -- never committed
-│   ├── patch/patch_manifest.json      # the stamp of the shipped client, written by Soundcheck's admin mode -- never committed
+│   ├── patch/                         # spare: admin mode publishes into the web folder (/opt/storage/WWW) now -- never
+│   │                                  #   committed
 │   └── psql/
 │       ├── defaults/schemas/accounts.sql  # the accounts table as first made
 │       ├── defaults/schemas/player_characters.sql # a player's characters: account, name, position, save
@@ -275,7 +284,7 @@ Opus/
         ├── PROTOCOL.md                # the server/client contract: the login over TLS, the game over UDP
         ├── REGION_MAP.md              # region.map, byte for byte: which region every chunk is in
         ├── HUD_FORMATS.md             # the HUD's layout and catalog files, field by field: the contract
-        ├── PATCH_MANIFEST.md          # patch_manifest.json, field by field: Soundcheck's and Conductor's contract
+        ├── PATCH_MANIFEST.md          # the two manifests, field by field, and the web folder's layout: the launcher's contract
         ├── HUD_LAYOUT_SYSTEM.md       # Jacob's brief for the HUD, kept as he wrote it
         ├── WRITINGSTYLE.md            # Jacob's voice for anything in the repo
         ├── TEST_CHECKLIST.html        # what's still to check on testing, a page with boxes; a passed check comes out
@@ -308,7 +317,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 |                      |                                                         | logging in, character select,    |
 |                      |                                                         | the chat window and its keys     |
 | Soundcheck           | The launcher: the login, the manifest check, then      | Tested 2026-10-02: the login,    |
-|                      | Ensemble.  C# on .NET 10, Avalonia.                     | admin mode, debug mode           |
+|                      | Ensemble.  C# on .NET 10, Avalonia.                     | PLAY, debug mode; written: the   |
+|                      |                                                         | web folder, the check, the patch |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |
@@ -335,4 +345,6 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | The access lists     | The whitelist and the blacklist at the door.            | Tested                           |
 | The protocol         | What Conductor and a client say to each other.          | Version 10                       |
 | region.map           | Which region every chunk is in, for server and client.  | Version 2                        |
-| patch_manifest.json  | Every file of the shipped client, its size and hash.    | Format 1; Soundcheck writes it   |
+| linux_manifest.json, | Every file of the shipped client, its size and hash,    | Format 3; Soundcheck writes them,|
+|   windows_manifest   | one a platform, with the clients' copies beside them    | fetches its own, checks, patches |
+|   .json              | at opusensemble.duckdns.org:8553.                       |                                  |

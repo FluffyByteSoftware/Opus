@@ -5,8 +5,9 @@ Author:     Jacob Chacko
 
 The login screen, as Ensemble had it: server and port, username and
 password, Remember Me, SUBMIT, the status box under it (with the two buttons
-for an account already playing elsewhere), and PLAY, which comes alive once
-the login's done and starts the game.
+for an account already playing elsewhere), the file check's progress bar,
+and PLAY, which comes alive once the login's done and the game's files
+have passed the check, and starts the game.
 -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -39,6 +40,9 @@ the login's done and starts the game.
     <Border x:Name="StatusBox" Classes="status" Margin="0,12,0,0" IsVisible="False">
       <TextBlock x:Name="StatusLine" />
     </Border>
+
+    <!-- Follows the file check after SUBMIT's login. -->
+    <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Height="6" Margin="0,8,0,0" IsVisible="False" />
 
     <Grid x:Name="ChoiceRow" ColumnDefinitions="*,8,*" Margin="0,8,0,0" IsVisible="False">
       <Button Grid.Column="0" Classes="primary" Content="LOG THE OTHER OUT" HorizontalAlignment="Stretch"

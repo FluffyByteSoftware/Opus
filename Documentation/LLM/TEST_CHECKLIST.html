@@ -197,6 +197,158 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>Soundcheck: the web folder, the check at start, the patch (2026-10-02)</h2>
+<p>Not built by me yet: the first <code>dotnet build</code> may want a fix or two.  Admin mode first, on the
+0.0.12 build, into a web folder; then user mode against a web server on this machine serving that folder,
+standing in for <code>opusensemble.duckdns.org:8553</code> until the folder is up there.  The server has to
+be running with the door open for the login part, as before.</p>
+<pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --admin</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Admin mode opens with Linux ticked (this machine), the web folder box saying
+      <code>/opt/storage/WWW</code>, and the small line under it saying the copy goes to
+      <code>/opt/storage/WWW/download/linux</code> and the manifest to
+      <code>/opt/storage/WWW/linux_manifest.json</code>.  The build folder box is blank (the old settings
+      file remembered one folder, not one a platform).
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Pick <code>/opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12</code> as the build folder and
+      PUBLISH: the progress bar runs through "Copying N of M" then "Hashing N of M", and the status says
+      "Published linux in S s: M copied, 0 already there, 0 removed; the manifest lists M files, X MB."
+      with the two paths.  <code>download/linux/</code> is the build without
+      <code>Ensemble_BackUpThisFolder_ButDontShipItWithYourGame</code>, <code>Ensemble.x86_64</code> in it
+      is still executable, and the manifest says <code>"format": 3</code>, <code>"platform": "linux"</code>
+      and <code>"executable": true</code> on that line.
+    </span></label>
+  </li>
+</ul>
+<pre class="cmd">ls -la /opt/storage/WWW /opt/storage/WWW/download/linux | head -20; grep -c BackUpThisFolder /opt/storage/WWW/linux_manifest.json; grep -m3 '"format"\|"platform"\|"executable"' /opt/storage/WWW/linux_manifest.json</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      PUBLISH again, nothing changed: "0 copied, M already there, 0 removed", and it's quick (the copy is
+      skipped by size and time; the hashing still runs).
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Tick Windows: the build folder box empties (a folder is remembered per platform) and the line says
+      <code>download/windows</code> and <code>windows_manifest.json</code>.  Close admin mode and open it
+      again: it comes back on Windows, and ticking Linux brings the 0.0.12 folder back.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A web folder inside the build folder (or the other way round) is refused with "can't be inside each
+      other".
+    </span></label>
+  </li>
+</ul>
+<p>User mode.  A web server on this machine serving the web folder (the first command, in its own
+terminal; Ctrl-C ends it), and Soundcheck pointed at it with <code>--www</code>.  The check runs at the
+start, before any login.</p>
+<pre class="cmd">python3 -m http.server 8553 --directory /opt/storage/WWW</pre>
+<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --game /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble.x86_64 --www http://127.0.0.1:8553/</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The window opens with the boxes greyed, "Fetching the linux manifest from
+      http://127.0.0.1:8553/linux_manifest.json", then "Checking the game's files in ..." with the bar
+      running, then "Every file checks out (M files). Log in." and the boxes come alive.  The terminal's
+      first line says <code>Soundcheck 0.0.1 on linux</code>, and the log has the manifest's version, count
+      and when it was written, and the check's time.  SUBMIT and PLAY work as before.
+    </span></label>
+  </li>
+</ul>
+<p>A file that's off.  Copy one of the game's small files aside, break it, and start Soundcheck again
+(the same command as above): the patcher fetches it back from the web folder.  Then compare the two
+copies and delete the one put aside.</p>
+<pre class="cmd">cp /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/boot.config /tmp/boot.config.keep; echo broken >> /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/boot.config; rm /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/app.info</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      At the start: "Updating the game: 2 files, 0.0 MB to fetch...", "Fetching 1 of 2: ...", then the
+      check again, then "Updated 2 files (0.0 MB). Every file checks out now. Log in."  The log has a
+      "Patch: ... is in." line per file and the Changed/Missing names.  <code>boot.config</code> matches
+      the copy kept aside (<code>cmp</code> says nothing) and <code>app.info</code> is back.
+    </span></label>
+  </li>
+</ul>
+<pre class="cmd">cmp /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/boot.config /tmp/boot.config.keep && echo same; ls /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/app.info; rm /tmp/boot.config.keep</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Delete <code>Ensemble.x86_64</code> itself (it's in the web folder) and start again: it comes back
+      and is executable (<code>ls -l</code> shows the x), and PLAY starts the game.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A file the manifest doesn't know (<code>touch</code> one in the 0.0.12 folder, delete it after):
+      the check still passes, with "1 file here isn't in the manifest and was left alone (&lt;name&gt;)."
+      on the end.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      With the web server stopped: "The game's files couldn't be checked: couldn't reach
+      http://127.0.0.1:8553/linux_manifest.json (...). Close the launcher and try again." in red, the
+      boxes stay greyed.  <code>--www http://127.0.0.1:8553/nothing/</code> with it running: "... answered
+      404 ...".
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A file missing from the web folder: delete <code>/opt/storage/WWW/download/linux/Ensemble_Data/app.info</code>
+      (not the manifest's line), break the install's copy as above, start: "The game's files couldn't be
+      checked: ... app.info answered 404 Not Found", boxes greyed, and the install's broken file is still
+      there with no <code>.patch</code> beside it.  PUBLISH in admin mode puts the web copy back.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A manifest line with a broken hash (the <code>sed</code> below changes one character of the first
+      file's hash): the file is fetched, the copy's hash doesn't match the manifest, and the status says
+      "the copy at ... isn't what the manifest says".  PUBLISH writes a good manifest back.
+    </span></label>
+  </li>
+</ul>
+<pre class="cmd">sed -i '0,/"sha256": "/s/"sha256": "./"sha256": "z/' /opt/storage/WWW/linux_manifest.json</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>--debug</code>: no fetch, no check, the boxes open at once with "Debug mode: the game's files
+      aren't checked."; SUBMIT writes the ticket file and PLAY is on, as before.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      KICK from the web admin with the check on: Soundcheck opens, the check runs, and the status ends
+      up red with "You were kicked by the admin. Every file checks out (M files). Log in."  The farewell
+      isn't lost under the check's words.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Once the web folder is up at <code>opusensemble.duckdns.org:8553</code>: without <code>--www</code>,
+      the log says "the manifest is http://opusensemble.duckdns.org:8553/linux_manifest.json" and the
+      check passes against it.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Parked until Soundcheck ships beside the game (no <code>--game</code>): a changed launcher file in the
+      web folder is fetched, "The launcher was updated. Starting it again...", and the new launcher opens
+      with "Started again after a patch." in its log and passes.  On Windows, the old <code>.exe</code> is
+      left as <code>.old</code> and gone on the start after.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

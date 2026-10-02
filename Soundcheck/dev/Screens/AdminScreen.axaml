@@ -3,16 +3,24 @@ File:       Opus/Soundcheck/dev/Screens/AdminScreen.axaml
 Component:  Soundcheck
 Author:     Jacob Chacko
 
-Admin mode's one screen: the correct client folder, the version it is,
-where to write the manifest, WRITE MANIFEST, and how it went.
+Admin mode's one screen: which platform the build is for, its folder, the
+version it is, the web folder, PUBLISH, and how it went.
 -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Opus.Soundcheck.Screens.AdminScreen">
 
-  <StackPanel Width="460" HorizontalAlignment="Center">
+  <StackPanel Width="520" HorizontalAlignment="Center">
 
-    <TextBlock Classes="label" Text="The client folder (exactly what ships to players)" />
+    <TextBlock Classes="label" Text="The build is for" />
+    <StackPanel Orientation="Horizontal" Spacing="24">
+      <RadioButton x:Name="LinuxButton" GroupName="platform" Content="Linux" Foreground="#BFFFFFFF"
+                   IsCheckedChanged="PlatformChanged" />
+      <RadioButton x:Name="WindowsButton" GroupName="platform" Content="Windows" Foreground="#BFFFFFFF"
+                   IsCheckedChanged="PlatformChanged" />
+    </StackPanel>
+
+    <TextBlock Classes="label" Text="The build folder (exactly what ships to players)" />
     <Grid ColumnDefinitions="*,8,Auto">
       <TextBox Grid.Column="0" x:Name="FolderBox" />
       <Button Grid.Column="2" x:Name="BrowseFolderButton" Classes="primary" Content="BROWSE"
@@ -22,15 +30,16 @@ where to write the manifest, WRITE MANIFEST, and how it went.
     <TextBlock Classes="label" Text="The client's version (what networking.cfg's client_versions lists)" />
     <TextBox x:Name="VersionBox" Width="160" HorizontalAlignment="Left" />
 
-    <TextBlock Classes="label" Text="Write the manifest to" />
+    <TextBlock Classes="label" Text="The web folder (what the web server serves)" />
     <Grid ColumnDefinitions="*,8,Auto">
-      <TextBox Grid.Column="0" x:Name="WriteToBox" />
-      <Button Grid.Column="2" x:Name="BrowseWriteToButton" Classes="primary" Content="BROWSE"
-              Click="BrowseWriteToClicked" />
+      <TextBox Grid.Column="0" x:Name="WebFolderBox" />
+      <Button Grid.Column="2" x:Name="BrowseWebFolderButton" Classes="primary" Content="BROWSE"
+              Click="BrowseWebFolderClicked" />
     </Grid>
+    <TextBlock Classes="small" x:Name="WhereLine" Margin="0,4,0,0" TextWrapping="Wrap" />
 
-    <Button x:Name="WriteButton" Classes="primary" Content="WRITE MANIFEST" HorizontalAlignment="Stretch"
-            Margin="0,16,0,0" Click="WriteClicked" />
+    <Button x:Name="PublishButton" Classes="primary" Content="PUBLISH" HorizontalAlignment="Stretch"
+            Margin="0,16,0,0" Click="PublishClicked" />
 
     <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Height="6" Margin="0,12,0,0" IsVisible="False" />
 
