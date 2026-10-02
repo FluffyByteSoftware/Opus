@@ -234,20 +234,32 @@ pub fn listening_on() -> Option<SocketAddr> {
 fn listen(socket: Arc<UdpSocket>, stopping: Arc<AtomicBool>, udp_timeout: Duration, token_deadline: Duration) {
     let mut buffer = [0u8; READ_BUFFER];
     let mut last_sweep = Instant::now();
+    // Set once we've said the receive is failing, so a failure that keeps
+    // happening is one Warn on the bell and not ten a second.
+    let mut said_failed = false;
 
     loop {
         if stopping.load(Ordering::SeqCst) {
             return;
         }
         match socket.recv_from(&mut buffer) {
-            Ok((size, from)) => heard(&socket, &buffer[..size], from),
+            Ok((size, from)) => {
+                said_failed = false;
+                heard(&socket, &buffer[..size], from);
+            }
             Err(e) if timed_out(&e) => {}
             // Windows reports a packet we sent earlier bouncing off a
             // closed port as a failed receive.  It's about the other end,
             // not us, and means nothing here.
             Err(e) if e.kind() == io::ErrorKind::ConnectionReset => {}
             Err(e) => {
-                scribe::warn(Channel::Network, &format!("UDP receive failed: {e}."));
+                if !said_failed {
+                    said_failed = true;
+                    scribe::warn(Channel::Network, &format!("UDP receive failed: {e}.  Said once; the next line \
+                        about it is when it works again."));
+                } else {
+                    scribe::debug(Channel::Network, &format!("UDP receive failed again: {e}."));
+                }
                 // A failure that keeps happening would otherwise fill the
                 // log as fast as the disk allows.
                 thread::sleep(Duration::from_millis(100));
@@ -304,8 +316,10 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 Connected::Again(_) => send(socket, from, &REPLIES.accepted),
                 Connected::Refused => {
                     // Never the token.  Whether it was a guess or a copy,
-                    // the log doesn't need it.
-                    scribe::info(Channel::Security, &format!("Refused a UDP connect from {from}."));
+                    // the log doesn't need it.  Debug, not Info: the
+                    // address on a UDP packet can be anybody's, so a
+                    // flood of these would be a flood of lines on disk.
+                    scribe::debug(Channel::Security, &format!("Refused a UDP connect from {from}."));
                     send(socket, from, &REPLIES.refused);
                 }
             }

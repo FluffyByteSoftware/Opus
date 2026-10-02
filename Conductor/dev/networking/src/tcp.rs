@@ -111,6 +111,19 @@ const PLACE_EVERY: Duration = Duration::from_secs(1);
 /// bring the character in on the save before.
 const OLD_SAVE_WAIT: Duration = Duration::from_secs(5);
 
+/// How long a connection gets to finish TLS, counted from when it
+/// arrived, inside the login deadline.  A connection that sends nothing
+/// would otherwise hold a login thread for the whole login deadline, and
+/// eight of those every ten seconds would keep every real player out
+/// (the 0.0.1 review's R2).  A handshake takes milliseconds; three
+/// seconds is a slow link, not a client.
+const HANDSHAKE_WAIT: Duration = Duration::from_secs(3);
+
+/// How many connections one address may have open at the door at once
+/// (queued or being served).  Past that its next one is closed at the
+/// door.  A player needs one; a few covers a retry or two in flight.
+const MOST_OPEN_PER_ADDRESS: usize = 4;
+
 /// How many times a login goes round the "is the account in the world"
 /// check before it gives up with Login Unavailable.  More than one means
 /// somebody keeps coming into the world on the account from somewhere
@@ -386,8 +399,10 @@ pub fn listening_on() -> Option<SocketAddr> {
 /// ledger says instead.
 fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<AtomicBool>, open: OpenSockets) {
     // Set once we've said the queue is full, so a flood gets one Warn and
-    // not one per connection.
+    // not one per connection.  The same for a failing accept(): one Warn,
+    // and again only after it has worked in between.
     let mut said_full = false;
+    let mut said_failed = false;
 
     loop {
         match listener.accept() {
@@ -395,6 +410,7 @@ fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<Atomi
                 if stopping.load(Ordering::SeqCst) {
                     return;
                 }
+                said_failed = false;
                 let id = ledger::arrived(peer);
                 // Rust note: `continue` drops `socket` here, and a
                 // dropped socket is a closed one.  That's the whole cost
@@ -419,6 +435,12 @@ fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<Atomi
                         Closed at the door; {} ms of the hold left.", FAILURE_HOLD.as_secs(), left.as_millis()));
                     continue;
                 }
+                if open_from(&open, peer.ip()) >= MOST_OPEN_PER_ADDRESS {
+                    ledger::ended(id, End::TooManyFromOne);
+                    scribe::debug(Channel::Network, &format!("{peer} has {MOST_OPEN_PER_ADDRESS} connections at the \
+                        door already.  Closed at the door."));
+                    continue;
+                }
                 // The clone that stop() and kick() shut.  Without one the
                 // connection is still served; it just can't be kicked.
                 match socket.try_clone() {
@@ -432,7 +454,10 @@ fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<Atomi
                 }
                 match queue.try_send(Arrival { id, socket, peer, arrived: Instant::now() }) {
                     Ok(()) => {
-                        said_full = false;
+                        if said_full {
+                            said_full = false;
+                            scribe::debug(Channel::Network, "The login queue has room again.");
+                        }
                         scribe::debug(Channel::Network, &format!("Connection from {peer}."));
                     }
                     Err(TrySendError::Full(_)) => {
@@ -454,14 +479,31 @@ fn accept(listener: TcpListener, queue: SyncSender<Arrival>, stopping: Arc<Atomi
                 if stopping.load(Ordering::SeqCst) {
                     return;
                 }
-                scribe::warn(Channel::Network, &format!("TCP accept failed: {e}."));
-                // A failure that keeps happening (out of file handles,
-                // say) would otherwise fill the log as fast as the disk
-                // allows.
+                // Said once: a failure that keeps happening (out of file
+                // handles, say) would otherwise be ten notices a second
+                // on the bell, and the sleep keeps it off the log too.
+                if !said_failed {
+                    said_failed = true;
+                    scribe::warn(Channel::Network, &format!("TCP accept failed: {e}.  Said once; the next line \
+                        about it is when it works again."));
+                } else {
+                    scribe::debug(Channel::Network, &format!("TCP accept failed again: {e}."));
+                }
                 thread::sleep(Duration::from_millis(100));
             }
         }
     }
+}
+
+/// How many connections from `address` are at the door right now, queued
+/// or being served.  A walk of the open list, which is at most the queue
+/// plus the login threads.
+fn open_from(open: &OpenSockets, address: IpAddr) -> usize {
+    open.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .values()
+        .filter(|socket| socket.peer_addr().is_ok_and(|peer| peer.ip() == address))
+        .count()
 }
 
 // ---------------------------------------------------------------------------
@@ -521,7 +563,7 @@ fn serve(arrival: Arrival, setup: &Setup, stopping: &AtomicBool) {
     }
 
     ledger::set(id, Stage::Handshake);
-    let mut stream = match handshake(socket, peer, setup, deadline) {
+    let mut stream = match handshake(socket, peer, setup, deadline.min(arrived + HANDSHAKE_WAIT)) {
         Ok(stream) => stream,
         Err(end) => {
             ledger::ended(id, end);
@@ -575,7 +617,7 @@ fn handshake(mut socket: TcpStream, peer: SocketAddr, setup: &Setup, deadline: I
     while conn.is_handshaking() {
         if !arm_read(&socket, deadline) {
             scribe::debug(Channel::Network, &format!("{peer} didn't finish TLS in {} seconds.  Closing it.",
-                                                     setup.login_deadline.as_secs()));
+                                                     HANDSHAKE_WAIT.as_secs()));
             return Err(End::TimedOut);
         }
         match conn.complete_io(&mut socket) {

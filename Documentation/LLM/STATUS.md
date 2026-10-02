@@ -61,7 +61,7 @@ into `conductor-player-commands` (built, 93 tests pass, chat works through it; i
 client is still in TEST_CHECKLIST.html).  **In Unity**: everything up to character select's PLAY passed; the
 chat window passed every check (the look on 1440p, chat both ways with the test client, the anti-flood's
 refusal, `/who`'s box in Retro, the 300 limit, `/camp`, and EverQuest's keys); the crate's run check passed
-too.  **The 0.0.1 review's four bug fixes wait on a build** (2026-10-02); TEST_CHECKLIST.html has their checks, and one Parked check (Spans for real).  **On Windows**:
+too.  **The 0.0.1 review's seven risk fixes wait on a build** (2026-10-02; the four bug fixes built and tested); TEST_CHECKLIST.html has their checks, and one Parked check (Spans for real).  **On Windows**:
 Conductor builds and runs, START SERVER included, without a database; nothing since the world has been tried
 there (GitHub issue #10).
 
@@ -159,14 +159,33 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
   - `regionmap.rs` and `heights.rs`: the grid's size is `checked_mul` on the numbers off the disk, a test
     each with width and depth at 65,535.
   - `wgui/accounts.rs`: a delete the database is late with still takes the player out.
-- The seven risks are next, on Jacob's OK, then the rest of the review: nothing else in the code changed.
+- **The four bugs built and tested by Jacob**: `cargo build` clean, 361 tests pass, the three new ones among
+  them.  The run checks (the double login, the account delete, the corrupt map) are still in
+  TEST_CHECKLIST.html.
+- **The seven risks fixed, written and NOT BUILT** (Jacob's "Yes" to the plan): the next session starts by
+  expecting compile fixes.
+  - R1 (`wgui/src/json.rs`, `lib.rs`): `json::settings()` takes the role, and a Secret goes out as `""` to
+    `user`; a test each side.
+  - R2 (`tcp.rs`, `ledger.rs`): `HANDSHAKE_WAIT` (3 s, inside the login deadline) on the handshake alone,
+    and `MOST_OPEN_PER_ADDRESS` (4) in the acceptor, a fifth closed at the door as `End::TooManyFromOne`
+    (new, with its words; the ledger's words test now names every ending).
+  - R3 (`udp.rs`): the refused Connect is Debug.  R4 (`tcp.rs`, `udp.rs`): a failing accept or receive is
+    one Warn, a Debug each time after, and said again only after a success.
+  - R5 (`diskman/cache.rs`): `forget_files()` keeps an entry with something waiting (the disk's stamp and a
+    clean copy forgotten, a dirty one kept whole), with a test.
+  - R6 (`notices.rs`): `MOST_OPEN` 1,000; past it the oldest go and the oldest left is rewritten to say how
+    many; `publish_in()` so the test has a list of its own.
+  - R7 (`archivist/status.rs`): the slow job is Debug, the label only made when slow.
+  - `design/conductor-networking.md`, `conductor-wgui.md` and `conductor-tools.md` say so.
+- The rest of the review (R8 on, the inefficiencies, the stale words) is the clean-up's list; nothing else
+  in the code changed.
 
 ## Where the next session starts
 
-Jacob builds and tests the fixes (`cargo build`, `cargo test`, the checks in TEST_CHECKLIST.html under
-"2026-10-02 -- the 0.0.1 fixes").  Then the seven risks from the review, each a small fix, planned and
-OKed as one step; then `main` moves to `testing`'s tip, the `v0.0.1` tag and the two packages
-(RELEASE.md).  The "major clean up" he named before is the rest of the review's list.
+Jacob builds and tests the seven risks' fixes (`cargo build`, `cargo test`, the checks in
+TEST_CHECKLIST.html under "2026-10-02 -- the 0.0.1 fixes", the bugs' run checks included).  Then `main`
+moves to `testing`'s tip, the `v0.0.1` tag and the two packages (RELEASE.md).  The "major clean up" he
+named before is the rest of the review's list.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 

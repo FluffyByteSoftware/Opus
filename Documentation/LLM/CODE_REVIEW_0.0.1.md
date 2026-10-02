@@ -22,8 +22,9 @@ Each entry is a file and line, what's wrong, when it bites, and the fix.  Severi
 behaviour, reachable), **Risk** (reachable by abuse or by bad luck, or a rule broken), **Inefficiency**,
 **Cleanliness** (dead code, stale words).  Line numbers are as of `7d85f1f`.
 
-**The four bugs were fixed the same day** (2026-10-02, waiting on Jacob's build; each says so below).  The
-rest is Jacob's to pick from, before the tag or after (CODE_REVIEW in TODO.md).
+**The four bugs and the seven risks under "worth fixing before the tag" were fixed the same day**
+(2026-10-02; each says so below; the bugs built and tested, the risks waiting on a build).  The rest is
+Jacob's to pick from, before the tag or after (CODE_REVIEW in TODO.md).
 
 ---
 
@@ -82,7 +83,7 @@ the `Pending` and kick when it lands.
 
 ### Worth fixing before the tag
 
-**R1. The read-only `user` can read every password.**
+**R1. The read-only `user` can read every password.**  *Fixed 2026-10-02: a Secret goes out as `""` to `user`.*
 `wgui/src/lib.rs:345-347` serves `/Opus/settings` to any logged-in role, and `json.rs:546-566`
 `setting_state()` writes every `Kind::Secret` value as it is (`running`, `waiting`, `default`): `wgui.cfg`'s
 `admin_password` and `postgres.cfg`'s `password` among them.  The test at `lib.rs:780-800` pins it.  So
@@ -91,7 +92,8 @@ page only listens on this machine; still, it makes the role mean nothing.
 *Fix:* pass `role` into `json::settings()` and write `""` for a Secret when `!role.can_change()`; the page
 already greys the fields for `user`.
 
-**R2. Idle TLS connections tie up the login pool for the price of a connect.**
+**R2. Idle TLS connections tie up the login pool for the price of a connect.**  *Fixed 2026-10-02:
+`HANDSHAKE_WAIT` of 3 s, and `MOST_OPEN_PER_ADDRESS` of 4 (`End::TooManyFromOne`).*
 `networking/src/tcp.rs:487` (the deadline runs from arrival) and `:554-586` (the handshake runs on a login
 thread under the whole `login_deadline`).  Defaults: 8 threads, 64 queued, 10 s.  A client that connects
 and sends nothing holds a thread for 10 s; eight of them every 10 s hold every thread, and the 64 behind
@@ -99,20 +101,22 @@ them age out Unserved.  About seven zero-byte connects a second keeps every real
 *Fix:* a short first-byte deadline for the handshake (2 to 3 s) separate from the login deadline, and a
 cap on open connections per address in the acceptor (the `open` map has the peers).
 
-**R3. A spoofable UDP packet costs a disk-written Info line.**
+**R3. A spoofable UDP packet costs a disk-written Info line.**  *Fixed 2026-10-02: Debug.*
 `networking/src/udp.rs:308`: `scribe::info("Refused a UDP connect from {from}")` for every Connect with an
 unknown token; `:290` the same at Debug for a banned address.  Info can't be switched off, and every line
 is a DiskMan append.  A flood of 69-byte Connects from spoofed addresses is an unbounded log (the 25-byte
 reply itself is fine: smaller than the ask, so no amplification).
 *Fix:* Debug, or once per address per minute (a small map like `RECENT_FAILURES`).
 
-**R4. A persistent accept or receive failure floods the bell.**
+**R4. A persistent accept or receive failure floods the bell.**  *Fixed 2026-10-02: said once, and again only
+after a success.*
 `tcp.rs:446-455` warns "TCP accept failed" and sleeps 100 ms, so an out-of-file-handles listener raises
 ten notices a second, each staying until ACKed; `udp.rs:249-254` is the same for the receive.  The
 acceptor already does it right for the full queue (`said_full`).
 *Fix:* say it once, and again only after a success.
 
 **R5. A DiskMan write that lands during a config swap is dropped, and its `Pending` says "not running".**
+*Fixed 2026-10-02: `forget_files()` keeps an entry with something waiting, with a test.*
 `tools/src/diskman/worker.rs:271-282` with `cache.rs:453-463` and `:496-499`.  `take_due_swaps()` only takes
 a swap whose two files are quiet, but nothing marks them busy afterwards.  Between the take (lock let go)
 and `forget_files()` (lock taken again after the rename), a `write()` or `append()` to either path makes a
@@ -123,13 +127,15 @@ second save is lost and the page shows a 500.
 *Fix:* in `forget_files()`, only remove an entry when `!entry.waiting()`, or drop just `content` and
 `on_disk` and keep the dirty tail and its waiters.
 
-**R6. Notices grow without bound.**
+**R6. Notices grow without bound.**  *Fixed 2026-10-02: `MOST_OPEN` of 1,000, the oldest left rewritten to
+say how many went, with a test.*
 `tools/src/notices.rs:79-83`: every Warn and Error pushes onto `open` with no cap, and `all()` clones the
 whole list for the History tab on every poll.  With R4, or R7, or a Lua script tripping its limits, a
 server left over a weekend holds thousands, each poll copying them all.
 *Fix:* cap `open` (1,000, say), dropping the oldest and leaving one "N older notices were dropped" notice.
 
-**R7. Archivist Warns for every job over `slow_job_ms`, which the world save will trip routinely.**
+**R7. Archivist Warns for every job over `slow_job_ms`, which the world save will trip routinely.**  *Fixed
+2026-10-02: Debug, the count and the last few kept for the page.*
 `tools/src/archivist/status.rs` `record()`.  `characters::save_all()` writes every character in one
 transaction every `world_save_seconds`; at the 250 ms default a save of a few hundred characters is a
 Warn, so a notice to ACK every save.  CLAUDE.md: a Warn is never chatter.
@@ -311,7 +317,7 @@ each struct's `saved()` directly.  Not urgent at 25 to 50 players.
 - `networking/src/sessions.rs:600, 613`: `finish_ask` and `entered` copy an answer the caller already owns
   as a `Vec<u8>`.  Take it by value.
 - `tools/src/archivist/status.rs:501-503, 552-559`: `short_label()` builds the shortened SQL for every job
-  and only uses it when slow.  Move it inside `if slow`.
+  and only uses it when slow.  *Done 2026-10-02, with R7.*
 - `tools/src/scribe.rs:301`: `format!("{line}\n")` copies the whole line to add one byte.
 - `tools/src/diskman/worker.rs:45, 194-198, 569`: the one polling loop in the crate, a 5 ms retry while a
   stream's reader is slower than the disk.  Dormant: `stream()` has no caller outside the crate.
@@ -357,7 +363,7 @@ each struct's `saved()` directly.  Not urgent at 25 to 50 players.
 - `networking/src/protocol.rs:403-407`: `Packet` derives `Debug` while `LoginRequest` deliberately doesn't,
   for the key's sake; a `{:?}` of a Login `Packet` would print the key.  Nothing prints it today.
 - `networking/src/ledger.rs:555-557`: `every_ending_has_words` leaves out `Blacklisted`, `NotWhitelisted`
-  and `Banned`.
+  and `Banned`.  *Added 2026-10-02, with `TooManyFromOne`.*
 - `networking/src/sessions.rs:213`: `Connected::Again(String)` carries an account nobody reads.
 - `networking/src/udp.rs:345`: "a command, `/chat` so far" (`/who` exists).
 - `gameclock/src/chat.rs:10-12`, `who.rs`, and `design/gameclock.md` ("Chat", "/who list"): all say

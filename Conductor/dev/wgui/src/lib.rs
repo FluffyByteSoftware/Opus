@@ -343,7 +343,7 @@ fn route(request: &Request, port: u16) -> (Answer, Next) {
             (Answer::new("200 OK", "application/json", format!("{{\"id\":{id}}}")), Next::KeepGoing)
         }
         ("GET", "/Opus/settings") => {
-            (Answer::new("200 OK", "application/json", json::settings(&settings_states())), Next::KeepGoing)
+            (Answer::new("200 OK", "application/json", json::settings(&settings_states(), role)), Next::KeepGoing)
         }
         ("POST", "/Opus/wwwhook/settings/save") => settings_save(request, role),
         ("POST", "/Opus/wwwhook/settings/discard") => settings_discard(request, role),
@@ -788,6 +788,14 @@ mod tests {
         // every file shows its defaults and nothing waits.
         assert!(body.contains("\"loaded\":false,\"waiting\":false,"));
         assert!(!body.contains("\"loaded\":true"));
+        // The passwords are blank for user, and there for admin.
+        assert!(body.contains("\"key\":\"admin_password\",\"kind\":\"secret\",\"low\":null,\"high\":null,\"about\":"),
+                "{body}");
+        assert!(!body.contains("\"default\":\"admin\",\"running\":\"admin\""), "{body}");
+        let admin = cookie_for("admin");
+        let (answer, _) = route(&request("GET", "/Opus/settings", &[HOST, ("cookie", admin.as_str())]), 9996);
+        let body = String::from_utf8_lossy(&answer.body).into_owned();
+        assert!(body.contains("\"default\":\"admin\",\"running\":\"admin\""), "{body}");
 
         for path in ["/Opus/wwwhook/settings/save", "/Opus/wwwhook/settings/discard"] {
             let mut asking = request("POST", path, &[HOST, ("cookie", user.as_str()), ("x-opus", "settings")]);

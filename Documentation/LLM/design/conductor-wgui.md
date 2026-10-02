@@ -286,8 +286,9 @@ every field as `key = value` lines in the file's order, so Constellations' "line
 third field; one that isn't about a line (the disk saying no) shows under the card.  After a save the card has
 a yellow WAITING ON A HARD (or SOFT) REBOOT tag, each changed field says what's running under it, and nothing
 changes until that reboot.  A file not loaded this run (`postgres.cfg` before the first START SERVER) shows
-the file's values and says so.  The password shows as it is (Jacob's call).  Read only for `user`, with a line
-saying so.  Past four files (`PICKER_FROM`, Jacob's number) a picker shows one card at a time, marking a file
+the file's values and says so.  A password shows as it is to `admin`, and as nothing to `user`, who
+couldn't change it and shouldn't be able to read the admin's off the page (2026-10-02; before that it
+showed to both).  Read only for `user`, with a line saying so.  Past four files (`PICKER_FROM`, Jacob's number) a picker shows one card at a time, marking a file
 with a change waiting.
 
 If Conductor stops answering, the page covers itself with a note and stops asking.  After SHUT DOWN it says

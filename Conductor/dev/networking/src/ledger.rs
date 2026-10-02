@@ -97,6 +97,9 @@ pub enum End {
     Held,
     /// Closed at the door: the queue was full.
     TurnedAway,
+    /// Closed at the door: the address had too many connections at the
+    /// door already.
+    TooManyFromOne,
     /// Waited in the queue past the login deadline; closed unserved.
     Unserved,
     /// The server was stopping.
@@ -203,6 +206,7 @@ impl End {
             End::TimedOut => "Ran out of time",
             End::Held => "Closed at the door: on hold after a failed login",
             End::TurnedAway => "Closed at the door: the login queue was full",
+            End::TooManyFromOne => "Closed at the door: too many connections open from that address",
             End::Unserved => "Waited in the queue past the login deadline; closed unserved",
             End::Stopped => "The server was stopping",
             End::Kicked => "Kicked by the admin",
@@ -553,7 +557,8 @@ mod tests {
     #[test]
     fn every_ending_has_words() {
         let ends = [End::LoggedIn, End::Refused, End::Outdated, End::Unavailable, End::HungUp, End::LeftAlone,
-                    End::Junk, End::TimedOut, End::Held, End::TurnedAway, End::Unserved, End::Stopped,
+                    End::Junk, End::TimedOut, End::Held, End::TurnedAway, End::TooManyFromOne, End::Unserved,
+                    End::Stopped, End::Blacklisted, End::NotWhitelisted, End::Banned,
                     End::Kicked];
         for end in ends {
             assert!(!end.describe().is_empty());

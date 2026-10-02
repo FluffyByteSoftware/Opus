@@ -91,7 +91,11 @@ because of the CPU cost.
   A thread per connection would cost a thread start each and a threads-list entry for good, and buy
   nothing, since Security hashes one login at a time however many threads wait.  A full queue
   (`max_waiting_logins`, 64) closes the connection at the door; one that waited past the login deadline
-  (`login_deadline_seconds`, 10) is closed unserved.
+  (`login_deadline_seconds`, 10) is closed unserved.  **The TLS handshake has three seconds of its own**
+  (`HANDSHAKE_WAIT`, inside the login deadline; 2026-10-02): a connection that sends nothing would
+  otherwise hold a login thread for the whole ten, and eight of those every ten seconds would keep every
+  real player out.  **An address has at most four connections at the door at once**
+  (`MOST_OPEN_PER_ADDRESS`); its fifth is closed at the door (the ledger says so).
 - **No thread polls.**  Every read is armed with exactly the time left to the connection's deadline.
   `stop()` wakes the acceptor by connecting to it and the login threads by shutting their sockets, then
   gives the login threads 2 seconds and the DNS thread 1 before a Warn and going on without them.  The only

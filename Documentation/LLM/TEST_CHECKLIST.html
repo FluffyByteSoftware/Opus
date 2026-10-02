@@ -198,14 +198,43 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="checks-column">
 
 <h2>2026-10-02 -- the 0.0.1 fixes</h2>
-<p class="soft">The four bugs from <code>CODE_REVIEW_0.0.1.md</code>, written and not built.  Build and test first:</p>
+<p class="soft">The four bugs (built and tested) and the seven risks (written and not built) from
+<code>CODE_REVIEW_0.0.1.md</code>.  Build and test first:</p>
 <pre class="cmd">cargo build && cargo test</pre>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
       <code>cargo build</code> is clean and <code>cargo test</code> passes, the three new tests among them:
-      <code>no_ticket_is_issued_over_a_player_in_the_world</code>, and
-      <code>a_header_claiming_a_grid_too_big_to_count_is_turned_away</code> in regionmap and in heights.
+      <code>a_secret_goes_out_to_admin_and_not_to_user</code>,
+      <code>a_write_that_lands_during_a_swap_isnt_dropped</code> and
+      <code>past_the_cap_the_oldest_go_and_the_oldest_left_says_so</code>.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Logged in to the web admin as <code>user</code>, the Settings tab shows every password field empty
+      (wgui.cfg's two, postgres.cfg's one); logged in as <code>admin</code>, they show as before.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A connection that sends nothing is closed after about 3 seconds, not 10: with the server running, open
+      one with <code>nc</code> and wait; it drops, and its row on the Connections tab says it timed out.
+    </span></label>
+    <pre class="cmd">nc 10.0.0.84 9997</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A fifth connection from one address is closed at the door: this opens five at once and holds them; the
+      fifth closes straight away, and its row on the Connections tab says too many connections open from
+      that address.  The other four time out after 3 seconds.
+    </span></label>
+    <pre class="cmd">for n in 1 2 3 4 5; do (sleep 2 | nc 10.0.0.84 9997; echo "connection $n closed") & done; wait</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A world save over <code>slow_job_ms</code> is a Debug line in the Log tab and nothing on the bell.
+      (Set <code>world_save_seconds</code> to 30 for the look, and put it back.)
     </span></label>
   </li>
   <li class="check">

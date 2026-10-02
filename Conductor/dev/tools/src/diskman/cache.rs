@@ -494,8 +494,24 @@ impl State {
     /// held for them is right any more.  Nothing was waiting on them
     /// (`take_due_swaps()` saw to that), so there's nobody to tell.
     pub(super) fn forget_files(&mut self, original: &Path, replacement: &Path) {
-        self.files.remove(original);
-        self.files.remove(replacement);
+        for path in [original, replacement] {
+            // A write or an append that landed while the swap ran (the lock
+            // was let go for the rename) still has to go out: dropping it
+            // would lose the bytes and leave its caller hearing "not
+            // running".  What's known of the disk is forgotten, since the
+            // file under it changed, and a clean copy with it; a dirty one
+            // is the newest thing there is and goes out whole.
+            if let Some(entry) = self.files.get_mut(path) {
+                if entry.waiting() {
+                    entry.on_disk = None;
+                    if !entry.dirty {
+                        entry.content = None;
+                    }
+                    continue;
+                }
+            }
+            self.files.remove(path);
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -878,6 +894,22 @@ mod tests {
         assert_eq!(due.len(), 1);
         assert!(!state.swaps_due());
         assert!(hears.try_recv().is_err(), "nobody has answered yet: the worker does that");
+    }
+
+    #[test]
+    fn a_write_that_lands_during_a_swap_isnt_dropped() {
+        let mut state = State::new(TINY);
+        state.add_swap(Swap { original: path("live"), replacement: path("live.wait4server"), when: SwapAt::Now,
+                              reply: None });
+        // The worker takes the swap and renames with the lock let go...
+        assert_eq!(state.take_due_swaps().len(), 1);
+        // ...and a write lands in between.
+        let (asked, hears) = reply();
+        state.write(&path("live"), b"newer".to_vec(), asked);
+        state.forget_files(&path("live"), &path("live.wait4server"));
+        assert!(state.take_flush(&path("live"), true).is_some(), "the write still has to go out");
+        assert!(hears.try_recv().is_err(), "its caller is still waiting on it, not told DiskMan isn't running");
+        assert!(state.files.get(&path("live.wait4server")).is_none(), "the replacement had nothing waiting");
     }
 
     #[test]

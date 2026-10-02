@@ -179,8 +179,9 @@
 //! file says, which is what the next start reads.  `waiting` on a setting
 //! is the value saved to the file's `.wait4server` and not yet applied,
 //! `null` when there's no such file; `waiting` on the file says whether
-//! there is one.  A secret goes out as it is: the page shows it (Jacob's
-//! call; nothing leaves the machine).
+//! there is one.  A secret goes out as it is to `admin`, who may change
+//! it, and as `""` to `user`, who may not (and shouldn't be able to read
+//! the admin's password off the page).
 
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -519,14 +520,18 @@ pub(crate) struct FileState {
     pub(crate) waiting: Option<Values>,
 }
 
-/// The whole answer to `/Opus/settings`.
-pub(crate) fn settings(files: &[FileState]) -> String {
+/// The whole answer to `/Opus/settings`.  A secret (a password) goes out
+/// as it is to `admin` and as nothing to `user`, who can't change it and
+/// shouldn't be able to read the admin's password off the page and
+/// become admin (the 0.0.1 review's R1).
+pub(crate) fn settings(files: &[FileState], role: Role) -> String {
+    let secrets_shown = role.can_change();
     Object::new()
-        .raw("files", array(files.iter().map(file_state)))
+        .raw("files", array(files.iter().map(|state| file_state(state, secrets_shown))))
         .done()
 }
 
-fn file_state(state: &FileState) -> String {
+fn file_state(state: &FileState, secrets_shown: bool) -> String {
     let file = state.file;
     let reboot = match file.reboot {
         Reboot::Soft => "soft",
@@ -539,11 +544,11 @@ fn file_state(state: &FileState) -> String {
         .text("about", file.about)
         .flag("loaded", state.loaded)
         .flag("waiting", state.waiting.is_some())
-        .raw("settings", array(file.settings.iter().map(|setting| setting_state(setting, state))))
+        .raw("settings", array(file.settings.iter().map(|setting| setting_state(setting, state, secrets_shown))))
         .done()
 }
 
-fn setting_state(setting: &Setting, state: &FileState) -> String {
+fn setting_state(setting: &Setting, state: &FileState, secrets_shown: bool) -> String {
     let (kind, range) = match setting.kind {
         Kind::Text => ("text", None),
         Kind::Secret => ("secret", None),
@@ -551,17 +556,20 @@ fn setting_state(setting: &Setting, state: &FileState) -> String {
         Kind::Port => ("port", Some((1, u64::from(u16::MAX)))),
         Kind::Number { low, high } => ("number", Some((low, high))),
     };
-    let running = state.running.get(setting.key).map_or(setting.default, String::as_str);
-    let waiting = state.waiting.as_ref().and_then(|values| values.get(setting.key));
+    let hidden = setting.kind == Kind::Secret && !secrets_shown;
+    let running = if hidden { "" } else { state.running.get(setting.key).map_or(setting.default, String::as_str) };
+    let default = if hidden { "" } else { setting.default };
+    let waiting = state.waiting.as_ref().and_then(|values| values.get(setting.key))
+        .map(|value| if hidden { "" } else { value.as_str() });
     Object::new()
         .text("key", setting.key)
         .text("kind", kind)
         .raw("low", range.map_or_else(null, |(low, _)| low.to_string()))
         .raw("high", range.map_or_else(null, |(_, high)| high.to_string()))
         .text("about", setting.about)
-        .text("default", setting.default)
+        .text("default", default)
         .text("running", running)
-        .raw("waiting", waiting.map_or_else(null, |value| text(value)))
+        .raw("waiting", waiting.map_or_else(null, text))
         .done()
 }
 
@@ -836,7 +844,7 @@ mod tests {
         waiting.insert("wgui_port", "9997".to_string());
         let state = FileState { file: &GLOBALS, loaded: false, running: constellations::values(&GLOBALS),
                                 waiting: Some(waiting) };
-        let answer = settings(&[state]);
+        let answer = settings(&[state], Role::Admin);
         assert!(answer.starts_with("{\"files\":[{\"name\":\"conductor_globals.cfg\",\"reboot\":\"hard\",\
             \"reboot_text\":\"a hard reboot (Conductor shut down and run again)\",\"about\":\""));
         assert!(answer.contains("\"loaded\":false,\"waiting\":true,\"settings\":[{\"key\":\"scribe_log_dir\",\
@@ -847,9 +855,31 @@ mod tests {
 
         let state = FileState { file: &GLOBALS, loaded: true, running: constellations::values(&GLOBALS),
                                 waiting: None };
-        let answer = settings(&[state]);
+        let answer = settings(&[state], Role::Admin);
         assert!(answer.contains("\"loaded\":true,\"waiting\":false,"));
         assert!(answer.ends_with("\"running\":\"9996\",\"waiting\":null}]}]}"));
+    }
+
+    #[test]
+    fn a_secret_goes_out_to_admin_and_not_to_user() {
+        use conductor_tools::constellations::{self, WGUI};
+
+        let mut waiting = constellations::values(&WGUI);
+        waiting.insert("admin_password", "hunter2".to_string());
+        let state = FileState { file: &WGUI, loaded: true, running: constellations::values(&WGUI),
+                                waiting: Some(waiting) };
+        let admin = settings(&[state], Role::Admin);
+        assert!(admin.contains("{\"key\":\"admin_password\",\"kind\":\"secret\",\"low\":null,\"high\":null,"));
+        assert!(admin.contains("\"default\":\"admin\",\"running\":\"admin\",\"waiting\":\"hunter2\"}"), "{admin}");
+
+        let mut waiting = constellations::values(&WGUI);
+        waiting.insert("admin_password", "hunter2".to_string());
+        let state = FileState { file: &WGUI, loaded: true, running: constellations::values(&WGUI),
+                                waiting: Some(waiting) };
+        let user = settings(&[state], Role::User);
+        assert!(user.contains("{\"key\":\"admin_password\",\"kind\":\"secret\",\"low\":null,\"high\":null,"));
+        assert!(user.contains("\"default\":\"\",\"running\":\"\",\"waiting\":\"\"}"), "{user}");
+        assert!(!user.contains("hunter2") && !user.contains("\"admin\",\"running\""), "{user}");
     }
 
     #[test]

@@ -100,15 +100,18 @@ pub(super) fn set_connected(connected: bool) {
     CONNECTED.store(connected, Ordering::SeqCst);
 }
 
-/// The worker calls this after every job.  A slow one goes in the log too.
+/// The worker calls this after every job.  A slow one goes in the log
+/// too, as Debug: the world save writes every character in one
+/// transaction and is over `slow_job_ms` as a matter of course, and a Warn
+/// is a notice to ACK, so it would be one every save.  The count and the
+/// last few are on the page, which is where "slow" is for.
 pub(super) fn record(label: &str, kind: JobKind, waited: Duration, ran_for: Duration, slow_limit: Duration) {
     let slow = ran_for >= slow_limit;
-    let label = short_label(label);
-
-    if slow {
-        scribe::warn(Channel::Database, &format!("Slow database job: {} ms, after {} ms in the mailbox.  {label}",
-                                                 ran_for.as_millis(),
-                                                 waited.as_millis()));
+    // The shortened label is only for a slow one, so it's only made then.
+    let label = if slow { Some(short_label(label)) } else { None };
+    if let Some(label) = &label {
+        scribe::debug(Channel::Database, &format!("Slow database job: {} ms, after {} ms in the mailbox.  {label}",
+                                                  ran_for.as_millis(), waited.as_millis()));
     }
 
     let mut guard = TOTALS.lock()
@@ -122,7 +125,7 @@ pub(super) fn record(label: &str, kind: JobKind, waited: Duration, ran_for: Dura
     if ran_for > guard.slowest {
         guard.slowest = ran_for;
     }
-    if slow {
+    if let Some(label) = label {
         guard.slow_jobs += 1;
         guard.recent_slow.push(SlowJob { when: Utc::now(), label, ran_for, waited });
         if guard.recent_slow.len() > RECENT_SLOW {

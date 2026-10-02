@@ -60,9 +60,17 @@ struct Notices {
     next_id: u64,
     /// Oldest first.
     open: Vec<Notice>,
+    /// How many have been dropped off the old end, since Conductor started.
+    dropped: u64,
 }
 
-static NOTICES: Mutex<Notices> = Mutex::new(Notices { next_id: 1, open: Vec::new() });
+static NOTICES: Mutex<Notices> = Mutex::new(Notices { next_id: 1, open: Vec::new(), dropped: 0 });
+
+/// The most notices kept open.  Past this the oldest go, and one notice
+/// says how many have gone that way, so a Warn that keeps coming (a
+/// script tripping its limit all weekend) can't eat the memory or make
+/// the History tab copy thousands of lines a second.
+pub const MOST_OPEN: usize = 1_000;
 
 fn with_notices<T>(work: impl FnOnce(&mut Notices) -> T) -> T {
     let mut guard = NOTICES.lock()
@@ -77,13 +85,27 @@ fn with_notices<T>(work: impl FnOnce(&mut Notices) -> T) -> T {
 /// notices::publish(Level::Notice, "Game", "The world save took 40 seconds.");
 /// ```
 pub fn publish(level: Level, source: &str, text: &str) -> u64 {
-    with_notices(|notices| {
-        let id = notices.next_id;
-        notices.next_id += 1;
-        notices.open.push(Notice { id, when: Utc::now(), level, source: source.to_string(),
-                                   text: text.to_string() });
-        id
-    })
+    with_notices(|notices| publish_in(notices, level, source, text))
+}
+
+fn publish_in(notices: &mut Notices, level: Level, source: &str, text: &str) -> u64 {
+    let id = notices.next_id;
+    notices.next_id += 1;
+    notices.open.push(Notice { id, when: Utc::now(), level, source: source.to_string(), text: text.to_string() });
+    if notices.open.len() > MOST_OPEN {
+        let over = notices.open.len() - MOST_OPEN;
+        notices.open.drain(..over);
+        notices.dropped += over as u64;
+        let dropped = notices.dropped;
+        // Written over the oldest one left, so there's always exactly one
+        // line saying so, and it's at the top of the list.
+        let first = &mut notices.open[0];
+        first.level = Level::Notice;
+        first.source = "Notices".to_string();
+        first.text = format!("{dropped} older notice(s) were dropped: only the newest {MOST_OPEN} are kept.  The \
+            log has them all.");
+    }
+    id
 }
 
 /// How many are open, and the newest `count` of them, newest first.
@@ -132,6 +154,31 @@ mod tests {
         assert!(ack(id));
         assert!(!all().iter().any(|notice| notice.id == id));
         assert!(!ack(id));
+    }
+
+    #[test]
+    fn past_the_cap_the_oldest_go_and_the_oldest_left_says_so() {
+        // A list of the test's own, since the shared one would take a
+        // thousand lines to fill and trip the other tests.
+        let mut notices = Notices { next_id: 1, open: Vec::new(), dropped: 0 };
+        for n in 0..MOST_OPEN {
+            publish_in(&mut notices, Level::Warn, "Test", &format!("warn {n}"));
+        }
+        assert_eq!(notices.open.len(), MOST_OPEN);
+        assert_eq!(notices.open[0].text, "warn 0");
+
+        publish_in(&mut notices, Level::Warn, "Test", "one too many");
+        assert_eq!(notices.open.len(), MOST_OPEN);
+        assert_eq!(notices.dropped, 1);
+        assert_eq!(notices.open[0].level, Level::Notice);
+        assert!(notices.open[0].text.starts_with("1 older notice(s) were dropped"), "{}", notices.open[0].text);
+        assert_eq!(notices.open[1].text, "warn 2");
+        assert_eq!(notices.open[MOST_OPEN - 1].text, "one too many");
+
+        publish_in(&mut notices, Level::Warn, "Test", "and another");
+        assert_eq!(notices.dropped, 2);
+        assert!(notices.open[0].text.starts_with("2 older notice(s) were dropped"), "{}", notices.open[0].text);
+        assert_eq!(notices.open[1].text, "warn 3");
     }
 
     #[test]

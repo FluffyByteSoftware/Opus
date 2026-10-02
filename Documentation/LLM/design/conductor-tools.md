@@ -137,7 +137,9 @@ Anything that isn't dirty can just be unloaded.
   another: now, when the launcher says the server has stopped (`run_swaps(ServerStop)`, which it waits on),
   or as DiskMan's last act at shutdown.  DiskMan holds the list, Jacob's design: a change saved from the web
   admin sits in `name.cfg.wait4server` until its reboot, and DiskMan puts it in place on the way down.  A
-  swap waits until both files have nothing left to go out, then drops whatever was held for them.  A
+  swap waits until both files have nothing left to go out, then drops whatever was held for them, except
+  a write or append that landed while the rename ran with the lock let go: that one still goes out
+  (2026-10-02; before that it was dropped and its caller heard "not running").  A
   replacement that's gone (discarded) is nothing to do.  At shutdown every swap still listed runs, the
   server-stop ones included: a hard reboot applies the lot.  A second swap for the same original replaces
   the first.  `remove(path)` deletes a file and drops what was held for it.  A failed swap is a capitals
@@ -233,7 +235,10 @@ What the admin has to see and acknowledge, in `notices.rs`.
 - **A notice stays until it's ACKed**, one at a time or ACK ALL, and then it's gone.  Looking at it doesn't
   count.
 - **Memory only, since Conductor started.**  Jacob picked this over a journal file or a Postgres table: a
-  restart wipes them.  (A table couldn't hold "the database dropped" anyway.)  No cap.
+  restart wipes them.  (A table couldn't hold "the database dropped" anyway.)  **Capped at 1,000 open**
+  (`MOST_OPEN`, 2026-10-02): past that the oldest go, and the oldest one left is rewritten to say how many
+  have gone that way, so a Warn that keeps coming all weekend can't eat the memory or make the History tab
+  copy thousands of lines a second.  The log has them all.
 - Nothing in here writes to Scribe; Scribe calls in here before taking its own lock.  The bell, its tray and
   the Notifications History tab are in `conductor-wgui.md`.
 
@@ -369,8 +374,9 @@ The database, named by Jacob.
   `0001_what_it_does.sql`, run once, in number order, in a transaction with its row in
   `archivist_migrations`.  A failure stops the rest.  A badly named file or two with one number stops them
   all.  Migrations skip the query time limit.
-- A job that runs at least `slow_job_ms` is a Warn with its time, its wait in the mailbox, and the first 80
-  characters of its SQL (never the values).  `status()` keeps running, connected, waiting, jobs done, slow
+- A job that runs at least `slow_job_ms` is a Debug line with its time, its wait in the mailbox, and the
+  first 80 characters of its SQL (never the values).  It was a Warn, and so a notice to ACK, until
+  2026-10-02: the world save is over the limit as a matter of course, so it was one every save.  `status()` keeps running, connected, waiting, jobs done, slow
   jobs, the slowest and the last 5 slow ones, and counts `query()` jobs as reads, `execute()` as writes,
   and `batch()` and `transaction()` as other.  The web admin shows all of it.
 - Archivist connects the moment it starts, so the log says straight away whether Postgres is there (with
