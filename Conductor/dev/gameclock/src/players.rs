@@ -36,6 +36,8 @@ use conductor_accounts::characters::SavedCharacter;
 use conductor_primlib::{Blueprint, Component, Entity, Kind, Save, World};
 use conductor_tools::scribe::{self, Channel};
 
+use crate::who::{Standing, block_of};
+
 /// A note for the GameClock.
 pub enum Note {
     /// Put this character in the world.  The blueprint is the Character
@@ -228,6 +230,15 @@ impl Players {
             saved(&[character_id]);
         }
         save
+    }
+
+    /// Every player's character in the world, its name and the block it
+    /// stands in right now, for a `/who list`.  In no order.
+    pub fn standing(&self, world: &World) -> Vec<Standing> {
+        self.in_world.values().map(|&entity| {
+            let position = world.transform(entity).map(|transform| transform.position).unwrap_or_default();
+            Standing { name: name(world, entity), block: block_of([position.x, position.y, position.z]) }
+        }).collect()
     }
 
     /// Every player's character in the world as it stands right now, for a

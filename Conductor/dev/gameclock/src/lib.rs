@@ -31,7 +31,8 @@
 //! `world_save_seconds` and as the thread ends on STOP SERVER
 //! (`saving.rs`).  The chat comes in through a mailbox of its own
 //! (`chat.rs`) and goes out to everybody in the world from the broadcast
-//! check, once a cycle.  Primlib's other copies aren't saved yet
+//! check, once a cycle, and so does the answer to a `/who list`
+//! (`who.rs`).  Primlib's other copies aren't saved yet
 //! (design/primlib.md).  The terrain starts empty, and the GameClock asks
 //! GameWorld for the chunks around 0,0,0, where every player starts for
 //! now.  They come in over the first cycles, in housekeeping.
@@ -40,6 +41,7 @@ mod chat;
 mod checks;
 mod players;
 mod saving;
+mod who;
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender, TryRecvError};
@@ -60,6 +62,7 @@ use saving::{WorldSave, Writes};
 // `conductor_gameclock::enter(...)`.
 pub use chat::{chat, set_chat_sender};
 pub use players::{enter, leave, saving, wait_until_saved};
+pub use who::{Standing, WhoAsked, set_who_sender, who_list};
 
 /// One check's share of a cycle, in milliseconds.
 const CHECK_MS: u64 = 50;
@@ -112,6 +115,7 @@ pub fn start() {
     READY.store(false, Ordering::SeqCst);
     players::forget_saving();
     chat::open();
+    who::open();
     services::set(services::GAMECLOCK, State::Starting, "Making a fresh world.");
     let (stop, stopped) = mpsc::channel();
     let notes = players::open_mailbox();
@@ -124,6 +128,7 @@ pub fn start() {
         Err(e) => {
             players::close_mailbox();
             chat::close();
+            who::close();
             scribe::error_with(Channel::Game, &e, "The GameClock couldn't start its thread.  \
                 Nothing in the world moves this run.");
             services::set(services::GAMECLOCK, State::Stopped, &format!("Couldn't start its thread: {e}"));
@@ -140,6 +145,7 @@ pub fn stop() {
     READY.store(false, Ordering::SeqCst);
     players::close_mailbox();
     chat::close();
+    who::close();
     lock(&STOP).take();
 
     let handle = lock(&GAMECLOCK).take();

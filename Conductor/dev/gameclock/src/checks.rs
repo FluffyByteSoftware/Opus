@@ -6,7 +6,7 @@
 //! Each one gets the game (the world, the terrain, the players and the
 //! saves on their way) and does whatever it needs to on its own group of
 //! objects.  Input brings players' characters in and out, broadcast
-//! sends out the chat, and housekeeping takes in the chunks GameWorld has
+//! sends out the chat and answers `/who list`, and housekeeping takes in the chunks GameWorld has
 //! sent and saves the world; nothing in the world moves yet, and the
 //! protocol has no input packet.  Each says what goes in it.
 //!
@@ -65,11 +65,13 @@ fn ai(_game: &mut Game) {}
 fn movement(_game: &mut Game) {}
 
 /// What the players are told goes out.  Today that's the chat said since
-/// the last cycle, to everybody in the world (`chat.rs`).  The positions
-/// will go out here too: each player sent what moved, and only what that
-/// player may see.
-fn broadcast(_game: &mut Game) {
+/// the last cycle, to everybody in the world (`chat.rs`), and the answer
+/// to each `/who list` asked, to the one who asked (`who.rs`).  The
+/// positions will go out here too: each player sent what moved, and only
+/// what that player may see.
+fn broadcast(game: &mut Game) {
     crate::chat::broadcast();
+    crate::who::answer(game);
 }
 
 /// The rest.  The chunks GameWorld has finished with come into the

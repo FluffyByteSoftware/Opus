@@ -197,7 +197,70 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<p class="soft">Nothing to check on testing right now.</p>
+<h2>2026-10-02, Conductor: /who and /who list, and Spans (protocol version 9)</h2>
+<p class="soft">Conductor running from a terminal, START SERVER pressed.  Two terminals in <code>Conductor/dev</code>,
+the same two accounts as chat's: <code>testuser123</code> with Tester, <code>testuser456</code> with Chatter.</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The tests pass, networking's and the GameClock's, and the build has no warnings.
+    </span></label>
+    <pre class="cmd">cargo test -p conductor-networking -p conductor-gameclock</pre>
+    <pre class="cmd">cargo build</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      First terminal: Tester comes into the world and sits there.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester testuser123 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Second terminal: <code>/who</code> gets a WhoDelivery drawn as the Forgotten Legends box: today's date and
+      this computer's time to the second, Chatter and Tester in columns, A to Z, and "There are 2 legends
+      currently online."  Then <code>/who list</code> gets the same box with "[Chatter] is currently at [0, 0, 0]"
+      and "[Tester] is currently at [0, 0, 0]" (or wherever their last saves left them).  Nothing reaches the
+      first terminal.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter --type '/who' --type '/who list' --leave-after 3 testuser456 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Refusals: "Try /who, or /who list." for <code>/who everybody</code>, and "There's no command by that name.
+      For now there's /chat and /who." for <code>/shout</code>.  <code>/WHO LIST</code> in capitals works.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter --type '/who everybody' --type '/shout hi' --type '/WHO LIST' --leave-after 3 testuser456 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      At character select (no <code>--play</code>), <code>/who</code> gets "Commands work once your character is
+      in the world."
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --type '/who' --leave-after 3 testuser456 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Unity compiles <code>Assets/Code/Translator.cs</code> with no errors in the Console, and makes its
+      <code>.meta</code>.  Ensemble still logs in (it speaks version 9 now) and PLAY works.
+    </span></label>
+  </li>
+</ul>
+
+<h2>Parked</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Spans for real: a <code>/who list</code> with thirty-odd characters in the world goes out in pieces and
+      comes back whole.  <code>cargo test</code> covers it until there are that many players.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Ensemble's chat box draws <code>/who</code> with the count from <code>NumberToWords()</code>: "There are
+      two legends currently online."
+    </span></label>
+  </li>
+</ul>
 
 </div>
 <aside class="message" id="message-panel">

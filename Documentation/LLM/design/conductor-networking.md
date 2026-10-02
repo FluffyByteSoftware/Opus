@@ -34,16 +34,20 @@ networking/
     │                    timed_out(), wake_address()
     ├── settings.rs    networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs         server_config(settings) -> Arc<ServerConfig>; make_pair(), the openssl command
-    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 8: PacketType, LoginAnswer, ConnectAnswer,
+    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 9: PacketType, LoginAnswer, ConnectAnswer,
     │                    KickReason, Choice, CreateAnswer, DeleteAnswer, ListedCharacter, EnteredCharacter;
     │                    frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                    connect_result(), keep_alive(), kicked(), command_accepted(), command_refused(),
     │                    character_list(), create_result(), delete_result(), entered_world(),
-    │                    chat_deliveries(); read_login(), read_session_choice(), read_connect(),
+    │                    chat_deliveries(), who_delivery(), spans(); WhoEntry; read_login(),
+    │                    read_session_choice(), read_connect(),
     │                    read_list_request(), read_create(), read_delete(), read_reset_home(),
     │                    read_user_press_play(), read_player_command()
-    ├── chat.rs        what a player types: command() reads /chat and leaves the finished line in the
-    │                    GameClock's chat mailbox; send_out(), which the GameClock calls to send a cycle's lines
+    ├── commands.rs    what a player types: command() -> Outcome (Answer, or Later for the GameClock to
+    │                    answer); /chat's line into the GameClock's chat mailbox; send_out(), which the
+    │                    GameClock calls to send a cycle's lines
+    ├── who.rs         /who answered from the book; /who list left with the GameClock; send_list(), which
+    │                    the GameClock calls with where everybody stands
     ├── protogame.rs   Protogame, thread protogame: start(), stop(), hand_in(from, account, ask, Work) -> the
     │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome,
     │                    Play }; play() and bring_in(), the spawn's slow part
@@ -53,6 +57,7 @@ networking/
     │                    begin_ask() -> Ask, finish_ask(), entered(), leave_world(), lock_for_loading(),
     │                    turn_away(), leave(), kick() (with the kicked character's row id),
     │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), in_world(),
+    │                    names_in_world(),
     │                    drop_where();
     │                    with_book(), which asks the GameClock to take out whoever left
     ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
@@ -67,7 +72,8 @@ networking/
     │                    close_where() for a ban, listening_on(); wait_for_save() after logging the other
     │                    session out
     └── udp.rs         the one UDP thread: Connect, KeepAlive, Goodbye, character select's asks handed to
-                         Protogame, PlayerCommand answered on the spot, the sweep; tell(), tell_all(),
+                         Protogame, PlayerCommand answered on the spot, answers in Spans when too big, the
+                         sweep; tell(), tell_all(), tell_answer(),
                          listening_on()
 ```
 
@@ -307,16 +313,43 @@ all nine checks passed, Ensemble still logging in on version 8.
 - **Everybody in the world hears it, the speaker too**, as `[Chat] Jacob: Yo yo yo!`, one fixed channel
   ("like the way the old shit muds did it!").  Players at character select don't.
 - **It goes out on the GameClock's beat**: "on the next "chat" GameClock tick that carries chat (which
-  should be every beat)".  The UDP thread reads the line on the spot (`chat.rs`; no database, nothing in the
-  world), answers CommandAccepted or CommandRefused through the book like any ask, so a resend isn't said
-  twice, and leaves the finished line in the GameClock's chat mailbox.  The broadcast check takes the
-  cycle's lines and calls `chat::send_out()`, handed to the GameClock when networking starts
+  should be every beat)".  The UDP thread reads the line on the spot (`commands.rs`; no database, nothing in
+  the world), answers CommandAccepted or CommandRefused through the book like any ask, so a resend isn't
+  said twice, and leaves the finished line in the GameClock's chat mailbox.  The broadcast check takes the
+  cycle's lines and calls `commands::send_out()`, handed to the GameClock when networking starts
   (`set_chat_sender()`), since the GameClock can't depend on networking: networking depends on it.  That
   builds **ChatDelivery** (`0x38`, a count and the lines, split to stay under 1200 bytes) and sends it to
   `sessions::in_world()` with `udp::tell_all()`, from the GameClock's thread.  Sent once; a lost one is lost.
 - **The log**: every line said is a Debug on the Game channel, the account with it.
 - **Later** (TODO.md): saying things without a `/`, nearby, once there are positions; a limit on how fast
   one player can chat; whether the web admin sees the chat; Ensemble's chat box.
+
+## /who (2026-10-02)
+
+Jacob's ask, protocol version 9: "a /who that shows all connected players".  PROTOCOL.md has the bytes and
+the box.  Written, waiting on Jacob's build.
+
+- **Characters in the world only** ("I agree characters in the world only"), A to Z, to the one who asked.
+- **`/who` is the names; `/who list` each with its block**: "A but if they do /who list It shows [Aldric]
+  is currently at [0, 0, 0]".  Whole blocks, rounded down ("a block is the width of a player so they can
+  only really fit on one").  A zone or biome name goes there later ("Eventually we will be putting in a
+  biome name there (or zone)").
+- **The client draws it**: "I like the idea of a who being a packet a list of names and the time from the
+  server The Who was run".  The box is his old MUD's, "] Forgotten Legends [" and "There are seven legends
+  currently online."  The time is seconds since midnight UTC (his pick), shown in the player's own time
+  zone with the client's own date; the columns fit the chat box ("make it fit our actual chat size"); the
+  count is written out by Ensemble's `Translator.NumberToWords()`, British ("IN the honor of Discworld!").
+  So the server sends **WhoDelivery** (`0x39`): the ask, the seconds, list or not, the names (and blocks).
+- **Where it's answered**: `/who` from the book on the UDP thread, on the spot (`who.rs`).  `/who list`
+  needs positions, which only the GameClock's thread reads, so it goes in the GameClock's `/who list`
+  mailbox (`who_list()`), and the broadcast check reads every player's character's name and block once and
+  calls `who::send_list()` for each ask (handed over as `set_who_sender()` when networking starts), which
+  finishes the ask in the book and sends the answer.  The ask stays open in the book until then, so the
+  client's resend in between is dropped, and one after gets the kept answer.
+- **Spans** (`0x3A`), Jacob's "span packet": an answer over 1200 bytes goes in pieces, each saying which of
+  how many, the client waiting 2 seconds at most for them all.  Any answer through `send_answer()` in
+  `udp.rs` gets it.  `/who list` passes 1200 bytes at about thirty characters.
+- **Everybody sees everybody's position**: "thats fine for now".  Who may see positions is for later.
 
 ## What's open
 

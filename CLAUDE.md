@@ -552,8 +552,8 @@ When I say we're wrapping up:
   and so does a new value in a packet's enum (each new Kicked reason did):
   `protocol.rs`, PROTOCOL.md, `test_client.py` and Ensemble's
   `Assets/Code/Net/Protocol.cs` all change together, and the document gets
-  a line saying what the version added.  It's at 8
-  (chat, 2026-10-02).
+  a line saying what the version added.  It's at 9
+  (`/who` and the span, 2026-10-02).
 - **Character select is Protogame's** (`protogame.rs` in networking, its own
   thread and Services line): "the character selection and character
   construction are proto game then become game objects after load".  The

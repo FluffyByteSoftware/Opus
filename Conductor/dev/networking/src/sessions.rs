@@ -494,6 +494,12 @@ pub fn in_world() -> Vec<SocketAddr> {
     in_world_in(&book())
 }
 
+/// The name of every player's character in the world, in no order, for
+/// `/who`.
+pub fn names_in_world() -> Vec<String> {
+    names_in_world_in(&book())
+}
+
 /// Crosses out every player whose address `matches` says so for: a ban
 /// from the web admin.  Nothing is sent from here; the caller tells each
 /// one with a Kicked.  Their addresses and accounts, for that and the log.
@@ -626,6 +632,12 @@ fn in_world_in(book: &Book) -> Vec<SocketAddr> {
     book.players.iter()
         .filter(|(_, player)| player.character.is_some())
         .map(|(address, _)| *address)
+        .collect()
+}
+
+fn names_in_world_in(book: &Book) -> Vec<String> {
+    book.players.values()
+        .filter_map(|player| player.character.as_ref().map(|character| character.name.clone()))
         .collect()
 }
 
@@ -852,7 +864,7 @@ mod tests {
     }
 
     #[test]
-    fn only_players_in_the_world_hear_the_chat() {
+    fn only_players_in_the_world_hear_the_chat_or_show_in_who() {
         let mut book = Book::new();
         let now = Instant::now();
         let home = address("10.0.0.5:50000");
@@ -867,6 +879,7 @@ mod tests {
         begin_ask_in(&mut book, home, 1, now);
         assert!(entered_in(&mut book, home, "jacob", 1, jacob(), b"in"));
         assert_eq!(in_world_in(&book), vec![home]);
+        assert_eq!(names_in_world_in(&book), vec!["Jacob".to_string()]);
     }
 
     #[test]

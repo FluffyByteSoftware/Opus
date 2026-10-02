@@ -99,8 +99,14 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     2026-10-02): "a static class `string NumberToWords(int number)`", British, with the "and" ("IN the honor
     of Discworld!").  The server sends the names; the client counts them and writes the count out.
   - **A big answer** (Jacob, 2026-10-02): "we need to build a "span packet" that tells the client there are
-    X of Y packets about to show up and to wait till all are received or a specified time elapses?"  Being
-    settled.
+    X of Y packets about to show up and to wait till all are received or a specified time elapses?"  Each
+    piece says which of how many (OKed, "yes"), and the client waits 2 seconds ("2s is fine").
+  - **Written, waiting on Jacob's build** (2026-10-02): protocol version 9, WhoDelivery (`0x39`) and Span
+    (`0x3A`); `Translator.NumberToWords()` in Ensemble now ("a"), its `.meta` from Jacob's machine; the test
+    client draws the box at 79 with the count in digits.  `design/conductor-networking.md`, "/who", and
+    PROTOCOL.md have it.
+  - **Ensemble, with the chat box**: draw the WhoDelivery (the box to the chat box's width, the time in the
+    player's time zone, the count with `NumberToWords()`), and put Spans back together (2 seconds).
 - **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up
   repeatedly needing but we don't need it... yet put this in todo".  A static class beside the Translator,
   when there's a formula used in more than one place.

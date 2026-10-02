@@ -52,10 +52,16 @@
 //! player typed, as it was typed (`/chat Yo yo yo!`), and ChatDelivery
 //! carries the finished lines out to everybody in the world, once a
 //! GameClock cycle.
+//!
+//! Version 9 (2026-10-02) is `/who` and the span.  WhoDelivery answers a
+//! `/who` with the names of the characters in the world (and with `/who
+//! list`, where each stands), and the time it ran; the client draws the
+//! rest.  Span carries an answer too big for one packet in pieces, each
+//! saying which piece it is, and the client puts them back together.
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 8;
+pub const PROTOCOL_VERSION: u8 = 9;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -167,6 +173,19 @@ pub enum PacketType {
     /// Jacob: Yo yo yo!`.  Sent once a GameClock cycle that has chat, to
     /// everybody in the world, the one who said it too.  Version 8.
     ChatDelivery = 0x38,
+    /// Server to client, the answer to a `/who`.  The ask number, the
+    /// seconds since midnight UTC when it ran (a u32), whether it's a list
+    /// (u8: 0 the names only, 1 each with where it stands), and a u16
+    /// count, then for each character in the world, A to Z: its name (a
+    /// string), and with a list, its x, y and z in whole blocks (an i32
+    /// each).  The client draws the box around it.  Version 9.
+    WhoDelivery = 0x39,
+    /// Server to client: one piece of an answer too big for one packet.
+    /// The ask number, which piece (u8, from 1), how many pieces (u8),
+    /// then the piece's bytes.  The pieces' bytes, in order, make the
+    /// answer, type byte and all.  An answer that fits in one packet goes
+    /// as it is.  Version 9, Jacob's "span packet".
+    Span = 0x3A,
 }
 
 impl PacketType {
@@ -198,6 +217,8 @@ impl PacketType {
             0x36 => Some(PacketType::CommandRefused),
             0x37 => Some(PacketType::PlayerCommand),
             0x38 => Some(PacketType::ChatDelivery),
+            0x39 => Some(PacketType::WhoDelivery),
+            0x3A => Some(PacketType::Span),
             _ => None,
         }
     }
@@ -356,6 +377,16 @@ pub struct EnteredCharacter {
     pub name: String,
     /// Where it stands: x, y and z, y up.
     pub position: [f32; 3],
+}
+
+/// One character in a WhoDelivery: its name, and with `/who list`, the
+/// block it stands in.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WhoEntry {
+    pub name: String,
+    /// x, y and z in whole blocks, y up.  `None` for `/who`, which only
+    /// gives names.
+    pub block: Option<[i32; 3]>,
 }
 
 /// What the player picked when their account was already logged in.
@@ -629,6 +660,60 @@ pub fn chat_deliveries(lines: &[String]) -> Vec<Vec<u8>> {
         packets.push(packet);
     }
     packets
+}
+
+/// The answer to a `/who`: the time it ran, in seconds since midnight
+/// UTC, whether it's a `/who list`, and the characters, in the order
+/// given (the caller sorts them).  A list's entries carry their blocks;
+/// one without counts as 0, 0, 0.  No limit on its size here: one too big
+/// for a packet goes out in pieces (`spans()`).
+pub fn who_delivery(ask: u32, seconds_since_midnight: u32, list: bool, entries: &[WhoEntry]) -> Vec<u8> {
+    let mut bytes = vec![PacketType::WhoDelivery as u8];
+    bytes.extend_from_slice(&ask.to_le_bytes());
+    bytes.extend_from_slice(&seconds_since_midnight.to_le_bytes());
+    bytes.push(u8::from(list));
+    let count = entries.len().min(u16::MAX as usize);
+    bytes.extend_from_slice(&(count as u16).to_le_bytes());
+    for entry in entries.iter().take(count) {
+        put_string(&mut bytes, &entry.name);
+        if list {
+            for axis in entry.block.unwrap_or_default() {
+                bytes.extend_from_slice(&axis.to_le_bytes());
+            }
+        }
+    }
+    bytes
+}
+
+/// What goes in each Span besides its piece: the type, the ask number,
+/// which piece and how many.
+const SPAN_HEADER: usize = 1 + 4 + 1 + 1;
+
+/// The biggest piece of an answer one Span carries.
+const SPAN_PIECE: usize = MAX_UDP_BYTES - SPAN_HEADER;
+
+/// An answer as the packets that carry it: itself alone if it fits in
+/// MAX_UDP_BYTES, or else Spans, each a piece of it in order.  Empty if
+/// it's too big for even 255 Spans (about 300 KB), which nothing sends:
+/// a `/who list` of eight thousand characters would just fit.
+pub fn spans(ask: u32, answer: &[u8]) -> Vec<Vec<u8>> {
+    if answer.len() <= MAX_UDP_BYTES {
+        return vec![answer.to_vec()];
+    }
+    let pieces: Vec<&[u8]> = answer.chunks(SPAN_PIECE).collect();
+    if pieces.len() > u8::MAX as usize {
+        return Vec::new();
+    }
+    let count = pieces.len() as u8;
+    pieces.iter().enumerate().map(|(index, piece)| {
+        let mut bytes = Vec::with_capacity(SPAN_HEADER + piece.len());
+        bytes.push(PacketType::Span as u8);
+        bytes.extend_from_slice(&ask.to_le_bytes());
+        bytes.push(index as u8 + 1);
+        bytes.push(count);
+        bytes.extend_from_slice(piece);
+        bytes
+    }).collect()
 }
 
 // ---------------------------------------------------------------------------
@@ -931,14 +1016,14 @@ mod tests {
                      PacketType::CreateCharacter, PacketType::CharacterCreateResult, PacketType::DeleteCharacter,
                      PacketType::CharacterDeleteResult, PacketType::CharacterRequestResetHome,
                      PacketType::UserPressPlay, PacketType::CharacterEnteredWorld, PacketType::PlayerCommand,
-                     PacketType::ChatDelivery];
+                     PacketType::ChatDelivery, PacketType::WhoDelivery, PacketType::Span];
         for kind in every {
             assert_eq!(PacketType::from_byte(kind as u8), Some(kind));
         }
         assert_eq!(PacketType::from_byte(0x00), None);
         assert_eq!(PacketType::from_byte(0x16), None);
         assert_eq!(PacketType::from_byte(0x29), None);
-        assert_eq!(PacketType::from_byte(0x39), None);
+        assert_eq!(PacketType::from_byte(0x3B), None);
     }
 
     #[test]
@@ -1076,5 +1161,63 @@ mod tests {
         let packets = chat_deliveries(&empty);
         assert_eq!(packets.iter().map(|packet| packet[1] as usize).collect::<Vec<_>>(), vec![255, 45]);
         assert!(packets.iter().all(|packet| packet.len() <= MAX_UDP_BYTES));
+    }
+
+    #[test]
+    fn a_who_in_bytes() {
+        // 03:53:24 is 14,004 seconds after midnight, 0x36B4.
+        let names = [WhoEntry { name: "Aldric".to_string(), block: None },
+                     WhoEntry { name: "Jacob".to_string(), block: None }];
+        let mut expected = vec![0x39, 14, 0, 0, 0, 0xB4, 0x36, 0, 0, 0, 2, 0];
+        expected.extend_from_slice(&[6, 0, 0, 0]);
+        expected.extend_from_slice(b"Aldric");
+        expected.extend_from_slice(&[5, 0, 0, 0]);
+        expected.extend_from_slice(b"Jacob");
+        assert_eq!(who_delivery(14, 14_004, false, &names), expected);
+
+        // A list: 1 after the time, and each name's block, -2 being
+        // FE FF FF FF.
+        let listed = [WhoEntry { name: "Jacob".to_string(), block: Some([1, 0, -2]) }];
+        let mut expected = vec![0x39, 15, 0, 0, 0, 0xB4, 0x36, 0, 0, 1, 1, 0];
+        expected.extend_from_slice(&[5, 0, 0, 0]);
+        expected.extend_from_slice(b"Jacob");
+        expected.extend_from_slice(&[1, 0, 0, 0, 0, 0, 0, 0, 0xFE, 0xFF, 0xFF, 0xFF]);
+        assert_eq!(who_delivery(15, 14_004, true, &listed), expected);
+
+        // Nobody, which a `/who` can't really get: the one asking is in
+        // the world.
+        assert_eq!(who_delivery(16, 0, false, &[]), vec![0x39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+    }
+
+    #[test]
+    fn an_answer_that_fits_goes_as_it_is() {
+        let small = who_delivery(1, 0, false, &[]);
+        assert_eq!(spans(1, &small), vec![small.clone()]);
+        let just_fits = vec![0x39; MAX_UDP_BYTES];
+        assert_eq!(spans(1, &just_fits), vec![just_fits.clone()]);
+    }
+
+    #[test]
+    fn a_big_answer_goes_in_spans_that_put_it_back_together() {
+        // Sixty characters with 20-letter names, listed: 60 * 36 bytes
+        // and the front, a little over 2,100 bytes, so two Spans.
+        let many: Vec<WhoEntry> = (0..60)
+            .map(|n| WhoEntry { name: format!("{:A>20}", n), block: Some([n, 0, -n]) })
+            .collect();
+        let answer = who_delivery(7, 100, true, &many);
+        let pieces = spans(7, &answer);
+        assert_eq!(pieces.len(), 2);
+
+        let mut joined = Vec::new();
+        for (index, piece) in pieces.iter().enumerate() {
+            assert!(piece.len() <= MAX_UDP_BYTES);
+            assert_eq!(&piece[..7], &[0x3A, 7, 0, 0, 0, index as u8 + 1, 2]);
+            joined.extend_from_slice(&piece[7..]);
+        }
+        assert_eq!(joined, answer);
+
+        // Past 255 pieces, nothing.
+        assert!(spans(7, &vec![0u8; SPAN_PIECE * 255 + 1]).is_empty());
+        assert_eq!(spans(7, &vec![0u8; SPAN_PIECE * 255]).len(), 255);
     }
 }

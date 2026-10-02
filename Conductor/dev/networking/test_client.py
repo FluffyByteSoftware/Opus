@@ -11,7 +11,9 @@
 # makes, deletes or resets home the ones the flags name, and with --play
 # brings one into the world and stays there.  With --type it types lines
 # there, the way a player types in the chat window (`/chat Yo yo yo!`,
-# protocol version 8), and every chat the server sends is printed.  Every
+# protocol version 8), and every chat the server sends is printed; a
+# `/who` (version 9) is drawn the way Ensemble will draw it, at 79 wide,
+# with the count in digits.  An answer in Spans is put back together.  Every
 # packet in and out is printed, meaning first and raw bytes under it.  The
 # bytes are the ones in Documentation/LLM/PROTOCOL.md; when this and the
 # document disagree, the document wins.  To try "already logged in", leave
@@ -33,6 +35,7 @@
 #   python3 test_client.py --reset-home Jacob jacob_01 'Correct horse 1!'   (puts it back at 0, 0, 0)
 #   python3 test_client.py --play Jacob jacob_01 'Correct horse 1!'   (brings Jacob into the world)
 #   python3 test_client.py --play Jacob --type '/chat Yo yo yo!' jacob_01 'Correct horse 1!'   (says it to everybody)
+#   python3 test_client.py --play Jacob --type '/who' --type '/who list' jacob_01 'Correct horse 1!'
 #   python3 test_client.py --no-key jacob_01 'Correct horse 1!'   (sends the password, not its key: refused)
 #
 # Standard library only.
@@ -45,8 +48,9 @@ import ssl
 import struct
 import sys
 import time
+from datetime import datetime, timedelta, timezone
 
-PROTOCOL_VERSION = 8
+PROTOCOL_VERSION = 9
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -78,6 +82,8 @@ COMMAND_ACCEPTED = 0x35
 COMMAND_REFUSED = 0x36
 PLAYER_COMMAND = 0x37
 CHAT_DELIVERY = 0x38
+WHO_DELIVERY = 0x39
+SPAN = 0x3A
 
 NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "LoginResult",
          SESSION_CHOICE: "SessionChoice", TICKET: "Ticket", CONNECT: "Connect", CONNECT_RESULT: "ConnectResult",
@@ -88,7 +94,7 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          CHARACTER_REQUEST_RESET_HOME: "CharacterRequestResetHome", COMMAND_ACCEPTED: "CommandAccepted",
          COMMAND_REFUSED: "CommandRefused", USER_PRESS_PLAY: "UserPressPlay",
          CHARACTER_ENTERED_WORLD: "CharacterEnteredWorld", PLAYER_COMMAND: "PlayerCommand",
-         CHAT_DELIVERY: "ChatDelivery"}
+         CHAT_DELIVERY: "ChatDelivery", WHO_DELIVERY: "WhoDelivery", SPAN: "Span"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
@@ -146,6 +152,64 @@ def show_chat(data):
     say("<-", CHAT_DELIVERY, "%d line(s)" % count, data[1:])
     for line in lines:
         print("   %s" % line, flush=True)
+
+
+# How wide the /who box is drawn here.  Ensemble draws it to its chat
+# box's width; 79 is Jacob's old MUD's.
+WHO_WIDTH = 79
+
+# How long to wait for every piece of an answer in Spans before giving up.
+SPAN_WAIT = 2.0
+
+
+def centred(text, fill):
+    pad = WHO_WIDTH - len(text)
+    left = pad // 2
+    return fill * left + text + fill * (pad - left)
+
+
+def show_who(data):
+    """A WhoDelivery, drawn as the client will draw it: the banner, the
+    time it ran in this computer's time zone, the names in columns (or a
+    line each with where it stands, for /who list), and the count."""
+    (ask, seconds) = struct.unpack_from("<II", data, 1)
+    listed = data[9] == 1
+    (count,) = struct.unpack_from("<H", data, 10)
+    at = 12
+    entries = []
+    for _ in range(count):
+        name, at = take_string(data, at)
+        block = None
+        if listed:
+            block = struct.unpack_from("<iii", data, at)
+            at += 12
+        entries.append((name, block))
+    say("<-", WHO_DELIVERY, "ask %d, %d character(s), %d seconds after midnight UTC%s"
+        % (ask, count, seconds, ", listed" if listed else ""), data[1:])
+
+    # The date is this computer's, the time the server's.
+    midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    ran = (midnight + timedelta(seconds=seconds)).astimezone()
+    stamp = ran.strftime("%a %b ") + "%2d" % ran.day + ran.strftime(" %H:%M:%S %Y")
+
+    lines = [centred("======] Forgotten Legends [======", "-"), centred(stamp, " ").rstrip(),
+             centred("] Players [", "-")]
+    if listed:
+        for name, (x, y, z) in entries:
+            lines.append("[%s] is currently at [%d, %d, %d]" % (name, x, y, z))
+    elif entries:
+        width = max(len(name) for name, _ in entries) + 2
+        across = max(1, (WHO_WIDTH + 2) // width)
+        for start in range(0, len(entries), across):
+            row = entries[start:start + across]
+            lines.append("".join(name.ljust(width) for name, _ in row).rstrip())
+    if count == 1:
+        footer = "There is 1 legend currently online."
+    else:
+        footer = "There are %d legends currently online." % count
+    lines.append(centred("> %s <" % footer, "-"))
+    for line in lines:
+        print("   " + line, flush=True)
 
 
 class Tcp:
@@ -278,7 +342,14 @@ class CharacterSelect:
         self.last_ask += 1
         ask = self.last_ask
         packet = bytes([kind]) + struct.pack("<I", ask) + rest
+        # The pieces of an answer in Spans, by number, kept across resends:
+        # the server sends every piece again, and the gaps fill in.
+        pieces = {}
+        first_piece = None
         for attempt in range(20):
+            if first_piece is not None and time.monotonic() - first_piece > SPAN_WAIT:
+                print("Gave up on ask %d: %d piece(s) in %g seconds." % (ask, len(pieces), SPAN_WAIT))
+                return None, None
             self.udp.sendto(packet, self.server)
             say("->", kind, "ask %d, %s%s" % (ask, detail, "" if attempt == 0 else " (again)"), packet[1:])
             deadline = time.monotonic() + 0.5
@@ -293,8 +364,23 @@ class CharacterSelect:
                     (reason,) = struct.unpack("<I", data[1:5])
                     say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
                     raise Kicked()
+                if data[0] == SPAN and len(data) >= 7:
+                    (answered,) = struct.unpack_from("<I", data, 1)
+                    if answered != ask:
+                        say("<-", SPAN, "for ask %d, an old one; ignored" % answered)
+                        continue
+                    part, parts = data[5], data[6]
+                    pieces[part] = data[7:]
+                    if first_piece is None:
+                        first_piece = time.monotonic()
+                    say("<-", SPAN, "ask %d, piece %d of %d, %d bytes" % (ask, part, parts, len(data) - 7))
+                    if all(number in pieces for number in range(1, parts + 1)):
+                        data = b"".join(pieces[number] for number in range(1, parts + 1))
+                    else:
+                        continue
                 if data[0] in (CHARACTER_LIST_DELIVERY, CHARACTER_CREATE_RESULT, CHARACTER_DELETE_RESULT,
-                               COMMAND_ACCEPTED, COMMAND_REFUSED, CHARACTER_ENTERED_WORLD) and len(data) >= 5:
+                               COMMAND_ACCEPTED, COMMAND_REFUSED, CHARACTER_ENTERED_WORLD,
+                               WHO_DELIVERY) and len(data) >= 5:
                     (answered,) = struct.unpack_from("<I", data, 1)
                     if answered == ask:
                         return data[0], data
@@ -386,7 +472,9 @@ class CharacterSelect:
     def type_line(self, line):
         """A line typed in the chat window, sent as it was typed."""
         kind, data = self.ask(PLAYER_COMMAND, put_string(line), repr(line))
-        if kind == COMMAND_ACCEPTED:
+        if kind == WHO_DELIVERY:
+            show_who(data)
+        elif kind == COMMAND_ACCEPTED:
             say("<-", kind, "", data[1:])
         elif kind == COMMAND_REFUSED:
             message, _ = take_string(data, 5)

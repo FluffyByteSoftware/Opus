@@ -32,14 +32,16 @@ gameclock/
 ├── Cargo.toml     depends on conductor-tools, conductor-primlib, conductor-gameworld and conductor-accounts
 └── src/
     ├── chat.rs    the chat's mailbox: chat(line), set_chat_sender(send); broadcast(), for the broadcast check
+    ├── who.rs     /who list's mailbox: who_list(WhoAsked), set_who_sender(send), Standing; answer(), for
+    │                the broadcast check; block_of()
     ├── lib.rs     start(), stop(), ready(); enter() and leave() handed on from players.rs, chat() and
-    │                set_chat_sender() from chat.rs; Game (the world, the
+    │                set_chat_sender() from chat.rs, who_list() and set_who_sender() from who.rs; Game (the world, the
     │                terrain, the players, the world save, the saves on their way); the GameClock's thread, the
     │                schedule, the tallies, the Warn; save_world()
     ├── checks.rs  the five checks, in order, each a function that gets the Game
     ├── players.rs the mailbox (Note: Enter, Leave; enter(), leave()); the "saving" marks (saving(),
     │                wait_until_saved()); Players, the characters in the world by their row's id: take_notes(),
-    │                snapshot(), count()
+    │                snapshot(), standing(), count()
     └── saving.rs  world_save_every(); WorldSave (when the next is due); Writes (the saves on their way to the
                      database, looked at every housekeeping; send() and send_leaving())
 ```
@@ -143,6 +145,14 @@ that each need the other.  A plain function handed over solves it; the positions
 The mailbox is open only while the GameClock runs, and STOP SERVER drops what's in it.  A cycle with no
 chat costs a lock.  The sending is one UDP send per player in the world per cycle that has chat, on the
 GameClock's thread; a guess, not measured.  `design/conductor-networking.md` has the rest.
+
+## /who list (2026-10-02)
+
+The broadcast check answers `/who list` too: networking leaves each ask (who asked, from where, its ask
+number) with `who_list()`, and the check reads every player's character's `ShortName` and the block its
+`Transform` stands in (`standing()`, each axis rounded down) once, however many asked that cycle, and hands
+them with each ask to networking's `send_list()`, handed over with `set_who_sender()`.  Same shape as the
+chat, same reason.  `design/conductor-networking.md` has the rest.
 
 ## Open
 

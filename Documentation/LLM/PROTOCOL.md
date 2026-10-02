@@ -12,8 +12,10 @@ The Python test client beside the crate (`networking/test_client.py`) speaks all
 (`Assets/Code/Net/`, 2026-10-02) the login and character select so far, not chat yet; when any of them
 disagrees with this document, it is the code that gets fixed.
 
-Protocol version **8**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 8 (2026-10-02)
+Protocol version **9**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 9 (2026-10-02)
+added `/who`: WhoDelivery (`0x39`), and Span (`0x3A`), an answer too big for one packet in pieces (below,
+"Answers in pieces").  Version 8 (2026-10-02)
 added chat: PlayerCommand (`0x37`), a line the player typed, and ChatDelivery (`0x38`), the chat going out to
 everybody in the world (below, "In the world, over UDP").  Version 7 (2026-10-02)
 made the Login's fourth string the password's key instead of the password (below, "The password's key").
@@ -115,6 +117,8 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 | `0x36` | CommandRefused | server to client | u32 ask, string why                                      |
 | `0x37` | PlayerCommand  | client to server | u32 ask, string the line as typed                        |
 | `0x38` | ChatDelivery   | server to client | u8 count, then that many strings, each a finished line   |
+| `0x39` | WhoDelivery    | server to client | u32 ask, u32 seconds since midnight UTC, u8 list, u16 count, then each: string name, and with a list i32 x, y, z |
+| `0x3A` | Span           | server to client | u32 ask, u8 piece, u8 pieces, then the piece's bytes     |
 
 ## The login, over TCP
 
@@ -298,7 +302,7 @@ Once a CharacterEnteredWorld has come, the player is in the world.  For now what
 **PlayerCommand** carries a line the player typed in the client's chat window, as it was typed, with an ask
 number like character select's: the same number again gets the same answer again, so a line whose answer
 got lost isn't said twice, and one ask at a time.  A line that starts with `/` is a command; the word after
-the `/`, up to the first space or the end, says which, with any capitals.  There's one so far:
+the `/`, up to the first space or the end, says which, with any capitals.  There are two so far:
 
 - **`/chat <message>`** says the message to everybody in the world.  The message is what comes after the
   first space, spaces at either end left off.  It's plain English: letters, numbers, punctuation and the
@@ -309,10 +313,10 @@ The answer is a **CommandAccepted** when the line goes out, or a **CommandRefuse
 
 - "Saying things without a command isn't in yet.  Use /chat." for a line without a `/` (it'll be said
   out loud, nearby, later).
-- "There's no command by that name.  For now there's only /chat."
+- "There's no command by that name.  For now there's /chat and /who."
 - "Say something after /chat." for a `/chat` with nothing after it.
 - "Chat is plain English: letters, numbers, punctuation and spaces." for anything else in the first 300.
-- "You can chat once your character is in the world." from character select.
+- "Commands work once your character is in the world." from character select, for any command.
 - "Chat Unavailable": the server can't right now.  Nothing the player did.
 
 **ChatDelivery** is the chat going out.  The server gathers everything said and sends it once a game cycle
@@ -342,6 +346,71 @@ A `/chat` as ask 4, and what everybody gets:
 01                                            1 line
 17 00 00 00  5B 43 68 61 74 5D 20 4A ...      "[Chat] Jacob: Yo yo yo!", 23 bytes
 ```
+
+### /who
+
+**`/who`** asks who's in the world, and **`/who list`** where each of them stands.  Only characters in
+the world count (players at character select don't), and only the one who asked gets the answer, a
+**WhoDelivery** carrying the ask number, so it's sent again for a resend like any answer:
+
+- the time it ran, in **seconds since midnight UTC** (0 to 86,399), a u32;
+- whether it's a list: `0` for `/who`, `1` for `/who list`;
+- a u16 count, then each character, A to Z whatever the capitals: its name, and in a list its x, y and z,
+  each an i32 in **whole blocks**, rounded down (1.5 is block 1, -1.5 is block -2).
+
+`/who list` waits for the next game cycle, so its answer comes up to 250 ms later.  Anything else after
+`/who` gets a **CommandRefused**, "Try /who, or /who list.", and "Who Unavailable" means the server can't
+right now.
+
+The client draws the rest, in the player's own time zone (the date from its own clock, the time from the
+packet) and to the width of its chat box, the count written out (Ensemble's `Translator.NumberToWords()`).
+Jacob's old MUD's box, at 79 wide:
+
+```text
+-----------------------======] Forgotten Legends [======-----------------------
+                          Fri Oct  2 03:53:24 2026
+----------------------------------] Players [----------------------------------
+Aldric   Bujin    Eetius   Guesty   Kriket   Malachy  Trzk     Zeleya
+-----------------> There are eight legends currently online. <-----------------
+```
+
+The names in columns as wide as the longest name and two spaces, as many to a row as fit.  For one:
+"There is one legend currently online."  A `/who list` has a line each in place of the columns:
+
+```text
+[Aldric] is currently at [0, 0, 0]
+[Jacob] is currently at [1, 0, -2]
+```
+
+A `/who` as ask 5 at 03:53:24 UTC (14,004 seconds, `0x36B4`), with Aldric and Jacob in the world:
+
+```text
+37                                            PlayerCommand
+05 00 00 00                                   ask 5
+04 00 00 00  2F 77 68 6F                      "/who"
+
+39                                            WhoDelivery
+05 00 00 00                                   ask 5
+B4 36 00 00                                   14,004 seconds after midnight UTC
+00                                            names only
+02 00                                         2 characters
+06 00 00 00  41 6C 64 72 69 63                "Aldric"
+05 00 00 00  4A 61 63 6F 62                   "Jacob"
+```
+
+## Answers in pieces
+
+An answer bigger than 1200 bytes (a `/who list` of more than about thirty characters) goes out as
+**Spans**: each one the ask number, which piece it is (from 1), how many pieces there are, and a piece of
+the answer's bytes, 1193 at most.  The pieces' bytes put back together in order are the answer, type byte
+and all, which the client then reads as if it had come whole.  An answer that fits goes as it is, never
+as one Span.  At most 255 pieces.
+
+Each piece says how many there are, rather than a packet in front announcing them, so any one that
+arrives is enough to know what's coming.  A client missing pieces sends its ask again after half a second
+as it always does, and the server sends every piece again from the answer it kept; the client keeps what
+it had and fills the gaps.  **It gives up 2 seconds after the first piece** if it still hasn't got them
+all (Jacob, 2026-10-02: "wait till all are received or a specified time elapses", "2s is fine").
 
 ## A worked example
 

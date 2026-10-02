@@ -43,8 +43,11 @@
 //!
 //! A player in the world types lines (protocol version 8): a
 //! PlayerCommand, answered from here, since nothing in it waits on the
-//! database.  `/chat` makes a line for everybody (`chat.rs`), which goes
-//! out from the GameClock's next broadcast check through `tell_all()`.
+//! database.  `/chat` makes a line for everybody (`commands.rs`), which
+//! goes out from the GameClock's next broadcast check through
+//! `tell_all()`; `/who` is answered here, and `/who list` from the
+//! GameClock's broadcast check through `tell_answer()` (`who.rs`).  An
+//! answer too big for one packet goes out in Spans (protocol version 9).
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
@@ -58,7 +61,7 @@ use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
-use crate::chat;
+use crate::commands::{self, Outcome};
 use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
 use crate::protogame::{self, Work};
 use crate::sessions::{self, Ask, Connected};
@@ -73,7 +76,7 @@ const CHARACTER_SELECT_IS_BEHIND: &str = "Your character is in the world.  Log o
     select.";
 
 /// What a player at character select hears for a command.
-const NOT_IN_THE_WORLD: &str = "You can chat once your character is in the world.";
+const NOT_IN_THE_WORLD: &str = "Commands work once your character is in the world.";
 
 /// How much we read in one go.  Bigger than MAX_UDP_BYTES on purpose: a
 /// packet that doesn't fit the buffer gets cut to fit without a word, and
@@ -200,6 +203,17 @@ pub fn tell_all(addresses: &[SocketAddr], packets: &[Vec<u8>]) {
                 send(&side.socket, *address, packet);
             }
         }
+    }
+}
+
+/// Sends the answer to the ask numbered `ask` to `to`, in Spans if it's
+/// too big for one packet, from any thread.  For the GameClock's answer to
+/// a `/who list`.  Nothing happens if the UDP side isn't running.
+pub fn tell_answer(to: SocketAddr, ask: u32, answer: &[u8]) {
+    let guard = UDP.lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some(side) = guard.as_ref() {
+        send_answer(&side.socket, to, ask, answer);
     }
 }
 
@@ -348,7 +362,7 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
 fn ask_protogame(socket: &UdpSocket, from: SocketAddr, ask: u32, work: Work) {
     match sessions::begin_ask(from, ask) {
         Ask::Stranger | Ask::Busy => {}
-        Ask::Again(answer) => send(socket, from, &answer),
+        Ask::Again(answer) => send_answer(socket, from, ask, &answer),
         Ask::InWorld(account, _) => {
             let answer = protocol::command_refused(ask, CHARACTER_SELECT_IS_BEHIND);
             if sessions::finish_ask(from, &account, ask, &answer) {
@@ -377,23 +391,21 @@ fn player_command(socket: &UdpSocket, from: SocketAddr, ask: u32, line: &str) {
     let (account, answer) = match sessions::begin_ask(from, ask) {
         Ask::Stranger | Ask::Busy => return,
         Ask::Again(answer) => {
-            send(socket, from, &answer);
+            send_answer(socket, from, ask, &answer);
             return;
         }
         Ask::New(account) => {
             let answer = protocol::command_refused(ask, NOT_IN_THE_WORLD);
             (account, answer)
         }
-        Ask::InWorld(account, character) => {
-            let answer = match chat::command(&account, &character, line) {
-                Ok(()) => protocol::command_accepted(ask),
-                Err(why) => protocol::command_refused(ask, why),
-            };
-            (account, answer)
-        }
+        Ask::InWorld(account, character) => match commands::command(from, &account, &character, ask, line) {
+            Outcome::Answer(answer) => (account, answer),
+            // The GameClock answers it, and finishes the ask then.
+            Outcome::Later => return,
+        },
     };
     if sessions::finish_ask(from, &account, ask, &answer) {
-        send(socket, from, &answer);
+        send_answer(socket, from, ask, &answer);
     }
 }
 
@@ -406,6 +418,18 @@ fn sweep(udp_timeout: Duration, token_deadline: Duration) {
     }
     if swept.tickets_expired > 0 {
         scribe::debug(Channel::Network, &format!("{} ticket(s) ran out unused.", swept.tickets_expired));
+    }
+}
+
+/// An answer, whole or in Spans (`protocol::spans()`).
+fn send_answer(socket: &UdpSocket, to: SocketAddr, ask: u32, answer: &[u8]) {
+    let packets = protocol::spans(ask, answer);
+    if packets.is_empty() {
+        scribe::warn(Channel::Network, &format!("An answer of {} bytes to {to} is too big to send, even in \
+            pieces.", answer.len()));
+    }
+    for packet in &packets {
+        send(socket, to, packet);
     }
 }
 
