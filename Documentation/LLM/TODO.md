@@ -274,8 +274,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - `Packages/` is ignored, so `Packages/manifest.json` (which packages the project uses) and
     `packages-lock.json` aren't committed.  A Unity project usually commits both, and the first package
     the client code needs (the Input System, say) makes it matter.
-  - `Assembly-CSharp*.csproj` and `Opus.Ensemble.slnx` are committed, but Unity rewrites them on every
-    open and they usually stay out.
+  - **Done** (2026-10-02, Jacob's yes): `Assembly-CSharp*.csproj`, `Opus.Ensemble.sln` and `.slnx` are out
+    of git and in the `.gitignore`.  Unity rewrote them on every compile, and the rewrite stopped a
+    `git checkout main`.
   - `.gitattributes` sends `.unity` scenes and `.anim` through LFS.  Both are text Unity can merge;
     asked on 2026-10-01, not answered yet.
 - **Copy Anims From FBX Pack** (`Assets/Editor/CopyAnimsFromFbxPack.cs`), small things if they bite:

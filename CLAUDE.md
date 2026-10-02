@@ -799,7 +799,9 @@ When I say we're wrapping up:
   makes beside `Assets/` (`UIElementsSchema/`, the `.sln`).  Unity
   rewrites `ProjectSettings.asset` now and then, and writes it only on
   File > Save Project or on closing, which is why a setting changed in
-  Player Settings can be missing from a commit.
+  Player Settings can be missing from a commit.  The `.csproj` and
+  solution files beside `Assets/` are Unity's too, and gitignored
+  (2026-10-02): its rewrite of them on every compile stopped a checkout.
   **The steps go in the order they're run, numbered**: the pull first,
   then Unity's focus and its Console, then the `.meta` commit last.  On
   2026-10-01 the add and the commit were run before the pull, so they

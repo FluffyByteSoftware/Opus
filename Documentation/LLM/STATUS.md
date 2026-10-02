@@ -136,7 +136,7 @@ Accounts to log in with: `testuser123` / `Testpass1!`.
 
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
 - **Ensemble's client code**: the chat box, the world on screen, and the HUD's Phases 2 and 3 (the catalog's export, the web layout editor).  **Ensemble's project files in git**
-  (Packages/, the .csproj files, LFS for scenes): TODO.md.
+  (Packages/, LFS for scenes; the .csproj and solution files are out of git now): TODO.md.
 - **Chat**, the rest of the 0.0.1 goal: the client's box next, the server's side after.  Not designed (TODO.md).
 - **What the client is sent after CharacterEnteredWorld**: the world around it (chunks, `region.map`),
   other players, movement.  `design/world.md`, `design/gameclock.md`.

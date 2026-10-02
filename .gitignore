@@ -38,6 +38,12 @@ Ensemble/dev/Opus.Ensemble/UserSettings/
 # UI Builder writes the UXML schemas beside Assets/ and rewrites them
 # itself, so they're Unity's, not ours.
 Ensemble/dev/Opus.Ensemble/UIElementsSchema/
+# The C# project and solution files.  Unity makes them, and rewrites them on
+# every compile, so a commit of them was only ever Unity's last rewrite and
+# stopped a checkout of another branch (2026-10-02).
+Ensemble/dev/Opus.Ensemble/*.csproj
+Ensemble/dev/Opus.Ensemble/*.sln
+Ensemble/dev/Opus.Ensemble/*.slnx
 # A change saved from the web admin, waiting for its reboot.  It's this
 # machine's, not the repo's.
 Content/cfg/*.wait4server
