@@ -112,6 +112,9 @@ file> and the same for Linux?  our admin patcher can pack and move the files whe
 So the stamp and the files come from a web folder, not from Conductor, and the world's dump (his) is a file
 of its own there, later.  All three shapes are in `design/soundcheck.md`, in his words.
 
+At that session's hand-off (2026-10-02, the patcher tested): **"we got a bit more polish to do next session.
+Then we're going to start working on the hard part getting the world to the client"**.  His to change.
+
 ## Last session -- 2026-10-02, the web folder: PUBLISH, the check at start, the patch
 
 Two rounds in one chat, built and tested the same evening.  The first (two manifests from a web address, the
@@ -138,6 +141,12 @@ is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
   `allow_debug_clients`, both open (TODO.md).
 
 ## Where the next session starts
+
+**Jacob's pick**: "a bit more polish" on the patcher first, then "the hard part getting the world to the
+client".  What polish means is his to say when the session opens; the candidates are in TODO.md under
+"Soundcheck" (the Windows builds published as the Windows half, Soundcheck's log file for Windows, one
+package, `client_versions` and `tls12`).  The world to the client is `design/world.md`'s part two and the
+world's dump (TODO.md), and it starts with a plan.
 
 The patcher is tested on Linux against the real web folder (above).  What the build taught, fixed the same
 evening: the CA1416 guard has to be `OperatingSystem.IsWindows()`; a worker's last progress message can land
