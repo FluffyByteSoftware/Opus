@@ -197,18 +197,63 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>2026-10-02, Ensemble: the chat window</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Drag Retro (<code>Assets/Purchased/Font Nation/TTF Fonts/Retro.ttf</code>) onto ScreenRoot's new Chat
+      Font slot.  Unity compiles with nothing red in the Console.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Log in as Chatter in Ensemble and PLAY: the HUD over the game scene, the health bar, the minimap, and
+      the chat window bottom-left, 350 x 200, "Chat" across the top, 50% black, in Retro, with the field to
+      type in on the bottom row and the keys already in it.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      In Ensemble, <code>/chat hello</code>, Enter: <code>&gt;/chat hello</code> in yellow, then
+      <code>[Chat] Chatter: hello</code> in white.  The test client, in the world as Tester, gets it too, and
+      a <code>/chat</code> typed there shows in Ensemble.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester testuser123 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Two lines fast in Ensemble: the second gets "You can't do that again so soon." in white.  A line
+      without a <code>/</code> gets "Saying things without a command isn't in yet.  Use /chat."
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>/who</code> in Ensemble with Tester in the world too: the box in white, lined up, the time in this
+      computer's time zone, the names in columns, and "There are two legends currently online."
+      <code>/who list</code>: a line each, <code>[Chatter] is currently at [0, 0, 0]</code>.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The field stops taking keys at 300 characters (paste in a long line), and
+      <code>/chat &lt;b&gt;hi&lt;/b&gt;</code> shows the brackets as typed, not bold.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>/camp</code>: back at the login, "Logged out.", and the test client's <code>/who</code> no longer
+      lists Chatter.  In again, <code>/camp now</code>: "Try /camp, or /camp desktop.", and still in the world.
+      Then <code>/camp desktop</code>: Play mode stops.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
       Spans for real: a <code>/who list</code> with thirty-odd characters in the world goes out in pieces and
       comes back whole.  <code>cargo test</code> covers it until there are that many players.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Ensemble's chat box draws <code>/who</code> with the count from <code>NumberToWords()</code>: "There are
-      two legends currently online."
     </span></label>
   </li>
 </ul>

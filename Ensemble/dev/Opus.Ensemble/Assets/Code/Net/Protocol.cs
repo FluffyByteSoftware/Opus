@@ -75,12 +75,14 @@ namespace Opus.Net
         // ConnectResult's answer.
         public const byte Welcome = 0;
 
-        // Every packet at character select that carries an ask number
-        // first, so an answer can be matched to the ask it's for.
+        // Every answer that carries an ask number first, so it can be
+        // matched to the ask it's for.  A Span carries one too, but it's a
+        // piece of an answer, not an answer.
         public static bool CarriesAsk(byte kind)
         {
             return kind == CharacterListDelivery || kind == CharacterCreateResult || kind == CharacterDeleteResult
-                || kind == CharacterEnteredWorld || kind == CommandAccepted || kind == CommandRefused;
+                || kind == CharacterEnteredWorld || kind == CommandAccepted || kind == CommandRefused
+                || kind == WhoDelivery;
         }
 
         // What the player is told for each Kicked reason.  The server sends

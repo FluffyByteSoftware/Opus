@@ -118,6 +118,21 @@ loop worked!"): log in, pick, make, delete, reset home, play, log out, and in ag
   which card is open, and fills it all in.  The layout puts the list, the line, the four buttons in a row
   and LOG OUT down the middle.
 
+## In the world: chat and /who (2026-10-02, written, waiting on Unity)
+
+The server's side is PROTOCOL.md's "In the world"; the chat window is `design/ensemble-hud.md`.
+
+- **`Session.SendLine(line)`**: a line typed in the chat box, as typed, goes as a PlayerCommand through the
+  same `Ask()` as character select's, one at a time; a line typed while the last waits replaces it.  Its
+  CommandRefused, or no answer in 10 seconds, goes to the chat box (`ChatLine`), not the status line.
+  `/camp` and `/camp desktop` are caught here and never sent.
+- **`GameConnection`** hears ChatDelivery (no ask number) and hands its lines to `ChatLine`, reads
+  WhoDelivery as an answer (`WhoAnswer`, `WhoEntry`; `PacketReader.I32()` for the blocks) for
+  `WhoAnswered`, and puts Spans back together: the pieces kept by number for the ask waiting, the ask's
+  resend bringing the missing ones, the whole read as if it had come in one packet, and given up 2 seconds
+  after the first piece ("The server didn't answer.").
+- **`Session.ReachedWorld`**: PLAY's answer, which ScreenRoot turns into the HUD.
+
 ## Later
 
 - The key taking longer than the server's 10-second login deadline on a slow machine: the server hangs up, and

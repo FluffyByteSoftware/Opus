@@ -166,3 +166,30 @@ With the client's net code (`design/ensemble-networking.md`):
   `character_select_background` (fills the screen, black), `character_select_list` (CHARACTERS and a row per
   slot, a name or Empty, greyed when it can't be played) and `character_select_log_out`.  Look only for now.
   ScreenRoot has its Character Select Layout and Style slots, and puts the login's text colour and font on it.
+
+## The chat window (2026-10-02, written, waiting on Unity)
+
+Jacob: "We're in this conversation set to build Ensemble up to support the chat window".  TODO.md's chat
+entry has his answers in his words.
+
+- **After PLAY, the HUD as it is**: ScreenRoot shows it on `Session.ReachedWorld`, the placeholder health bar
+  and minimap and the chat box, drawn over the Unity scene ("make it so we render the game scene for now";
+  the HUD has no background).  There's no LOG OUT button there: `/camp` is the way out.
+- **The window**: bottom-left, 350 x 200 on the HUD's 2560 x 1440 layout (`hud_default.json`, and the
+  catalog's default size), the whole of it 50% black.  A "Chat" header, the lines, and a field to type in on
+  the bottom row, which stops taking keys at 300 characters and has the keys as soon as the HUD is up.
+- **Lines**: Enter echoes what's typed as `>/chat hello` in yellow and sends it as typed (`Session.SendLine`).
+  Everything else is white: the chat, a refusal's reason ("You can't do that again so soon."), "The server
+  didn't answer.", and `/who`'s box.  A CommandAccepted shows nothing, since the line comes back as chat.
+  The last 200 lines are kept.  Rich text is off on every line, so a `<b>` in somebody's chat is just text.
+- **`/camp`** is the client's own and never sent: `/camp` logs out to the login, `/camp desktop` logs out and
+  closes the game (in the editor, it stops Play mode).  Anything else after it gets "Try /camp, or /camp
+  desktop."
+- **The font is a slot**, ScreenRoot's Chat Font: Retro, from Jacob's Font Nation pack in
+  `Assets/Purchased/`, so it's never committed and is dragged on by hand.  Set on every piece of text in the
+  box, the way the login's font is, and changeable in Play mode.  The sizes are in `hud.uss` (the header
+  18 px, the lines and the field 16 px).
+- **`/who`'s box** is `Assets/Code/Hud/WhoBox.cs`, to the chat box's width in letters: the lines' width over
+  one letter's, measured in the chat's font by a hidden ruler of ten Ms, less one so a full-width line
+  never wraps on a rounding.  At 350 wide that's not many letters, so the footer ("There are seven legends
+  currently online.") can be longer than the box and wraps.

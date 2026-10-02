@@ -4,8 +4,9 @@
 // The player's session with the server, from SUBMIT to the login screen
 // again.  It runs the two connections in turn (the login over TCP, then
 // the game over UDP), keeps where the player is, makes the asks at
-// character select (the list, CREATE, DELETE, RESET HOME, PLAY), and tells
-// the screens through its events.  Main thread only: the connections' threads reach it
+// character select (the list, CREATE, DELETE, RESET HOME, PLAY) and sends
+// what's typed in the chat box once the character is in the world, and
+// tells the screens through its events.  Main thread only: the connections' threads reach it
 // through MainThread.Post, and every message from a connection that's
 // already been dropped is ignored.
 //
@@ -99,6 +100,17 @@ namespace Opus.Net
         // The session is over and the player is back at the login: why,
         // and whether it's something gone wrong.
         public static event Action<string, bool> BackAtLogin;
+
+        // PLAY's answer came: the character is in the world, and the HUD
+        // takes over from character select.
+        public static event Action ReachedWorld;
+
+        // A line for the chat box that isn't the player's own: the chat,
+        // a command refused and why, the server not answering.
+        public static event Action<string> ChatLine;
+
+        // /who's answer, for the chat box to draw.
+        public static event Action<WhoAnswer> WhoAnswered;
 
         static LoginConnection login;
         static GameConnection game;
@@ -275,6 +287,70 @@ namespace Opus.Net
             Changed();
         }
 
+        // ---------------------------------------------------------------
+        // The chat box
+        // ---------------------------------------------------------------
+
+        // A line typed in the chat box, as it was typed.  /camp is the
+        // client's own and never goes to the server.  Anything else goes as
+        // a PlayerCommand, and replaces a line still waiting on its answer,
+        // since the server takes one at a time.  The server's answer comes
+        // back through ChatLine (a refusal; a line that went out comes back
+        // as chat) or WhoAnswered.
+        public static void SendLine(string line)
+        {
+            if (Camped(line))
+                return;
+            if (Stage != SessionStage.InWorld || game == null)
+            {
+                Chat("You're not in the world.");
+                return;
+            }
+            Asking = Protocol.PlayerCommand;
+            game.Ask(Protocol.PlayerCommand, line);
+        }
+
+        // /camp, any capitals, logs out to the login; /camp desktop logs out
+        // and closes the game (Jacob, 2026-10-02).  True when the line was a
+        // /camp, whatever came after it.
+        static bool Camped(string line)
+        {
+            string typed = line.Trim();
+            int space = typed.IndexOf(' ');
+            string word = space < 0 ? typed : typed.Substring(0, space);
+            if (!string.Equals(word, "/camp", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            string rest = space < 0 ? "" : typed.Substring(space + 1).Trim();
+            if (rest == "")
+            {
+                Debug.Log("Game: camped to the login.");
+                LogOut();
+            }
+            else if (string.Equals(rest, "desktop", StringComparison.OrdinalIgnoreCase))
+            {
+                Debug.Log("Game: camped to the desktop.");
+                LogOut();
+                CloseTheGame();
+            }
+            else
+            {
+                Chat("Try /camp, or /camp desktop.");
+            }
+            return true;
+        }
+
+        // The game closing itself.  In the editor Application.Quit() does
+        // nothing, so Play mode stops instead.
+        static void CloseTheGame()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
+        }
+
         // LOG OUT: a Goodbye to the server, and back to the login.
         public static void LogOut()
         {
@@ -413,25 +489,35 @@ namespace Opus.Net
         }
 
         // A CommandAccepted.  At character select only RESET HOME gets one.
+        // In the world it's a line that went out, and the line itself comes
+        // back as chat, so there's nothing to show for it.
         internal static void AskAccepted(GameConnection from)
         {
             if (from != game)
                 return;
             byte kind = Asking;
             Asking = 0;
+            if (kind == Protocol.PlayerCommand)
+                return;
             if (kind == Protocol.CharacterRequestResetHome)
                 SayHere(sentHome + " is back at 0, 0, 0.", false);
             Answered(kind, true);
         }
 
         // A CommandRefused, for whichever ask was waiting: the list's goes
-        // in the list, anything else on the status line.
+        // in the list, a typed line's in the chat box, anything else on the
+        // status line.
         internal static void AskRefused(GameConnection from, string why)
         {
             if (from != game)
                 return;
             byte kind = Asking;
             Asking = 0;
+            if (kind == Protocol.PlayerCommand)
+            {
+                Chat(why);
+                return;
+            }
             if (kind == Protocol.CharacterListRequest)
                 CharactersTrouble = why;
             else
@@ -444,6 +530,11 @@ namespace Opus.Net
             if (from != game)
                 return;
             Asking = 0;
+            if (kind == Protocol.PlayerCommand)
+            {
+                Chat("The server didn't answer.");
+                return;
+            }
             if (kind == Protocol.CharacterListRequest)
                 CharactersTrouble = "The server didn't send the list of characters.";
             else
@@ -462,6 +553,26 @@ namespace Opus.Net
             InWorldAs = name;
             SayHere("", false);
             Answered(Protocol.UserPressPlay, true);
+            if (ReachedWorld != null)
+                ReachedWorld();
+        }
+
+        // The chat, as it went out to everybody in the world.
+        internal static void ChatCame(GameConnection from, string[] lines)
+        {
+            if (from != game)
+                return;
+            foreach (string line in lines)
+                Chat(line);
+        }
+
+        internal static void WhoCame(GameConnection from, WhoAnswer who)
+        {
+            if (from != game)
+                return;
+            Asking = 0;
+            if (WhoAnswered != null)
+                WhoAnswered(who);
         }
 
         internal static void GameEnded(GameConnection from, string why)
@@ -478,6 +589,12 @@ namespace Opus.Net
         {
             if (StatusChanged != null)
                 StatusChanged(words, trouble);
+        }
+
+        static void Chat(string line)
+        {
+            if (ChatLine != null)
+                ChatLine(line);
         }
 
         // Character select's status line.

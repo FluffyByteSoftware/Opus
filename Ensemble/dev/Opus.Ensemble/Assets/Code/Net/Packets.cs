@@ -119,6 +119,12 @@ namespace Opus.Net
             return value;
         }
 
+        // A signed 32-bit number, the same four bytes as a u32.
+        public int I32()
+        {
+            return unchecked((int)U32());
+        }
+
         // A 32-bit float, its four bytes the same order as a u32's.  The
         // bytes go back through BitConverter in this machine's own order,
         // so it reads right on any machine.
@@ -144,6 +150,15 @@ namespace Opus.Net
             }
             at += (int)length;
             return text;
+        }
+
+        // Every byte not read yet, to the end of the packet: a Span's piece.
+        public byte[] Rest()
+        {
+            var rest = new byte[data.Length - at];
+            Array.Copy(data, at, rest, 0, rest.Length);
+            at = data.Length;
+            return rest;
         }
 
         // Called after the last field: anything left over means the packet

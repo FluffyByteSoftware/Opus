@@ -59,18 +59,48 @@
     font-size: 24px;
 }
 
-/* Chat: the lines, then the field to type in. */
+/* Chat (Jacob, 2026-10-02): the window at 50% black, the header, the
+ * lines, and the field to type in on the bottom row.  What the player sends
+ * is echoed in yellow, what the server says is white.  The font is
+ * ScreenRoot's Chat Font slot. */
+.widget-chat {
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 6px;
+}
+
+.chat-header {
+    color: rgb(255, 255, 255);
+    font-size: 18px;
+    margin: 0 0 4px 0;
+    padding: 0;
+}
+
 .chat-lines {
     flex-grow: 1;
 }
 
 .chat-line {
-    color: rgb(232, 232, 232);
-    font-size: 20px;
+    font-size: 16px;
     white-space: normal;
+    margin: 0;
+    padding: 0;
+}
+
+.chat-line-mine {
+    color: rgb(255, 230, 0);
+}
+
+.chat-line-server {
+    color: rgb(255, 255, 255);
+}
+
+/* Measures a letter's width for /who's box; never seen. */
+.chat-ruler {
+    position: absolute;
+    visibility: hidden;
 }
 
 .chat-input {
     margin: 4px 0 0 0;
-    font-size: 20px;
+    font-size: 16px;
 }

@@ -4,9 +4,11 @@
 // The game, over UDP on the server's game port, from the Ticket on.  Two
 // threads: one listens for whatever the server sends, the other sends on
 // time: the Connect every half second until the server answers, then a
-// KeepAlive once a second, and an ask at character select every half
-// second until it's answered.  It sends nothing on its own between those,
-// so it waits on the next thing due, not on a timer.
+// KeepAlive once a second, and an ask (at character select, or a line
+// typed in the chat box) every half second until it's answered.  It sends
+// nothing on its own between those, so it waits on the next thing due, not
+// on a timer.  It hears the chat going out to everybody, and puts an answer
+// that came in Spans back together.
 //
 // The session ends with a Kicked, with the server going quiet, or with
 // Close() (LOG OUT, quitting).  Whichever way, there's no reconnect: the
@@ -40,6 +42,10 @@ namespace Opus.Net
         const long AskEveryMs = 500;
         const long AskForMs = 10000;
 
+        // An answer in Spans is given up 2 seconds after its first piece
+        // if the rest haven't all come (Jacob, 2026-10-02: "2s is fine").
+        const long PiecesForMs = 2000;
+
         readonly ushort port;
         readonly UdpClient udp;
         readonly byte[] connectPacket;
@@ -60,6 +66,12 @@ namespace Opus.Net
         byte[] askPacket;
         long askFirstSent;
         long nextAsk;
+
+        // The pieces of the answer to that ask, while it comes in Spans:
+        // each piece's bytes in its place, null until it's here.
+        byte[][] pieces;
+        int piecesIn;
+        long firstPiece;
 
         // Rung to wake the sender early: a new ask, or closing.
         readonly AutoResetEvent wake = new AutoResetEvent(false);
@@ -93,10 +105,10 @@ namespace Opus.Net
             return game;
         }
 
-        // An ask at character select, sent with the next ask number and then
-        // its fields, all of them strings (a name; a uuid and the typed
-        // word; a uuid).  It replaces any ask still waiting.  From the main
-        // thread.
+        // An ask, sent with the next ask number and then its fields, all of
+        // them strings (a name; a uuid and the typed word; a uuid; the line
+        // typed in the chat box).  It replaces any ask still waiting.  From
+        // the main thread.
         public void Ask(byte kind, params string[] fields)
         {
             var packet = new PacketWriter(kind);
@@ -109,6 +121,7 @@ namespace Opus.Net
                 foreach (string field in fields)
                     packet.String(field);
                 askPacket = packet.ForUdp();
+                pieces = null;
                 askFirstSent = clock.ElapsedMilliseconds;
                 nextAsk = askFirstSent;
             }
@@ -177,10 +190,21 @@ namespace Opus.Net
 
                         if (askPacket != null)
                         {
-                            if (now - askFirstSent >= AskForMs)
+                            if (pieces != null && now - firstPiece >= PiecesForMs)
+                            {
+                                byte kind = askPacket[0];
+                                Debug.Log("Game: only " + piecesIn + " of " + pieces.Length + " pieces of the "
+                                          + "answer to " + Protocol.NameOf(kind) + " came in " + PiecesForMs / 1000
+                                          + " s.");
+                                askPacket = null;
+                                pieces = null;
+                                MainThread.Post(() => Session.AskUnanswered(this, kind));
+                            }
+                            else if (now - askFirstSent >= AskForMs)
                             {
                                 byte kind = askPacket[0];
                                 askPacket = null;
+                                pieces = null;
                                 Debug.Log("Game: no answer to " + Protocol.NameOf(kind) + " in " + AskForMs / 1000
                                           + " s.");
                                 MainThread.Post(() => Session.AskUnanswered(this, kind));
@@ -193,6 +217,8 @@ namespace Opus.Net
                                     nextAsk = now + AskEveryMs;
                                 }
                                 waitMs = Math.Min(waitMs, nextAsk - now);
+                                if (pieces != null)
+                                    waitMs = Math.Min(waitMs, firstPiece + PiecesForMs - now);
                             }
                         }
                     }
@@ -311,6 +337,23 @@ namespace Opus.Net
                     End(Protocol.KickedSays(reason));
                     return;
                 }
+
+                // The chat going out to everybody in the world, finished
+                // lines, oldest first.  No ask number: it isn't answered.
+                case Protocol.ChatDelivery:
+                {
+                    byte count = packet.U8();
+                    var lines = new string[count];
+                    for (int i = 0; i < count; i++)
+                        lines[i] = packet.String();
+                    packet.End();
+                    MainThread.Post(() => Session.ChatCame(this, lines));
+                    return;
+                }
+
+                case Protocol.Span:
+                    Piece(packet);
+                    return;
             }
 
             if (!Protocol.CarriesAsk(packet.Kind))
@@ -330,6 +373,57 @@ namespace Opus.Net
                 askPacket = null;
             }
             Answered(packet);
+        }
+
+        // One piece of an answer too big for one packet.  The pieces' bytes
+        // put back together in order are the answer, type byte and all, read
+        // as if it had come whole.  A piece for an older ask, or one we
+        // already have (the ask's resend brings every piece again), is
+        // ignored.
+        void Piece(PacketReader packet)
+        {
+            uint ask = packet.U32();
+            byte piece = packet.U8();
+            byte count = packet.U8();
+            byte[] bytes = packet.Rest();
+            if (count == 0 || piece == 0 || piece > count)
+                throw new ProtocolException("a Span saying it's piece " + piece + " of " + count);
+
+            byte[] whole;
+            lock (gate)
+            {
+                if (askPacket == null || ask != lastAsk)
+                    return;
+                if (pieces == null || pieces.Length != count)
+                {
+                    pieces = new byte[count][];
+                    piecesIn = 0;
+                    firstPiece = clock.ElapsedMilliseconds;
+                    // The sender keeps the 2 seconds, so it has to know.
+                    wake.Set();
+                }
+                if (pieces[piece - 1] == null)
+                {
+                    pieces[piece - 1] = bytes;
+                    piecesIn++;
+                }
+                if (piecesIn < count)
+                    return;
+
+                int length = 0;
+                foreach (byte[] p in pieces)
+                    length += p.Length;
+                whole = new byte[length];
+                int at = 0;
+                foreach (byte[] p in pieces)
+                {
+                    Array.Copy(p, 0, whole, at, p.Length);
+                    at += p.Length;
+                }
+                pieces = null;
+            }
+            Debug.Log("Game: an answer in " + count + " pieces, " + whole.Length + " bytes, put back together.");
+            Heard(new PacketReader(whole));
         }
 
         // The answer to the ask we were waiting on, its ask number read.
@@ -403,6 +497,33 @@ namespace Opus.Net
                     return;
                 }
 
+                // /who's answer: the time it ran, whether it's /who list,
+                // and the characters in the world, A to Z.
+                case Protocol.WhoDelivery:
+                {
+                    uint seconds = packet.U32();
+                    bool listed = packet.U8() == 1;
+                    ushort count = packet.U16();
+                    var characters = new WhoEntry[count];
+                    for (int i = 0; i < count; i++)
+                    {
+                        var character = new WhoEntry { Name = packet.String() };
+                        if (listed)
+                        {
+                            character.X = packet.I32();
+                            character.Y = packet.I32();
+                            character.Z = packet.I32();
+                        }
+                        characters[i] = character;
+                    }
+                    packet.End();
+                    Debug.Log("Game: /who, " + count + (count == 1 ? " character" : " characters")
+                              + (listed ? ", listed." : "."));
+                    var who = new WhoAnswer { Seconds = seconds, Listed = listed, Characters = characters };
+                    MainThread.Post(() => Session.WhoCame(this, who));
+                    return;
+                }
+
                 default:
                     Debug.Log("Game: the server answered with " + Protocol.NameOf(packet.Kind) + ", which this "
                               + "client doesn't handle yet.");
@@ -443,5 +564,23 @@ namespace Opus.Net
         public string Name;
         public int Slot;          // 1 to 3
         public bool Playable;     // false: its save wouldn't load this run, so it's greyed out
+    }
+
+    // /who's answer, as the server sent it.  The chat box draws it.
+    public class WhoAnswer
+    {
+        public uint Seconds;          // when it ran, in seconds since midnight UTC
+        public bool Listed;           // /who list: each character with where it stands
+        public WhoEntry[] Characters; // A to Z
+    }
+
+    // A character in /who's answer.  X, Y and Z are whole blocks, and only
+    // in a /who list.
+    public class WhoEntry
+    {
+        public string Name;
+        public int X;
+        public int Y;
+        public int Z;
     }
 }

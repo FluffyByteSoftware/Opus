@@ -60,9 +60,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     until then a line without a `/` is refused.
   - Later: a limit on how fast one player can chat, whether the web admin sees chat, nearby chat.
   - **Ensemble's chat box**, after: whatever is typed goes out as a PlayerCommand as it was typed, every
-    ChatDelivery's lines are printed, and it stops taking keys at 300 characters.  Open: where "when you
-    log in" puts it (in the world after PLAY, or the HUD with Phase 1's chat placeholder).  Ensemble speaks
-    version 8 already (the number only) and logs a ChatDelivery as one it doesn't handle yet.
+    ChatDelivery's lines are printed, and it stops taking keys at 300 characters.  Where it goes: the HUD,
+    after PLAY (below).
   - **The chat window's look** (Jacob, 2026-10-02, opening Ensemble's chat): "the default lay out is to
     place it in the lower left", "350 pixels wide, and about 200 pixels tall with a header "Chat"".  "It
     has a sub-chat box inside of itself at the bottom row of the chat window is an "input field" for
@@ -70,7 +69,17 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     font", and "Commands coming from the server are in white over 50% transparent black background".
   - **The font** (2026-10-02): `/who`'s box needs a monospaced one.  Fatality FPS Gaming Font, which Jacob
     has, isn't.  Of his Font Nation pack (`Assets/Purchased/Font Nation/TTF Fonts/`, purchased, so a slot on
-    ScreenRoot and never committed), `fc-query` says two are: **Arcade** and **Retro**.  Which, still open.
+    ScreenRoot and never committed), `fc-query` says two are: Arcade and Retro.  Jacob: "We'll do arcade for
+    the chat window and the input", then "apologies use retro".  So **Retro**, on the whole chat window.
+  - **After PLAY: "the HUD as it is"** (Jacob, 2026-10-02), the placeholder health bar and minimap with
+    the chat box, and "make it so we render the game scene for now": the HUD has no background, so the
+    Unity scene shows behind it.
+  - **The size** is 350 x 200 on the HUD's 2560 x 1440 layout ("yes").  **The background**: "The
+    background is 50% transparent black", the whole window.
+  - **`/camp`** (Jacob, 2026-10-02): "`/camp desktop` will log out and close the game, `/camp` will log out
+    to the login again".  The client's own: caught before anything is sent, so the server never sees it,
+    and the log out is the Goodbye LOG OUT always sent.
+  - **Written** (2026-10-02, waiting on Unity): `design/ensemble-hud.md`, "The chat window", has it.
 - **`/who`** (Jacob, 2026-10-02, after chat passed, "we're barely 30% so we're gonna keep going"): "a /who
   that shows all connected players", each as "[PlayerName] is currently at [x,y,z]".  Planning: who counts as
   connected, who sees the answer, where the positions come from, the line's exact form.  His answers:
@@ -127,10 +136,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **`/help`** (2026-10-02): could list the table of commands.  Its own feature.
   - **Ensemble, with the chat box**: draw the WhoDelivery (the box to the chat box's width, the time in the
     player's time zone, the count with `NumberToWords()`), and put Spans back together (2 seconds).
+    Written with the chat window (2026-10-02).
 - **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up
   repeatedly needing but we don't need it... yet put this in todo".  A static class beside the Translator,
   when there's a formula used in more than one place.
-  - **Ensemble**: these lines only line up in a monospaced font, so the chat box needs one.
+  - **Ensemble**: these lines only line up in a monospaced font, so the chat box needs one.  Retro
+    (above, "The font").
 - **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
   character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
   kept below.  Settled for its database side, the first step:

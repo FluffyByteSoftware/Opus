@@ -4,8 +4,9 @@
 // Sits on the GameObject beside the UI Document and owns every screen: the
 // login, character select and the HUD, and which one is showing.  It finds
 // a screen's layout, checks it, and hands it to HudBuilder.  The session
-// (Opus.Net's Session) switches between the login and character select;
-// this is where the network's threads get their turn on the main thread,
+// (Opus.Net's Session) switches between the login, character select and
+// the HUD, drawn over the game scene once the character is in the world.
+// This is where the network's threads get their turn on the main thread,
 // once a frame.  Right-click it in the Inspector for Show Login, Show HUD
 // and Reset HUD To Default.
 
@@ -59,6 +60,11 @@ namespace Opus.Hud
         [FormerlySerializedAs("styleSheet")]
         public StyleSheet hudStyle;
 
+        [Tooltip("The chat box's font, on its header, its lines and the field to type in: Retro, from "
+            + "Assets/Purchased/Font Nation/TTF Fonts.  It has to be monospaced, or /who's box won't line up.  "
+            + "Empty is Unity's own.  It can be changed in Play mode and shows at once.")]
+        public Font chatFont;
+
         // The game starts on the login.
         string showing = LayoutLoader.LoginScreen;
 
@@ -71,7 +77,9 @@ namespace Opus.Hud
             Session.Certificate = serverCertificate != null ? serverCertificate.text : null;
             Session.ReachedCharacterSelect += ShowCharacterSelect;
             Session.BackAtLogin += BackAtLogin;
+            Session.ReachedWorld += ShowHudInWorld;
             CharacterSelectForm.Filled += ApplyText;
+            ChatWidget.Font = chatFont;
             LoginForm.Listen();
             CharacterSelectForm.Listen();
             Show(showing);
@@ -81,6 +89,7 @@ namespace Opus.Hud
         {
             Session.ReachedCharacterSelect -= ShowCharacterSelect;
             Session.BackAtLogin -= BackAtLogin;
+            Session.ReachedWorld -= ShowHudInWorld;
             CharacterSelectForm.Filled -= ApplyText;
             LoginForm.StopListening();
             CharacterSelectForm.StopListening();
@@ -111,13 +120,24 @@ namespace Opus.Hud
         // colour or font shows straight away in Play mode.
         void OnValidate()
         {
-            if (Application.isPlaying && showing != LayoutLoader.HudScreen)
+            if (!Application.isPlaying)
+                return;
+            ChatWidget.Font = chatFont;
+            if (showing == LayoutLoader.HudScreen)
+                ApplyChatFont();
+            else
                 ApplyText();
         }
 
         void ShowCharacterSelect()
         {
             Show(LayoutLoader.CharacterSelectScreen);
+        }
+
+        // PLAY's answer: the HUD, over the game scene.
+        void ShowHudInWorld()
+        {
+            Show(LayoutLoader.HudScreen);
         }
 
         // The session is over.  The login says why (LoginForm hears it too);
@@ -207,6 +227,15 @@ namespace Opus.Hud
                 text.style.color = loginTextColor;
                 text.style.unityFontDefinition = font;
             });
+        }
+
+        // The Chat Font slot on the chat box as it stands; a chat box built
+        // later takes it by itself.
+        void ApplyChatFont()
+        {
+            VisualElement screen = builder.Screen;
+            if (screen != null)
+                screen.Query<VisualElement>(className: "widget-chat").ForEach(ChatWidget.UseFont);
         }
 
         // The whole screen is scaled from the layout's reference to the real

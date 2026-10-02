@@ -126,7 +126,7 @@ Its `layer` and its place in the file still count.
       "description": "Talk to other players.",
       "color": "#3A6EA5",
       "screens": ["hud"],
-      "defaultSize": { "width": 640, "height": 320 },
+      "defaultSize": { "width": 350, "height": 200 },
       "minSize": { "width": 320, "height": 160 },
       "resizable": true,
       "defaultAnchor": "BottomLeft",
