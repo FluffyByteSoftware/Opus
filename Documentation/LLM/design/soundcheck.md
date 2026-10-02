@@ -105,6 +105,45 @@ a patcher is that something.  The certificate half is still to come; this is the
   to the client (Ensemble) I don't want to have to repatch!"  So it's about the check, not the editor: a
   changed Ensemble, built or in the editor, plays without a new stamp.  Below.
 
+## Jacob's redesign (2026-10-02, after the two manifests went up; not built, not yet OKed)
+
+His words, the same day the two manifests and the check were pushed: "ok so what we're gonna do is zip the
+client up and then Conductor can dump a portable world to the Content directory which can be sent at this
+point (validated against) the general world dump will be a general shape of the world but 'smoothed'.
+Redesign number 23852357235.  Patcher in admin mode zips up the build directory (which I want to verify
+with you can we just combine the linux and windows builds into the same folder?)  The patcher puts the file
+in /opt/storage/WWW (or whatever folder you specify) and writes a manifest into the same folder.  This
+happens before I release a build to the same WWW folder with the patcher in it.  Player launches
+Soundcheck... soundcheck immediately 'blocks' and starts scanning local files and building its own manifest
+of its files.  Then it reaches out to my WWW (opusensemble.duckdns.com:8553)/manifest.json.  Then compares
+its list against that list... if it doesn't match it downloads the zip file, uncompresses and overwrites the
+local installer files (this shouldn't effect any config files because we will not zip those in with it)".
+
+What changes against what's built, as read back to him (his answers go here as they come):
+
+- **The check moves to the start**, before the login, and blocks it: the boxes are locked while the
+  install is hashed and compared, and unlock on a pass.  (It was after SUBMIT's Ticket, from his earlier
+  "AFTER LOGIN ONLY BUT BEFORE WE GO TO ENSEMBLE"; the manifest coming from a web address means no login
+  is needed to fetch it, so the earlier rule falls away.)
+- **Mending is one zip**, not a file at a time: a fail downloads the whole client zip from the web folder,
+  checks its hash against the manifest, unzips it over the install, and checks again.  So Conductor
+  serves nothing, and the download thread, the 3 MB pieces, the pacing and `patch.cfg` go.  The cost is
+  that one wrong byte is the whole zip again, hundreds of megabytes for a Unity build; his call.
+- **One `manifest.json`**, not one a platform: it names both zips, and each zip's file list.  The address
+  is a duckdns name now, on the same port.
+- **Admin mode zips** the build folder into the WWW folder and writes the manifest beside it.
+- **The world's dump** is Conductor's (a portable, "smoothed" shape of the world, dumped to `Content/`),
+  shipped with the client and checked like any file.  Its own session; TODO.md.
+- **Config files aren't in the zip.**  Today the client keeps no config file in its install folder: every
+  player file is in the player folder (`~/.config/unity3d/FluffyByte/Opus.Ensemble/`), and Soundcheck's
+  `conductor.crt` sits beside the launcher.  So nothing is excluded yet; the rule stands for when one comes.
+
+Open on it (asked 2026-10-02): the two builds can't share one flat folder (`Ensemble_Data/` is in both and
+differs by platform), so one zip a platform or one zip with a folder each; whether Soundcheck's own files
+are in the zip (a running program can't overwrite itself on Windows); whether the address is
+`opusensemble.duckdns.org` (duckdns's names end in `.org`) or `opusensemble.com`; and how the world's dump
+gets into the build folder before it's zipped.
+
 ## Built and tested 2026-10-02: what the first build taught
 
 Every check passed: the build, the window, a login, a wrong password, Remember Me across a restart, the
