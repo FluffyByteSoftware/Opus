@@ -47,7 +47,9 @@ to character select from the world but logging out and in again.
 
 ### TLS
 
-TLS 1.3 only.  The server has one self-signed certificate, and a client trusts that certificate and no
+TLS 1.3 or 1.2.  It was 1.3 only until Ensemble (2026-10-02): Unity's .NET can't speak 1.3, so the server
+takes 1.2 as well.  Nothing in the packets changed, so the protocol version didn't either.  The server has one
+self-signed certificate, and a client trusts that certificate and no
 authority: it keeps a copy of the certificate file and refuses any server that shows it a different one.
 Nothing in the login goes over the wire until TLS is up.
 

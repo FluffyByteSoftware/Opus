@@ -337,7 +337,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     The server already holds the ticket until the other character's save is in (the "safety" lock).
   - **The certificate**: the client carries a copy of `conductor.crt` and refuses any other server.
   - **TLS 1.2**: if Unity can't do 1.3, Conductor takes 1.2 as well (rustls's `tls12`), "but I'm pretty
-    sure it will do 1.3".  Only if the first run says so.
+    sure it will do 1.3".  Unity's .NET has no `SslProtocols.Tls13` (the first compile), so it's done.
   - **The client version**: "we're not ready for 0.0.1 yet".  Ensemble sends Player Settings' Version,
     `0.0.0.1`, and `networking.cfg`'s `client_versions` takes it.
 - **Stale words in the code**, for whichever session next touches each file:

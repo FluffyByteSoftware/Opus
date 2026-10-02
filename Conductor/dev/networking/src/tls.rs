@@ -66,7 +66,8 @@ pub fn server_config(settings: &Settings) -> Result<Arc<ServerConfig>, String> {
         .map_err(|_| format!("{} isn't a private key we can read.", key_path.display()))?;
 
     // Rust note: the "safe default" versions are whichever ones the crate
-    // was built with.  Cargo.toml leaves TLS 1.2 out, so that's 1.3 only.
+    // was built with.  Cargo.toml turns on "tls12", so that's 1.3 and 1.2:
+    // Unity's .NET, which Ensemble runs on, can't speak 1.3.
     let provider = Arc::new(rustls::crypto::ring::default_provider());
     let config = ServerConfig::builder_with_provider(provider)
         .with_safe_default_protocol_versions()

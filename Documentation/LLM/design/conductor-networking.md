@@ -8,7 +8,8 @@ Author:     Jacob Chacko
 
 A lib crate (`conductor-networking`, folder `networking/`), and a server piece: the part of Conductor that
 talks to players.  Named by Jacob.  One crate beyond our own, `rustls`, default features off: `ring` for the
-crypto, `std` for the sockets and the PEM files, and no `tls12`, so TLS 1.3 only.
+crypto, `std` for the sockets and the PEM files, and `tls12`, so TLS 1.3 or 1.2.  It was 1.3 only until
+Ensemble's first compile (2026-10-02): Unity's .NET has no TLS 1.3, and Jacob had OKed 1.2 for that case.
 
 **The door opens once the world is in** (Jacob, 2026-09-30: nobody gets in before there's a voxel to step
 on).  START SERVER only calls `wait_for_world()`, which puts both services on "Waiting on the world".  The

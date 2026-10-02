@@ -63,7 +63,7 @@ Conductor is a Cargo workspace of ten crates, one folder each under `Conductor/d
   held in memory: it's read from its row when needed and every change goes straight back, so there's only
   ever one copy.  Three characters to an account, each with a name that's unique on the server.
 - **monitor** -- once a second, CPU, memory, disk and threads for Conductor and the machine.
-- **networking** -- the front door.  TCP is only the login: TLS 1.3, a username and password, and the
+- **networking** -- the front door.  TCP is only the login: TLS (1.3, or 1.2 for the Unity client), a username and password, and the
   player gets a ticket for UDP, where everything after happens, starting with character select (list,
   make, delete, reset home), answered by Protogame on a thread of its own, and then the pick: the
   character is loaded from its save and put in the world, and taken out and saved when the player goes.

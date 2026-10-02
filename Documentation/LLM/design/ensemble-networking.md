@@ -20,8 +20,10 @@ of every byte.
   server's own wait); "if no answer it disconnects this session not the existing".  The server already holds the
   Ticket until the other session's character has its save in (the "safety" lock), so the client only waits.
 - **The certificate**: the client carries a copy of `conductor.crt` and refuses any server that shows it another.
-- **TLS**: Conductor speaks 1.3 only.  If Unity's TLS can't, Conductor takes 1.2 as well (rustls's `tls12`
-  feature, no new crate), "but I'm pretty sure it will do 1.3".  Only if the first run says so.
+- **TLS**: Conductor spoke 1.3 only.  If Unity's TLS can't, Conductor takes 1.2 as well (rustls's `tls12`
+  feature, no new crate), "but I'm pretty sure it will do 1.3".  **The first compile said so**: Unity's .NET
+  has no `SslProtocols.Tls13` ("'SslProtocols' does not contain a definition for 'Tls13'"), so the client
+  asks for 1.2 and Conductor takes it.
 - **The client version**: "we're not ready for 0.0.1 yet".  The Login carries Player Settings' Version as it is
   (`Application.version`, `0.0.0.1` today), and `networking.cfg`'s `client_versions` is `0.0.0.1, 0.0.1` (the
   second for `test_client.py`, whose default is still `0.0.1`).
@@ -40,8 +42,8 @@ In `Assets/Code/Net/`, namespace `Opus.Net`, plain C#, nothing added to the proj
   ScreenRoot's Server Certificate slot.  A new certificate on the server means copying it over again.
 - **`LoginConnection.cs`**: the TCP half, a thread of its own.  It connects and brings TLS up while the key is
   still being made (Jacob's pick, 2026-10-01), reads the Hello, sends the Login once the key's ready, then reads
-  InLine, LoginResult or the Ticket.  The SessionChoice waits on the player for 30 seconds, then hangs up.  It
-  offers TLS 1.3 and 1.2 and logs which came up.
+  InLine, LoginResult or the Ticket.  The SessionChoice waits on the player for 30 seconds, then hangs up.  TLS
+  1.2, the newest Unity's .NET has; it logs which came up.
 - **`GameConnection.cs`**: the UDP half, two threads.  One listens; the other sends on time and otherwise waits on
   the next thing due: the Connect every half second for up to 10 seconds, a KeepAlive once a second, an ask every
   half second until it's answered (10 seconds, then given up).  Nothing from the server in **15 seconds** and it's

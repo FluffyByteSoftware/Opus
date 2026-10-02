@@ -16,9 +16,9 @@
 # rustls is the TLS.  Nobody writes their own, and this includes us.  Its
 # default features are off: "ring" picks the crypto (pure Rust plus a bit
 # of C, no cmake, the same on Linux and Windows), "std" is the sockets and
-# the PEM reading for the certificate and key files, and leaving "tls12"
-# out makes it TLS 1.3 only, which is less code and less CPU per
-# handshake.
+# the PEM reading for the certificate and key files, and "tls12" lets in
+# TLS 1.2 as well as 1.3.  It was 1.3 only, which is less code, until
+# Ensemble came: Unity's .NET can't speak 1.3 (2026-10-02).
 
 [package]
 name = "conductor-networking"
@@ -31,4 +31,4 @@ conductor-gameclock = { path = "../gameclock" }
 conductor-lua-parser = { path = "../lua-parser" }
 conductor-primlib = { path = "../primlib" }
 conductor-tools = { path = "../tools" }
-rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }

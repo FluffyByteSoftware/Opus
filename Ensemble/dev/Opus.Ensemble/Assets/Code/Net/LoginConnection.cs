@@ -145,10 +145,10 @@ namespace Opus.Net
 
             using (var tls = new SslStream(tcp.GetStream(), false, CheckCertificate))
             {
-                // Conductor only speaks TLS 1.3.  1.2 is offered as well so a
-                // TLS that can't do 1.3 fails with the server's refusal in
-                // the Console, rather than not trying at all.
-                tls.AuthenticateAsClient(host, null, SslProtocols.Tls13 | SslProtocols.Tls12, false);
+                // TLS 1.2.  Unity's .NET stops there: it has no name for 1.3
+                // (2026-10-02, the first compile), so Conductor takes 1.2 as
+                // well as 1.3.
+                tls.AuthenticateAsClient(host, null, SslProtocols.Tls12, false);
                 Debug.Log("Login: TLS up with " + host + ":" + port + " in " + clock.ElapsedMilliseconds + " ms ("
                           + tls.SslProtocol + ").");
 
