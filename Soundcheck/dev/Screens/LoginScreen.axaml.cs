@@ -82,6 +82,14 @@ namespace Opus.Soundcheck.Screens
         bool passed;
         CancellationTokenSource checkCancel;
 
+        // Counts the check's phases (a hash, a fetch, a hash again, done).
+        // A progress message carries the phase it was sent in, and one
+        // that reaches the window's thread after its phase ended is
+        // dropped: the worker's last "193 of 193" and the words that
+        // follow both come through the dispatcher, and the progress one
+        // can land second.
+        int phase;
+
         // The key SUBMIT uses instead of hashing the box, and the username
         // (lowercase) it was made for.  Null once the player types a
         // password or changes the username.
@@ -382,7 +390,11 @@ namespace Opus.Soundcheck.Screens
                                + Megabytes(bytes) + " MB to fetch...", false);
                     Progress.Value = 0;
                     Progress.IsVisible = true;
-                    PatchResult patch = await Patcher.MendAsync(install, here, www, stamp, paths, ReportFetch, cancel);
+                    int fetching = ++phase;
+                    PatchResult patch = await Patcher.MendAsync(install, here, www, stamp, paths,
+                        (done, total, path, bytes, size) => ReportFetch(fetching, done, total, path, bytes, size),
+                        cancel);
+                    phase++;
                     Log.Say("Patch: " + patch.Fetched + " files, " + Megabytes(patch.Bytes) + " MB, in "
                             + clock.Elapsed.TotalSeconds.ToString("0.0") + " s.");
 
@@ -434,6 +446,7 @@ namespace Opus.Soundcheck.Screens
             }
             finally
             {
+                phase++;
                 checking = false;
                 checkCancel = null;
                 Progress.IsVisible = false;
@@ -447,7 +460,11 @@ namespace Opus.Soundcheck.Screens
             ShowStatus("Checking the game's files in " + install + "...", false);
             Progress.Value = 0;
             Progress.IsVisible = true;
-            ManifestCheck result = await Task.Run(() => ManifestCheck.Run(install, stamp, Report, cancel), cancel);
+            int hashing = ++phase;
+            ManifestCheck result = await Task.Run(
+                () => ManifestCheck.Run(install, stamp, (done, total, path) => Report(hashing, done, total, path), cancel),
+                cancel);
+            phase++;
             Progress.Value = 1;
             return result;
         }
@@ -479,12 +496,13 @@ namespace Opus.Soundcheck.Screens
             return (bytes / (1024.0 * 1024.0)).ToString("0.0");
         }
 
-        // From the patcher's thread, as a file comes in.
-        void ReportFetch(int done, int total, string path, long bytes, long size)
+        // From the patcher's thread, as a file comes in.  Dropped once its
+        // phase is over.
+        void ReportFetch(int sentIn, int done, int total, string path, long bytes, long size)
         {
             Dispatcher.UIThread.Post(() =>
             {
-                if (!checking)
+                if (sentIn != phase)
                     return;
                 double file = size == 0 ? 1 : (double)bytes / size;
                 Progress.Value = total == 0 ? 1 : (done + file) / total;
@@ -493,12 +511,13 @@ namespace Opus.Soundcheck.Screens
             });
         }
 
-        // From the check's worker thread, after each file.
-        void Report(int done, int total, string path)
+        // From the check's worker thread, after each file.  Dropped once
+        // its phase is over.
+        void Report(int sentIn, int done, int total, string path)
         {
             Dispatcher.UIThread.Post(() =>
             {
-                if (!checking)
+                if (sentIn != phase)
                     return;
                 Progress.Value = total == 0 ? 1 : (double)done / total;
                 ShowStatus("Checking " + done + " of " + total + ": " + path, false);

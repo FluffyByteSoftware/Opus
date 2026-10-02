@@ -34,6 +34,13 @@ namespace Opus.Soundcheck.Screens
         // Set while a publish runs, so a second click waits.
         bool publishing;
 
+        // Counts the phases (copying, hashing, done).  A progress message
+        // carries the phase it was sent in, and one that reaches the
+        // window's thread after its phase ended is dropped: the worker's
+        // last "193 of 193" and the "Published" line both come through the
+        // dispatcher, and the progress one can land second.
+        int phase;
+
         public AdminScreen()
         {
             InitializeComponent();
@@ -184,16 +191,19 @@ namespace Opus.Soundcheck.Screens
             var clock = Stopwatch.StartNew();
             try
             {
+                int copying = ++phase;
                 MirrorResult copied = await Task.Run(
                     () => Mirror.Run(folder, mirror,
-                                     (done, total, path) => Report("Copying", done, total, path),
+                                     (done, total, path) => Report(copying, "Copying", done, total, path),
                                      CancellationToken.None));
                 Log.Say("Admin: the copy is at " + mirror + ": " + copied.Copied + " copied, " + copied.Kept
                         + " already there, " + copied.Removed + " removed.");
+                int hashing = ++phase;
                 Manifest manifest = await Task.Run(
                     () => Manifest.Of(mirror, platform, version,
-                                      (done, total, path) => Report("Hashing", done, total, path),
+                                      (done, total, path) => Report(hashing, "Hashing", done, total, path),
                                       CancellationToken.None));
+                phase++;
                 manifest.Save(manifestPath);
                 int count = manifest.Files.Count;
                 string words = "Published " + platform + " in " + clock.Elapsed.TotalSeconds.ToString("0.0") + " s: "
@@ -213,16 +223,20 @@ namespace Opus.Soundcheck.Screens
             }
             finally
             {
+                phase++;
                 publishing = false;
                 SetEnabled(true);
             }
         }
 
-        // From the worker thread, after each file.
-        void Report(string doing, int done, int total, string path)
+        // From the worker thread, after each file.  Dropped once its phase
+        // is over.
+        void Report(int sentIn, string doing, int done, int total, string path)
         {
             Dispatcher.UIThread.Post(() =>
             {
+                if (sentIn != phase)
+                    return;
                 Progress.Value = total == 0 ? 1 : (double)done / total;
                 ShowStatus(doing + " " + done + " of " + total + ": " + path, false);
             });
