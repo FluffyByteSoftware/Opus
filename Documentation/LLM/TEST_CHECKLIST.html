@@ -237,32 +237,20 @@ button on its own.  Pulls nothing from the internet, like the web admin.
       and nothing joins, with no warning in the Console.
     </span></label>
   </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A built Ensemble double-clicked: the start screen with no DEV MODE line, and QUIT closes it.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A built Ensemble started from the terminal with the four variables (below; SUBMIT in Soundcheck's
-      <code>--debug</code> first, the token is read from its file): no start screen beyond "Joining the
-      world...", straight to character select.  <code>/camp</code> from the world closes the game and
-      Soundcheck's window opens in its place; KICK from the web admin's Connections tab does the same.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The same, with <code>/camp desktop</code>: the game closes and nothing opens.
-    </span></label>
-  </li>
 </ul>
-<p>Soundcheck in debug mode, and the built game with its ticket (fill in the game's folder; the launcher's
-path is <code>dotnet build</code>'s output):</p>
+<p>Soundcheck in debug mode:</p>
 <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
-<pre class="cmd">OPUS_SERVER=10.0.0.84 OPUS_UDP_PORT=9998 OPUS_SOUNDCHECK=/opt/storage/Coding/Opus/Soundcheck/dev/bin/Debug/net10.0/Opus.Soundcheck OPUS_TOKEN=$(python3 -c "import json;print(json.load(open('$HOME/.config/unity3d/FluffyByte/Opus.Ensemble/debug_ticket.json'))['Token'])") /THE/GAME/FOLDER/Opus.Ensemble</pre>
 
 <h2>Parked</h2>
 <ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A built Ensemble, once Soundcheck's PLAY starts it: no start screen beyond "Joining the world...",
+      straight to character select; <code>/camp</code> (and KICK from the web admin) closes the game and
+      Soundcheck's window opens in its place; <code>/camp desktop</code> closes it and nothing opens; the
+      game double-clicked on its own shows the start screen with no DEV MODE line, and QUIT closes it.
+    </span></label>
+  </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
       Spans for real: a <code>/who list</code> with thirty-odd characters in the world goes out in pieces and
