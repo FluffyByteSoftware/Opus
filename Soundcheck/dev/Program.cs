@@ -22,6 +22,16 @@ namespace Opus.Soundcheck
         {
             return AppBuilder.Configure<App>()
                 .UsePlatformDetect()
+                .With(new X11PlatformOptions
+                {
+                    // Soundcheck has no menu bar, so there's nothing to
+                    // register with the desktop's global menu over DBus, and
+                    // a window of ours should make no bus traffic when it
+                    // closes: on KDE that traffic landed after the window's
+                    // thread had stopped and crashed the program on its way
+                    // out (2026-10-02).
+                    UseDBusMenu = false,
+                })
                 .LogToTrace();
         }
     }
