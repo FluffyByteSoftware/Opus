@@ -26,6 +26,12 @@ namespace Opus.Net
         public const string TokenVariable = "OPUS_TOKEN";
         public const string LauncherVariable = "OPUS_SOUNDCHECK";
 
+        // The way back: why the session ended, for the launcher's status
+        // box, and whether it was something gone wrong ("1").  The same
+        // contract, the other direction.
+        public const string SessionOverVariable = "OPUS_SESSION_OVER";
+        public const string SessionTroubleVariable = "OPUS_SESSION_TROUBLE";
+
         // How long a token is good for, the server's rule.
         public const int GoodForSeconds = 30;
 

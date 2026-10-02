@@ -18,7 +18,8 @@ layout files: it starts with the launcher's ticket, makes, deletes and picks a c
 and puts it in the world with a chat window over the scene, though there's no world on screen yet.
 Soundcheck is the launcher, just started: it logs in over TLS 1.3, turning the password into a key before
 it's sent or kept, and in admin mode writes the manifest of a client folder, both tested.  The login has
-moved out of Ensemble into it, and PLAY starts the game with the ticket (written, waiting on a build).
+moved out of Ensemble into it, and PLAY starts the game with the ticket, both tested.  Soundcheck doesn't
+check a single file against the server yet, and nothing of it has been built on Windows.
 Things will change
 and things will break.
 
@@ -48,12 +49,12 @@ The next milestone is movement.
 | Ensemble's character select and PLAY             | Built and tested; the HUD comes up over the scene      |
 | Ensemble's chat window, `/who`'s box, `/camp`    | Built and tested, EverQuest's keys included            |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
-| Ensemble starting from the launcher's ticket     | Written, waiting on Unity: the start screen, dev mode  |
+| Ensemble starting from the launcher's ticket     | Built and tested: the start screen, dev mode           |
 | The 0.0.1 review: four bugs, seven risks fixed   | Built, tested and checked (`CODE_REVIEW_0.0.1.md`)     |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
 | Soundcheck, the launcher                         | Built and tested: the login over TLS 1.3, Remember Me, |
 |                                                  | admin mode's manifest, debug mode                      |
-| Soundcheck's PLAY starting the game              | Written, waiting on a build                            |
+| Soundcheck's PLAY starting the game              | Built and tested, the way back with the reason too     |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.

@@ -26,6 +26,21 @@ namespace Opus.Soundcheck
         public const string TokenVariable = "OPUS_TOKEN";
         public const string LauncherVariable = "OPUS_SOUNDCHECK";
 
+        // The way back: Ensemble starts Soundcheck again with why the
+        // session ended, and whether it was something gone wrong ("1"), for
+        // the status box.
+        public const string SessionOverVariable = "OPUS_SESSION_OVER";
+        public const string SessionTroubleVariable = "OPUS_SESSION_TROUBLE";
+
+        // Why the last session ended, as Ensemble left it in our
+        // environment, or null when the launcher wasn't started by the game.
+        public static string SessionOver(out bool trouble)
+        {
+            string why = Environment.GetEnvironmentVariable(SessionOverVariable);
+            trouble = Environment.GetEnvironmentVariable(SessionTroubleVariable) == "1";
+            return string.IsNullOrEmpty(why) ? null : why;
+        }
+
         // What Unity calls the program: Linux, then Windows.
         static readonly string[] Names = { "Ensemble.x86_64", "Ensemble", "Ensemble.exe" };
 
@@ -100,6 +115,9 @@ namespace Opus.Soundcheck
                 start.EnvironmentVariables[UdpPortVariable] = udpPort.ToString();
                 start.EnvironmentVariables[TokenVariable] = token;
                 start.EnvironmentVariables[LauncherVariable] = OwnPath();
+                // The last session's farewell doesn't go round again.
+                start.EnvironmentVariables.Remove(SessionOverVariable);
+                start.EnvironmentVariables.Remove(SessionTroubleVariable);
                 Process.Start(start);
                 why = null;
                 return true;

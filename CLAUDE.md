@@ -903,7 +903,16 @@ When I say we're wrapping up:
   status, a commit ("Unity .meta files and Cargo.lock"), the pull and the
   push to both branches, stopping at the first step that fails.  A reply
   says `git meta` instead of the five lines, for a `.meta` round and a
-  changed lock file alike.
+  changed lock file alike.  **A deletion round is Jacob's too** (2026-10-02):
+  the session's harness refuses a `git rm` of many files as destructive, so
+  the files that go are one `git rm -r -q` line with absolute paths and
+  globs (`.../Widgets/Login*` takes the `.meta`s with them), run by Jacob
+  right after the pull and before Unity gets focus, and `git meta` commits
+  the deletions with the `.meta`s.  The pushed tree doesn't compile until
+  he's run it, and the reply says so.  **Until `git meta` lands, every
+  reply says so again**: on 2026-10-02 three rounds of testing passed with
+  the old login's files still in the repo and the new `.meta`s not, and the
+  next session's first check is `git ls-files` on `Assets/`.
 - **Ensemble never logs in and never sees a password** (2026-10-02, the
   login moved to Soundcheck; it was Ensemble's from 2026-10-01).  The
   password's key, Remember Me and the server's certificate are
@@ -923,8 +932,11 @@ When I say we're wrapping up:
   **Every way out goes back to the launcher**: a session that ends
   (Kicked, the server gone, LOG OUT, `/camp`) starts Soundcheck from
   `OPUS_SOUNDCHECK` and closes the game, so the player is looking at the
-  login; `/camp desktop` and QUIT close it without.  A game with no
-  launcher to go back to stays on the start screen, which says why.
+  login, with why in the launcher's status box (`OPUS_SESSION_OVER` and
+  `OPUS_SESSION_TROUBLE`, the same contract the other way; a KICK showed
+  nothing before, 2026-10-02); `/camp desktop` and QUIT close it without.
+  A game with no launcher to go back to stays on the start screen, which
+  says why.
 - **Dev mode is the editor's way in** (Jacob, 2026-10-02: "Play/Dev
   Mode"): there's no launcher to start the editor's game, so the start
   screen's card, in the editor only (`#if UNITY_EDITOR`), looks once a
@@ -1106,6 +1118,18 @@ When I say we're wrapping up:
   `dotnet run --project` with the absolute path, from `Conductor/dev`.  No
   `.meta` round, since it isn't Unity, so a reply gives the plain `git add`
   of `Soundcheck/dev`.
+- **A test of Soundcheck starting the game needs a game built from the
+  code being tested** (2026-10-02): the 0.0.1 build still had the login
+  screen in it and would have taken no ticket.  Jacob builds Ensemble into
+  `Ensemble/build/Linux/<version>/` (`0.0.12/` for this round; Unity names
+  the program `Ensemble.x86_64` and leaves an
+  `Ensemble_BackUpThisFolder_ButDontShipItWithYourGame` beside it), and the
+  checklist's `--game` line points at it.  A reply that changes Ensemble's
+  half says "a fresh build first".
+- **Nothing of Soundcheck or the new Ensemble has been built on Windows**
+  (at 2026-10-02), and Soundcheck checks no file against the server yet:
+  "validate off the host" is Conductor's half of the manifest and the check
+  in user mode, both in TODO.md.
 
 ---
 
