@@ -126,7 +126,8 @@ window pushed: **"Okay let's go ahead and push those commands to their own crate
 Done, the same session.
 
 At this hand-off (2026-10-02, the chat window and the commands crate): **"Next conversation we're gonna do
-major clean up of code and documentation"**.  His to change.
+major clean up of code and documentation"**, and, asked whether to release: **"not yet we're gonna do code
+clean up next session then merge to main and release 0.0.1"**.  His to change.
 
 ## Last session -- 2026-10-02, the chat window (Ensemble) and conductor-player-commands
 
@@ -175,7 +176,8 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 
 ## What's waiting
 
-- **0.0.1 to `main`** (a player in the world, chatting, from Ensemble; every check passed), Jacob's call.
+- **0.0.1 to `main`** (a player in the world, chatting, from Ensemble; every check passed): after the
+  clean-up, Jacob's call ("then merge to main and release 0.0.1").
 - **The clean-up** Jacob named for next.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class
