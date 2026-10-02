@@ -42,8 +42,11 @@ Ensemble/dev/Opus.Ensemble/UIElementsSchema/
 # machine's, not the repo's.
 Content/cfg/*.wait4server
 # The TLS private key.  The certificate beside it is committed (clients
-# need a copy); the key never leaves the machine it was made on.
-Content/certs/*.key
+# need a copy); the key never leaves the machine it was made on.  Not
+# from anywhere in Opus: a copy of it went in under Ensemble once
+# (2026-10-02), so no .key file is ever committed.
+*.key
+*.key.meta
 
 # Rust, in case target/ ever lands in dev/
 **/target/
