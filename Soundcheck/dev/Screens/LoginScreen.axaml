@@ -12,7 +12,7 @@ the login's done.
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="Opus.Soundcheck.Screens.LoginScreen">
 
-  <StackPanel Width="380" HorizontalAlignment="Center">
+  <StackPanel Width="600" HorizontalAlignment="Center">
 
     <Grid ColumnDefinitions="*,8,110">
       <StackPanel Grid.Column="0">

@@ -10,7 +10,7 @@ and whichever screen is showing under it (the login, or admin mode).
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Opus.Soundcheck.MainWindow"
         Title="Forgotten Legends"
-        Width="560" Height="520"
+        Width="840" Height="1040"
         CanResize="False"
         WindowStartupLocation="CenterScreen">
 
