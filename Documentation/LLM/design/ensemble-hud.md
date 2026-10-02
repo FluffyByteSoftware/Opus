@@ -187,7 +187,10 @@ entry has his answers in his words.
 - **Enter or "/" anywhere brings the keys to the field** (Jacob, 2026-10-02, after the first run: "pressing
   enter or typing / immediately brings focus up to the chat window and starts typing that into the input"):
   the panel's root sees every key first, and with the field not focused, Enter focuses it and a "/" focuses it
-  and goes in as typed; a half-typed line is kept, not selected over.  With the field focused, the keys are
+  and goes in as typed; a half-typed line is kept, not selected over.  Enter off a text field reaches the
+  panel as Unity's NavigationSubmitEvent, with or without a KeyDownEvent of its own, so both are watched
+  (seen 2026-10-02: the key event alone never came), and an Enter that brought the keys is never also the
+  Enter that sends the line (`tookKeysFrame`).  With the field focused, the keys are
   the field's own, and **Escape drops them**, as does a click away (Jacob, from EverQuest: "if I press enter
   or / it immediately starts focus into the chat window I last used's input bar... clicking away makes it
   lose focus.  So does hitting ESC").  The keys go to **`GameFocus`** (`Assets/Code/Hud/GameFocus.cs`), the

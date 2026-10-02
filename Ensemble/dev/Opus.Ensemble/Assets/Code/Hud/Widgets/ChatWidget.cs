@@ -58,6 +58,11 @@ namespace Opus.Hud
         // the chat's font and size.
         Label ruler;
 
+        // The frame the field last took the keys on.  The Enter that
+        // brought them can reach the field as a key event of its own in
+        // the same frame, and that one mustn't send the line.
+        int tookKeysFrame = -1;
+
         public override WidgetInfo Info { get { return info; } }
 
         public override void Build(VisualElement box)
@@ -123,6 +128,10 @@ namespace Opus.Hud
         {
             panel = e.destinationPanel;
             panel.visualTree.RegisterCallback<KeyDownEvent>(KeyAnywhere, TrickleDown.TrickleDown);
+            // Enter with the focus off a text field reaches the panel as
+            // Unity's "submit" navigation event, with or without a key
+            // event of its own, so it's watched for both ways.
+            panel.visualTree.RegisterCallback<NavigationSubmitEvent>(SubmitAnywhere, TrickleDown.TrickleDown);
         }
 
         void Gone(DetachFromPanelEvent e)
@@ -130,7 +139,10 @@ namespace Opus.Hud
             Session.ChatLine -= ServerSaid;
             Session.WhoAnswered -= DrawWho;
             if (panel != null)
+            {
                 panel.visualTree.UnregisterCallback<KeyDownEvent>(KeyAnywhere, TrickleDown.TrickleDown);
+                panel.visualTree.UnregisterCallback<NavigationSubmitEvent>(SubmitAnywhere, TrickleDown.TrickleDown);
+            }
             panel = null;
             box.UnregisterCallback<AttachToPanelEvent>(Arrived);
             box.UnregisterCallback<DetachFromPanelEvent>(Gone);
@@ -159,21 +171,44 @@ namespace Opus.Hud
         // its own KeyDown has Enter and the "/" is just typed.
         void KeyAnywhere(KeyDownEvent e)
         {
-            if (e.target is VisualElement target && (target == input || input.Contains(target)))
+            if (FieldHas(e.target))
                 return;
 
-            bool enter = e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter;
+            bool enter = e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter
+                         || e.character == '\n' || e.character == '\r';
             bool slash = e.character == '/';
             if (!enter && !slash)
                 return;
 
             if (slash)
                 input.value = input.value + "/";
+            TakeKeys();
+            e.StopPropagation();
+        }
+
+        void SubmitAnywhere(NavigationSubmitEvent e)
+        {
+            if (FieldHas(e.target))
+                return;
+            TakeKeys();
+            e.StopPropagation();
+        }
+
+        // Whether the field, or something inside it, is where the event
+        // was going.
+        bool FieldHas(IEventHandler target)
+        {
+            return target is VisualElement element && (element == input || input.Contains(element));
+        }
+
+        // The field gets the keys, with the cursor at the end of whatever's
+        // in it once it has them.
+        void TakeKeys()
+        {
+            tookKeysFrame = Time.frameCount;
             input.Focus();
-            // The cursor goes to the end once the field has the keys.
             int end = input.value.Length;
             input.schedule.Execute(() => input.SelectRange(end, end));
-            e.StopPropagation();
         }
 
         void KeyDown(KeyDownEvent e)
@@ -188,6 +223,12 @@ namespace Opus.Hud
             }
             if (e.keyCode != KeyCode.Return && e.keyCode != KeyCode.KeypadEnter)
                 return;
+            if (Time.frameCount == tookKeysFrame)
+            {
+                // The Enter that brought the keys here, not one to send.
+                e.StopPropagation();
+                return;
+            }
 
             string line = input.value;
             input.value = "";
