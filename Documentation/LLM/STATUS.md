@@ -197,9 +197,9 @@ Protogame sends one for a locked pick and waits the lock out (`sessions::wait_fo
 `test_client.py` prints it.  PROTOCOL.md, CLAUDE.md and both networking design docs say so.  **Built and
 tested, both halves** (`cargo build` clean, 365 tests, a clean Unity Console, and the three run checks
 passed: the double login from Ensemble shows the words and then the HUD, and the test client prints the
-PleaseWait line and goes in).  Then `main` moves
-to `testing`'s tip, the `v0.0.1` tag and the two packages (RELEASE.md).  The "major clean up" he named
-before is the rest of the review's list.
+PleaseWait line and goes in).  **`main` is at `testing`'s tip, `b3ea5a8`, the 0.0.1 release**; the `v0.0.1`
+tag and the two packages are Jacob's (RELEASE.md, steps 3 to 5).  The "major clean up" he named before is
+the rest of the review's list.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
