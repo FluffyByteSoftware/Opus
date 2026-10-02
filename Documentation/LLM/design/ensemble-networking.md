@@ -44,7 +44,8 @@ In `Assets/Code/Net/`, namespace `Opus.Net`, plain C#, nothing added to the proj
 - **`LoginConnection.cs`**: the TCP half, a thread of its own.  It connects and brings TLS up while the key is
   still being made (Jacob's pick, 2026-10-01), reads the Hello, sends the Login once the key's ready, then reads
   InLine, LoginResult or the Ticket.  The SessionChoice waits on the player for 30 seconds, then hangs up.  TLS
-  1.2, the newest Unity's .NET has; it logs which came up.
+  1.2, the newest Unity's .NET has; it logs which came up.  The handshake took 3 ms on Conductor's side (Jacob's log,
+  2026-10-02, the game and the server on one machine at 10.0.0.84).
 - **`GameConnection.cs`**: the UDP half, two threads.  One listens; the other sends on time and otherwise waits on
   the next thing due: the Connect every half second for up to 10 seconds, a KeepAlive once a second, an ask every
   half second until it's answered (10 seconds, then given up).  Nothing from the server in **15 seconds** and it's
