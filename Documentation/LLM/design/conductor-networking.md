@@ -43,11 +43,12 @@ networking/
     │                    read_session_choice(), read_connect(),
     │                    read_list_request(), read_create(), read_delete(), read_reset_home(),
     │                    read_user_press_play(), read_player_command()
-    ├── commands.rs    what a player types: command() -> Outcome (Answer, or Later for the GameClock to
-    │                    answer); /chat's line into the GameClock's chat mailbox; send_out(), which the
+    ├── commands.rs    what a player types: COMMANDS, the table (name, wait, run), Asker, command() ->
+    │                    Outcome (Answer, or Later for the GameClock to answer), the anti-flood, DEFAULT_WAIT
+    ├── commands/chat.rs  /chat: run(), the line into the GameClock's chat mailbox; send_out(), which the
     │                    GameClock calls to send a cycle's lines
-    ├── who.rs         /who answered from the book; /who list left with the GameClock; send_list(), which
-    │                    the GameClock calls with where everybody stands
+    ├── commands/who.rs   /who answered from the book; /who list left with the GameClock; send_list(),
+    │                    which the GameClock calls with where everybody stands
     ├── protogame.rs   Protogame, thread protogame: start(), stop(), hand_in(from, account, ask, Work) -> the
     │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome,
     │                    Play }; play() and bring_in(), the spawn's slow part
@@ -57,7 +58,7 @@ networking/
     │                    begin_ask() -> Ask, finish_ask(), entered(), leave_world(), lock_for_loading(),
     │                    turn_away(), leave(), kick() (with the kicked character's row id),
     │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), in_world(),
-    │                    names_in_world(),
+    │                    names_in_world(), may_command(),
     │                    drop_where();
     │                    with_book(), which asks the GameClock to take out whoever left
     ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
@@ -313,7 +314,7 @@ all nine checks passed, Ensemble still logging in on version 8.
 - **Everybody in the world hears it, the speaker too**, as `[Chat] Jacob: Yo yo yo!`, one fixed channel
   ("like the way the old shit muds did it!").  Players at character select don't.
 - **It goes out on the GameClock's beat**: "on the next "chat" GameClock tick that carries chat (which
-  should be every beat)".  The UDP thread reads the line on the spot (`commands.rs`; no database, nothing in
+  should be every beat)".  The UDP thread reads the line on the spot (`commands/chat.rs`; no database, nothing in
   the world), answers CommandAccepted or CommandRefused through the book like any ask, so a resend isn't
   said twice, and leaves the finished line in the GameClock's chat mailbox.  The broadcast check takes the
   cycle's lines and calls `commands::send_out()`, handed to the GameClock when networking starts
@@ -340,7 +341,7 @@ the box.  Written, waiting on Jacob's build.
   zone with the client's own date; the columns fit the chat box ("make it fit our actual chat size"); the
   count is written out by Ensemble's `Translator.NumberToWords()`, British ("IN the honor of Discworld!").
   So the server sends **WhoDelivery** (`0x39`): the ask, the seconds, list or not, the names (and blocks).
-- **Where it's answered**: `/who` from the book on the UDP thread, on the spot (`who.rs`).  `/who list`
+- **Where it's answered**: `/who` from the book on the UDP thread, on the spot (`commands/who.rs`).  `/who list`
   needs positions, which only the GameClock's thread reads, so it goes in the GameClock's `/who list`
   mailbox (`who_list()`), and the broadcast check reads every player's character's name and block once and
   calls `who::send_list()` for each ask (handed over as `set_who_sender()` when networking starts), which
@@ -350,6 +351,27 @@ the box.  Written, waiting on Jacob's build.
   how many, the client waiting 2 seconds at most for them all.  Any answer through `send_answer()` in
   `udp.rs` gets it.  `/who list` passes 1200 bytes at about thirty characters.
 - **Everybody sees everybody's position**: "thats fine for now".  Who may see positions is for later.
+
+## Commands and the anti-flood (2026-10-02)
+
+Jacob, asking for a second's cooldown on `/who`, then: "I think we're doing this stupid.  We can just make
+it so there's anti flood prevention on the server for any chat commands right?"  And on the shape: "in c#
+mg temptation would be to make a command interface and then make it so we could easily stuff new commands
+in", "the default should be 500 ms but if we make a command that hits the database a bunch maybe that
+needs longer".  Written, waiting on Jacob's build.
+
+- **Every command is a line in `COMMANDS`** (`commands.rs`): its name, its wait, and its `run()`, in a file
+  of its own under `commands/`.  A table of plain structs, like the GameClock's checks, rather than a
+  trait: it does what a C# interface would.  A new command is a new file and a new line.
+- **The anti-flood is in the one dispatcher**: after a command goes through, the player waits that
+  command's wait before the next, whichever it is.  `DEFAULT_WAIT` is 500 ms, two game cycles; `/who` is 1
+  second (his first number).  The book keeps each player's last command and its wait (`may_command()`).
+  A line too soon gets a CommandRefused, "You can't do that again so soon.", before it's looked at any
+  further, and doesn't push the wait back.  A line without a `/` or an unknown command waits the default.
+  A resend of the same ask is answered from the book before it gets here.
+- **The client shows the refusal's words** ("client interprets it as command can't be run so soon"); no
+  reason number, so no protocol change.
+- **Later** (TODO.md): kicking a player who keeps flooding.
 
 ## What's open
 

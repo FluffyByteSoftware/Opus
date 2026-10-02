@@ -110,7 +110,13 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     and `/who list` ("yes"); a `/who` too soon gets a CommandRefused, which the client shows as "command
     can't be run so soon".  Chat too, "not a second but maybe two full game ticks?  So 500 ms?"  Then:
     "I think we're doing this stupid.  We can just make it so there's anti flood prevention on the server
-    for any chat commands right?"  So it's becoming one anti-flood rule for every command; being settled.
+    for any chat commands right?"  So it's one anti-flood rule for every command, in a table of commands
+    ("the default should be 500 ms but if we make a command that hits the database a bunch maybe that
+    needs longer"): `/chat` 500 ms, `/who` 1 second.  Written, waiting on Jacob's build;
+    `design/conductor-networking.md`, "Commands and the anti-flood", has it.
+- **Kicking a player who keeps flooding** (2026-10-02): today a command too soon is only refused.  Whether
+  enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's call.
+- **`/help`** (2026-10-02): could list the table of commands.  Its own feature.
   - **Ensemble, with the chat box**: draw the WhoDelivery (the box to the chat box's width, the time in the
     player's time zone, the count with `NumberToWords()`), and put Spans back together (2 seconds).
 - **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up

@@ -1,4 +1,4 @@
-//! File:       Opus/Conductor/dev/networking/src/who.rs
+//! File:       Opus/Conductor/dev/networking/src/commands/who.rs
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
@@ -20,13 +20,11 @@
 //! and answered from its next broadcast check through `send_list()`, a
 //! cycle later.
 
-use std::net::SocketAddr;
-
 use conductor_gameclock::{Standing, WhoAsked};
 use conductor_tools::clock::Utc;
 use conductor_tools::scribe::{self, Channel};
 
-use crate::commands::Outcome;
+use super::{Asker, Outcome};
 use crate::protocol::{self, WhoEntry};
 use crate::sessions;
 use crate::udp;
@@ -36,7 +34,8 @@ const UNAVAILABLE: &str = "Who Unavailable";
 
 /// A `/who`, with whatever came after the word.  `/who` is answered now,
 /// `/who list` a cycle from now, anything else refused.
-pub fn ask(from: SocketAddr, account: &str, ask: u32, rest: &str) -> Outcome {
+pub fn run(asker: &Asker, rest: &str) -> Outcome {
+    let (account, ask) = (asker.account, asker.ask);
     let rest = rest.trim_matches(' ');
     if rest.is_empty() {
         let entries: Vec<WhoEntry> = sorted(sessions::names_in_world()).into_iter()
@@ -45,7 +44,7 @@ pub fn ask(from: SocketAddr, account: &str, ask: u32, rest: &str) -> Outcome {
         return Outcome::Answer(protocol::who_delivery(ask, seconds_since_midnight(), false, &entries));
     }
     if rest.eq_ignore_ascii_case("list") {
-        let asked = WhoAsked { from, account: account.to_string(), ask };
+        let asked = WhoAsked { from: asker.from, account: account.to_string(), ask };
         return match conductor_gameclock::who_list(asked) {
             Ok(()) => Outcome::Later,
             Err(why) => {
@@ -105,9 +104,9 @@ mod tests {
 
     #[test]
     fn anything_but_who_or_who_list_is_refused() {
-        let from: SocketAddr = "10.0.0.5:50000".parse().unwrap();
+        let asker = Asker { from: "10.0.0.5:50000".parse().unwrap(), account: "jacob", character: "Jacob", ask: 4 };
         let refused = protocol::command_refused(4, ONLY_WHO);
-        assert_eq!(ask(from, "jacob", 4, "everybody"), Outcome::Answer(refused.clone()));
-        assert_eq!(ask(from, "jacob", 4, "list please"), Outcome::Answer(refused));
+        assert_eq!(run(&asker, "everybody"), Outcome::Answer(refused.clone()));
+        assert_eq!(run(&asker, "list please"), Outcome::Answer(refused));
     }
 }

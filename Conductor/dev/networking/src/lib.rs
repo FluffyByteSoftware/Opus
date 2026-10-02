@@ -17,8 +17,8 @@
 //! the GameClock's mailbox (`conductor_gameclock::enter()` and `leave()`),
 //! which never waits.  The chat goes the same way: a line goes in the
 //! GameClock's chat mailbox, and its broadcast check hands the cycle's
-//! lines back to us to send (`commands.rs`), and `/who list` the same
-//! way (`who.rs`).
+//! lines back to us to send (`commands/chat.rs`), and `/who list` the
+//! same way (`commands/who.rs`).
 //!
 //! Written with the CPU in mind and the RAM less so, Jacob's ask.  Logins
 //! run on a fixed handful of threads rather than one per connection, so a
@@ -45,7 +45,6 @@ mod settings;
 mod tcp;
 mod tls;
 mod udp;
-mod who;
 
 pub use access::{Entry, List, Mode as AccessMode, Snapshot as AccessLists};
 pub use ledger::{Connection, End, Gone, Stage};
@@ -139,7 +138,7 @@ pub fn start() {
     // Plain functions, so handing them over again on every start does no
     // harm.
     conductor_gameclock::set_chat_sender(commands::send_out);
-    conductor_gameclock::set_who_sender(who::send_list);
+    conductor_gameclock::set_who_sender(commands::send_list);
 
     // Protogame before UDP, so a player's first ask has somewhere to go.
     if let Err(why) = protogame::start() {

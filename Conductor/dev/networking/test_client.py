@@ -37,6 +37,7 @@
 #   python3 test_client.py --play Jacob jacob_01 'Correct horse 1!'   (brings Jacob into the world)
 #   python3 test_client.py --play Jacob --type '/chat Yo yo yo!' jacob_01 'Correct horse 1!'   (says it to everybody)
 #   python3 test_client.py --play Jacob --type '/who' --type '/who list' jacob_01 'Correct horse 1!'
+#   python3 test_client.py --play Jacob --type '/chat 1' --type '/chat 2' --type-gap 0 jacob_01 'Correct horse 1!'
 #   python3 test_client.py --no-key jacob_01 'Correct horse 1!'   (sends the password, not its key: refused)
 #
 # Standard library only.
@@ -504,8 +505,11 @@ def character_select(args, udp, server):
             if playing:
                 # Character select is behind us now; the server says so.
                 select.list()
-        # Typed in the world, or at character select to see it refused.
-        for line in args.type or []:
+        # Typed in the world, or at character select to see it refused,
+        # --type-gap apart, so the server's anti-flood lets each through.
+        for number, line in enumerate(args.type or []):
+            if number > 0:
+                time.sleep(args.type_gap)
             select.type_line(line)
     except Kicked:
         print("Back to the login screen.")
@@ -632,6 +636,9 @@ def main():
     parser.add_argument("--type", metavar="LINE", action="append",
                         help="type this line in the chat window once at character select is done, after --play "
                              "('/chat Yo yo yo!'); give it more than once for more lines")
+    parser.add_argument("--type-gap", type=float, default=1.1,
+                        help="seconds between --type lines (default 1.1, past /who's wait of 1 second); 0 floods, "
+                             "to see the server refuse the lines that come too soon")
     args = parser.parse_args()
 
     try:

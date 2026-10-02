@@ -246,6 +246,27 @@ the same two accounts as chat's: <code>testuser123</code> with Tester, <code>tes
   </li>
 </ul>
 
+<h2>2026-10-02, Conductor: the command table and the anti-flood</h2>
+<p class="soft">With Tester in the world in the first terminal, as above.  The <code>cargo test</code> and
+<code>cargo build</code> under /who cover this too.  <code>--type</code> lines now go 1.1 seconds apart unless
+<code>--type-gap</code> says otherwise.</p>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A flood: three <code>/chat</code>s at once.  The first gets a CommandAccepted, the other two "You can't
+      do that again so soon."  The first terminal shows only <code>[Chat] Chatter: one</code>.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter --type '/chat one' --type '/chat two' --type '/chat three' --type-gap 0 --leave-after 3 testuser456 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>/who</code> leaves a second's wait: a <code>/chat</code> 0.6 seconds after it gets "You can't do
+      that again so soon.", and one 0.6 seconds after that (1.2 after the <code>/who</code>) goes through.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter --type '/who' --type '/chat too soon' --type '/chat in time' --type-gap 0.6 --leave-after 3 testuser456 'Testpass1!'</pre>
+  </li>
+</ul>
+
 <h2>2026-10-02, test_client.py: Ctrl-C wherever it lands</h2>
 <ul class="checks">
   <li class="check">

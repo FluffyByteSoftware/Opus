@@ -43,10 +43,11 @@
 //!
 //! A player in the world types lines (protocol version 8): a
 //! PlayerCommand, answered from here, since nothing in it waits on the
-//! database.  `/chat` makes a line for everybody (`commands.rs`), which
-//! goes out from the GameClock's next broadcast check through
-//! `tell_all()`; `/who` is answered here, and `/who list` from the
-//! GameClock's broadcast check through `tell_answer()` (`who.rs`).  An
+//! database.  `commands.rs` finds the command and holds back a flood.
+//! `/chat` makes a line for everybody (`commands/chat.rs`), which goes
+//! out from the GameClock's next broadcast check through `tell_all()`;
+//! `/who` is answered here, and `/who list` from the GameClock's
+//! broadcast check through `tell_answer()` (`commands/who.rs`).  An
 //! answer too big for one packet goes out in Spans (protocol version 9).
 
 use std::io;
@@ -61,7 +62,7 @@ use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
-use crate::commands::{self, Outcome};
+use crate::commands::{self, Asker, Outcome};
 use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
 use crate::protogame::{self, Work};
 use crate::sessions::{self, Ask, Connected};
@@ -398,11 +399,14 @@ fn player_command(socket: &UdpSocket, from: SocketAddr, ask: u32, line: &str) {
             let answer = protocol::command_refused(ask, NOT_IN_THE_WORLD);
             (account, answer)
         }
-        Ask::InWorld(account, character) => match commands::command(from, &account, &character, ask, line) {
-            Outcome::Answer(answer) => (account, answer),
-            // The GameClock answers it, and finishes the ask then.
-            Outcome::Later => return,
-        },
+        Ask::InWorld(account, character) => {
+            let asker = Asker { from, account: &account, character: &character, ask };
+            match commands::command(&asker, line) {
+                Outcome::Answer(answer) => (account, answer),
+                // The GameClock answers it, and finishes the ask then.
+                Outcome::Later => return,
+            }
+        }
     };
     if sessions::finish_ask(from, &account, ask, &answer) {
         send_answer(socket, from, ask, &answer);

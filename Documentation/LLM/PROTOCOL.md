@@ -309,6 +309,12 @@ the `/`, up to the first space or the end, says which, with any capitals.  There
   space, bytes `0x20` to `0x7E`.  Only its first 300 characters count, and anything after them is dropped
   without a word (a client stops the player at 300 anyway).
 
+**Anti-flood.**  After a command goes through, the player waits before the next one, whichever it is:
+500 ms for most (two game cycles), 1 second after a `/who`, longer for any later command that costs the
+server more.  A line in that wait gets a **CommandRefused**, "You can't do that again so soon.", and
+doesn't make the wait any longer.  A line without a `/`, or a command there's no such thing as, waits the
+500 ms too.  The same ask sent again isn't a new line, so it gets the answer it missed, not this.
+
 The answer is a **CommandAccepted** when the line goes out, or a **CommandRefused** saying why it doesn't:
 
 - "Saying things without a command isn't in yet.  Use /chat." for a line without a `/` (it'll be said

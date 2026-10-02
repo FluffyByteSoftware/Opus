@@ -75,6 +75,10 @@
 //! database to memory... and loaded in the world", then, shown the leaving
 //! side, "we lock it when it does that", both ways.
 //!
+//! Each player's last command, and the wait it left them, is here too,
+//! for the anti-flood (`may_command()`): a command too soon after the
+//! last is refused, and changes nothing.
+//!
 //! The work is done by functions on a `Book` handed to them, so the tests
 //! run on books of their own and never touch the real one.
 
@@ -127,6 +131,9 @@ struct Player {
     /// Their character in the world, once they've picked one.  `None`
     /// at character select.
     character: Option<InWorld>,
+    /// When their last command went through, and how long it makes them
+    /// wait before the next (`may_command()`).  `None` before their first.
+    last_command: Option<(Instant, Duration)>,
 }
 
 /// A player's character in the world.
@@ -488,6 +495,15 @@ pub fn players() -> Vec<PlayerView> {
     players_in(&book(), Instant::now())
 }
 
+/// Whether the player at `from` may run a command now: true if their last
+/// one's wait is over (or they've had none), and then this one is
+/// stamped as going through, with `wait` as the wait it leaves.  False
+/// if it's too soon, and nothing changes, so hammering doesn't push the
+/// wait back.  The anti-flood for every command (`commands.rs`).
+pub fn may_command(from: SocketAddr, wait: Duration) -> bool {
+    may_command_in(&mut book(), from, wait, Instant::now())
+}
+
 /// The address of every player whose character is in the world, for
 /// sending them the chat.  Players at character select aren't on it.
 pub fn in_world() -> Vec<SocketAddr> {
@@ -548,7 +564,7 @@ fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> C
     }
     book.players.insert(from, Player { account: name.clone(), token: token.to_string(), last_heard: now,
                                        connected_at: now, connected: Utc::now(), door, asking: None,
-                                       answered: None, character: None });
+                                       answered: None, character: None, last_command: None });
     book.accounts.insert(name.clone(), Whereabouts::Playing(from));
     Connected::Accepted(name)
 }
@@ -626,6 +642,19 @@ fn players_in(book: &Book, now: Instant) -> Vec<PlayerView> {
     // Newest first: the shortest time in the world at the top.
     players.sort_by_key(|player| player.playing_for);
     players
+}
+
+fn may_command_in(book: &mut Book, from: SocketAddr, wait: Duration, now: Instant) -> bool {
+    let Some(player) = book.players.get_mut(&from) else {
+        return false;
+    };
+    if let Some((since, last_wait)) = player.last_command {
+        if now.saturating_duration_since(since) < last_wait {
+            return false;
+        }
+    }
+    player.last_command = Some((now, wait));
+    true
 }
 
 fn in_world_in(book: &Book) -> Vec<SocketAddr> {
@@ -861,6 +890,30 @@ mod tests {
         assert_eq!(begin_ask_in(&mut book, home, 3, now), Ask::Busy);
         assert!(finish_ask_in(&mut book, home, "jacob", 2, b"no"));
         assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::Again(b"no".to_vec()));
+    }
+
+    #[test]
+    fn a_command_waits_out_the_last_ones_wait_and_too_soon_changes_nothing() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        let half = Duration::from_millis(500);
+        let second = Duration::from_secs(1);
+        issue_in(&mut book, "jacob", "abc", 1, now);
+        connect_in(&mut book, "abc", home, now);
+
+        // The first goes through, and leaves a second's wait (a /who).
+        assert!(may_command_in(&mut book, home, second, now));
+        // Too soon, again and again: the wait doesn't move.
+        assert!(!may_command_in(&mut book, home, half, now + Duration::from_millis(400)));
+        assert!(!may_command_in(&mut book, home, half, now + Duration::from_millis(999)));
+        // The second is up: through, leaving half a second (a /chat).
+        assert!(may_command_in(&mut book, home, half, now + second));
+        assert!(!may_command_in(&mut book, home, half, now + Duration::from_millis(1499)));
+        assert!(may_command_in(&mut book, home, half, now + Duration::from_millis(1500)));
+
+        // A stranger never may.
+        assert!(!may_command_in(&mut book, address("10.0.0.9:50000"), half, now));
     }
 
     #[test]

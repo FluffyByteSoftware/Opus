@@ -5,44 +5,60 @@
 //! What a player types.  The client sends the line as it was typed, in a
 //! PlayerCommand (protocol version 8), and the server goes "oh hey that
 //! started with / that means look for a command" (Jacob, 2026-10-02).
-//! There are two so far:
 //!
-//! ```text
-//! /chat Yo yo yo!
-//! /who            /who list
-//! ```
+//! Every command is one line in `COMMANDS`: its name, how long the player
+//! waits after it before the next, and the function that runs it, in a
+//! file of its own under `commands/`.  A new command is a new file and a
+//! new line there, and nothing else changes.  The same shape as the
+//! GameClock's checks, and Jacob's ask: "make a command interface and
+//! then make it so we could easily stuff new commands in".
 //!
-//! `/chat` is here: everybody in the world sees `[Chat] Jacob: Yo yo yo!`,
-//! the one who said it too, one fixed channel, "like the way the old shit
-//! muds did it".  The line is made here, on the UDP thread, and left in
-//! the GameClock's chat mailbox; the GameClock's broadcast check hands
-//! each cycle's lines back to `send_out()`, which sends them.  `/who` is
-//! in `who.rs`.
+//! **Anti-flood** (Jacob, 2026-10-02: "anti flood prevention on the
+//! server for any chat commands"): after a command goes through, the
+//! player waits that command's `wait` before the next one, whichever it
+//! is.  The default is 500 ms, two game cycles ("maybe two full game
+//! ticks?  So 500 ms?"); one that costs more takes longer ("if we make a
+//! command that hits the database a bunch maybe that needs longer").  A
+//! line too soon is refused before it's looked at any further, so a flood
+//! never builds a list, reaches the GameClock or goes out on the wire,
+//! and the refusal doesn't restart the wait.  A line without a `/`, or a
+//! command there's no such thing as, waits the default too.  A resend of
+//! the same ask never gets here: the book answers it with the answer it
+//! kept.
 //!
-//! A chat message is plain English (Jacob: "letters numbers special
-//! characters, spaces"), printable ASCII, and anything past its 300th
-//! character is dropped without a word ("The server will just ignore
-//! everything after 300").  The client stops at 300 itself.  A line
-//! without a `/` will be said out loud, nearby, once there's somewhere to
-//! be near; until then it's refused.
+//! A line without a `/` will be said out loud, nearby, once there's
+//! somewhere to be near; until then it's refused.
+
+mod chat;
+mod who;
 
 use std::net::SocketAddr;
-
-use conductor_tools::scribe::{self, Channel};
+use std::time::Duration;
 
 use crate::protocol;
 use crate::sessions;
-use crate::udp;
-use crate::who;
 
-/// The most characters of a chat message that are kept.  Jacob's 300.
-pub const MOST_CHARACTERS: usize = 300;
+// Rust note: these hand the two functions the GameClock calls on to
+// lib.rs, which gives them to it as networking starts.
+pub use chat::send_out;
+pub use who::send_list;
+
+/// How long a player waits after a command unless the command says
+/// otherwise.  Jacob's two game cycles.
+pub const DEFAULT_WAIT: Duration = Duration::from_millis(500);
 
 const NOT_A_COMMAND: &str = "Saying things without a command isn't in yet.  Use /chat.";
 const NO_SUCH_COMMAND: &str = "There's no command by that name.  For now there's /chat and /who.";
-const NOTHING_SAID: &str = "Say something after /chat.";
-const NOT_PLAIN: &str = "Chat is plain English: letters, numbers, punctuation and spaces.";
-const UNAVAILABLE: &str = "Chat Unavailable";
+const TOO_SOON: &str = "You can't do that again so soon.";
+
+/// Who typed the line: where from, their account and character, and the
+/// ask number it came in as.
+pub struct Asker<'a> {
+    pub from: SocketAddr,
+    pub account: &'a str,
+    pub character: &'a str,
+    pub ask: u32,
+}
 
 /// What became of a command.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,76 +70,56 @@ pub enum Outcome {
     Later,
 }
 
-/// A command, read off a line.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Command<'a> {
-    /// `/chat`, and what came after it.
-    Chat(&'a str),
-    /// `/who`, and what came after it.
-    Who(&'a str),
+/// One command.
+struct Command {
+    /// The word after the `/`, lowercase.  Matched whatever the capitals.
+    name: &'static str,
+    /// How long the player waits after it before the next command.
+    wait: Duration,
+    // Rust note: a plain function, like the checks' `run`.  It gets who
+    // asked and whatever came after the word.
+    run: fn(&Asker<'_>, &str) -> Outcome,
 }
 
+/// Every command there is.
+static COMMANDS: [Command; 2] = [
+    Command { name: "chat", wait: DEFAULT_WAIT, run: chat::run },
+    // Jacob's second, from before the anti-flood was for every command:
+    // "a temporary cooldown of like 1 second".
+    Command { name: "who", wait: Duration::from_secs(1), run: who::run },
+];
+
 /// A line typed by a player whose character is in the world (the caller
-/// turns away the rest), as the ask numbered `ask`.
-pub fn command(from: SocketAddr, account: &str, character: &str, ask: u32, line: &str) -> Outcome {
-    match read(line) {
-        Ok(Command::Chat(message)) => match chat(account, character, message) {
-            Ok(()) => Outcome::Answer(protocol::command_accepted(ask)),
-            Err(why) => Outcome::Answer(protocol::command_refused(ask, why)),
-        },
-        Ok(Command::Who(rest)) => who::ask(from, account, ask, rest),
-        Err(why) => Outcome::Answer(protocol::command_refused(ask, why)),
+/// turns away the rest).
+pub fn command(asker: &Asker, line: &str) -> Outcome {
+    let (word, rest) = split(line);
+    let found = word.and_then(find);
+    let wait = found.map_or(DEFAULT_WAIT, |command| command.wait);
+    if !sessions::may_command(asker.from, wait) {
+        return Outcome::Answer(protocol::command_refused(asker.ask, TOO_SOON));
+    }
+    match (word, found) {
+        (None, _) => Outcome::Answer(protocol::command_refused(asker.ask, NOT_A_COMMAND)),
+        (Some(_), None) => Outcome::Answer(protocol::command_refused(asker.ask, NO_SUCH_COMMAND)),
+        (Some(_), Some(command)) => (command.run)(asker, rest),
     }
 }
 
-/// Sends a cycle's chat to everybody in the world.  The GameClock calls
-/// this from its broadcast check, on its own thread; networking hands it
-/// over as it starts (`conductor_gameclock::set_chat_sender()`).
-pub fn send_out(lines: &[String]) {
-    let packets = protocol::chat_deliveries(lines);
-    udp::tell_all(&sessions::in_world(), &packets);
-}
-
-/// Which command a line is, and what came after its word.
-fn read(line: &str) -> Result<Command<'_>, &'static str> {
+/// A line's command word, if it starts with a `/`, and whatever came after
+/// the first space.
+fn split(line: &str) -> (Option<&str>, &str) {
     let Some(command) = line.strip_prefix('/') else {
-        return Err(NOT_A_COMMAND);
+        return (None, line);
     };
     // Rust note: `split_once` cuts at the first space, if there is one:
     // the word before it is the command, the rest is what it says.
     let (word, rest) = command.split_once(' ').unwrap_or((command, ""));
-    if word.eq_ignore_ascii_case("chat") {
-        Ok(Command::Chat(rest))
-    } else if word.eq_ignore_ascii_case("who") {
-        Ok(Command::Who(rest))
-    } else {
-        Err(NO_SUCH_COMMAND)
-    }
+    (Some(word), rest)
 }
 
-/// A `/chat`: the finished line into the GameClock's chat mailbox.
-fn chat(account: &str, character: &str, message: &str) -> Result<(), &'static str> {
-    let finished = chat_line(character, message)?;
-    conductor_gameclock::chat(finished.clone()).map_err(|why| {
-        scribe::debug(Channel::Game, &format!("{account}'s chat as {character} didn't go out: {why}."));
-        UNAVAILABLE
-    })?;
-    scribe::debug(Channel::Game, &format!("Chat, from {account}: {finished}"));
-    Ok(())
-}
-
-/// The finished line a chat message makes, or the words for why it
-/// doesn't make one.
-fn chat_line(character: &str, message: &str) -> Result<String, &'static str> {
-    let message: String = message.trim_start_matches(' ').chars().take(MOST_CHARACTERS).collect();
-    if !message.chars().all(|c| c.is_ascii_graphic() || c == ' ') {
-        return Err(NOT_PLAIN);
-    }
-    let message = message.trim_end_matches(' ');
-    if message.is_empty() {
-        return Err(NOTHING_SAID);
-    }
-    Ok(format!("[Chat] {character}: {message}"))
+/// The command a word names, whatever the capitals.
+fn find(word: &str) -> Option<&'static Command> {
+    COMMANDS.iter().find(|command| command.name.eq_ignore_ascii_case(word))
 }
 
 // ---------------------------------------------------------------------------
@@ -135,46 +131,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_line_is_read_as_its_command() {
-        assert_eq!(read("/chat Yo yo yo!"), Ok(Command::Chat("Yo yo yo!")));
-        assert_eq!(read("/CHAT   Yo"), Ok(Command::Chat("  Yo")));
-        assert_eq!(read("/chat"), Ok(Command::Chat("")));
-        assert_eq!(read("/who"), Ok(Command::Who("")));
-        assert_eq!(read("/Who list"), Ok(Command::Who("list")));
-        assert_eq!(read("Yo yo yo!"), Err(NOT_A_COMMAND));
-        assert_eq!(read(""), Err(NOT_A_COMMAND));
-        assert_eq!(read("/shout Yo"), Err(NO_SUCH_COMMAND));
-        assert_eq!(read("/chatter Yo"), Err(NO_SUCH_COMMAND));
-        assert_eq!(read("/"), Err(NO_SUCH_COMMAND));
+    fn a_line_splits_into_its_word_and_the_rest() {
+        assert_eq!(split("/chat Yo yo yo!"), (Some("chat"), "Yo yo yo!"));
+        assert_eq!(split("/CHAT   Yo"), (Some("CHAT"), "  Yo"));
+        assert_eq!(split("/chat"), (Some("chat"), ""));
+        assert_eq!(split("/Who list"), (Some("Who"), "list"));
+        assert_eq!(split("/"), (Some(""), ""));
+        assert_eq!(split("Yo yo yo!"), (None, "Yo yo yo!"));
+        assert_eq!(split(""), (None, ""));
     }
 
     #[test]
-    fn a_chat_makes_jacobs_line() {
-        assert_eq!(chat_line("Jacob", "Yo yo yo!"), Ok("[Chat] Jacob: Yo yo yo!".to_string()));
-        // The spaces around the message don't count.
-        assert_eq!(chat_line("Jacob", "   Yo yo yo!  "), Ok("[Chat] Jacob: Yo yo yo!".to_string()));
-        // Every printable thing on an English keyboard.
-        let keyboard = "~`!@#$%^&*()_+-={}[]|\\:;\"'<>,.?/ 0123456789 AZaz";
-        assert_eq!(chat_line("Jacob", keyboard), Ok(format!("[Chat] Jacob: {keyboard}")));
+    fn a_word_finds_its_command_whatever_the_capitals() {
+        assert_eq!(find("chat").map(|command| command.name), Some("chat"));
+        assert_eq!(find("WHO").map(|command| command.name), Some("who"));
+        assert!(find("shout").is_none());
+        assert!(find("chatter").is_none());
+        assert!(find("").is_none());
     }
 
     #[test]
-    fn everything_after_300_characters_is_dropped() {
-        let long = "x".repeat(MOST_CHARACTERS + 50);
-        let line = chat_line("Jacob", &long).unwrap();
-        assert_eq!(line, format!("[Chat] Jacob: {}", "x".repeat(MOST_CHARACTERS)));
-        // What's past the 300th isn't looked at, so it can't refuse the
-        // line either.
-        let line = chat_line("Jacob", &format!("{}é", "x".repeat(MOST_CHARACTERS))).unwrap();
-        assert_eq!(line, format!("[Chat] Jacob: {}", "x".repeat(MOST_CHARACTERS)));
-    }
-
-    #[test]
-    fn what_chat_turns_away() {
-        assert_eq!(chat_line("Jacob", ""), Err(NOTHING_SAID));
-        assert_eq!(chat_line("Jacob", "     "), Err(NOTHING_SAID));
-        assert_eq!(chat_line("Jacob", "héllo"), Err(NOT_PLAIN));
-        assert_eq!(chat_line("Jacob", "a\tb"), Err(NOT_PLAIN));
-        assert_eq!(chat_line("Jacob", "new\nline"), Err(NOT_PLAIN));
+    fn every_command_has_its_own_lowercase_name_and_waits_at_least_the_default() {
+        for (number, command) in COMMANDS.iter().enumerate() {
+            assert_eq!(command.name, command.name.to_ascii_lowercase());
+            assert!(command.wait >= DEFAULT_WAIT, "{} waits less than the default", command.name);
+            assert!(COMMANDS[number + 1..].iter().all(|other| other.name != command.name));
+        }
     }
 }
