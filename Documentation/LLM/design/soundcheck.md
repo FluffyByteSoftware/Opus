@@ -129,6 +129,12 @@ What changes against what's built, as read back to him (his answers go here as t
   checks its hash against the manifest, unzips it over the install, and checks again.  So Conductor
   serves nothing, and the download thread, the 3 MB pieces, the pacing and `patch.cfg` go.  The cost is
   that one wrong byte is the whole zip again, hundreds of megabytes for a Unity build; his call.
+- **Then the launcher restarts itself** (his next line: "then it extracts the zip file, restarts launcher
+  and redoes the process"): the unzip done, Soundcheck starts a new copy of itself and ends, and the new
+  one checks from the top, so a patched Soundcheck is the one that goes on.  A second fail in a row
+  (the new run started with `--patched`, say) is "couldn't repair the game", not another download.  On
+  Windows a running program can't be written over but can be renamed, so the launcher's own files are
+  renamed aside before the new ones go in, and the leftovers are cleaned up on the next start.
 - **One `manifest.json`**, not one a platform: it names both zips, and each zip's file list.  The address
   is a duckdns name now, on the same port.
 - **Admin mode zips** the build folder into the WWW folder and writes the manifest beside it.
@@ -139,8 +145,7 @@ What changes against what's built, as read back to him (his answers go here as t
   `conductor.crt` sits beside the launcher.  So nothing is excluded yet; the rule stands for when one comes.
 
 Open on it (asked 2026-10-02): the two builds can't share one flat folder (`Ensemble_Data/` is in both and
-differs by platform), so one zip a platform or one zip with a folder each; whether Soundcheck's own files
-are in the zip (a running program can't overwrite itself on Windows); whether the address is
+differs by platform), so one zip a platform or one zip with a folder each; whether the address is
 `opusensemble.duckdns.org` (duckdns's names end in `.org`) or `opusensemble.com`; and how the world's dump
 gets into the build folder before it's zipped.
 
