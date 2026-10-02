@@ -51,10 +51,10 @@ is up from the moment the launcher runs.  The server (Fingerprinter, Security, A
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
-**The branches**: `main` is at `testing`'s tip, released 2026-10-02 as **0.0.1** (a player in the world,
-chatting, from Ensemble; the review's eleven fixes and PleaseWait built, tested and checked).  The `v0.0.1`
-tag and the two packages are Jacob's to make; `Documentation/HowTo/RELEASE.md` walks through it.
-`unstable`, `testing` and `main` are level.  `main` moves when Jacob says.
+**The branches**: `main` is at `bc7009e`, **released 2026-10-02 as 0.0.1**, tagged `0.0.1` on GitHub with
+the two packages on the Release (a player in the world, chatting, from Ensemble; the review's eleven fixes
+and PleaseWait built, tested and checked).  `unstable` and `testing` move on from there.  `main` moves when
+Jacob says.
 
 **Built and tested on Linux**: all of Conductor as released, 365 tests, every run check passed and out of
 TEST_CHECKLIST.html, which holds one Parked check (Spans for real).  **In Unity**: everything through the
@@ -188,9 +188,8 @@ Jacob opened it with "we are ready to prepare for release 0.0.1" and a review of
 
 ## Where the next session starts
 
-**0.0.1 is released**: `main` is at the release commit, built, tested and checked; the `v0.0.1` tag and the two
-packages are Jacob's to make by RELEASE.md (the session can't run `cargo build --release`, Unity or the
-GitHub Release page).  Nothing waits on a build.  What's next is his: the "major clean up" is the rest of
+**0.0.1 is released**: `main` at `bc7009e`, tagged `0.0.1`, the two packages on the GitHub Release (Jacob made
+them by RELEASE.md, 2026-10-02).  Nothing waits on a build.  What's next is his: the "major clean up" is the rest of
 the review's list (`CODE_REVIEW_0.0.1.md`: R8 onward, the inefficiencies, the stale words), or movement
 (0.0.0.12), or whatever he opens.
 
@@ -198,9 +197,6 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 
 ## What's waiting
 
-- **The 0.0.1 release's tag and packages**: `main` is at the release commit and the version numbers are
-  set; the `v0.0.1` tag, Conductor's tar and Ensemble's zip are Jacob's, by `Documentation/HowTo/RELEASE.md`
-  steps 3 to 5.
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`, 2026-10-02): the four bugs and the seven risks
   are fixed, built and tested; R8 onward, the inefficiencies and the stale words are the clean-up Jacob
   named.  The biggest: Scribe writing to the console under its lock (R8), the Lua time limit not stopping a

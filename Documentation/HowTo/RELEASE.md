@@ -37,7 +37,7 @@ That commit is the release.  Everything below is built from it.
 
 ## 2. The version number
 
-The tag is `v` and the version: `v0.0.1`.  Three places carry a number of their own, and they all say the
+The tag is the version number as it is: `0.0.1` (the first one went up that way, no `v`).  Three places carry a number of their own, and they all say the
 same thing before the tag is made:
 
 - **The tag**, made on GitHub in step 5.
@@ -140,6 +140,9 @@ Publishing makes the tag, so afterwards `git fetch origin --tags` brings it down
 ```
 git fetch origin --tags && git tag -l
 ```
+
+The first one went up on 2026-10-02 as `0.0.1`, no `v` in front: the tag is the version number as it is.
+The next follows suit.
 
 ## 6. After
 

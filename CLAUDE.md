@@ -1002,7 +1002,7 @@ When I say we're wrapping up:
   `main` into `unstable`, so the next release is a plain catch-up.
 - **A release** (the first, 0.0.1, 2026-10-02): `main` is fast-forwarded
   from `testing` on my say (`git push origin origin/testing:main`), then
-  the `v0.0.1` tag and the two packages are mine to make by
+  the `0.0.1` tag (the version, no `v`) and the two packages are mine to make by
   `Documentation/HowTo/RELEASE.md` (the session can't run `cargo build
   --release`, Unity or the GitHub Release page).  The version is in three
   places that all change together: every crate's `Cargo.toml` and its
