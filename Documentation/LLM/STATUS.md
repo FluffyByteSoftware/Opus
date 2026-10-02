@@ -41,9 +41,10 @@ is up from the moment the launcher runs.  The server (Fingerprinter, Security, A
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
-**The branches**: `main` is still at `8bf9f70`, released at the hand-off of 2026-09-30.  `unstable` and
-`testing` are level with each other and carry everything since, this hand-off included.  `main` moves
-when Jacob says.
+**The branches**: `main` is at `33c418e`, released 2026-10-02 (Jacob: "merge everything to main please"),
+a fast-forward from `testing` carrying everything since the release of 2026-09-30 (`8bf9f70`).  `unstable`
+and `testing` are level with each other, and only this line ahead of `main`.  `main` moves when Jacob
+says.
 
 **Built and tested on Linux**: all of Conductor, `world_size` and the password's key (protocol version 7)
 included.  **In Unity**: Copy Anims From FBX Pack, its CLASHES view included, the HUD's Phase 1, the login, and
