@@ -108,6 +108,17 @@ namespace Opus.Soundcheck.Screens
                     DropKey();
             };
 
+            // Started by the game on its way out: why the session ended
+            // goes in the status box, so a kicked player reads "You were
+            // kicked by the admin." here and not nothing.
+            bool trouble;
+            string over = GameLauncher.SessionOver(out trouble);
+            if (over != null)
+            {
+                Log.Say("Login: the game ended its session: " + over);
+                ShowStatus(over, trouble);
+            }
+
             // Enter anywhere on the screen is SUBMIT.
             KeyDown += (sender, e) =>
             {

@@ -197,6 +197,21 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>The way back says why (2026-10-02)</h2>
+<p>A fresh Ensemble build first (the game's half changed), then Soundcheck built and run with
+<code>--game</code> as before.</p>
+<pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --game /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble.x86_64</pre>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      KICK from the web admin's Connections tab: the game closes and Soundcheck opens with "You were kicked
+      by the admin." in a red status box.  <code>/camp</code> instead: Soundcheck opens with "Logged out."
+      in a grey one.  SUBMIT and PLAY from there work, and the game started that way shows nothing of it.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

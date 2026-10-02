@@ -374,12 +374,13 @@ namespace Opus.Net
         }
 
         // Starts Soundcheck again, from the path it left in the environment
-        // (Ticket.cs), so a player who's out is looking at the login.  The
-        // used-up ticket doesn't go along.  False when the game wasn't
-        // started by the launcher, or the launcher can't be started (the
-        // log says why); never in the editor, where there's no launcher to
-        // go back to.
-        static bool BackToTheLauncher()
+        // (Ticket.cs), so a player who's out is looking at the login, with
+        // why the session ended in the launcher's status box (the same
+        // way, in its environment).  The used-up ticket doesn't go along.
+        // False when the game wasn't started by the launcher, or the
+        // launcher can't be started (the log says why); never in the
+        // editor, where there's no launcher to go back to.
+        static bool BackToTheLauncher(string why, bool trouble)
         {
 #if UNITY_EDITOR
             return false;
@@ -396,6 +397,8 @@ namespace Opus.Net
                 start.EnvironmentVariables.Remove(Ticket.UdpPortVariable);
                 start.EnvironmentVariables.Remove(Ticket.TokenVariable);
                 start.EnvironmentVariables.Remove(Ticket.LauncherVariable);
+                start.EnvironmentVariables[Ticket.SessionOverVariable] = why ?? "";
+                start.EnvironmentVariables[Ticket.SessionTroubleVariable] = trouble ? "1" : "0";
                 System.Diagnostics.Process.Start(start);
                 Debug.Log("Game: back to the launcher, " + path + ".");
                 return true;
@@ -635,7 +638,7 @@ namespace Opus.Net
             Stage = SessionStage.LoggedOut;
             ForgetCharacterSelect();
             Tell(why, trouble);
-            if (BackToTheLauncher())
+            if (BackToTheLauncher(why, trouble))
             {
                 StopRunning();
                 return;

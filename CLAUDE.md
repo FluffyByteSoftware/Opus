@@ -923,8 +923,11 @@ When I say we're wrapping up:
   **Every way out goes back to the launcher**: a session that ends
   (Kicked, the server gone, LOG OUT, `/camp`) starts Soundcheck from
   `OPUS_SOUNDCHECK` and closes the game, so the player is looking at the
-  login; `/camp desktop` and QUIT close it without.  A game with no
-  launcher to go back to stays on the start screen, which says why.
+  login, with why in the launcher's status box (`OPUS_SESSION_OVER` and
+  `OPUS_SESSION_TROUBLE`, the same contract the other way; a KICK showed
+  nothing before, 2026-10-02); `/camp desktop` and QUIT close it without.
+  A game with no launcher to go back to stays on the start screen, which
+  says why.
 - **Dev mode is the editor's way in** (Jacob, 2026-10-02: "Play/Dev
   Mode"): there's no launcher to start the editor's game, so the start
   screen's card, in the editor only (`#if UNITY_EDITOR`), looks once a

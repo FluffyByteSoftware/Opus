@@ -70,7 +70,11 @@ a patcher is that something.  The certificate half is still to come; this is the
   contract between the two programs, `Soundcheck/dev/...` on one side and Ensemble's `Net/Ticket.cs` on
   the other): `OPUS_SERVER` (the server's address, as the player typed it), `OPUS_UDP_PORT` (the Ticket's
   port), `OPUS_TOKEN` (the Ticket's token, 64 hex) and `OPUS_SOUNDCHECK` (the launcher's own path, for the
-  way back).  Ensemble takes all four out of the environment it hands Soundcheck on the way back.
+  way back).  Ensemble takes all four out of the environment it hands Soundcheck on the way back, and puts
+  **two of its own** in (2026-10-02, after a KICK showed nothing: "the client didn't show a reason"):
+  `OPUS_SESSION_OVER`, why the session ended in the game's words ("You were kicked by the admin.", "Logged
+  out."), and `OPUS_SESSION_TROUBLE`, `1` when it was something gone wrong.  Soundcheck shows them in its
+  status box at start, red for trouble, and takes them out of the environment it starts the game with.
 - **Soundcheck closes once Ensemble is up**, and **Ensemble quits back to Soundcheck** when its session ends:
   it starts Soundcheck again on its way out, so a kicked player is looking at the login.  Ensemble finds
   Soundcheck through one more environment variable, its path.
