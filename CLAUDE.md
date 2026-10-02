@@ -865,7 +865,13 @@ When I say we're wrapping up:
   2026-10-01 the add and the commit were run before the pull, so they
   had nothing to commit (the new files weren't on the disk yet); the
   `git status --short` before the commit says what to expect (new
-  `.meta`s with an `A`), so an empty one is noticed.
+  `.meta`s with an `A`), so an empty one is noticed.  **Jacob has the
+  round as one word, `git meta`** (2026-10-02, an alias in his
+  `~/.gitconfig`): the add of the two folders, the status, a commit
+  ("Unity .meta files"), the pull and the push to both branches, stopping
+  at the first step that fails.  A reply says `git meta` instead of the
+  five lines; anything else to go in the same commit (`Cargo.lock`) gets
+  its `git add` first.
 - **The password never leaves the client as typed** (Jacob, 2026-10-01:
   "we don't want to save it to their local disk as plain text!").  On
   SUBMIT it's turned into a key (`Assets/Code/Security/PasswordKey.cs`,
