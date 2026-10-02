@@ -214,26 +214,8 @@ be running with the door open for the login part, as before.</p>
       file remembered one folder, not one a platform).
     </span></label>
   </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Pick <code>/opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12</code> as the build folder and
-      PUBLISH: the progress bar runs through "Copying N of M" then "Hashing N of M", and the status says
-      "Published linux in S s: M copied, 0 already there, 0 removed; the manifest lists M files, X MB."
-      with the two paths.  <code>download/linux/</code> is the build without
-      <code>Ensemble_BackUpThisFolder_ButDontShipItWithYourGame</code>, <code>Ensemble.x86_64</code> in it
-      is still executable, and the manifest says <code>"format": 3</code>, <code>"platform": "linux"</code>
-      and <code>"executable": true</code> on that line.
-    </span></label>
-  </li>
 </ul>
-<pre class="cmd">ls -la /opt/storage/WWW /opt/storage/WWW/download/linux | head -20; grep -c BackUpThisFolder /opt/storage/WWW/linux_manifest.json; grep -m3 '"format"\|"platform"\|"executable"' /opt/storage/WWW/linux_manifest.json</pre>
 <ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      PUBLISH again, nothing changed: "0 copied, M already there, 0 removed", and it's quick (the copy is
-      skipped by size and time; the hashing still runs).
-    </span></label>
-  </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
       Tick Windows: the build folder box empties (a folder is remembered per platform) and the line says
@@ -248,42 +230,20 @@ be running with the door open for the login part, as before.</p>
     </span></label>
   </li>
 </ul>
-<p>User mode.  A web server on this machine serving the web folder (the first command, in its own
-terminal; Ctrl-C ends it), and Soundcheck pointed at it with <code>--www</code>.  The check runs at the
-start, before any login.</p>
-<pre class="cmd">python3 -m http.server 8553 --directory /opt/storage/WWW</pre>
-<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --game /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble.x86_64 --www http://127.0.0.1:8553/</pre>
+<p>User mode.  <code>--www http://127.0.0.1:8553/</code> on the command line points the launcher at
+<code>python3 -m http.server 8553 --directory /opt/storage/WWW</code> on this machine instead of the
+real address, for the checks that need the web server stopped or a file taken out of it.</p>
+<p>The web folder is up at <code>opusensemble.duckdns.org:8553</code> (2026-10-02), so the launcher runs
+without <code>--www</code> now; PUBLISH, the check and a two-file patch passed against it.  The empty
+<code>&lt;ul&gt;</code>s below are where the passed checks were.</p>
+<pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --game /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble.x86_64</pre>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      The window opens with the boxes greyed, "Fetching the linux manifest from
-      http://127.0.0.1:8553/linux_manifest.json", then "Checking the game's files in ..." with the bar
-      running, then "Every file checks out (M files). Log in." and the boxes come alive.  The terminal's
-      first line says <code>Soundcheck 0.0.1 on linux</code>, and the log has the manifest's version, count
-      and when it was written, and the check's time.  SUBMIT and PLAY work as before.
-    </span></label>
-  </li>
-</ul>
-<p>A file that's off.  Copy one of the game's small files aside, break it, and start Soundcheck again
-(the same command as above): the patcher fetches it back from the web folder.  Then compare the two
-copies and delete the one put aside.</p>
-<pre class="cmd">cp /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/boot.config /tmp/boot.config.keep; echo broken >> /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/boot.config; rm /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/app.info</pre>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      At the start: "Updating the game: 2 files, 0.0 MB to fetch...", "Fetching 1 of 2: ...", then the
-      check again, then "Updated 2 files (0.0 MB). Every file checks out now. Log in."  The log has a
-      "Patch: ... is in." line per file and the Changed/Missing names.  <code>boot.config</code> matches
-      the copy kept aside (<code>cmp</code> says nothing) and <code>app.info</code> is back.
-    </span></label>
-  </li>
-</ul>
-<pre class="cmd">cmp /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/boot.config /tmp/boot.config.keep && echo same; ls /opt/storage/Coding/Opus/Ensemble/build/Linux/0.0.12/Ensemble_Data/app.info; rm /tmp/boot.config.keep</pre>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Delete <code>Ensemble.x86_64</code> itself (it's in the web folder) and start again: it comes back
-      and is executable (<code>ls -l</code> shows the x), and PLAY starts the game.
+      Delete <code>Ensemble.x86_64</code> itself (it's in the web folder) and start again: the log has
+      "Patch: Ensemble.x86_64 ... is in.", <code>ls -l</code> shows this evening's time and the x, and PLAY
+      starts the game.  (On 2026-10-02 the <code>ls -l</code> came back with the build's own time, so the
+      file hadn't been deleted first.)
     </span></label>
   </li>
   <li class="check">
@@ -330,13 +290,6 @@ copies and delete the one put aside.</p>
       KICK from the web admin with the check on: Soundcheck opens, the check runs, and the status ends
       up red with "You were kicked by the admin. Every file checks out (M files). Log in."  The farewell
       isn't lost under the check's words.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Once the web folder is up at <code>opusensemble.duckdns.org:8553</code>: without <code>--www</code>,
-      the log says "the manifest is http://opusensemble.duckdns.org:8553/linux_manifest.json" and the
-      check passes against it.
     </span></label>
   </li>
   <li class="check">
