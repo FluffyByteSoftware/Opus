@@ -101,7 +101,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **A big answer** (Jacob, 2026-10-02): "we need to build a "span packet" that tells the client there are
     X of Y packets about to show up and to wait till all are received or a specified time elapses?"  Each
     piece says which of how many (OKed, "yes"), and the client waits 2 seconds ("2s is fine").
-  - **Written, waiting on Jacob's build** (2026-10-02): protocol version 9, WhoDelivery (`0x39`) and Span
+  - **Built and tested** (2026-10-02, every check passed): protocol version 9, WhoDelivery (`0x39`) and Span
     (`0x3A`); `Translator.NumberToWords()` in Ensemble now ("a"), its `.meta` from Jacob's machine; the test
     client draws the box at 79 with the count in digits.  `design/conductor-networking.md`, "/who", and
     PROTOCOL.md have it.
@@ -112,7 +112,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     "I think we're doing this stupid.  We can just make it so there's anti flood prevention on the server
     for any chat commands right?"  So it's one anti-flood rule for every command, in a table of commands
     ("the default should be 500 ms but if we make a command that hits the database a bunch maybe that
-    needs longer"): `/chat` 500 ms, `/who` 1 second.  Written, waiting on Jacob's build;
+    needs longer"): `/chat` 500 ms, `/who` 1 second.  Built and tested;
     `design/conductor-networking.md`, "Commands and the anti-flood", has it.
 - **Kicking a player who keeps flooding** (2026-10-02): today a command too soon is only refused.  Whether
   enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's call.

@@ -328,7 +328,7 @@ all nine checks passed, Ensemble still logging in on version 8.
 ## /who (2026-10-02)
 
 Jacob's ask, protocol version 9: "a /who that shows all connected players".  PROTOCOL.md has the bytes and
-the box.  Written, waiting on Jacob's build.
+the box.  Built and tested on Linux, every check passed.
 
 - **Characters in the world only** ("I agree characters in the world only"), A to Z, to the one who asked.
 - **`/who` is the names; `/who list` each with its block**: "A but if they do /who list It shows [Aldric]
@@ -358,7 +358,7 @@ Jacob, asking for a second's cooldown on `/who`, then: "I think we're doing this
 it so there's anti flood prevention on the server for any chat commands right?"  And on the shape: "in c#
 mg temptation would be to make a command interface and then make it so we could easily stuff new commands
 in", "the default should be 500 ms but if we make a command that hits the database a bunch maybe that
-needs longer".  Written, waiting on Jacob's build.
+needs longer".  Built and tested on Linux, every check passed.
 
 - **Every command is a line in `COMMANDS`** (`commands.rs`): its name, its wait, and its `run()`, in a file
   of its own under `commands/`.  A table of plain structs, like the GameClock's checks, rather than a

@@ -267,13 +267,12 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |
-| conductor-networking | Lib: the login over TLS, the game over UDP.             | Tested; chat tested; /who, Spans |
-|                      |                                                         | and the anti-flood not yet built |
+| conductor-networking | Lib: the login over TLS, the game over UDP.             | Tested; chat, /who, anti-flood   |
 | conductor-lua-parser | Lib: runs the Lua scripts, locked down.                 | Tested                           |
 | conductor-primlib    | Lib: the game library, an ECS.                          | Tested; players' characters spawn|
 | conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested; world_size      |
-| conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input, broadcast (chat), |
-|                      |                                                         | housekeeping; /who list unbuilt  |
+| conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input, broadcast (chat,  |
+|                      |                                                         | /who list), housekeeping         |
 | conductor-wgui       | Lib: the web admin on 127.0.0.1.                        | Tested                           |
 | conductor-launcher   | Bin: the program.  Boots, then waits on the Server tab. | Tested                           |
 | DiskMan              | Every file read and write, one worker thread.           | Tested                           |

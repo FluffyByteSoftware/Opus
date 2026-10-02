@@ -51,13 +51,11 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 hand-off.  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor up to chat, `world_size`, the password's key and TLS 1.2
-included; `/chat` passed all nine checks (protocol version 8).  **Written and not built yet**: `/who` and `/who
-list`, Spans (protocol version 9), the command table and the anti-flood, the test client's Ctrl-C and
-`--type-gap`.  Ensemble's `Translator.cs` is in, its `.meta` committed by Jacob (`f9f1c6a`, with
-`Content/cfg/game.cfg`).
-**Expect compile fixes**, in networking and the GameClock.  **In Unity**: everything up to character select's
-PLAY passed.  TEST_CHECKLIST.html has this hand-off's checks waiting, and two Parked (Spans for real, and the
-chat box drawing `/who`).  **On Windows**: Conductor builds and runs, START SERVER included, without a
+included; `/chat` (protocol version 8), and `/who`, `/who list`, Spans (version 9), the command table and the
+anti-flood, and the test client's Ctrl-C: every check passed, nothing waits on a build.  **In Unity**:
+everything up to character select's PLAY passed, and `Translator.cs` compiles (its `.meta` committed by Jacob,
+`f9f1c6a`, with `Content/cfg/game.cfg`).  TEST_CHECKLIST.html has the test client's two typing checks waiting,
+and two Parked (Spans for real, and the chat box drawing `/who`).  **On Windows**: Conductor builds and runs, START SERVER included, without a
 database; nothing since the world has been tried there (GitHub issue #10).
 
 ## Jacob's map (2026-09-30, and on)
@@ -127,7 +125,7 @@ and PROTOCOL.md have all of it; TODO.md has every answer in his words.
   GameClock's broadcast check, once a cycle ("every beat").  Networking hands the GameClock its sender as a
   plain function, since the GameClock can't depend on networking.  A line without a `/` is refused until
   saying things nearby exists.
-- **`/who` and `/who list`, written, not built** (protocol version 9).  WhoDelivery (`0x39`): the names of
+- **`/who` and `/who list`, built and tested** (protocol version 9).  WhoDelivery (`0x39`): the names of
   the characters in the world, A to Z, and with `/who list` each one's block (`[Aldric] is currently at [0,
   0, 0]`), and the time as seconds since midnight UTC.  The client draws Jacob's old MUD's box ("]
   Forgotten Legends [", "There are seven legends currently online."), in the player's time zone and to its
@@ -135,7 +133,7 @@ and PROTOCOL.md have all of it; TODO.md has every answer in his words.
   **Spans** (`0x3A`, Jacob's "span packet"): an answer over 1200 bytes in pieces, each "X of Y", the
   client waiting 2 seconds.  **Ensemble**: `Translator.NumberToWords(int)`, British ("IN the honor of
   Discworld!"), and `Protocol.cs` at 9.
-- **The command table and the anti-flood, written, not built.**  "I think we're doing this stupid.  We can
+- **The command table and the anti-flood, built and tested.**  "I think we're doing this stupid.  We can
   just make it so there's anti flood prevention on the server for any chat commands right?", and "make a
   command interface... we could easily stuff new commands in".  `COMMANDS` in `commands.rs`: name, wait,
   `run()`, a file each in `commands/`.  After a command, the player waits its wait before the next: 500 ms
@@ -148,9 +146,8 @@ and PROTOCOL.md have all of it; TODO.md has every answer in his words.
 
 ## Where the next session starts
 
-**Ensemble** (Jacob: "we'll go work on Ensemble again").  Before anything else, the build of this session:
-`cargo test -p conductor-networking -p conductor-gameclock` and `cargo build`, expecting compile fixes, then
-the checklist.  For the client's chat box,
+**Ensemble** (Jacob: "we'll go work on Ensemble again").  Conductor's side of chat and `/who` is built and
+tested, so the client's chat box has a server to talk to.  For it,
 TODO.md's chat entry has what's settled: a line typed goes out as a PlayerCommand as typed; ChatDelivery's
 lines are printed; the box stops taking keys at 300; WhoDelivery drawn as the box (monospaced, to the chat
 box's width, `NumberToWords()` for the count, the time in the player's time zone); Spans put back together;
@@ -161,7 +158,7 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 
 ## What's waiting
 
-- **This session's build and checks**: `/who`, Spans, the anti-flood, the test client.
+- **The test client's two typing checks** in TEST_CHECKLIST.html.
 - **Ensemble's chat box**, and drawing `/who` in it (TODO.md).  Then 0.0.1 can go to `main`, Jacob's call.
 - **Saying things without a `/`**, nearby, once there are positions.  **Kicking a player who keeps
   flooding**, **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class

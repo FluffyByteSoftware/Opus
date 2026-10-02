@@ -36,7 +36,7 @@ a character and puts it in the world, though there's no world on screen yet.  Th
 | The world (GameWorld)                            | Made and loaded; nothing changes a block yet           |
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Chat: `/chat` to everybody in the world          | Built and tested with the test client                  |
-| `/who` and `/who list`, the anti-flood           | Written; not built yet                                 |
+| `/who` and `/who list`, the anti-flood           | Built and tested with the test client                  |
 | Movement                                         | Not started                                            |
 | Ensemble                                         | An editor tool; the login and the HUD, from layouts    |
 | Ensemble logging in, character select, PLAY      | Built and tested; the world isn't on screen yet        |
