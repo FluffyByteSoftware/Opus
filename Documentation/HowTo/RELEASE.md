@@ -117,7 +117,7 @@ outside this house gets a build that can't reach a server, which is right for 0.
 
 On the repo: Releases, then "Draft a new release".
 
-1. **Choose a tag**: type `v0.0.1`, and "Create new tag: v0.0.1 on publish".  **Target**: `main`.  (GitHub
+1. **Choose a tag**: type `0.0.1`, and "Create new tag: 0.0.1 on publish".  **Target**: `main`.  (GitHub
    makes the tag at `main`'s tip when the release is published, so `main` has to be at the release commit
    from step 1 first.)
 2. **Title**: `0.0.1`.
@@ -132,7 +132,7 @@ On the repo: Releases, then "Draft a new release".
 The same from the terminal, if `gh` (GitHub's command line tool) is installed and logged in:
 
 ```
-gh release create v0.0.1 --repo FluffyByteSoftware/Opus --target main --title "0.0.1" --prerelease --notes "A player logs in, picks a character, and stands in the world chatting." /opt/storage/Coding/Opus/Conductor/build/Opus-Conductor-0.0.1-linux-x86_64.tar.gz /opt/storage/Coding/Opus/Ensemble/build/Opus-Ensemble-0.0.1-linux-x86_64.zip
+gh release create 0.0.1 --repo FluffyByteSoftware/Opus --target main --title "0.0.1" --prerelease --notes "A player logs in, picks a character, and stands in the world chatting." /opt/storage/Coding/Opus/Conductor/build/Opus-Conductor-0.0.1-linux-x86_64.tar.gz /opt/storage/Coding/Opus/Ensemble/build/Opus-Ensemble-0.0.1-linux-x86_64.zip
 ```
 
 Publishing makes the tag, so afterwards `git fetch origin --tags` brings it down:
