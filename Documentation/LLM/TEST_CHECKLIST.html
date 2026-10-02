@@ -246,6 +246,24 @@ the same two accounts as chat's: <code>testuser123</code> with Tester, <code>tes
   </li>
 </ul>
 
+<h2>2026-10-02, test_client.py: Ctrl-C wherever it lands</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Ctrl-C in the keep-alives prints "Ctrl-C." and "-> Goodbye", and the script ends with no traceback.  The
+      Log tab says testuser456 logged out, and the same command run again gets straight in, no "Already logged
+      in" question.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter testuser456 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Ctrl-C while it's still making the password's key or logging in prints "Ctrl-C before the login
+      finished." and ends with no traceback.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

@@ -6,7 +6,8 @@
 # A stand-in for Ensemble, for testing networking by hand until there is
 # a real client.  It does what a client does and nothing more: TLS to the
 # TCP port, a Login, then the Ticket to the UDP port, then keep-alives
-# until Ctrl-C (which sends a Goodbye) or --leave-after runs out.  In
+# until Ctrl-C (which sends a Goodbye, wherever it lands after the login)
+# or --leave-after runs out.  In
 # between, at character select, it asks for the account's characters,
 # makes, deletes or resets home the ones the flags name, and with --play
 # brings one into the world and stays there.  With --type it types lines
@@ -513,11 +514,28 @@ def character_select(args, udp, server):
 
 
 def play(args, token, udp_port):
-    """The UDP half: Connect, then keep-alives until it's time to go."""
+    """The UDP half, with Ctrl-C caught wherever it lands: at character
+    select, in the middle of an ask, or in the keep-alives, a Goodbye goes
+    out, so the server lets the account go at once instead of waiting out
+    its UDP timeout."""
     udp = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp.settimeout(0.5)
     server = (args.host, udp_port)
+    still_in = True
+    try:
+        still_in = session(args, token, udp, server)
+    except KeyboardInterrupt:
+        print()
+        print("Ctrl-C.")
+    if still_in:
+        udp.sendto(bytes([GOODBYE]), server)
+        say("->", GOODBYE)
 
+
+def session(args, token, udp, server):
+    """Connect, character select, then keep-alives until it's time to go.
+    True if the session is still open at the end (so a Goodbye is owed),
+    False if it ended here: refused, kicked, or never answered."""
     for attempt in range(20):
         udp.sendto(bytes([CONNECT]) + put_string(token), server)
         say("->", CONNECT, "try %d" % (attempt + 1))
@@ -529,63 +547,56 @@ def play(args, token, udp_port):
             message, _ = take_string(data, 2)
             say("<-", CONNECT_RESULT, "%s: %r" % ("accepted" if data[1] == 0 else "refused", message), data[1:])
             if data[1] != 0:
-                return
+                return False
             break
     else:
         print("No answer to the Connect in 10 seconds.")
-        return
+        return False
 
     connected, playing = character_select(args, udp, server)
     if not connected:
-        return
+        return False
 
     if args.go_quiet:
-        print("Going quiet.  The server should drop this session after its UDP timeout; watch its log.")
-        try:
-            while True:
-                try:
-                    data, _ = udp.recvfrom(2048)
-                    say("<-", data[0], "while quiet")
-                except socket.timeout:
-                    pass
-        except KeyboardInterrupt:
-            return
+        print("Going quiet.  The server should drop this session after its UDP timeout; watch its log.  "
+              "Ctrl-C says Goodbye.")
+        while True:
+            try:
+                data, _ = udp.recvfrom(2048)
+                say("<-", data[0], "while quiet")
+            except socket.timeout:
+                pass
 
     if playing:
         print("In the world as %s.  Keep-alives once a second; Ctrl-C to say Goodbye." % playing)
     else:
         print("Still at character select.  Keep-alives once a second; Ctrl-C to say Goodbye.")
     started = time.monotonic()
-    try:
-        while True:
-            udp.sendto(bytes([KEEP_ALIVE]), server)
-            deadline = time.monotonic() + 1.0
-            answered = False
-            while time.monotonic() < deadline:
-                try:
-                    data, _ = udp.recvfrom(2048)
-                except socket.timeout:
-                    continue
-                if not data:
-                    continue
-                if data[0] == KEEP_ALIVE:
-                    answered = True
-                elif data[0] == KICKED:
-                    (reason,) = struct.unpack("<I", data[1:5])
-                    say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
-                    print("Back to the login screen.")
-                    return
-                elif data[0] == CHAT_DELIVERY:
-                    show_chat(data)
-                else:
-                    say("<-", data[0])
-            print("-> KeepAlive %s" % ("answered" if answered else "NOT answered"), flush=True)
-            if args.leave_after and time.monotonic() - started >= args.leave_after:
-                break
-    except KeyboardInterrupt:
-        print()
-    udp.sendto(bytes([GOODBYE]), server)
-    say("->", GOODBYE)
+    while True:
+        udp.sendto(bytes([KEEP_ALIVE]), server)
+        deadline = time.monotonic() + 1.0
+        answered = False
+        while time.monotonic() < deadline:
+            try:
+                data, _ = udp.recvfrom(2048)
+            except socket.timeout:
+                continue
+            if not data:
+                continue
+            if data[0] == KEEP_ALIVE:
+                answered = True
+            elif data[0] == KICKED:
+                (reason,) = struct.unpack("<I", data[1:5])
+                say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
+                print("Back to the login screen.")
+                return False
+            elif data[0] == CHAT_DELIVERY:
+                show_chat(data)
+            else:
+                say("<-", data[0])
+        print("-> KeepAlive %s" % ("answered" if answered else "NOT answered"), flush=True)
+        if args.leave_after and time.monotonic() - started >= args.leave_after:
+            return True
 
 
 def main():
@@ -630,6 +641,12 @@ def main():
         # deadline) lands here rather than as a traceback.
         print("The connection broke: %s" % e)
         sys.exit(1)
+    except KeyboardInterrupt:
+        # Before there's a ticket there's nothing to say Goodbye to: the
+        # TLS connection just closes.
+        print()
+        print("Ctrl-C before the login finished.")
+        sys.exit(130)
     if ticket is None:
         sys.exit(1)
     play(args, *ticket)
