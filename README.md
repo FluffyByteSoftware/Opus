@@ -40,7 +40,7 @@ a character and puts it in the world, though there's no world on screen yet.  Th
 | Movement                                         | Not started                                            |
 | Ensemble                                         | An editor tool; the login and the HUD, from layouts    |
 | Ensemble logging in, character select, PLAY      | Built and tested; the HUD comes up over the scene      |
-| Ensemble's chat window, `/who`'s box, `/camp`    | Built; chats; its checks are being run                 |
+| Ensemble's chat window, `/who`'s box, `/camp`    | Built and tested, EverQuest's keys included            |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
