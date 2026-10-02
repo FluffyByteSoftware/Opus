@@ -51,10 +51,10 @@ is up from the moment the launcher runs.  The server (Fingerprinter, Security, A
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
-**The branches**: `main` is at `7d85f1f`, released 2026-10-02 as **0.0.1** (a player in the world, chatting,
-from Ensemble): Jacob's "merge everything into main", before the clean-up rather than after.  The tag and
-the packages are his to make; `Documentation/HowTo/RELEASE.md` walks through it.  `unstable`, `testing` and
-`main` are level at that commit.  `main` moves when Jacob says.
+**The branches**: `main` is at `testing`'s tip, released 2026-10-02 as **0.0.1** (a player in the world,
+chatting, from Ensemble; the review's eleven fixes and PleaseWait built, tested and checked).  The `v0.0.1`
+tag and the two packages are Jacob's to make; `Documentation/HowTo/RELEASE.md` walks through it.
+`unstable`, `testing` and `main` are level.  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor up to chat, `/who` and the anti-flood, and the commands' move
 into `conductor-player-commands` (built, 93 tests pass, chat works through it; its one run check with the test
@@ -194,9 +194,10 @@ version 10's PleaseWait (`0x3B`, the ask's number and words, general for any ask
 Protogame sends one for a locked pick and waits the lock out (`sessions::wait_for_loading_lock()`, up to
 `LOCK_WAIT` of 5 s), then plays; past that the Kicked as before.  Ensemble's `GameConnection.Waiting()`,
 `Session.AskWaiting()`, the words on character select's status line, `Protocol.Version` 10;
-`test_client.py` prints it.  PROTOCOL.md, CLAUDE.md and both networking design docs say so.  **Conductor's
-half is built and tested** (`cargo build` clean, 365 tests); **Ensemble's half is waiting on Unity**, and
-the run checks (the double login from Ensemble, and with two test clients) are in TEST_CHECKLIST.html.  Then `main` moves
+`test_client.py` prints it.  PROTOCOL.md, CLAUDE.md and both networking design docs say so.  **Built and
+tested, both halves** (`cargo build` clean, 365 tests, a clean Unity Console, and the three run checks
+passed: the double login from Ensemble shows the words and then the HUD, and the test client prints the
+PleaseWait line and goes in).  Then `main` moves
 to `testing`'s tip, the `v0.0.1` tag and the two packages (RELEASE.md).  The "major clean up" he named
 before is the rest of the review's list.
 
@@ -204,9 +205,9 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 
 ## What's waiting
 
-- **The 0.0.1 release**: the version numbers are set; `main` moves again once the review's fixes are built
-  and tested (Jacob: "wait till we fix bugs and validate everything works"), then the `v0.0.1` tag and the
-  two packages.  `Documentation/HowTo/RELEASE.md`.
+- **The 0.0.1 release's tag and packages**: `main` is at the release commit and the version numbers are
+  set; the `v0.0.1` tag, Conductor's tar and Ensemble's zip are Jacob's, by `Documentation/HowTo/RELEASE.md`
+  steps 3 to 5.
 - **The 0.0.1 code review's findings** (`CODE_REVIEW_0.0.1.md`, 2026-10-02): the four bugs are fixed and
   waiting on a build; the seven risks are next, on Jacob's OK; then the inefficiencies and the stale words.
   The clean-up he named for next can start from it.
