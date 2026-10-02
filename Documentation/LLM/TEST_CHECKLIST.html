@@ -197,54 +197,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>2026-10-02 -- Soundcheck's first step: the login, and admin mode's manifest</h2>
-<p class="soft">
-  Soundcheck is .NET, not Conductor, so these run with <code>dotnet</code>, from <code>Conductor/dev</code>
-  as always, with the server up and <code>testuser123</code> made.  The build, the window, a login and Remember
-  Me passed on 2026-10-02; these are what's left.
-</p>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A wrong password: a red "Invalid Credentials", the boxes come back, and the next SUBMIT needs the
-      password typed again.
-    </span></label>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The other session: log <code>testuser123</code> in with the test client first, then SUBMIT in
-      Soundcheck.  The status counts down from 30 s with LOG THE OTHER OUT and LOG OFF under it; LOG THE
-      OTHER OUT logs in, and the test client prints Kicked, reason 1.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 testuser123 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Admin mode: BROWSE to any folder with a few files in it (an Ensemble build is the real thing), version
-      <code>0.0.1</code>, WRITE MANIFEST.  The bar fills, the status says how many files and MB and where
-      it wrote, and the file reads back with the one-liner.  Run it again: the folder, version and path are
-      remembered.
-    </span></label>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --admin</pre>
-    <pre class="cmd">python3 -c "import json,sys; m=json.load(open(sys.argv[1])); print(m['client_version'], len(m['files']), 'files', sum(f['size'] for f in m['files']), 'bytes')" /path/to/patch_manifest.json</pre>
-  </li>
-</ul>
-
-<h2>2026-10-02 -- Soundcheck's debug mode</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Debug mode: the title and the corner say DEBUG MODE, a login works the same, and the status says the
-      ticket went to <code>debug_ticket.json</code>.  The file has the address, UDP 9998, a 64-character token
-      and when it was issued.
-    </span></label>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
-    <pre class="cmd">cat ~/.config/unity3d/FluffyByte/Opus.Ensemble/debug_ticket.json</pre>
-  </li>
-</ul>
-
-
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">
