@@ -167,6 +167,9 @@ by creating `./Content` when neither works.
   file, under Parked, and the page's count includes it.  Whether one
   becomes a GitHub issue instead is my call, not the session's (the
   Windows-with-a-database check became issue #10 on 2026-10-01).
+  A Parked check in a "passed" message is asked about, not taken out:
+  on 2026-10-02 both Parked checks came back ticked with the rest, and
+  neither could have run ("do not mark those off").
   A number the session needs back (a timing, say) is asked for under
   the QUESTIONS header too, not only inside a check: on 2026-10-01 the
   key's "N ms" was in a check, the check was ticked, and the number
