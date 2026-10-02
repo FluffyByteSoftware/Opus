@@ -163,6 +163,7 @@ dependencies = [
  "conductor-lua-parser",
  "conductor-monitor",
  "conductor-networking",
+ "conductor-player-commands",
  "conductor-tools",
  "conductor-wgui",
 ]
@@ -193,6 +194,15 @@ dependencies = [
  "conductor-primlib",
  "conductor-tools",
  "rustls",
+]
+
+[[package]]
+name = "conductor-player-commands"
+version = "0.1.0"
+dependencies = [
+ "conductor-gameclock",
+ "conductor-networking",
+ "conductor-tools",
 ]
 
 [[package]]
