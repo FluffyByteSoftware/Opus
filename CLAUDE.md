@@ -908,7 +908,13 @@ When I say we're wrapping up:
   (to the login) and `/camp desktop` (closes the game) before anything is
   sent; what comes back is `ChatLine` (white) and `WhoAnswered`
   (`WhoBox.cs`, to the window's width in letters).  The player's own
-  lines are yellow.  Rich text is off on every line.
+  lines are yellow.  Rich text is off on every line.  **The keys are
+  EverQuest's**: Enter or `/` anywhere brings them to the field, Escape
+  or a click away hands them to **`GameFocus`** (`Assets/Code/Hud/
+  GameFocus.cs`), the game's invisible place-holder for the focus on the
+  HUD.  Never to nothing: Unity's runtime panel hands the focus back to
+  the last widget on the next key, so a `Blur()` lasts one key.  Movement
+  goes on while `GameFocus.Has` and off while a widget has the keys.
 - **A number written out goes through `Translator.NumberToWords()`**
   (`Assets/Code/Translator.cs`, a static class, every int there is),
   British with the "and" ("IN the honor of Discworld!"): "one hundred and

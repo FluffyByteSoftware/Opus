@@ -63,11 +63,6 @@ namespace Opus.Hud
         public override void Build(VisualElement box)
         {
             this.box = box;
-            // The box holds the keys whenever the field doesn't (below,
-            // LostKeys): Unity's runtime panel gives the focus back to the
-            // last thing that had it on the next key, so if nothing held
-            // them, Escape would drop them for one key only.
-            box.focusable = true;
 
             var header = new Label("Chat");
             header.AddToClassList("chat-header");
@@ -142,8 +137,9 @@ namespace Opus.Hud
         }
 
         // The field lost the keys to nothing (a click on the scene): the
-        // box takes them, a frame later, since the focus is still changing
-        // hands while this runs.
+        // game takes them, a frame later, since the focus is still changing
+        // hands while this runs.  Left to nobody, Unity would hand them
+        // back to the field on the next key (GameFocus.cs).
         void LostKeys(FocusOutEvent e)
         {
             if (e.relatedTarget != null)
@@ -151,7 +147,7 @@ namespace Opus.Hud
             box.schedule.Execute(() =>
             {
                 if (panel != null && panel.focusController.focusedElement == null)
-                    box.Focus();
+                    GameFocus.Take();
             });
         }
 
@@ -182,11 +178,11 @@ namespace Opus.Hud
 
         void KeyDown(KeyDownEvent e)
         {
-            // Escape drops the keys, the line left as it is for Enter to
-            // come back to.
+            // Escape hands the keys to the game, the line left as it is for
+            // Enter to come back to.
             if (e.keyCode == KeyCode.Escape)
             {
-                box.Focus();
+                GameFocus.Take();
                 e.StopPropagation();
                 return;
             }

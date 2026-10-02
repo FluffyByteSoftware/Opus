@@ -204,7 +204,12 @@ namespace Opus.Hud
 
             builder.Build(root, LayoutChecker.Check(layout), screen, style);
 
-            if (screen != LayoutLoader.HudScreen)
+            // The game's place for the keys is on the HUD only; the login
+            // and character select are all widgets.  Placed before the
+            // widgets wake, so the chat's "straight to typing" still wins.
+            if (screen == LayoutLoader.HudScreen)
+                GameFocus.Place(builder.Screen);
+            else
                 ApplyText();
         }
 

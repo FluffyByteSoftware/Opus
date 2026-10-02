@@ -190,9 +190,13 @@ entry has his answers in his words.
   and goes in as typed; a half-typed line is kept, not selected over.  With the field focused, the keys are
   the field's own, and **Escape drops them**, as does a click away (Jacob, from EverQuest: "if I press enter
   or / it immediately starts focus into the chat window I last used's input bar... clicking away makes it
-  lose focus.  So does hitting ESC").  The keys go to the window's own box, not to nothing: Unity's runtime
-  panel gives the focus back to the last thing that had it on the next key, so a plain Blur() dropped them
-  for one key only (seen 2026-10-02).  "The chat window I last used" is this one while there's only one;
+  lose focus.  So does hitting ESC").  The keys go to **`GameFocus`** (`Assets/Code/Hud/GameFocus.cs`), the
+  game's place-holder for the focus (Jacob: "can we build a focus place holder for the game?"): an invisible
+  focusable element ScreenRoot puts on every freshly built HUD, which holds the focus whenever no widget
+  does.  Not to nothing: Unity's runtime panel gives the focus back to the last thing that had it on the
+  next key, so a plain Blur() dropped them for one key only (seen 2026-10-02).  `GameFocus.Has`, `Taken` and
+  `Lost` are for movement: on while the game has the keys, off while a widget does.  "The chat window I last
+  used" is this one while there's only one;
   with more, it's one remembered reference, not a subsystem (TODO.md).
 - **`/camp`** is the client's own and never sent: `/camp` logs out to the login, `/camp desktop` logs out and
   closes the game (in the editor, it stops Play mode).  Anything else after it gets "Try /camp, or /camp

@@ -179,18 +179,23 @@ Opus/
 │           │   │   ├── LayoutLoader.cs # a screen's shipped layout; the HUD's can be the player's file instead
 │           │   │   ├── LayoutChecker.cs # the load rules: skipped, clamped, moved back on
 │           │   │   ├── HudBuilder.cs  # a screen: the layers and a box per widget, placed from its anchor
-│           │   │   └── Widgets/       # the HUD's health, minimap, chat (placeholders); the login's nine, and
-│           │   │                      #   LoginForm.cs, where they meet: SUBMIT, Remember Me, the status line;
-│           │   │                      #   character select's ten, and CharacterSelectForm.cs, where they meet:
-│           │   │                      #   the list and its pick, PLAY, CREATE, DELETE, RESET HOME, the two cards
+│           │   │   ├── WhoBox.cs      # /who's answer drawn as the MUD's box, to the chat window's width
+│           │   │   ├── GameFocus.cs   # the game's place-holder for the keyboard's focus on the HUD
+│           │   │   └── Widgets/       # the HUD's health and minimap (placeholders) and the chat window; the
+│           │   │                      #   login's nine, and LoginForm.cs, where they meet: SUBMIT, Remember
+│           │   │                      #   Me, the status line; character select's ten, and
+│           │   │                      #   CharacterSelectForm.cs, where they meet: the list and its pick,
+│           │   │                      #   PLAY, CREATE, DELETE, RESET HOME, the two cards
 │           │   ├── Net/               # the client's net code, namespace Opus.Net (design/ensemble-networking.md)
 │           │   │   ├── Protocol.cs    # the version, the packet types, the answers, the Kicked reasons' words
 │           │   │   ├── Packets.cs     # PacketWriter and PacketReader: PROTOCOL.md's bytes
 │           │   │   ├── ServerCertificate.cs # the one certificate trusted, matched byte for byte
 │           │   │   ├── LoginConnection.cs # the login over TLS, its own thread, to the Ticket
-│           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks; Kicked and the quiet timer end it
+│           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks, the chat, Spans; Kicked and the
+│           │   │   │                  #   quiet timer end it
 │           │   │   ├── MainThread.cs  # what the threads hand to Unity's main thread, run once a frame
-│           │   │   └── Session.cs     # the flow from SUBMIT back to the login, character select's asks, the events
+│           │   │   └── Session.cs     # the flow from SUBMIT back to the login, character select's asks, a line
+│           │   │                      #   typed (/camp caught here), the events
 │           │   └── Security/          # namespace Opus.Security (design/client-security.md)
 │           │       ├── PasswordKey.cs # the password's key, made on SUBMIT: what's sent and kept, never the password
 │           │       └── RememberedLogin.cs # Remember Me's file, in the player's own folder for the game
@@ -267,7 +272,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 |----------------------|---------------------------------------------------------|----------------------------------|
 | Conductor            | The server.  It owns the game state.                    | Tested on Linux; runs on Windows |
 | Ensemble             | The client players run.  Unity 6000.6, C#.              | Tested: tool, HUD, login, key,   |
-|                      |                                                         | logging in, character select     |
+|                      |                                                         | logging in, character select,    |
+|                      |                                                         | the chat window; its keys waiting|
 | Soundcheck           | The patcher: hands each client a certificate.           | Named, not started               |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |

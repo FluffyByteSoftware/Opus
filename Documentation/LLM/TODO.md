@@ -154,8 +154,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   add or adjust anything in the new Unity input system?").  Not for the keys to the field: UI Toolkit's
   KeyDownEvents already reach it, and the panel's root sees them first.  Once WASD drives the character
   (`InputSystem_Actions.inputactions`), a focused field takes every key, movement included, and an
-  unfocused one lets them through: the Player action map off while the field has the keys, on when Escape
-  or a click drops them.  **Settled** (Jacob, 2026-10-02, from EQ): "if you move while chatting your
+  unfocused one lets them through: the Player action map on while `GameFocus.Has` (its `Taken` and `Lost`
+  events), off while a widget has the keys.  **Settled** (Jacob, 2026-10-02, from EQ): "if you move while chatting your
   movement keys just go to the chat when its focused... everything does its gotten me killed a few times
   before I realized I was chatting".  So no key is ever both; the game never moves you while you're typing.
   Part of movement.
