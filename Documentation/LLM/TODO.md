@@ -245,7 +245,11 @@ Windows.  What's left, a step each:
   cooldown on an IP after it downloads and that IP must wait 5 minutes before it can attempt a download
   again".  Not built; being talked through: what counts as a download (the offer, or the map finished),
   what a PLAY inside the five minutes gets (every PLAY downloads, so a refusal blocks a quick log out and
-  back in), and players sharing one address.  Left after it: drawing
+  back in), and players sharing one address.  His answers: a PLAY inside it **is refused**, "You are
+  temporarily cooling down from download for DDOS protection. You have <X> seconds remaining."; it starts
+  **when the server sends the offer**; **by account** ("By Account I guess"), not by address; **a setting in
+  `networking.cfg`**.  What it's for: "its more for DDOS protection I think".  On the stuck PLAY: "yes and
+  no".  Plan next, for his OK.  Left after it: drawing
   the distance from `SimpleOverworldMap.Current`, and writing the map again at the world save once blocks
   change.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
