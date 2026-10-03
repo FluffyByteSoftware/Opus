@@ -197,7 +197,11 @@ every folder and file.
   from memory was two years stale).  Unity's docs, forums and issue
   tracker don't reach the session; its C# source does
   (`Unity-Technologies/UnityCsReference` on raw.githubusercontent.com), and
-  a web search's summaries of the rest are said as that.
+  a web search's summaries of the rest are said as that.  **"What does
+  EverQuest (or another game) do?" is answered from its open-source
+  server where there is one** (EQEmu, on raw.githubusercontent.com),
+  with the file named, and said as the emulator's, not the real game's
+  (session 10).
 - **I'm hands-off on the files in `Opus/`.** You make every edit, CLAUDE.md
   included.  Don't hand me a list of changes to make by hand; make them and
   tell me what changed.

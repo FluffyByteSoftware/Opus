@@ -65,6 +65,8 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 | Characters seen in the world, the server's say   | Built and tested (protocol 14): everybody in view as a |
 |                                                  | capsule with their name over it, the camera on yours   |
 | A character saved inside the ground              | Built and tested: stood on top of its column at PLAY   |
+| Movement: the server judges every move           | Conductor's half written, not yet built (protocol 15): |
+|                                                  | the client walks, the server pulls back; Ensemble next |
 | Soundcheck, the launcher                         | Built and tested on Linux: the login over TLS 1.3,     |
 |                                                  | Remember Me, PLAY and the way back, debug mode, admin  |
 |                                                  | mode's PUBLISH, the check at start, the patch          |

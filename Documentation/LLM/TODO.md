@@ -59,6 +59,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   chatting your movement keys just go to the chat when its focused... everything does its gotten me killed
   a few times before I realized I was chatting".  So no key is ever both; the game never moves you while
   you're typing.  Part of movement.
+- **Movement, (b): moves passed on at once, EverQuest's way** (Jacob, 2026-10-03, session 10: "B", and
+  "this might have to be dumped to a new conversation").  Networking passes each PlayerMoved to the players
+  near it as it arrives, before the GameClock judges it, and a pull-back corrects the watchers too.  Round
+  one as built judges once a cycle and passes on in the broadcast.  What's open is in
+  `design/ensemble-world.md`, "Movement", at the end.
 - **Movement speed modifiers** (Jacob, 2026-10-03, session 10: "we're going to have movement speed
   modification abilities (potions, spells, enchantments)").  The walk, 4 blocks a second, stays fixed in
   code as every character's base; a character's own speed, with what's on it, would be a component the
@@ -362,8 +367,8 @@ Windows.  What's left, a step each:
   12 with it, and Ensemble reads (and skips) the offer's new end; nothing else of Ensemble's changed.
   `design/world.md` has the rest ("The chunks streamed").  **Left**: blocks on screen (Ensemble's asking,
   PlayerReady and reading the squeezed chunks are session 4's, `design/ensemble-networking.md`); a stamp on a chunk's pieces once blocks can
-  change, so two versions' pieces never mix; forgetting squeezed chunks nobody's near once players move;
-  the GameClock loading around a player who isn't at 0,0,0; zipping, if busier ground ever calls for it
+  change, so two versions' pieces never mix; forgetting squeezed chunks nobody's near once players move
+  (GameWorld's copies; the GameClock's own ground follows the players since session 10, unbuilt); zipping, if busier ground ever calls for it
   (it has nothing to win today); a faked player's address getting that player flooded with chunks or the map's pieces
   (`design/conductor-networking.md`, "What's open").  `view_chunks`: Jacob keeps 8 in his `game.cfg`
   ("keeping as 8"); the default stays 4.  At the hand-off: "prepare next conversation for wiring up

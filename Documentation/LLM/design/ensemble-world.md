@@ -370,3 +370,25 @@ pull-backs, everybody else gliding.  Round three is Ensemble pulling the ground 
   takes the moves once a 250 ms cycle and passes them on in the broadcast, so others hear up to a cycle
   later than EQ's would; the check is EQ's in shape (distance against speed over time, with slack) but
   pulls back, as he asked.
+
+**His answer** (session 10, the fifth round): **"B"**, EverQuest's way: networking passes each move on to the
+players near it the moment it arrives, before the GameClock judges it, and a pull-back corrects the watchers
+too.  "but this might have to be dumped to a new conversation".  So it isn't built: round one as pushed
+judges the moves once a cycle and passes them on in the broadcast, and (b) is the next conversation's to
+plan.  (The other shape, (a), was round one as built: nobody ever sees a move the server would refuse, and
+watchers see a turn up to a cycle late.)
+
+What (b) leaves to work out, before building:
+- **Who is near whom, outside the GameClock.**  The view is worked out on the GameClock's thread; the UDP
+  thread passing a move on needs its own idea of who sees whom.  The plain way: networking keeps each
+  player's column (it already does, `stands_in()`) and passes a move to every player within `view_chunks`
+  of it; or the GameClock hands networking each player's list of who sees them, once a cycle.
+- **What a watcher is sent**: the move as the client said it (an ObjectsMoved of one, by its number), and
+  what the GameClock's own broadcast then sends of it, so a watcher isn't told the same move twice, or is
+  told it and doesn't mind.
+- **A pull-back to the watchers**: the pulled-back character's place goes out to everybody who sees it at
+  once, so the warp they saw is undone.
+- **A move from a character not in anybody's view yet**, and a Hydrate that hasn't reached a watcher: a
+  move for a number it doesn't know is what the roll call already mends.
+- **The cost**: one send per watcher per move, on the UDP thread, at up to ten moves a second a player while
+  turning.  A guess until measured.
