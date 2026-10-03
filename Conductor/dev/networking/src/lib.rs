@@ -57,7 +57,7 @@ pub use tcp::Kicked;
 // What conductor-player-commands needs of the book and the UDP side: the
 // anti-flood, who's in the world, an ask's answer, and sending.  The
 // modules themselves stay ours.
-pub use sessions::{finish_ask, in_world, may_command, names_in_world};
+pub use sessions::{finish_ask, in_world, may_command};
 pub use udp::{tell_all, tell_answer};
 
 /// How networking is doing, for whoever asks (the web admin).

@@ -2,9 +2,10 @@
 // Component:  Ensemble
 // Author:     Jacob Chacko
 // Turns things the game knows into words a player reads.  The first is a
-// number written out, for /who's "There are seven legends currently
-// online."  British, with the "and", in honour of Discworld (Jacob,
-// 2026-10-02), and the short scale, a billion being a thousand million.
+// number written out, made for /who's "There are seven legends currently
+// online." (its count is digits since 2026-10-03).  British, with the
+// "and", in honour of Discworld (Jacob, 2026-10-02), and the short scale,
+// a billion being a thousand million.
 // Every int there is has words, from int.MinValue to int.MaxValue.
 //
 //   0              zero

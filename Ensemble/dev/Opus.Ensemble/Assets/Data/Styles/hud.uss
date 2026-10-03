@@ -114,12 +114,6 @@
     color: rgb(255, 255, 255);
 }
 
-/* Measures a letter's width for /who's box; never seen. */
-.chat-ruler {
-    position: absolute;
-    visibility: hidden;
-}
-
 .chat-input {
     margin: 4px 0 0 0;
     font-size: 24px;

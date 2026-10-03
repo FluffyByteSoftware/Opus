@@ -78,12 +78,17 @@
 //! saying why not.  The OverworldMapOffer now says where the character
 //! will stand and how far it sees (`view_chunks`), so the client knows
 //! which chunks to ask for before PlayerReady.
+//!
+//! Version 13 (2026-10-03) is `/who` one line a character, EverQuest's
+//! way: WhoDelivery loses its list byte (`/who list` is gone into `/who`),
+//! and every character carries where it stands and its seconds online,
+//! the one in the world longest first.
 
 use conductor_gameworld::ChunkPos;
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 12;
+pub const PROTOCOL_VERSION: u8 = 13;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -229,11 +234,11 @@ pub enum PacketType {
     /// everybody in the world, the one who said it too.  Version 8.
     ChatDelivery = 0x38,
     /// Server to client, the answer to a `/who`.  The ask number, the
-    /// seconds since midnight UTC when it ran (a u32), whether it's a list
-    /// (u8: 0 the names only, 1 each with where it stands), and a u16
-    /// count, then for each character in the world, A to Z: its name (a
-    /// string), and with a list, its x, y and z in whole blocks (an i32
-    /// each).  The client draws the box around it.  Version 9.
+    /// seconds since midnight UTC when it ran (a u32), and a u16 count,
+    /// then for each character in the world, the one in longest first:
+    /// its name (a string), its x, y and z in whole blocks (an i32 each)
+    /// and its seconds online (a u32).  The client draws the lines.
+    /// Version 9, one line a character since version 13.
     WhoDelivery = 0x39,
     /// Server to client: one piece of an answer too big for one packet.
     /// The ask number, which piece (u8, from 1), how many pieces (u8),
@@ -493,14 +498,15 @@ pub struct EnteredCharacter {
     pub position: [f32; 3],
 }
 
-/// One character in a WhoDelivery: its name, and with `/who list`, the
-/// block it stands in.
+/// One character in a WhoDelivery: its name, the block it stands in, and
+/// how long it's been in the world.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct WhoEntry {
     pub name: String,
-    /// x, y and z in whole blocks, y up.  `None` for `/who`, which only
-    /// gives names.
-    pub block: Option<[i32; 3]>,
+    /// x, y and z in whole blocks, y up.
+    pub block: [i32; 3],
+    /// Whole seconds since it came into the world.
+    pub online: u32,
 }
 
 /// What the player picked when their account was already logged in.
@@ -855,24 +861,21 @@ pub fn chat_deliveries(lines: &[String]) -> Vec<Vec<u8>> {
 }
 
 /// The answer to a `/who`: the time it ran, in seconds since midnight
-/// UTC, whether it's a `/who list`, and the characters, in the order
-/// given (the caller sorts them).  A list's entries carry their blocks;
-/// one without counts as 0, 0, 0.  No limit on its size here: one too big
-/// for a packet goes out in pieces (`spans()`).
-pub fn who_delivery(ask: u32, seconds_since_midnight: u32, list: bool, entries: &[WhoEntry]) -> Vec<u8> {
+/// UTC, and the characters, in the order given (the caller sorts them),
+/// each with its block and its seconds online.  No limit on its size
+/// here: one too big for a packet goes out in pieces (`spans()`).
+pub fn who_delivery(ask: u32, seconds_since_midnight: u32, entries: &[WhoEntry]) -> Vec<u8> {
     let mut bytes = vec![PacketType::WhoDelivery as u8];
     bytes.extend_from_slice(&ask.to_le_bytes());
     bytes.extend_from_slice(&seconds_since_midnight.to_le_bytes());
-    bytes.push(u8::from(list));
     let count = entries.len().min(u16::MAX as usize);
     bytes.extend_from_slice(&(count as u16).to_le_bytes());
     for entry in entries.iter().take(count) {
         put_string(&mut bytes, &entry.name);
-        if list {
-            for axis in entry.block.unwrap_or_default() {
-                bytes.extend_from_slice(&axis.to_le_bytes());
-            }
+        for axis in entry.block {
+            bytes.extend_from_slice(&axis.to_le_bytes());
         }
+        bytes.extend_from_slice(&entry.online.to_le_bytes());
     }
     bytes
 }
@@ -1502,33 +1505,31 @@ mod tests {
 
     #[test]
     fn a_who_in_bytes() {
-        // 03:53:24 is 14,004 seconds after midnight, 0x36B4.
-        let names = [WhoEntry { name: "Aldric".to_string(), block: None },
-                     WhoEntry { name: "Jacob".to_string(), block: None }];
-        let mut expected = vec![0x39, 14, 0, 0, 0, 0xB4, 0x36, 0, 0, 0, 2, 0];
+        // 03:53:24 is 14,004 seconds after midnight, 0x36B4.  Aldric at
+        // 0, 0, 0 for 16 days and 12 minutes (1,383,120 seconds,
+        // 0x151AD0); Jacob at 1, 0, -2 (-2 being FE FF FF FF) for 90
+        // seconds.
+        let who = [WhoEntry { name: "Aldric".to_string(), block: [0, 0, 0], online: 1_383_120 },
+                   WhoEntry { name: "Jacob".to_string(), block: [1, 0, -2], online: 90 }];
+        let mut expected = vec![0x39, 14, 0, 0, 0, 0xB4, 0x36, 0, 0, 2, 0];
         expected.extend_from_slice(&[6, 0, 0, 0]);
         expected.extend_from_slice(b"Aldric");
-        expected.extend_from_slice(&[5, 0, 0, 0]);
-        expected.extend_from_slice(b"Jacob");
-        assert_eq!(who_delivery(14, 14_004, false, &names), expected);
-
-        // A list: 1 after the time, and each name's block, -2 being
-        // FE FF FF FF.
-        let listed = [WhoEntry { name: "Jacob".to_string(), block: Some([1, 0, -2]) }];
-        let mut expected = vec![0x39, 15, 0, 0, 0, 0xB4, 0x36, 0, 0, 1, 1, 0];
+        expected.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        expected.extend_from_slice(&[0xD0, 0x1A, 0x15, 0]);
         expected.extend_from_slice(&[5, 0, 0, 0]);
         expected.extend_from_slice(b"Jacob");
         expected.extend_from_slice(&[1, 0, 0, 0, 0, 0, 0, 0, 0xFE, 0xFF, 0xFF, 0xFF]);
-        assert_eq!(who_delivery(15, 14_004, true, &listed), expected);
+        expected.extend_from_slice(&[90, 0, 0, 0]);
+        assert_eq!(who_delivery(14, 14_004, &who), expected);
 
         // Nobody, which a `/who` can't really get: the one asking is in
         // the world.
-        assert_eq!(who_delivery(16, 0, false, &[]), vec![0x39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(who_delivery(16, 0, &[]), vec![0x39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
     }
 
     #[test]
     fn an_answer_that_fits_goes_as_it_is() {
-        let small = who_delivery(1, 0, false, &[]);
+        let small = who_delivery(1, 0, &[]);
         assert_eq!(spans(1, &small), vec![small.clone()]);
         let just_fits = vec![0x39; MAX_UDP_BYTES];
         assert_eq!(spans(1, &just_fits), vec![just_fits.clone()]);
@@ -1536,12 +1537,12 @@ mod tests {
 
     #[test]
     fn a_big_answer_goes_in_spans_that_put_it_back_together() {
-        // Sixty characters with 20-letter names, listed: 60 * 36 bytes
-        // and the front, a little over 2,100 bytes, so two Spans.
-        let many: Vec<WhoEntry> = (0..60)
-            .map(|n| WhoEntry { name: format!("{:A>20}", n), block: Some([n, 0, -n]) })
+        // Fifty characters with 20-letter names: 50 * 40 bytes and the
+        // front, a little over 2,000 bytes, so two Spans.
+        let many: Vec<WhoEntry> = (0..50)
+            .map(|n| WhoEntry { name: format!("{:A>20}", n), block: [n, 0, -n], online: n as u32 })
             .collect();
-        let answer = who_delivery(7, 100, true, &many);
+        let answer = who_delivery(7, 100, &many);
         let pieces = spans(7, &answer);
         assert_eq!(pieces.len(), 2);
 

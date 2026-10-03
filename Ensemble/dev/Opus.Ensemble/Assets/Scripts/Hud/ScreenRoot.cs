@@ -68,7 +68,7 @@ namespace Opus.Hud
         public StyleSheet hudStyle;
 
         [Tooltip("The chat box's font, on its header, its lines and the field to type in: Retro, from "
-            + "Assets/Purchased/Font Nation/TTF Fonts.  It has to be monospaced, or /who's box won't line up.  "
+            + "Assets/Purchased/Font Nation/TTF Fonts.  "
             + "Empty is Unity's own.  It can be changed in Play mode and shows at once.")]
         public Font chatFont;
 

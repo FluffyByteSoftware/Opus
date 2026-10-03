@@ -37,7 +37,7 @@ pub struct Asker<'a> {
 pub enum Outcome {
     /// The answer, to keep in the book and send.
     Answer(Vec<u8>),
-    /// The GameClock answers it, a cycle from now (`/who list`).  The ask
+    /// The GameClock answers it, a cycle from now (`/who`).  The ask
     /// stays open in the book until then.
     Later,
 }

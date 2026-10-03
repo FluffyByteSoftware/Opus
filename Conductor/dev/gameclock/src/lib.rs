@@ -31,7 +31,7 @@
 //! `world_save_seconds` and as the thread ends on STOP SERVER
 //! (`saving.rs`).  The chat comes in through a mailbox of its own
 //! (`chat.rs`) and goes out to everybody in the world from the broadcast
-//! check, once a cycle, and so does the answer to a `/who list`
+//! check, once a cycle, and so does the answer to a `/who`
 //! (`who.rs`).  Primlib's other copies aren't saved yet
 //! (design/primlib.md).  The terrain starts empty, and the GameClock asks
 //! GameWorld for the chunks around 0,0,0, where every player starts for
@@ -62,7 +62,7 @@ use saving::{WorldSave, Writes};
 // `conductor_gameclock::enter(...)`.
 pub use chat::{chat, set_chat_sender};
 pub use players::{enter, leave, saving, wait_until_saved};
-pub use who::{Standing, WhoAsked, set_who_sender, who_list};
+pub use who::{Standing, WhoAsked, set_who_sender, who};
 
 /// One check's share of a cycle, in milliseconds.
 const CHECK_MS: u64 = 50;

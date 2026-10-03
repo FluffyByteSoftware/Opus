@@ -30,7 +30,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Condvar, LazyLock, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use conductor_accounts::characters::SavedCharacter;
 use conductor_primlib::{Blueprint, Component, Entity, Kind, Save, World};
@@ -163,8 +163,15 @@ fn lock<T>(mutex: &Mutex<T>) -> std::sync::MutexGuard<'_, T> {
 /// The players' characters in the world, by their row's id, and the
 /// GameClock's end of the mailbox.
 pub struct Players {
-    in_world: BTreeMap<i64, Entity>,
+    in_world: BTreeMap<i64, InWorld>,
     notes: Receiver<Note>,
+}
+
+/// A player's character in the world: its entity, and when it came in,
+/// for `/who`'s time online.
+struct InWorld {
+    entity: Entity,
+    entered: Instant,
 }
 
 impl Players {
@@ -202,13 +209,13 @@ impl Players {
         let Some(character_id) = character_id_of(character) else {
             return;
         };
-        if let Some(&there) = self.in_world.get(&character_id) {
+        if let Some(there) = self.in_world.get(&character_id) {
             scribe::warn(Channel::Game, &format!("Character {character_id} ({}) was asked into the world while \
-                it's already there.  The one there stands.", name(world, there)));
+                it's already there.  The one there stands.", name(world, there.entity)));
             return;
         }
         let entity = world.spawn(character);
-        self.in_world.insert(character_id, entity);
+        self.in_world.insert(character_id, InWorld { entity, entered: Instant::now() });
         scribe::debug(Channel::Game, &format!("Character {character_id} ({}) came into the world.",
                                               name(world, entity)));
     }
@@ -217,7 +224,7 @@ impl Players {
     /// world, and then its "saving" mark comes off at once, since there's
     /// nothing of it to save.
     fn leave(&mut self, world: &mut World, character_id: i64) -> Option<SavedCharacter> {
-        let Some(entity) = self.in_world.remove(&character_id) else {
+        let Some(InWorld { entity, .. }) = self.in_world.remove(&character_id) else {
             scribe::debug(Channel::Game, &format!("Character {character_id} was asked out of the world, and it \
                 wasn't in it."));
             saved(&[character_id]);
@@ -232,12 +239,20 @@ impl Players {
         save
     }
 
-    /// Every player's character in the world, its name and the block it
-    /// stands in right now, for a `/who list`.  In no order.
-    pub fn standing(&self, world: &World) -> Vec<Standing> {
-        self.in_world.values().map(|&entity| {
-            let position = world.transform(entity).map(|transform| transform.position).unwrap_or_default();
-            Standing { name: name(world, entity), block: block_of([position.x, position.y, position.z]) }
+    /// Every player's character in the world, its name, the block it
+    /// stands in and how long it's been in the world as of `now`, for a
+    /// `/who`.  The one in longest first and the newest last (Jacob,
+    /// 2026-10-03: "Oldest log in goes at the top, newest at the bottom").
+    pub fn standing(&self, world: &World, now: Instant) -> Vec<Standing> {
+        let mut in_order: Vec<&InWorld> = self.in_world.values().collect();
+        in_order.sort_by_key(|character| character.entered);
+        in_order.into_iter().map(|character| {
+            let position = world.transform(character.entity).map(|transform| transform.position).unwrap_or_default();
+            Standing {
+                name: name(world, character.entity),
+                block: block_of([position.x, position.y, position.z]),
+                online: now.saturating_duration_since(character.entered),
+            }
         }).collect()
     }
 
@@ -246,7 +261,7 @@ impl Players {
     /// the database isn't touched.
     pub fn snapshot(&self, world: &World) -> Vec<SavedCharacter> {
         self.in_world.iter()
-            .filter_map(|(&character_id, &entity)| saved_character(world, character_id, entity))
+            .filter_map(|(&character_id, character)| saved_character(world, character_id, character.entity))
             .collect()
     }
 }
@@ -353,6 +368,33 @@ mod tests {
         assert_eq!(snapshot[1].character_id, 43);
         assert_eq!(snapshot[1].position, [0.0, 0.0, 0.0]);
         assert!(snapshot[0].save.to_lua().contains("x = 12.5"), "{}", snapshot[0].save.to_lua());
+    }
+
+    #[test]
+    fn who_stands_where_the_one_in_longest_first() {
+        let (mailbox, mut players) = players();
+        let mut world = World::new();
+        // Mckay comes in first, though Jacob's row is the older.
+        assert!(mailbox.send(Note::Enter(character("Mckay", 43))).is_ok());
+        players.take_notes(&mut world);
+        std::thread::sleep(Duration::from_millis(5));
+        assert!(mailbox.send(Note::Enter(character("Jacob", 42))).is_ok());
+        players.take_notes(&mut world);
+
+        let jacob = world.all().into_iter()
+            .find(|&entity| world.player_character(entity).is_some_and(|player| player.character_id == 42));
+        let moved = jacob.and_then(|jacob| world.transform_mut(jacob))
+            .map(|transform| transform.position = Vector3::new(1.5, 0.0, -1.5));
+        assert!(moved.is_some());
+
+        let an_hour_on = Instant::now() + Duration::from_secs(3_600);
+        let standing = players.standing(&world, an_hour_on);
+        let names: Vec<&str> = standing.iter().map(|character| character.name.as_str()).collect();
+        assert_eq!(names, vec!["Mckay", "Jacob"]);
+        assert_eq!(standing[0].block, [0, 0, 0]);
+        assert_eq!(standing[1].block, [1, 0, -2]);
+        assert!(standing[0].online > standing[1].online);
+        assert!(standing[1].online >= Duration::from_secs(3_600));
     }
 
     #[test]

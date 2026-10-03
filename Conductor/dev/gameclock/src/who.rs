@@ -2,25 +2,25 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! `/who list`'s mailbox.  A plain `/who` is only names, which networking
-//! has, so networking answers it itself.  `/who list` says where each
-//! character stands, and only the GameClock's thread may look in the
-//! world, so networking leaves the ask here with `who_list()`, which
-//! comes straight back.  The broadcast check reads every player's
-//! character's name and the block it stands in, once for however many
-//! asked that cycle, and hands them with each ask to the function in our
-//! slot (`set_who_sender()`, filled by conductor-player-commands' `wire()`
-//! from the launcher), which builds the answer and sends it
-//! to the one who asked.  The same shape as the chat (`chat.rs`), and for
+//! `/who`'s mailbox.  `/who` says where each character stands and how
+//! long it's been in the world, and only the GameClock's thread may look
+//! in the world, so the ask is left here with `who()`, which comes
+//! straight back.  The broadcast check reads every player's character's
+//! name, the block it stands in and its time online, once for however
+//! many asked that cycle, and hands them with each ask to the function in
+//! our slot (`set_who_sender()`, filled by conductor-player-commands'
+//! `wire()` from the launcher), which builds the answer and sends it to
+//! the one who asked.  The same shape as the chat (`chat.rs`), and for
 //! the same reason: the GameClock can't call networking itself.
 
 use std::mem;
 use std::net::SocketAddr;
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
 use crate::Game;
 
-/// Who asked for a `/who list`, so the answer finds its way back.  The
+/// Who asked for a `/who`, so the answer finds its way back.  The
 /// GameClock only carries it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WhoAsked {
@@ -29,12 +29,14 @@ pub struct WhoAsked {
     pub ask: u32,
 }
 
-/// One player's character as `/who list` shows it: its name and the block
-/// it stands in, x, y and z, y up.
+/// One player's character as `/who` shows it: its name, the block it
+/// stands in (x, y and z, y up), and how long since it came into the
+/// world.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Standing {
     pub name: String,
     pub block: [i32; 3],
+    pub online: Duration,
 }
 
 /// The asks waiting for the next broadcast.  `None` while the GameClock is
@@ -56,9 +58,9 @@ pub(crate) fn close() {
     crate::lock(&WAITING).take();
 }
 
-/// Leaves a `/who list` for the next broadcast.  Comes straight back.  An
+/// Leaves a `/who` for the next broadcast.  Comes straight back.  An
 /// error means the GameClock isn't running.
-pub fn who_list(asked: WhoAsked) -> Result<(), String> {
+pub fn who(asked: WhoAsked) -> Result<(), String> {
     match crate::lock(&WAITING).as_mut() {
         Some(waiting) => {
             waiting.push(asked);
@@ -68,20 +70,20 @@ pub fn who_list(asked: WhoAsked) -> Result<(), String> {
     }
 }
 
-/// Networking's function for answering a `/who list`.  Networking calls
+/// Networking's function for answering a `/who`.  Networking calls
 /// this as it starts.
 pub fn set_who_sender(send: fn(&WhoAsked, &[Standing])) {
     *crate::lock(&SENDER) = Some(send);
 }
 
-/// The broadcast check's part: every `/who list` asked since the last
+/// The broadcast check's part: every `/who` asked since the last
 /// cycle, answered.  Costs a lock and nothing else in a cycle nobody asked.
 pub(crate) fn answer(game: &Game) {
     let asks = take_waiting();
     if asks.is_empty() {
         return;
     }
-    let standing = game.players.standing(&game.world);
+    let standing = game.players.standing(&game.world, Instant::now());
     let send = *crate::lock(&SENDER);
     if let Some(send) = send {
         for asked in &asks {
@@ -123,15 +125,15 @@ mod tests {
     #[test]
     fn asks_wait_in_order_until_taken_and_a_stopped_gameclock_turns_them_away() {
         close();
-        assert!(who_list(asked(1)).is_err());
+        assert!(who(asked(1)).is_err());
 
         open();
-        who_list(asked(2)).unwrap();
-        who_list(asked(3)).unwrap();
+        who(asked(2)).unwrap();
+        who(asked(3)).unwrap();
         assert_eq!(take_waiting(), vec![asked(2), asked(3)]);
         assert!(take_waiting().is_empty());
 
-        who_list(asked(4)).unwrap();
+        who(asked(4)).unwrap();
         close();
         assert!(take_waiting().is_empty());
     }

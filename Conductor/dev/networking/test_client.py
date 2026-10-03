@@ -20,8 +20,8 @@
 # window would send it.  With --type it types lines
 # there, the way a player types in the chat window (`/chat Yo yo yo!`,
 # protocol version 8), and every chat the server sends is printed; a
-# `/who` (version 9) is drawn the way Ensemble will draw it, at 79 wide,
-# with the count in digits.  An answer in Spans is put back together.  Every
+# `/who` (version 13) is drawn the way Ensemble draws it, a line a
+# character with the count and the stamp under them.  An answer in Spans is put back together.  Every
 # packet in and out is printed, meaning first and raw bytes under it.  The
 # bytes are the ones in Documentation/LLM/PROTOCOL.md; when this and the
 # document disagree, the document wins.  To try "already logged in", leave
@@ -52,7 +52,7 @@
 #   python3 networking/test_client.py --play Jacob --chunks ...   (pulls the chunks around Jacob before PlayerReady)
 #   python3 networking/test_client.py --play Jacob --chunks --chunk-outside ...   (asks for one out of view too)
 #   python3 networking/test_client.py --play Jacob --type '/chat Yo yo yo!' ...   (says it to everybody)
-#   python3 networking/test_client.py --play Jacob --type '/who' --type '/who list' ...
+#   python3 networking/test_client.py --play Jacob --type '/who' ...
 #   python3 networking/test_client.py --play Jacob --type '/chat 1' --type '/chat 2' --type-gap 0 ...
 #   python3 networking/test_client.py --no-key ...   (sends the password, not its key: refused)
 #
@@ -70,7 +70,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-PROTOCOL_VERSION = 12
+PROTOCOL_VERSION = 13
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -186,10 +186,6 @@ def show_chat(data):
         print("   %s" % line, flush=True)
 
 
-# How wide the /who box is drawn here.  Ensemble draws it to its chat
-# box's width; 79 is Jacob's old MUD's.
-WHO_WIDTH = 79
-
 # How long to wait for every piece of an answer in Spans before giving up.
 SPAN_WAIT = 2.0
 
@@ -255,52 +251,49 @@ def chunk_place(data, at):
     return (x, z, row)
 
 
-def centred(text, fill):
-    pad = WHO_WIDTH - len(text)
-    left = pad // 2
-    return fill * left + text + fill * (pad - left)
+def time_online(seconds):
+    """How long a character's been in the world, as /who says it: days,
+    hours and minutes, the ones that are 0 left out, and "under a minute"
+    before the first."""
+    days, rest = divmod(seconds, 86400)
+    hours, rest = divmod(rest, 3600)
+    minutes = rest // 60
+    parts = []
+    for amount, unit in ((days, "day"), (hours, "hour"), (minutes, "minute")):
+        if amount > 0:
+            parts.append("%d %s%s" % (amount, unit, "" if amount == 1 else "s"))
+    return ", ".join(parts) if parts else "under a minute"
 
 
 def show_who(data):
-    """A WhoDelivery, drawn as the client will draw it: the banner, the
-    time it ran in this computer's time zone, the names in columns (or a
-    line each with where it stands, for /who list), and the count."""
+    """A WhoDelivery, drawn as the client draws it: a line a character, the
+    one in longest first, a blank line, the count, and the time it ran in
+    this computer's time zone."""
     (ask, seconds) = struct.unpack_from("<II", data, 1)
-    listed = data[9] == 1
-    (count,) = struct.unpack_from("<H", data, 10)
-    at = 12
+    (count,) = struct.unpack_from("<H", data, 9)
+    at = 11
     entries = []
     for _ in range(count):
         name, at = take_string(data, at)
-        block = None
-        if listed:
-            block = struct.unpack_from("<iii", data, at)
-            at += 12
-        entries.append((name, block))
-    say("<-", WHO_DELIVERY, "ask %d, %d character(s), %d seconds after midnight UTC%s"
-        % (ask, count, seconds, ", listed" if listed else ""), data[1:])
+        x, y, z, online = struct.unpack_from("<iiiI", data, at)
+        at += 16
+        entries.append((name, x, y, z, online))
+    say("<-", WHO_DELIVERY, "ask %d, %d character(s), %d seconds after midnight UTC" % (ask, count, seconds),
+        data[1:])
 
     # The date is this computer's, the time the server's.
     midnight = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     ran = (midnight + timedelta(seconds=seconds)).astimezone()
     stamp = ran.strftime("%a %b ") + "%2d" % ran.day + ran.strftime(" %H:%M:%S %Y")
 
-    lines = [centred("======] Forgotten Legends [======", "-"), centred(stamp, " ").rstrip(),
-             centred("] Players [", "-")]
-    if listed:
-        for name, (x, y, z) in entries:
-            lines.append("[%s] is currently at [%d, %d, %d]" % (name, x, y, z))
-    elif entries:
-        width = max(len(name) for name, _ in entries) + 2
-        across = max(1, (WHO_WIDTH + 2) // width)
-        for start in range(0, len(entries), across):
-            row = entries[start:start + across]
-            lines.append("".join(name.ljust(width) for name, _ in row).rstrip())
+    lines = ["%s is at [%d, %d, %d] [%s online]" % (name, x, y, z, time_online(online))
+             for name, x, y, z, online in entries]
+    lines.append("")
     if count == 1:
-        footer = "There is 1 legend currently online."
+        lines.append("There is 1 Legend online.")
     else:
-        footer = "There are %d legends currently online." % count
-    lines.append(centred("> %s <" % footer, "-"))
+        lines.append("There are %d Legends online." % count)
+    lines.append(stamp)
     for line in lines:
         print("   " + line, flush=True)
 
@@ -915,7 +908,7 @@ def session(args, token, udp, server):
         print("In the world as %s." % playing)
     else:
         print("Still at character select.")
-    print("Type a line and press Enter to send it, as the chat window would (/chat Yo yo yo!, /who, /who list).")
+    print("Type a line and press Enter to send it, as the chat window would (/chat Yo yo yo!, /who).")
     print("Keep-alives go once a second, printed only when one isn't answered (--show-keepalives prints them "
           "all).  Ctrl-C says Goodbye.", flush=True)
 

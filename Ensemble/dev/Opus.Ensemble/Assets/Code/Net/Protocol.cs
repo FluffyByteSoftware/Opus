@@ -12,7 +12,7 @@ namespace Opus.Net
     {
         // The version this client speaks.  The server says its own in the
         // Hello, and a client built against another stops right there.
-        public const byte Version = 12;
+        public const byte Version = 13;
 
         // The biggest UDP packet the server takes.  (The TCP frame's cap is
         // the launcher's business.)

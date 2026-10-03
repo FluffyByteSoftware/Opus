@@ -833,29 +833,28 @@ namespace Opus.Net
                     return;
                 }
 
-                // /who's answer: the time it ran, whether it's /who list,
-                // and the characters in the world, A to Z.
+                // /who's answer: the time it ran, and the characters in
+                // the world, the one in longest first, each with where it
+                // stands and how long it's been in.
                 case Protocol.WhoDelivery:
                 {
                     uint seconds = packet.U32();
-                    bool listed = packet.U8() == 1;
                     ushort count = packet.U16();
                     var characters = new WhoEntry[count];
                     for (int i = 0; i < count; i++)
                     {
-                        var character = new WhoEntry { Name = packet.String() };
-                        if (listed)
+                        characters[i] = new WhoEntry
                         {
-                            character.X = packet.I32();
-                            character.Y = packet.I32();
-                            character.Z = packet.I32();
-                        }
-                        characters[i] = character;
+                            Name = packet.String(),
+                            X = packet.I32(),
+                            Y = packet.I32(),
+                            Z = packet.I32(),
+                            Online = packet.U32(),
+                        };
                     }
                     packet.End();
-                    Debug.Log("Game: /who, " + count + (count == 1 ? " character" : " characters")
-                              + (listed ? ", listed." : "."));
-                    var who = new WhoAnswer { Seconds = seconds, Listed = listed, Characters = characters };
+                    Debug.Log("Game: /who, " + count + (count == 1 ? " character." : " characters."));
+                    var who = new WhoAnswer { Seconds = seconds, Characters = characters };
                     MainThread.Post(() => Session.WhoCame(this, who));
                     return;
                 }
@@ -906,17 +905,16 @@ namespace Opus.Net
     public class WhoAnswer
     {
         public uint Seconds;          // when it ran, in seconds since midnight UTC
-        public bool Listed;           // /who list: each character with where it stands
-        public WhoEntry[] Characters; // A to Z
+        public WhoEntry[] Characters; // the one in the world longest first
     }
 
-    // A character in /who's answer.  X, Y and Z are whole blocks, and only
-    // in a /who list.
+    // A character in /who's answer.  X, Y and Z are whole blocks.
     public class WhoEntry
     {
         public string Name;
         public int X;
         public int Y;
         public int Z;
+        public uint Online;           // seconds since it came into the world
     }
 }

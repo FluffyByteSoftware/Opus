@@ -46,8 +46,8 @@
 //! database.  `typed.rs` hands the line to `conductor-player-commands`,
 //! which finds the command and holds back a flood.  `/chat` makes a line
 //! for everybody, which goes out from the GameClock's next broadcast
-//! check through `tell_all()`; `/who` is answered on the spot, and `/who
-//! list` from the GameClock's broadcast check through `tell_answer()`.
+//! check through `tell_all()`; `/who` is answered from the GameClock's
+//! broadcast check through `tell_answer()`.
 //! An answer too big for one packet goes out in Spans (protocol version
 //! 9).
 //!
@@ -232,7 +232,7 @@ pub fn tell_all(addresses: &[SocketAddr], packets: &[Vec<u8>]) {
 
 /// Sends the answer to the ask numbered `ask` to `to`, in Spans if it's
 /// too big for one packet, from any thread.  For the GameClock's answer to
-/// a `/who list`.  Nothing happens if the UDP side isn't running.
+/// a `/who`.  Nothing happens if the UDP side isn't running.
 pub fn tell_answer(to: SocketAddr, ask: u32, answer: &[u8]) {
     let guard = UDP.lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());

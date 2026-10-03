@@ -5,7 +5,7 @@
 // row to type in.  Enter sends what's typed to the server as it was typed,
 // and echoes it as ">/chat hello" in yellow; what the server says is white.
 // The box stops taking keys at 300 characters.  The font is ScreenRoot's
-// Chat Font slot, a monospaced one, so /who's box lines up.  EverQuest's
+// Chat Font slot, a monospaced one.  EverQuest's
 // keys (Jacob, 2026-10-02): Enter or a "/" while the game has the keys
 // (GameFocus) brings them to the field, the "/" already typed; Enter in
 // the field sends the line and hands the keys back; so do Escape and a
@@ -46,10 +46,6 @@ namespace Opus.Hud
         // The lines kept to scroll back through; older ones go.
         const int KeptLines = 200;
 
-        // /who's box is drawn this wide when the chat box can't be measured
-        // yet.
-        const int UnmeasuredColumns = 40;
-
         // The chat box's font, from ScreenRoot's Chat Font slot.  Null is
         // Unity's own.
         public static Font Font;
@@ -61,10 +57,6 @@ namespace Opus.Hud
         VisualElement box;
         ScrollView lines;
         TextField input;
-
-        // Ten letters, never shown, to measure how wide a letter is in
-        // the chat's font and size.
-        Label ruler;
 
         // The frames the field last took the keys on, and last gave them
         // back on.  One Enter is two events to Unity (the key, then its
@@ -103,15 +95,9 @@ namespace Opus.Hud
             input.RegisterCallback<KeyDownEvent>(KeyDown, TrickleDown.TrickleDown);
             input.RegisterCallback<FocusOutEvent>(LostKeys);
 
-            ruler = new Label("MMMMMMMMMM");
-            ruler.AddToClassList("chat-line");
-            ruler.AddToClassList("chat-ruler");
-            ruler.pickingMode = PickingMode.Ignore;
-
             box.Add(header);
             box.Add(lines);
             box.Add(input);
-            box.Add(ruler);
             UseFont(box);
 
             // The HUD is built again on every switch of screens, so this
@@ -126,8 +112,8 @@ namespace Opus.Hud
             input.schedule.Execute(() => input.Focus());
         }
 
-        // The size the player picked, on every line, the field, and the
-        // ruler /who's box is measured with.  Not on the header.
+        // The size the player picked, on every line and the field.  Not on
+        // the header.
         public override void UseFontSize(int pixels)
         {
             fontSize = pixels;
@@ -248,21 +234,8 @@ namespace Opus.Hud
 
         void DrawWho(WhoAnswer who)
         {
-            foreach (string line in WhoBox.Draw(who, Columns()))
+            foreach (string line in WhoLines.Draw(who))
                 AddLine(line, "chat-line-server");
-        }
-
-        // How many letters fit across the lines, in the chat's font: the
-        // lines' width over one letter's.  One fewer than fit, so a line
-        // drawn to the full width never wraps on a rounding.
-        int Columns()
-        {
-            float across = lines.contentViewport.resolvedStyle.width;
-            float ten = ruler.MeasureTextSize(ruler.text, 0f, VisualElement.MeasureMode.Undefined, 0f,
-                                              VisualElement.MeasureMode.Undefined).x;
-            if (float.IsNaN(across) || across <= 0f || float.IsNaN(ten) || ten <= 0f)
-                return UnmeasuredColumns;
-            return Mathf.Max(1, Mathf.FloorToInt(across / (ten / 10f)) - 1);
         }
 
         void AddLine(string text, string kind)

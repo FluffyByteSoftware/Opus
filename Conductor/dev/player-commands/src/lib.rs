@@ -18,7 +18,7 @@
 //! deep in commands").  It leans on networking, never the other way:
 //! networking's `typed.rs` has who typed the line (`Asker`) and what
 //! came of it (`Outcome`), and a slot for the function that runs it,
-//! which `wire()` fills.  The GameClock's chat and `/who list` senders
+//! which `wire()` fills.  The GameClock's chat and `/who` senders
 //! are filled the same way.  The launcher calls `wire()` on every START
 //! SERVER; plain functions, so handing them over again does no harm.
 //! Admin commands, when they come, are "a permissions difference but the
@@ -49,12 +49,12 @@ use conductor_networking::protocol;
 use conductor_networking::typed::{Asker, Outcome};
 
 /// Hands networking the function that runs a line, and the GameClock the
-/// two that send the chat out and answer `/who list`.  The launcher calls
+/// two that send the chat out and answer `/who`.  The launcher calls
 /// this on every START SERVER, after the GameClock is up.
 pub fn wire() {
     conductor_networking::typed::set_runner(command);
     conductor_gameclock::set_chat_sender(chat::send_out);
-    conductor_gameclock::set_who_sender(who::send_list);
+    conductor_gameclock::set_who_sender(who::send);
 }
 
 /// How long a player waits after a command unless the command says

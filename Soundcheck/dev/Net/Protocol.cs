@@ -13,7 +13,7 @@ namespace Opus.Net
     {
         // The version this client speaks.  The server says its own in the
         // Hello, and a client built against another stops right there.
-        public const byte Version = 12;
+        public const byte Version = 13;
 
         // What a client has to say with its login.  Not a secret from
         // anybody with a copy of the client; it turns port scanners away
