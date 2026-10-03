@@ -71,8 +71,9 @@ Lua, GameWorld, the GameClock, the monitor, and networking last) only runs betwe
 SERVER on the web admin's Server tab.  **Networking opens only once the ground around 0,0,0 is in**.
 
 **The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
-the GitHub Release.  `main` is two docs commits past the tag; `testing` and `unstable` are level with each
-other, sessions 0 to 8 past `main`.  `main` moves when Jacob says.
+the GitHub Release.  **`main` was fast-forwarded to `testing` at the end of session 9** (2026-10-03, Jacob:
+"merge this to main please"), at `887a6d5`, sessions 0 to 9 past the tag, with no tag of its own; `testing`
+and `unstable` are level, this one docs commit past it.  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor as released, and sessions 0 to 8 since; Soundcheck through
 PLAY and the way back, the check at start and the patch against the real web folder; Ensemble through the
