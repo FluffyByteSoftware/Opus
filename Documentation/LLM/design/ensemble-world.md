@@ -149,3 +149,9 @@ an Actor is on the client; how a model's name finds a model.
   show the UUID to which model in a browser."  Being talked through: what a path can mean to Unity.
 - **The list of models in the Inspector** (a name and a prefab each, the fallback shape for a name not in
   it): "sounds good".  **The Character template's model is named "Actor"**: "Actor not character or human".
+- **What a path can mean to Unity** (put to him): a built game can't load a model from a loose file, so a
+  path is either a name in a list in the Inspector, a path under a `Resources` folder (both inside the
+  build), or an asset bundle beside the executable (patchable by Soundcheck, needs bundles built).  **His
+  answer: "okay then its going to be UUID matched."**  So the server's `Model` carries a model's UUID, and
+  the client finds the model by it; the viewer he asked for shows which UUID is which model.  Being talked
+  through: where a model's UUID comes from, where the viewer lives, and whether it's this session.
