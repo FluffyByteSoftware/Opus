@@ -139,7 +139,7 @@ Opus/
 │       │       │                      #   networking (overworld_map()), and hands the GameClock chunks; keeps
 │       │       │                      #   every chunk squeezed for players (squeezed(), in_world())
 │       │       ├── make.rs            # making the world: a seed, Omega's heights, then region.map last
-│       │       ├── block.rs           # Block: AIR, DIRT, STONE, WOOD, GOLD, BEDROCK; the numbers never change
+│       │       ├── block.rs           # Block: AIR, DIRT, STONE, WOOD, BEDROCK, MASONED_STONE; terrain or structure; Density
 │       │       ├── chunk.rs           # ChunkPos and Chunk (32 blocks a side), and a changed chunk's .chunk file
 │       │       ├── regionmap.rs       # region.map: which region every chunk is in (REGION_MAP.md is its contract)
 │       │       ├── heights.rs         # a heights region's file (omega.heights): the dirt's height per column

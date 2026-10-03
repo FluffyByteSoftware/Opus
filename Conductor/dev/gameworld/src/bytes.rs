@@ -58,14 +58,25 @@ impl<'a> Reader<'a> {
     /// after it.  A file of another kind, or from a newer Conductor, is
     /// turned away here.
     pub fn tag_and_version(&mut self, tag: &[u8; 8], version: u16) -> Result<(), String> {
+        self.tag_and_versions(tag, version, version).map(|_| ())
+    }
+
+    /// The same, for a file this Conductor reads more than one version of:
+    /// any from `oldest` to `newest`.  Hands back the version it found.
+    pub fn tag_and_versions(&mut self, tag: &[u8; 8], oldest: u16, newest: u16) -> Result<u16, String> {
         if self.take(8, "its tag")? != tag {
             return Err(format!("it doesn't start with {}", String::from_utf8_lossy(tag)));
         }
         let found = self.u16("its version")?;
-        if found != version {
-            return Err(format!("it's version {found}, and this Conductor reads version {version}"));
+        if found < oldest || found > newest {
+            let reads = if oldest == newest {
+                format!("version {newest}")
+            } else {
+                format!("versions {oldest} to {newest}")
+            };
+            return Err(format!("it's version {found}, and this Conductor reads {reads}"));
         }
-        Ok(())
+        Ok(found)
     }
 
     /// Whatever is left, as a complaint if there's any.  A file with more

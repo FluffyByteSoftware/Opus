@@ -25,6 +25,10 @@
 //!     has 256 kinds or fewer, a u16 when it has more
 //! ```
 //!
+//! Only the kinds go, not the densities (2026-10-03): until they're sent,
+//! a chunk comes back out at its kinds' plain densities, full or empty,
+//! which is all the ground has today.
+//!
 //! PROTOCOL.md has the same, with a worked example.  `unsqueeze()` is the
 //! way back, for the tests and as the reader the client copies.
 
@@ -148,6 +152,7 @@ mod tests {
     use std::sync::Arc;
 
     use super::*;
+    use crate::block::Density;
     use crate::build;
     use crate::chunk::{ROWS, SIDE};
     use crate::heights::{self, Heights};
@@ -210,12 +215,14 @@ mod tests {
     }
 
     #[test]
-    fn the_gold_at_0_0_0_comes_through() {
-        let heights = hills(3, 0, 0, 32, 32);
+    fn a_lone_block_comes_through_at_its_plain_density() {
         let pos = ChunkPos { x: 0, z: 0, row: 1 };
-        let chunk = build::untouched(pos, &omega(), Some(&heights)).unwrap();
+        let mut chunk = build::untouched(pos, &alpha(), None).unwrap();
+        chunk.set(0, 0, 0, Block::MASONED_STONE);
         let back = unsqueeze(&squeeze(&chunk), pos).unwrap();
-        assert_eq!(back.block(0, 0, 0), Block::GOLD);
+        assert_eq!(back.block(0, 0, 0), Block::MASONED_STONE);
+        assert_eq!(back.density(0, 0, 0), Density::FULL);
+        assert_eq!(back.density(0, 1, 0), Density::EMPTY);
     }
 
     #[test]

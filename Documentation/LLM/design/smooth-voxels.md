@@ -8,7 +8,7 @@ Author:     Jacob Chacko
 
 **Stage 1 is settled** (the discussion chat's summary, brought back by Jacob in session 11, 2026-10-03,
 below under "Stage 1, as settled"; the mesher, the map, the density and the kinds in session 12).
-**Nothing is built.**  Jacob: "Prepare a hand off to a new conversation
+**Being built a step at a time** (under "As written" at the end of stage 1).  Jacob: "Prepare a hand off to a new conversation
 with yourself that we will begin implementation of this system."  The brief the discussion chat was given
 is kept after it, as it was, so what it knew is on record.
 
@@ -82,7 +82,10 @@ Put to him at the start of building, the four questions the hand-off left open.
   mesher) stays right.
 - **The kinds**: **DIRT and STONE are terrain** (smooth).  **WOOD is structure** (cubes; "i'll make it look
   like planks").  **GOLD is dropped**: the origin is no longer marked, and its number, 4, is never used
-  again.  **MASONED_STONE is new**, number 6.  **AIR is neither** ("AIR: NOTHING").
+  again.  **MASONED_STONE is new**, number 6, structure: grey bricks, what a wall is made of ("It looks like gray
+  bricks yeah... a wall will be made of it").  **BEDROCK is terrain** ("Probably terrain"): it's never
+  broken, so it stays full, and a cave reaching down to it meets it smooth.  **AIR is neither** ("AIR:
+  NOTHING").
 
 ### Leaning
 
@@ -95,7 +98,6 @@ Put to him at the start of building, the four questions the hand-off left open.
 - **Block shapes for structures** (ramps, half blocks, arches, 7DTD's): not for stage 1.
 - **How a density is held**: a byte a voxel (settled in session 12, above); a chunk goes from 64 KB to
   96 KB before squeezing.  What it costs squeezed is a guess until measured.
-- **BEDROCK and MASONED_STONE**: terrain or structure (put to Jacob in session 12).
 - **The generator's 3D rule** for caves, overhangs, the catacombs' hollows and their one way in; how a
   building flattens or fills the ground under it (7DTD's ground-level mark).
 - Whether a blast changes the kind at its rim too (scorched dirt).
@@ -124,6 +126,22 @@ Put to him at the start of building, the four questions the hand-off left open.
   again for now.
 - **The distance**: closed.  Nothing past 8 chunks, the skybox past that.
 - **The height**: unchanged, -32 to +319.
+
+### As written
+
+**Step 1, what a voxel holds** (session 12, 2026-10-03; Jacob's OK; **written, not built**).  Conductor's
+`gameworld` only; nothing on the wire changes, so the protocol stays at 15 and Ensemble is untouched.
+- `block.rs`: `Density`, a byte, `EMPTY` 0, `HALF` 128, `FULL` 255, `is_solid()` at 128 and over, and
+  `fits()`, the rule that a kind and its density agree (AIR under halfway, terrain halfway and over,
+  structure only full).  `Block::is_terrain()` (DIRT, STONE, BEDROCK), `plain_density()` (empty for AIR,
+  full for the rest).  GOLD gone, 4 never used again; MASONED_STONE 6.
+- `chunk.rs`: a density beside every kind; the file at version 3, the densities after the kinds; version 2
+  still read at plain densities; a file whose kinds and densities disagree turned away.  96 KB a chunk in
+  memory: with 3,179 chunks held at `view_chunks` 8, about 100 MB more than before (a sum, not measured).
+- `build.rs`: no GOLD at 0,0,0, so 0,0 is Omega's dirt at whatever height its heights file has, and the
+  spawn point's height follows it.  Every voxel at its plain density.
+- `squeeze.rs`: the kinds only, as before; a chunk unsqueezed comes back at plain densities.
+- `test_client.py`: the block names, 4 out and 6 in.
 
 ---
 

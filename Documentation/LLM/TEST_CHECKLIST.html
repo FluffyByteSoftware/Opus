@@ -201,14 +201,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      It builds with no warnings, and every test passes (the new ones are in <code>movement.rs</code>,
-      <code>ground.rs</code>, <code>view.rs</code>, <code>protocol.rs</code> and <code>components.rs</code>).
-    </span></label>
-    <pre class="cmd">cargo build</pre>
-    <pre class="cmd">cargo test</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       The Settings tab shows <code>player.cfg</code> with <code>turn_degrees_per_second = 450</code>, and
       <code>game.cfg</code> with <code>movement_tolerance_blocks = 16</code>; neither file has
       "Conductor added the settings below" at the end after START SERVER.
@@ -264,6 +256,39 @@ button on its own.  Pulls nothing from the internet, like the web admin.
     </span></label>
     <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
     <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+  </li>
+</ul>
+
+<h2>Smooth voxels, step 1: what a voxel holds (2026-10-03, session 12)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      It builds with no warnings, and every test passes (the new ones are in <code>block.rs</code>,
+      <code>chunk.rs</code>, <code>build.rs</code>, <code>spawn.rs</code> and <code>squeeze.rs</code>).
+    </span></label>
+    <pre class="cmd">cargo build --release</pre>
+    <pre class="cmd">cargo test --release</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      START SERVER: "The ground around 0,0,0 is in, 3179 chunks" as before, with no Warn.  Note Conductor's
+      memory on the Conductor tab once it's in: about 100 MB more than before is the sum (a chunk is 96 KB
+      now, 64 before), not a measurement.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Tester pulls its chunks: the "Blocks:" line has no GOLD (and no 4), and "The block at 0,0,0" is DIRT,
+      or AIR if Omega's ground there is under 0.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --chunks --leave-after 2 testuser123 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      In the editor with Soundcheck's <code>--debug</code>: the ground looks as it did, with no block of
+      its own at 0,0,0.  A character saved on the GOLD may stand a block or few over the ground (nothing
+      walks it yet); RESET HOME stands it on top.
+    </span></label>
   </li>
 </ul>
 

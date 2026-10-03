@@ -354,9 +354,7 @@ mod tests {
         for (across, up) in [(0, 0), (31, 63), (12, 40)] {
             assert_eq!(overworld.patch(across, up), Some(Patch { height: 0, top: Block::DIRT }), "{across},{up}");
         }
-        // Omega, north and south of 0.  The patch with 0,0 in it (32,32)
-        // has its dirt at 1 there, over the GOLD, so it's dirt on top all
-        // through.
+        // Omega, north and south of 0.
         for (across, up) in [(32, 32), (63, 63), (40, 50)] {
             assert_eq!(overworld.patch(across, up), Some(Patch { height: 2, top: Block::DIRT }), "{across},{up}");
         }
@@ -376,9 +374,9 @@ mod tests {
 
     #[test]
     fn the_commonest_top_wins_and_a_tie_goes_to_the_lower_number() {
-        assert_eq!(commonest(&[(Block::GOLD, 200), (Block::DIRT, 56)]), Block::GOLD);
-        assert_eq!(commonest(&[(Block::GOLD, 128), (Block::DIRT, 128)]), Block::DIRT);
-        assert_eq!(commonest(&[(Block::DIRT, 255), (Block::GOLD, 1)]), Block::DIRT);
+        assert_eq!(commonest(&[(Block::STONE, 200), (Block::DIRT, 56)]), Block::STONE);
+        assert_eq!(commonest(&[(Block::STONE, 128), (Block::DIRT, 128)]), Block::DIRT);
+        assert_eq!(commonest(&[(Block::DIRT, 255), (Block::STONE, 1)]), Block::DIRT);
     }
 
     #[test]

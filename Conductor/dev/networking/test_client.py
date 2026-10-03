@@ -227,7 +227,8 @@ CHUNKS_AT_ONCE = 64
 CHUNK_SIDE = 32
 CHUNK_BLOCKS = CHUNK_SIDE * CHUNK_SIDE * CHUNK_SIDE
 CHUNK_ROWS = 11
-BLOCK_NAMES = {0: "AIR", 1: "DIRT", 2: "STONE", 3: "WOOD", 4: "GOLD", 5: "BEDROCK"}
+# 4 was GOLD, dropped 2026-10-03, and never used again.
+BLOCK_NAMES = {0: "AIR", 1: "DIRT", 2: "STONE", 3: "WOOD", 5: "BEDROCK", 6: "MASONED_STONE"}
 
 
 def unsqueeze(data):
@@ -943,7 +944,7 @@ class CharacterSelect:
         didn't come.  A "not yet" is asked again; "outside the view" and
         "unavailable" are the end of that chunk.  Gives up with no new
         chunk in MAP_STALL seconds.  Prints what came, how big and how
-        long, and checks the GOLD at 0,0,0 if that chunk came."""
+        long, and says the block at 0,0,0 if that chunk came."""
         column = (int(position[0] // CHUNK_SIDE), int(position[2] // CHUNK_SIDE))
         stand_row = int((position[1] + 32) // CHUNK_SIDE)
         wanted = [(column[0] + dx, column[1] + dz, row)
@@ -1034,7 +1035,7 @@ class CharacterSelect:
         total = sum(len(data) for data in squeezed.values())
         kinds = {}
         bad = 0
-        gold = None
+        origin = None
         for place, data in squeezed.items():
             try:
                 runs = unsqueeze(data)
@@ -1046,7 +1047,7 @@ class CharacterSelect:
                 kinds[block] = kinds.get(block, 0) + length
             # Block 0,0,0 is the first in chunk 0,0 row 1.
             if place == (0, 0, 1):
-                gold = BLOCK_NAMES.get(runs[0][0], runs[0][0])
+                origin = BLOCK_NAMES.get(runs[0][0], runs[0][0])
         biggest = max(squeezed.items(), key=lambda item: len(item[1]), default=None)
         print("   The chunks: %d in, %d refused, in %.2f s; %d bytes squeezed (%.1f KB, %.0f MB as they are), "
               "%d packets, %d requests, %d \"not yet\"s."
@@ -1056,8 +1057,8 @@ class CharacterSelect:
             print("   The biggest: %d,%d row %d, %d bytes." % (biggest[0] + (len(biggest[1]),)))
         print("   Blocks: %s.  %d didn't unsqueeze." % (", ".join("%s %d" % (BLOCK_NAMES.get(kind, kind), count)
                                                              for kind, count in sorted(kinds.items())), bad))
-        if gold is not None:
-            print("   The block at 0,0,0: %s." % gold)
+        if origin is not None:
+            print("   The block at 0,0,0: %s." % origin)
         for why in sorted(set(refused.values())):
             print("   Refused, %s: %d." % (CHUNK_REFUSALS.get(why, why),
                                           sum(1 for reason in refused.values() if reason == why)))

@@ -244,7 +244,10 @@ Ticket, PLAY and the way back, Ensemble's half, admin mode's PUBLISH, the check 
 TEST_CHECKLIST.html until Soundcheck ships beside the game), the Windows rename-aside, and anything else on
 Windows.  What's left, a step each:
 
-- **The world's dump** (Jacob, 2026-10-02): Conductor dumps a portable world to `Content/`, "a general
+- **The world's dump** (Jacob, 2026-10-02).  **Dropped in session 12** (2026-10-03, Jacob: "we are
+  dropping it... we don't need it anymore"): with nothing drawn past the view, the simple overworld map
+  has no use left.  Taking it out is a step of its own, a protocol bump across all four programs
+  (`design/smooth-voxels.md`, "Settled in session 12").  What it was: Conductor dumps a portable world to `Content/`, "a general
   shape of the world but 'smoothed'", for the client to carry (region.map and the heights, the ground as
   Conductor would build it, so the distance doesn't vanish; the chunks around the player stream over UDP
   and override it).  It ships as a file of its own, compressed, with its own line in the manifest beside

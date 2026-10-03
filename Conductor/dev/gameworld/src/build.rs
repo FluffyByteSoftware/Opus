@@ -10,12 +10,12 @@
 //! dirt at the ground's height, stone under it down to -30, and air over
 //! it, on a floor of BEDROCK at -31 and -32 (2026-10-01).  In Alpha the
 //! ground is at 0 everywhere; in Omega it's wherever the heights file
-//! says, -5 to 5.
+//! says, -5 to 5.  Every voxel is at its kind's plain density, full or
+//! empty, until the world is made from a density of its own (smooth
+//! voxels, `design/smooth-voxels.md`).
 //!
-//! The block at 0,0,0 is GOLD, whatever is around it.  It's on Omega's
-//! side of the line, and Omega's ground there can be up to 5 blocks
-//! higher or lower than 0, so the GOLD can end up inside a hill or with
-//! air under it.
+//! There was a GOLD block at 0,0,0, to mark the middle of the world; it
+//! was dropped on 2026-10-03, with the kind.
 
 use crate::block::Block;
 use crate::chunk::{Chunk, ChunkPos, FLOOR_Y, SIDE};
@@ -37,13 +37,6 @@ pub fn untouched(pos: ChunkPos, region: &Region, heights: Option<&Heights>) -> R
             }
         }
     }
-
-    // The GOLD block marks the middle of the world.
-    if let Some(origin) = ChunkPos::of_block(0, 0, 0) {
-        if origin == pos {
-            chunk.set(-pos.west_x(), -bottom, -pos.south_z(), Block::GOLD);
-        }
-    }
     Ok(chunk)
 }
 
@@ -59,16 +52,10 @@ pub fn ground_at(region: &Region, heights: Option<&Heights>, x: i32, z: i32) -> 
 }
 
 /// The highest block in column x,z that isn't AIR, as nobody has changed
-/// it: its height and its kind.  That's the dirt, except at 0,0, where
-/// the GOLD is on top whenever the dirt there is at 0 or under it (it's
-/// either in the dirt's place or sitting on air above it).  The simple
-/// overworld map is made from this, so it and the chunks never disagree.
+/// it: its height and its kind, the dirt.  The simple overworld map is
+/// made from this, so it and the chunks never disagree.
 pub fn top(region: &Region, heights: Option<&Heights>, x: i32, z: i32) -> Result<(i32, Block), String> {
-    let ground = ground_at(region, heights, x, z)?;
-    if x == 0 && z == 0 && ground <= 0 {
-        return Ok((0, Block::GOLD));
-    }
-    Ok((ground, Block::DIRT))
+    Ok((ground_at(region, heights, x, z)?, Block::DIRT))
 }
 
 /// What's at height `y` in a column whose dirt is at `ground`.
@@ -136,20 +123,29 @@ mod tests {
     }
 
     #[test]
-    fn the_block_at_0_0_0_is_gold_and_only_that_one() {
+    fn every_voxel_is_at_its_kinds_plain_density() {
+        let bytes = heights::make(3, 0, 0, 32, 32, |_| true).unwrap();
+        let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
+        for chunk in column(0, 0, &omega(), Some(&heights)) {
+            for y in 0..SIDE {
+                for z in 0..SIDE {
+                    for x in 0..SIDE {
+                        assert_eq!(chunk.density(x, y, z), chunk.block(x, y, z).plain_density());
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_middle_of_the_world_is_omegas_ground_like_anywhere_else() {
         let bytes = heights::make(3, 0, 0, 32, 32, |_| true).unwrap();
         let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
         let rows = column(0, 0, &omega(), Some(&heights));
-        assert_eq!(at(&rows, 0, 0, 0), Block::GOLD);
-        let golds = rows.iter()
-            .flat_map(|chunk| (0..SIDE).flat_map(move |y| (0..SIDE).flat_map(move |z| (0..SIDE)
-                .map(move |x| chunk.block(x, y, z)))))
-            .filter(|&block| block == Block::GOLD)
-            .count();
-        assert_eq!(golds, 1);
-
-        let beside = column(-1, 0, &alpha(), None);
-        assert_eq!(at(&beside, 31, 0, 0), Block::DIRT);
+        let ground = heights.at(0, 0).unwrap();
+        assert_eq!(at(&rows, 0, ground, 0), Block::DIRT);
+        assert_eq!(at(&rows, 0, ground + 1, 0), Block::AIR);
+        assert_eq!(top(&omega(), Some(&heights), 0, 0).unwrap(), (ground, Block::DIRT));
     }
 
     #[test]
@@ -183,30 +179,6 @@ mod tests {
                 assert_eq!(at(&rows, inside_x, y, inside_z), Block::AIR, "{x},{y},{z}");
             }
         }
-    }
-
-    #[test]
-    fn the_gold_is_the_top_at_0_0_unless_a_hill_covers_it() {
-        let alpha = alpha();
-        assert_eq!(top(&alpha, None, 0, 0).unwrap(), (0, Block::GOLD));
-        assert_eq!(top(&alpha, None, 1, 0).unwrap(), (0, Block::DIRT));
-        // Some seed puts Omega's dirt over 0 at 0,0, and some under it.
-        let mut seen_buried = false;
-        let mut seen_on_top = false;
-        for seed in 0..200 {
-            let bytes = heights::make(seed, 0, 0, 1, 1, |_| true).unwrap();
-            let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
-            let ground = heights.at(0, 0).unwrap();
-            let found = top(&omega(), Some(&heights), 0, 0).unwrap();
-            if ground > 0 {
-                assert_eq!(found, (ground, Block::DIRT));
-                seen_buried = true;
-            } else {
-                assert_eq!(found, (0, Block::GOLD));
-                seen_on_top = true;
-            }
-        }
-        assert!(seen_buried && seen_on_top);
     }
 
     #[test]

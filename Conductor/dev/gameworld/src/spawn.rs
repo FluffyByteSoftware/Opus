@@ -36,8 +36,8 @@ use std::time::Duration;
 use crate::block::Block;
 use crate::chunk::{BOTTOM_Y, Chunk, ChunkPos, ROWS, SIDE};
 
-/// The spawn points, as columns: x and z in blocks.  Only the GOLD's for
-/// now ("for right now is only 0,0,0"); the generated ones go here.
+/// The spawn points, as columns: x and z in blocks.  Only 0,0 for now
+/// ("for right now is only 0,0,0"); the generated ones go here.
 pub const SPAWN_POINTS: [(i32, i32); 1] = [(0, 0)];
 
 /// The highest block in the world.  A character is 2 blocks tall, so the
@@ -184,8 +184,12 @@ mod tests {
     }
 
     #[test]
-    fn the_gold_is_the_top_at_0_0() {
+    fn the_top_at_0_0_is_its_ground() {
         assert_eq!(top_of(0, 0, |pos| build::untouched(pos, &alpha(), None)), Ok(0));
+        let bytes = crate::heights::make(3, 0, 0, 32, 32, |_| true).unwrap();
+        let heights = Heights::from_contents(Arc::new(bytes)).unwrap();
+        let ground = heights.at(0, 0).unwrap();
+        assert_eq!(top_of(0, 0, |pos| build::untouched(pos, &omega(), Some(&heights))), Ok(ground));
     }
 
     #[test]
@@ -216,14 +220,15 @@ mod tests {
     }
 
     #[test]
-    fn standing_on_the_gold_is_clear() {
+    fn standing_on_the_ground_is_clear() {
         assert_eq!(footing_of([0, 1, 0], |pos| build::untouched(pos, &alpha(), None)), Ok(Footing::Clear));
         assert_eq!(footing_of([-40, 1, 77], |pos| build::untouched(pos, &alpha(), None)), Ok(Footing::Clear));
     }
 
     #[test]
-    fn asdf_inside_the_gold_is_stood_on_top_in_the_middle() {
-        // Asdf, saved at 0, 0, 0 before spawn points: its feet in the GOLD.
+    fn asdf_inside_the_ground_is_stood_on_top_in_the_middle() {
+        // Asdf, saved at 0, 0, 0 before spawn points: its feet in the
+        // ground (the GOLD, then).
         assert_eq!(footing_of([0, 0, 0], |pos| build::untouched(pos, &alpha(), None)),
                    Ok(Footing::OnTop([0.5, 1.0, 0.5])));
         // Deep in Alpha's stone, at -2.5, -10, 3.25.

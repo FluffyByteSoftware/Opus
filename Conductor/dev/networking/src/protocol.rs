@@ -1559,7 +1559,7 @@ mod tests {
     #[test]
     fn the_chunks_in_bytes() {
         // PROTOCOL.md's example: chunk -1,0 row 1, Alpha's ground just
-        // west of the GOLD, squeezed to 13 bytes.
+        // west of 0,0, squeezed to 13 bytes.
         let pos = ChunkPos { x: -1, z: 0, row: 1 };
         let squeezed = [1, 2, 0, 1, 0, 0, 0, 0xFF, 0x07, 0, 0xFF, 0xF7, 1];
         let pieces = chunk_pieces(pos, &squeezed);

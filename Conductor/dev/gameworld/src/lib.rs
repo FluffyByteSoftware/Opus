@@ -75,7 +75,7 @@ use conductor_tools::threads;
 
 // Rust note: these let the rest of Conductor write
 // `conductor_gameworld::Terrain` instead of reaching into the files.
-pub use block::Block;
+pub use block::{Block, Density};
 pub use chunk::{Chunk, ChunkPos};
 pub use spawn::SPAWN_POINTS;
 pub use terrain::{Loaded, Terrain};

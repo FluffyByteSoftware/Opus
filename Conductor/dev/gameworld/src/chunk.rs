@@ -2,7 +2,9 @@
 //! Component:  Conductor
 //! Author:     Jacob Chacko
 //!
-//! A chunk: a cube of blocks, 32 a side, so 32 m a side and 32,768 blocks.
+//! A chunk: a cube of voxels, 32 a side, so 32 m a side and 32,768 voxels.
+//! Each voxel is a kind and a density (`block.rs`); the code says "block"
+//! for a voxel's kind, as it did before densities.
 //! Chunks sit side by side east-west (x) and north-south (z), and stack in
 //! eleven rows up and down (y), from -32 to +319: row 0 is -32 to -1, row 1
 //! is 0 to 31, and so on up to row 10, 288 to 319.  Chunk 0,0 has its
@@ -19,15 +21,18 @@
 //! i16       x, the chunk's place east-west
 //! i16       z, north-south
 //! u8        row, 0 (bottom) to 10 (top)
-//! u16 x 32768  the blocks, bottom layer first; in a layer, the south row
+//! u16 x 32768  the kinds, bottom layer first; in a layer, the south row
 //!              first; in a row, west to east.  (y * 32 + z) * 32 + x.
+//! u8 x 32768   the densities, in the same order
 //! ```
 //!
-//! About 64 KB.  Every number is little-endian.
+//! About 96 KB.  Every number is little-endian.  Version 2, from before
+//! densities, is the same without them, and reads with each voxel at its
+//! kind's plain density: empty for AIR, full for the rest.
 
 use std::fmt;
 
-use crate::block::Block;
+use crate::block::{Block, Density};
 use crate::bytes::Reader;
 
 /// A chunk's side, in blocks.
@@ -53,9 +58,14 @@ pub const FLOOR_Y: i32 = -31;
 pub const ROWS: u8 = 11;
 
 const TAG: &[u8; 8] = b"OPUSCHNK";
+/// Version 3 (2026-10-03): a density for every voxel, after the kinds.
 /// Version 2 (2026-10-01): blocks went to 1 m and the rows to eleven from
 /// -32, so a row number in a version 1 file means another place.
-const VERSION: u16 = 2;
+const VERSION: u16 = 3;
+
+/// The oldest version still read: 2, whose voxels get their kinds' plain
+/// densities.
+const OLDEST_VERSION: u16 = 2;
 
 /// Where a chunk is: its place east-west and north-south, counted in
 /// chunks from 0,0, and its row.
@@ -111,23 +121,27 @@ fn padded(number: i32) -> String {
     }
 }
 
-/// A chunk's blocks.
+/// A chunk's voxels: their kinds, and beside them their densities, both
+/// in the file's order.  A voxel's kind and density always agree on
+/// whether it's solid (`Density::fits()`).
 #[derive(Clone)]
 pub struct Chunk {
     pos: ChunkPos,
     blocks: Vec<Block>,
+    densities: Vec<Density>,
 }
 
 impl Chunk {
-    /// A chunk of one kind of block all through.
+    /// A chunk of one kind of block all through, at its plain density.
     pub fn filled(pos: ChunkPos, block: Block) -> Chunk {
-        Chunk { pos, blocks: vec![block; BLOCKS] }
+        Chunk { pos, blocks: vec![block; BLOCKS], densities: vec![block.plain_density(); BLOCKS] }
     }
 
-    /// A chunk from its blocks, in the file's order.  The caller makes
-    /// sure there are `BLOCKS` of them.
+    /// A chunk from its blocks, in the file's order, each at its kind's
+    /// plain density.  The caller makes sure there are `BLOCKS` of them.
     pub(crate) fn from_blocks(pos: ChunkPos, blocks: Vec<Block>) -> Chunk {
-        Chunk { pos, blocks }
+        let densities = blocks.iter().map(|block| block.plain_density()).collect();
+        Chunk { pos, blocks, densities }
     }
 
     pub fn pos(&self) -> ChunkPos {
@@ -145,14 +159,27 @@ impl Chunk {
         self.blocks[index(x, y, z)]
     }
 
-    /// Changes the block at x,y,z inside the chunk.
+    /// The density at x,y,z inside the chunk, each 0 to 31.
+    pub fn density(&self, x: i32, y: i32, z: i32) -> Density {
+        self.densities[index(x, y, z)]
+    }
+
+    /// Changes the block at x,y,z inside the chunk, at its plain density.
     pub(crate) fn set(&mut self, x: i32, y: i32, z: i32, block: Block) {
-        self.blocks[index(x, y, z)] = block;
+        self.set_voxel(x, y, z, block, block.plain_density());
+    }
+
+    /// Changes the voxel at x,y,z inside the chunk, its kind and its
+    /// density.  The caller makes sure they fit (`Density::fits()`).
+    pub(crate) fn set_voxel(&mut self, x: i32, y: i32, z: i32, block: Block, density: Density) {
+        let at = index(x, y, z);
+        self.blocks[at] = block;
+        self.densities[at] = density;
     }
 
     /// The chunk as its file.
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(8 + 2 + 2 + 2 + 1 + BLOCKS * 2);
+        let mut bytes = Vec::with_capacity(8 + 2 + 2 + 2 + 1 + BLOCKS * 3);
         bytes.extend_from_slice(TAG);
         bytes.extend_from_slice(&VERSION.to_le_bytes());
         // The positions fit in an i16: at world_size 32, the most, the
@@ -163,6 +190,9 @@ impl Chunk {
         for block in &self.blocks {
             bytes.extend_from_slice(&block.0.to_le_bytes());
         }
+        for density in &self.densities {
+            bytes.push(density.0);
+        }
         bytes
     }
 
@@ -171,7 +201,7 @@ impl Chunk {
     /// would put a hill in the wrong place.
     pub fn from_bytes(bytes: &[u8], expected: ChunkPos) -> Result<Chunk, String> {
         let mut reader = Reader::new(bytes);
-        reader.tag_and_version(TAG, VERSION)?;
+        let version = reader.tag_and_versions(TAG, OLDEST_VERSION, VERSION)?;
         let pos = ChunkPos {
             x: reader.i16("its x")? as i32,
             z: reader.i16("its z")? as i32,
@@ -185,8 +215,23 @@ impl Chunk {
         for _ in 0..BLOCKS {
             blocks.push(Block(reader.u16("its blocks")?));
         }
+        if version == 2 {
+            reader.finish()?;
+            return Ok(Chunk::from_blocks(pos, blocks));
+        }
+
+        let densities: Vec<Density> = reader.take(BLOCKS, "its densities")?.iter().map(|&byte| Density(byte)).collect();
         reader.finish()?;
-        Ok(Chunk { pos, blocks })
+        // A kind and a density that disagree on solid would be drawn one
+        // way and walked another.
+        for (at, (&block, &density)) in blocks.iter().zip(&densities).enumerate() {
+            if !density.fits(block) {
+                let (x, y, z) = (at % BLOCKS_A_ROW, at / BLOCKS_A_LAYER, at / BLOCKS_A_ROW % BLOCKS_A_ROW);
+                return Err(format!("its voxel {x},{y},{z} is {} with a density of {}, and those don't go together",
+                                   block.name(), density.0));
+            }
+        }
+        Ok(Chunk { pos, blocks, densities })
     }
 }
 
@@ -196,6 +241,10 @@ impl fmt::Debug for Chunk {
         write!(f, "Chunk {},{} row {}", self.pos.x, self.pos.z, self.pos.row)
     }
 }
+
+/// How many voxels make a row of a chunk, and a layer.
+const BLOCKS_A_ROW: usize = SIDE as usize;
+const BLOCKS_A_LAYER: usize = (SIDE * SIDE) as usize;
 
 /// Where block x,y,z (each 0 to 31) sits in the chunk's list.
 fn index(x: i32, y: i32, z: i32) -> usize {
@@ -240,16 +289,51 @@ mod tests {
         let pos = ChunkPos { x: -3, z: 7, row: 1 };
         let mut chunk = Chunk::filled(pos, Block::AIR);
         chunk.set(0, 0, 0, Block::STONE);
-        chunk.set(31, 31, 31, Block::GOLD);
+        chunk.set(31, 31, 31, Block::MASONED_STONE);
         chunk.set(5, 6, 7, Block(999));
+        chunk.set_voxel(1, 0, 0, Block::DIRT, Density(140));
+        chunk.set_voxel(2, 0, 0, Block::AIR, Density(90));
 
         let bytes = chunk.to_bytes();
-        assert_eq!(bytes.len(), 15 + BLOCKS * 2);
+        assert_eq!(bytes.len(), 15 + BLOCKS * 3);
         let back = Chunk::from_bytes(&bytes, pos).unwrap();
         assert_eq!(back.block(0, 0, 0), Block::STONE);
-        assert_eq!(back.block(31, 31, 31), Block::GOLD);
+        assert_eq!(back.density(0, 0, 0), Density::FULL);
+        assert_eq!(back.block(31, 31, 31), Block::MASONED_STONE);
         assert_eq!(back.block(5, 6, 7), Block(999));
-        assert_eq!(back.block(1, 0, 0), Block::AIR);
+        assert_eq!((back.block(1, 0, 0), back.density(1, 0, 0)), (Block::DIRT, Density(140)));
+        assert_eq!((back.block(2, 0, 0), back.density(2, 0, 0)), (Block::AIR, Density(90)));
+        assert_eq!((back.block(3, 0, 0), back.density(3, 0, 0)), (Block::AIR, Density::EMPTY));
+    }
+
+    #[test]
+    fn a_version_2_file_reads_at_plain_densities() {
+        let pos = ChunkPos { x: 4, z: -2, row: 0 };
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(TAG);
+        bytes.extend_from_slice(&2u16.to_le_bytes());
+        bytes.extend_from_slice(&4i16.to_le_bytes());
+        bytes.extend_from_slice(&(-2i16).to_le_bytes());
+        bytes.push(0);
+        for at in 0..BLOCKS {
+            let block = if at < BLOCKS_A_LAYER { Block::BEDROCK } else { Block::AIR };
+            bytes.extend_from_slice(&block.0.to_le_bytes());
+        }
+        let chunk = Chunk::from_bytes(&bytes, pos).unwrap();
+        assert_eq!((chunk.block(9, 0, 9), chunk.density(9, 0, 9)), (Block::BEDROCK, Density::FULL));
+        assert_eq!((chunk.block(9, 1, 9), chunk.density(9, 1, 9)), (Block::AIR, Density::EMPTY));
+    }
+
+    #[test]
+    fn a_kind_and_a_density_that_disagree_are_turned_away() {
+        let pos = ChunkPos { x: 0, z: 0, row: 1 };
+        let mut chunk = Chunk::filled(pos, Block::AIR);
+        chunk.set_voxel(3, 4, 5, Block::AIR, Density::FULL);
+        let why = Chunk::from_bytes(&chunk.to_bytes(), pos).unwrap_err();
+        assert!(why.contains("3,4,5 is AIR with a density of 255"), "{why}");
+
+        chunk.set_voxel(3, 4, 5, Block::WOOD, Density(200));
+        assert!(Chunk::from_bytes(&chunk.to_bytes(), pos).is_err());
     }
 
     #[test]
@@ -259,5 +343,8 @@ mod tests {
         assert!(Chunk::from_bytes(&bytes, ChunkPos { x: 2, z: 1, row: 0 }).is_err());
         assert!(Chunk::from_bytes(&bytes[..bytes.len() - 1], pos).is_err());
         assert!(Chunk::from_bytes(b"NOTACHNK", pos).is_err());
+        let mut version_4 = bytes.clone();
+        version_4[8] = 4;
+        assert!(Chunk::from_bytes(&version_4, pos).is_err());
     }
 }

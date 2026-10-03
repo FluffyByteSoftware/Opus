@@ -15,10 +15,13 @@ world's size became `world_size` in `game.cfg`, 16 to start, twice as wide as be
 
 ## Where it stands
 
-**Smooth voxels, stage 1, is settled and not built** (session 11, 2026-10-03, `design/smooth-voxels.md`):
-1 m voxels still, the terrain kinds smooth with a density each, structures cubes, caves and catacombs from
-a 3D density, -32 to +319 kept, buildings stamped from Treble's `.fbm`s, a 45-degree slope.  What follows
-is the world as built, all cubes, until that lands.
+**Smooth voxels, stage 1, is settled, and being built a step at a time from session 12**
+(`design/smooth-voxels.md`): 1 m voxels still, the terrain kinds smooth with a density each, structures
+cubes, caves and catacombs from a 3D density, -32 to +319 kept, buildings stamped from Treble's `.fbm`s, a
+45-degree slope.  **Session 12's step** (written, not built): every voxel holds a density beside its kind,
+the chunk file is version 3, GOLD is gone and MASONED_STONE is in; the ground is still built from the
+kinds, every voxel full or empty, so it looks as it did.  What follows is the world as built, all cubes,
+until the rest lands.
 
 
 **Part one is built and tested on Linux** (Jacob's first world took 19 seconds to make, at 50 cm blocks).
@@ -87,20 +90,25 @@ i8 x every column   the dirt's height, -5 to 5: the south line first,
 
 ```text
 8 bytes   OPUSCHNK
-u16       version, 2
+u16       version, 3
 i16       x, the chunk's place east-west
 i16       z, north-south
 u8        row, 0 (bottom, -32 to -1) to 10 (top, 288 to 319)
-u16 x 32768  the blocks, bottom layer first; in a layer, the south row
+u16 x 32768  the kinds, bottom layer first; in a layer, the south row
              first; in a row, west to east.  (y * 32 + z) * 32 + x.
+u8 x 32768   the densities, in the same order (session 12)
 ```
+
+Version 2 had no densities, and still reads, each voxel at its kind's plain density (empty for AIR, full for
+the rest).  A version 3 file whose kind and density disagree on solid (`design/smooth-voxels.md`) is turned
+away like any bad file.
 
 `simple_overworld.map`: the world's rough shape for the client, a patch of 16 by 16 blocks at a time.
 **`Documentation/LLM/SIMPLE_OVERWORLD_MAP.md`** has it byte for byte, with a worked example and a C#
 reader; it's a contract with Ensemble, like REGION_MAP.md.  4,194,332 bytes at `world_size` 16.
 
-The block numbers: AIR 0, DIRT 1, STONE 2, WOOD 3, GOLD 4, BEDROCK 5.  A number never changes once it's
-out there.
+The block numbers: AIR 0, DIRT 1, STONE 2, WOOD 3, BEDROCK 5, MASONED_STONE 6.  A number never changes once
+it's out there, and a dropped one is never used again: 4 was GOLD, dropped in session 12 (2026-10-03).
 
 ## What's settled
 
@@ -161,7 +169,9 @@ out there.
   50 cm as -8192 to 8191 blocks.  At 1 m and `world_size` 16 it's **-8192 to 8191** blocks each way, chunks
   -256 to 255.
   File names take negative numbers.
-- **The origin block, 0,0,0, is GOLD**, so the middle of everything can be seen, whatever is around it.
+- **The origin block, 0,0,0, was GOLD**, so the middle of everything could be seen, whatever was around it.
+  **Dropped in session 12** (2026-10-03, Jacob: "Drop gold"), the kind with it: 0,0,0 is Omega's ground like
+  anywhere else.
 - **The world starts flat, in three layers, counted in blocks**: "blocks at 0 are all dirt, blocks at -1 thru
   -15 are stone, blocks 1 and higher are air", with the stone going deeper at 1 m (below).  One block of dirt
   on top of 30 of stone, and air above.
