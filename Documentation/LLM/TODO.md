@@ -176,15 +176,15 @@ Windows.  What's left, a step each:
   know its there but the player needs to discover it."  Still open: whether "the client knows" means it's
   sent ahead (and a changed client can show it), or only sent once the player is near enough to find it.
   Also open: how coarse "smoothed" is, and whether the dump is compressed (Jacob asked what it buys).
-  His answers after: **hidden things are sent ahead and hidden by the client** ("honestly with the way
-  we're building this I am not too worried about cheating this isn't a serious game like that... not yet
-  at least"), **with room to tighten later** ("make it so that we have the option I guess?  Like a
-  flexibility to add more security"): so what a player is sent goes through one place on the server that
-  can hold things back one day.  **16 by 16 blocks a patch** ("the world is going to be rather large
-  though so maybe we go with 16x16?"), a guess of the session's he took.  **Not compressed**: about 1 MB
-  a layer at `world_size` 16, nothing beside a 655 MB game; squeezing is for the chunk stream (64 KB a
-  chunk, 4 KB a packet), run-length by hand, no crate.  **When it's written**: "When the world saves I
-  think" (which save, below).  Asked how Minecraft draws the distance (the answer is in the session's
+  His answers after: **hidden things are sent ahead and hidden by the client** ("honestly with the way we're
+  building this I am not too worried about cheating this isn't a serious game like that... not yet at least"),
+  **with room to tighten later** ("make it so that we have the option I guess?  Like a flexibility to add more
+  security"): so what a player is sent goes through one place on the server that can hold things back one
+  day.  **16 by 16 blocks a patch** ("the world is going to be rather large though so maybe we go with
+  16x16?"), his pick when the session had no better than a guess.  **Not compressed** (the session's lean, not
+  OKed yet): about 1 MB a layer at `world_size` 16, nothing beside a 655 MB game; squeezing is for the chunk
+  stream (64 KB a chunk, 4 KB a packet), run-length by hand, no crate.  **When it's written**: "When the world
+  saves I think" (which save, below).  Asked how Minecraft draws the distance (the answer is in the session's
   reply: it doesn't, past what the server sent).
 - **The world's files on the client** go in `Assets/StreamingAssets/World/`, a fifth folder of ours under
   `Assets/`, into the `.gitignore` with its `.meta` (Jacob, 2026-10-02: out of that pass).  A Unity build
