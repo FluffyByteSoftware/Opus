@@ -265,8 +265,9 @@ fn run(jobs: Receiver<Job>) {
 /// Makes sure the simple overworld map is there before the first chunk
 /// goes out, and hands the world back.  Without it there's nothing to send
 /// a player at PLAY, so it's the same as no world: every ask is turned
-/// away and the door stays shut (Jacob, 2026-10-03: "keep the door shut
-/// and notify the end user to wipe their local copy and try again").
+/// away and the door stays shut (Jacob, 2026-10-03: "keep the door shut").
+/// The Error tells the admin which file to delete.  Telling a player whose
+/// client can't get the map to start over is Ensemble's half.
 fn with_overworld(shape: Shape) -> Result<Shape, String> {
     overworld::ensure(&shape.map, &shape.heights).map_err(|why| {
         // A stop part way is no fault: the next START SERVER makes it.

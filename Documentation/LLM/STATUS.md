@@ -129,9 +129,9 @@ words in `design/world.md` ("The simple overworld map") and TODO.md ("The world'
 - **The terrain save and the character save are one save**, every `world_save_seconds`.
 - **If the map can't be written, the door stays shut**; **a client that can't get it tells the player** to
   delete the local map file (or the client) and try again.  "The end user" was the player: the session took
-  it for the admin first, so the Error on the bell says to delete the file, and a comment in
-  `gameworld/src/lib.rs` (`with_overworld()`) quotes that answer as its reason.  The comment wants
-  correcting next time Conductor's code is open (hand-offs make no code changes).
+  it for the admin first, so the Error on the bell says to delete the file (which stands, as the admin's
+  half), and `with_overworld()`'s comment in `gameworld/src/lib.rs` quoted that answer as its reason.  The
+  comment was corrected at the hand-off, on Jacob's ask (a comment only, **not built**; nothing to test).
 
 Built: `gameworld/src/overworld.rs` (makes, writes, reads the map), `build.rs`'s `top()` (one column's
 top, shared by the chunks and the map), `lib.rs` (`with_overworld()`, before the first chunk goes out),
@@ -156,8 +156,7 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 - **Soundcheck's rest** (TODO.md): Conductor's report up and debug clients
   (open), Windows, one package; and the certificate for every client (LONGTERM_TODO.md).
 - **The simple overworld map's rest** (TODO.md, "The world's dump"): the packets, PlayerReady, Ensemble's
-  half, writing it again at the world save.  And `with_overworld()`'s comment in `gameworld/src/lib.rs`,
-  which quotes the player's notice as the admin's.
+  half, writing it again at the world save.
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale
   words.
 - **Saying things without a `/`**, **kicking a player who keeps flooding**, **`/help`**, **whether the web
