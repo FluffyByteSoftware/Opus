@@ -71,6 +71,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   says it once).  `design/ensemble-world.md`, "Movement".
 - **Fewer voxels a column, EQ Next's style**: became smooth voxels, settled in session 11 (a separate chat,
   its summary brought back by Jacob): `design/smooth-voxels.md`, and LONGTERM_TODO.md's "Smooth voxels".
+- **The protocol redone** (Jacob, 2026-10-03, session 13: "we're gonna make a session soon to redo the
+  protocols entirely and smooth that out").  Its own session.  The rule that a retired packet's number is
+  never used again goes (his "we can remove the rule that you can't reuse old protocols").
+- **`/fly` behind an admin's permission** (session 13).  `/fly` is a test command anybody can type, until
+  admin commands come ("a permissions difference but the commands will otherwise be the same"); then it's
+  an admin's, and flight comes from spells, potions and flying creatures.
 - **Jumping** (Jacob, 2026-10-03, session 10, on movement: "we can do jumping later").  Movement steps up
   one block on its own and falls off edges; a jump is its own feature.  `design/ensemble-world.md`,
   "Movement".

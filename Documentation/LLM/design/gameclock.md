@@ -329,6 +329,53 @@ sorry").
   when its character's flight changes.  Ensemble and Soundcheck have to read 18 (a Unity round).
 - **Turning flight on to test it** with no spells yet: open.
 
+**His answers to the second shape** (2026-10-03):
+
+- **The protocol**: "oh I was thinking we would need a packet to tell the client you're being pulled
+  down".  So the server tells a client when it starts its character falling.
+- **The component**: "physics".  `Physics`.
+- **Turning flight on**: "/fly command for now".
+- **A flyer's speed**: "same walking speed as on the ground for now.  Can move up at 1/2 speed and move
+  down and double speed.  Can only move through air, is obstructed by terrain and other geometry".
+- **The protocol's rules**: "we can remove the rule that you can't reuse old protocols that seems
+  unnecessary in fact we're gonna make a session soon to redo the protocols entirely and smooth that
+  out".  Read as: a retired packet's number may be used again (`0x41`, `0x42` were "never used again");
+  block numbers keep their rule, since chunk files on disk hold them.  Asked back to be sure.  The redo
+  is in TODO.md.
+
+**The third shape**, put to him for his OK, in two rounds, each built and checked on its own:
+
+- **Round one, gravity** (protocol version 18):
+  - **`Physics`** in primlib, on the Living template: `gravity` (it falls) and `flying` (it may fly
+    now), neither saved: flight comes from a blueprint, an effect, or `/fly`, and a character logs back
+    in on its feet.
+  - **`gravity.rs`** in the GameClock, in the movement check: everything with a `Transform`, a
+    `Collider` and `Physics` that falls, isn't flying and stands on nothing takes Minecraft's step five
+    times a cycle and lands on the first block under it.
+  - **PulledDown** (`0x57`, server to client, nothing after the type): the server started your
+    character falling, so fall from where you are.  Sent only for a fall its client didn't start (its
+    last move stood on something, or it was flying): walking off a ledge, the client is already falling
+    and isn't told.  Not a MoveCorrection: moves don't wait on it, and nothing is snapped.
+  - **CharacterEnteredWorld** ends with Minecraft's two numbers (0.08 and 0.02, a tick being 1/20 s), so
+    Ensemble falls at the server's.
+  - **The moves held to the fall**: in the air, no higher than the server had it a cycle before plus a
+    block (higher is flying: pulled back, a Warn); standing, no more than a block above where it last
+    stood plus the flat distance walked (the 45-degree slope; steeper is climbing a wall, pulled back);
+    up no longer counted as walking; the hanging rule gone; `FASTEST_FALL` 78.4.
+  - Ensemble and Soundcheck read 18; the test client's `--fly BLOCKS` is pulled back.
+- **Round two, flight** (protocol version 19):
+  - **`/fly`**, a player command: turns the player's own character's flight on and off, through the
+    GameClock's mailbox like `/who`.  Anybody can type it until admin commands come (TODO.md).
+  - **FlightChanged** (`0x58`, server to client: a byte, 1 flying, 0 not), and CharacterEnteredWorld
+    ends with the same byte.  Flight turned off in the air is a PulledDown too.
+  - **A flyer's moves**: walking's 4 blocks a second flat, half that up, double down, as one ellipse
+    (up counts twice, down half); a velocity held to the same.
+  - **Through air only**: a move is pulled back if it went through a block (the line from the last good
+    spot sampled every quarter block at the waist and just under the head, the feet left out for the
+    free step).  A straight line round a corner cuts the corner, so a move is only through a wall if no
+    way along the three axes, in any order, is clear either.  The same check for walkers.  "Other
+    geometry" today is the blocks and characters standing still, which already stop a move.
+
 ## Open
 
 - What each check does, as the pieces come: a brain component for the AI, NPCs walking in movement, the
