@@ -8,8 +8,8 @@ Author:     Jacob Chacko
 
 How a version of Opus goes from `testing` to a package somebody can download.  Written for 0.0.1
 (2026-10-02), the first one, so this is the plain way: a GitHub Release on the repo with two zips on it, one
-for Conductor and one for Ensemble, made by hand.  Soundcheck (the patcher) will take over the client's half
-one day; until then a release is a zip.
+for Conductor and one for Ensemble, made by hand.  Soundcheck's admin mode publishes the client into the web
+folder now (PATCH_MANIFEST.md); folding that and the launcher into these steps is TODO.md's "one package".
 
 The repo is private, so a Release on it is private too: only people with access to the repo see it.  That's
 where it stays.  The purchased art is in the Ensemble build, and a build can't be handed out past the people
@@ -50,7 +50,7 @@ number of their own, and they all say the same thing before the tag is made:
 - **Soundcheck's `<Version>`** in `Soundcheck/dev/Opus.Soundcheck.csproj` (2026-10-02).  Soundcheck sends
   it with the Login, so `client_versions` has to list it too.
 
-All three went to `0.0.1` on 2026-10-02.  A number changed after the tag is a lie in the package, so the
+All four went to `0.0.1` on 2026-10-02.  A number changed after the tag is a lie in the package, so the
 next version's bump comes before step 3.
 
 ## 3. Conductor's package
@@ -107,13 +107,10 @@ Build, then zip the folder:
 cd /opt/storage/Coding/Opus/Ensemble/build && zip -r Opus-Ensemble-0.0.1-linux-x86_64.zip Opus-Ensemble-0.0.1-linux-x86_64 && cd /opt/storage/Coding/Opus/Conductor/dev
 ```
 
-The client trusts one certificate, the copy it carries in `Assets/Data/Certs/conductor_crt.txt`
-(`ServerCertificate.cs`), and refuses any server that shows another.  So the build only talks to a
-Conductor running on the same `conductor.crt` that's in step 3's package.  A new certificate means a new
-client build.
-
-The server address the client connects to is whatever it was built with (10.0.0.84 today).  Anybody
-outside this house gets a build that can't reach a server, which is right for 0.0.1.
+The 0.0.1 client logged in itself and trusted the one certificate it carried, so its build only talked to a
+Conductor on the same `conductor.crt` as step 3's package, at the address it was built with (10.0.0.84).
+Since then the login is Soundcheck's, and the copy is `Soundcheck/dev/Certs/conductor.crt`, beside the
+launcher at build: the next release ships the two together, and a new certificate means a new Soundcheck.
 
 ## 5. The Release on GitHub
 
@@ -150,5 +147,5 @@ The next follows suit.
 
 STATUS.md's "The branches" line says where `main` is and what version it was released as; the session
 updates it at the next hand-off, or this one.  A fix that has to go into a released version goes the usual
-way, `unstable`, `testing`, `main`, and is a new tag (`v0.0.2`), never the old tag moved.  A tag that
+way, `unstable`, `testing`, `main`, and is a new tag (`0.0.2`), never the old tag moved.  A tag that
 moves is a package nobody can trust.

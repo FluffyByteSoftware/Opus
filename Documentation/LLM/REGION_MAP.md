@@ -37,8 +37,8 @@ runs.  It's written once, when the world is made, and after that it's only ever 
   writes Omega's heights file first and the map last, so if the server stops or dies part way through
   making the world there's no map, and the next START SERVER starts the making over.  It's never written
   again after that.
-- **Who reads it**: GameWorld, on every START SERVER.  Ensemble will too, once it's decided how the client
-  gets a copy (sent at login, or handed out by Soundcheck; not settled).
+- **Who reads it**: GameWorld, on every START SERVER.  Ensemble will too, once the client carries a copy:
+  the world's dump, shipped through Soundcheck's manifest (TODO.md).
 - **Don't edit it by hand.**  A byte out of place and the server turns the whole file away (see "When a
   file is wrong").  To make a new world, stop the server and delete `Content/world/`.
 

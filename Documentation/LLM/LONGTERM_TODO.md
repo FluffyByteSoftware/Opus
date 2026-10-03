@@ -89,18 +89,18 @@ is a biome).  The first world is Alpha (flat) and Omega (hills).  `design/world.
 - **Loading around players who move**, instead of only around 0,0,0.
 - **What a region does** beyond its name: what grows and what spawns there.
 - **Blending one biome into the next** where two regions meet.
-- **A bigger world** ("it may _grow_ later"): `region.map` keeps its size in its header for that.  Jacob,
-  2026-10-01: "we're gonna make the world twice as big in the next session".  Whether that's twice as wide
-  (16 km a side) or twice the ground (about 11.6 km), and whether today's world is made again or grown,
-  is to ask (STATUS.md).
+- **A bigger world** ("it may _grow_ later"): `world_size` went to 16 on 2026-10-01, twice as wide, and a
+  change today remakes the world.  `region.map` keeps its size in its header, so growing one without
+  remaking it is possible one day; keeping the digging across a change is in TODO.md.
 
 ## Soundcheck, the patcher, and a certificate for every client
 
-**Opus.Soundcheck** is the launcher (Jacob's name).  **Started 2026-10-02**: `design/soundcheck.md` has
-what's settled (C# on .NET 10 with Avalonia; the login moves out of Ensemble into it; after the login, a
-manifest check of every file of the installed client against the stamp in `Content/patch/`; PLAY is a
-second login and starts Ensemble with the ticket; two modes, admin writes the manifest) and what's left of
-it, step by step, is in TODO.md under "Soundcheck".  What stays here is the certificate: one day Soundcheck
+**Opus.Soundcheck** is the launcher (Jacob's name).  **Started 2026-10-02, and the patcher half is built**:
+`design/soundcheck.md` has it (C# on .NET 10 with Avalonia; the login moved out of Ensemble into it; at
+start, a check of every file of the installed client against the manifest in the web folder, patched a
+file at a time; PLAY is a second login and starts Ensemble with the ticket; admin mode publishes a build
+into the web folder), and what's left of it is in TODO.md under "Soundcheck".  What stays here is the
+certificate: one day Soundcheck
 gives the client a certificate, and the server turns away any connection without a valid one ("then both
 the client should be able to trust the server and vice-versa").  Mutual TLS: today only the server shows a
 certificate (`with_no_client_auth()` in `tls.rs`), and a player proves who they are with the password.
