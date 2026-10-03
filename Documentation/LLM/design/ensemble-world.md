@@ -100,3 +100,16 @@ client-only shift (the whole ground drawn a block lower, so a block's top face i
 server's spawn at y 1 with the drawing as it is; and which the server's own idea of "standing on" follows.
 **His answer**: the drawing stays as it is: "actually I'll jsut set characters to stand on top of 0 that
 seems easier".  So a block at y fills y to y+1, and a character standing on the ground at 0 is at y 1.
+
+## The player in the world (session 9, 2026-10-03; being talked through)
+
+Jacob, opening it: "we're gonna be preparing both the server (Conductor) and Ensemble (client) with
+representing the player in the world.  This will be necessary to get movement set up next session."  And
+the rule it's built on: **"The server will be the authority, always on where the object actually is in the
+world.  The client is just a dumb renderer."**  So the client draws a character where the server last said
+it is, its own character included, and never decides a position of its own.
+
+Open, put to him: whether every character in the world is drawn or only the player's own; how far a player
+sees others (everybody, or the chunks' view); how the server tells the client (a snapshot every cycle, or
+only what changed); what the client draws a character with (a model in a slot, or a model a name); facing
+and names over heads.
