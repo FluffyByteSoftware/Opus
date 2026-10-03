@@ -10,6 +10,7 @@ A lib crate (`conductor-networking`, folder `networking/`), and a server piece: 
 talks to players.  Named by Jacob.  One crate beyond our own, `rustls`, default features off: `ring` for the
 crypto, `std` for the sockets and the PEM files, and `tls12`, so TLS 1.3 or 1.2.  It was 1.3 only until
 Ensemble's first compile (2026-10-02): Unity's .NET has no TLS 1.3, and Jacob had OKed 1.2 for that case.
+Nothing speaks 1.2 now the login is Soundcheck's, so the feature can go (TODO.md).
 
 **The door opens once the world is in** (Jacob, 2026-09-30: nobody gets in before there's a voxel to step
 on).  START SERVER only calls `wait_for_world()`, which puts both services on "Waiting on the world".  The
@@ -34,11 +35,11 @@ networking/
     │                    timed_out(), wake_address()
     ├── settings.rs    networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs         server_config(settings) -> Arc<ServerConfig>; make_pair(), the openssl command
-    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 9: PacketType, LoginAnswer, ConnectAnswer,
+    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 10: PacketType, LoginAnswer, ConnectAnswer,
     │                    KickReason, Choice, CreateAnswer, DeleteAnswer, ListedCharacter, EnteredCharacter;
     │                    frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                    connect_result(), keep_alive(), kicked(), command_accepted(), command_refused(),
-    │                    character_list(), create_result(), delete_result(), entered_world(),
+    │                    please_wait(), character_list(), create_result(), delete_result(), entered_world(),
     │                    chat_deliveries(), who_delivery(), spans(); WhoEntry; read_login(),
     │                    read_session_choice(), read_connect(),
     │                    read_list_request(), read_create(), read_delete(), read_reset_home(),
@@ -306,7 +307,7 @@ session before (`design/gameclock.md`).
 
 Jacob's command and packets, protocol version 8, the 0.0.1 release ("If we can get it where people can log
 in and chat with each other... that's release 0.0.1").  PROTOCOL.md has the bytes.  Built and tested on Linux,
-all nine checks passed, Ensemble still logging in on version 8.
+all nine checks passed.
 
 - **The client sends what was typed**: "whatever is sent there is sent as a plaintext string to the server
   and the server goes "oh hey that started with / that means look for a command"".  **PlayerCommand**
@@ -322,13 +323,13 @@ all nine checks passed, Ensemble still logging in on version 8.
   should be every beat)".  The UDP thread reads the line on the spot (`player-commands/src/chat.rs`; no
   database, nothing in the world), answers CommandAccepted or CommandRefused through the book like any ask, so a resend isn't
   said twice, and leaves the finished line in the GameClock's chat mailbox.  The broadcast check takes the
-  cycle's lines and calls `chat::send_out()`, handed to the GameClock by `wire()` (it was networking's start)
-  (`set_chat_sender()`), since the GameClock can't depend on networking: networking depends on it.  That
+  cycle's lines and calls `chat::send_out()`, handed to the GameClock by `wire()` (`set_chat_sender()`),
+  since the GameClock can't depend on networking: networking depends on it.  That
   builds **ChatDelivery** (`0x38`, a count and the lines, split to stay under 1200 bytes) and sends it to
   `sessions::in_world()` with `udp::tell_all()`, from the GameClock's thread.  Sent once; a lost one is lost.
 - **The log**: every line said is a Debug on the Game channel, the account with it.
-- **Later** (TODO.md): saying things without a `/`, nearby, once there are positions; a limit on how fast
-  one player can chat; whether the web admin sees the chat; Ensemble's chat box.
+- **Later** (TODO.md): saying things without a `/`, nearby, once there are positions; whether the web
+  admin sees the chat.  The anti-flood is below; Ensemble's chat window is `design/ensemble-hud.md`.
 
 ## /who (2026-10-02)
 
@@ -349,7 +350,7 @@ the box.  Built and tested on Linux, every check passed.
 - **Where it's answered**: `/who` from the book on the UDP thread, on the spot
   (`player-commands/src/who.rs`).  `/who list` needs positions, which only the GameClock's thread reads, so it goes in the GameClock's `/who list`
   mailbox (`who_list()`), and the broadcast check reads every player's character's name and block once and
-  calls `who::send_list()` for each ask (handed over as `set_who_sender()` when networking starts), which
+  calls `who::send_list()` for each ask (handed over by `wire()`, `set_who_sender()`), which
   finishes the ask in the book and sends the answer.  The ask stays open in the book until then, so the
   client's resend in between is dropped, and one after gets the kept answer.
 - **Spans** (`0x3A`), Jacob's "span packet": an answer over 1200 bytes goes in pieces, each saying which of
@@ -377,7 +378,8 @@ needs longer".  Built and tested on Linux, every check passed.
 - **The client shows the refusal's words** ("client interprets it as command can't be run so soon"); no
   reason number, so no protocol change.
 - **Later** (TODO.md): kicking a player who keeps flooding.
-- **A crate of its own** (2026-10-02, written, waiting on a build): `conductor-player-commands`, folder
+- **A crate of its own** (2026-10-02, built and tested: 93 tests pass, and chat and `/who` work through
+  it): `conductor-player-commands`, folder
   `Conductor/dev/player-commands/`.  Jacob, mid-way through Ensemble's chat window: "we need to rip the
   commands out of networking and put them into their own crate I think... conductor::player_commands then
   we'll probably also have admin_commands", "before we get too deep in commands".  `commands.rs` and

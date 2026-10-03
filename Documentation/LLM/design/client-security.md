@@ -111,7 +111,7 @@ As built:
 
 ## Later
 
-- **The Remember Me file is readable by other users on the same Linux machine** (Unity's .NET can't set a
-  file's permissions without reaching into the OS).  TODO.md.
-- **The client checking the server's certificate** (`Content/certs/conductor.crt`), and Soundcheck handing
-  each client a certificate of its own: TODO.md, LONGTERM_TODO.md.
+- **The Remember Me file is readable by other users on the same Linux machine.**  It was Unity's .NET
+  that couldn't set a file's permissions; the file is Soundcheck's now, whose .NET can.  TODO.md.
+- **Soundcheck handing each client a certificate of its own**: LONGTERM_TODO.md.  Checking the server's is
+  built (`Soundcheck/dev/Net/ServerCertificate.cs`, the copy beside the program, matched byte for byte).

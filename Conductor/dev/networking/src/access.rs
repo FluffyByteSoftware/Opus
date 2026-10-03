@@ -315,7 +315,7 @@ pub fn start(mode: Mode, whitelist_path: &Path, blacklist_path: &Path) {
         Mode::Off => scribe::debug(Channel::Network, &format!("Access lists: off.  {whitelisted} on the \
             whitelist and {blacklisted} on the blacklist, neither looked at.")),
         Mode::Whitelist if whitelisted == 0 => scribe::warn(Channel::Network, "access_list is whitelist and \
-            the whitelist is empty: NOBODY CAN LOG IN.  Add an address on the web admin's Networking tab, or set \
+            the whitelist is empty: NOBODY CAN LOG IN.  Add an address on the web admin's Whitelist tab, or set \
             access_list = off in networking.cfg."),
         Mode::Whitelist => scribe::info(Channel::Network, &format!("Access lists: whitelist, {whitelisted} \
             entr{} let in.", if whitelisted == 1 { "y" } else { "ies" })),
@@ -421,7 +421,7 @@ pub fn counts() -> (usize, usize) {
     (lists.whitelist.len(), lists.blacklist.len())
 }
 
-/// Both lists, for the Networking tab.  `None` while the server isn't
+/// Both lists, for the Whitelist and Blacklist tabs.  `None` while the server isn't
 /// running, since the lists only load with it.
 pub fn snapshot() -> Option<Snapshot> {
     let lists = lists();

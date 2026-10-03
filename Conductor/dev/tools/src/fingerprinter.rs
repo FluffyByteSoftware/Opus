@@ -35,7 +35,7 @@
 //! its own under `fingerprinter/`, with one function, `fill()`:
 //!
 //! - Linux: `getrandom()`, from the C library every program already has.
-//! - Windows: `BCryptGenRandom()`, from `bcrypt.dll`.  Never built yet.
+//! - Windows: `BCryptGenRandom()`, from `bcrypt.dll`.
 //! - Anything else: says it can't, and Fingerprinter shows as in trouble.
 //!
 //! No crate.  Nothing in here logs but `start()`.  A caller that can't get

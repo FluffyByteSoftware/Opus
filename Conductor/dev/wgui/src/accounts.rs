@@ -208,7 +208,7 @@ fn allowed(role: Role) -> Result<(), Answer> {
     }
     if !matches!(server::status().state, server::State::Running) {
         return Err(Answer::plain("409 Conflict", "Accounts can only be looked at and changed while the server is \
-            running.  START SERVER on the Control Panel."));
+            running.  START SERVER on the Server tab."));
     }
     Ok(())
 }

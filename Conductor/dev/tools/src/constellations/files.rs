@@ -12,7 +12,7 @@
 //! The files all live in `Content/cfg/`.  Each one is soft or hard as a
 //! whole, never a mix: a piece that needs both kinds gets two files.
 //! **Soft** means the server pieces read it when the server starts, so
-//! STOP SERVER and START SERVER (or RESTART SERVER) on the Control Panel
+//! STOP SERVER and START SERVER (or RESTART SERVER) on the Server tab
 //! is enough.  **Hard** means the program reads it at boot, so Conductor
 //! has to be shut down and run again.  Jacob's rule, 2026-09-29.
 
@@ -21,7 +21,7 @@ use crate::scribe::Channel;
 /// Which reboot a file's settings wait on.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Reboot {
-    /// STOP SERVER then START SERVER on the Control Panel.  The pieces
+    /// STOP SERVER then START SERVER on the Server tab.  The pieces
     /// that read the file are server pieces, and they read it on every
     /// start.
     Soft,
@@ -34,7 +34,7 @@ impl Reboot {
     /// What the reboot is, for the log and the page.
     pub fn describe(self) -> &'static str {
         match self {
-            Reboot::Soft => "a soft reboot (STOP SERVER and START SERVER on the Control Panel)",
+            Reboot::Soft => "a soft reboot (STOP SERVER and START SERVER on the Server tab)",
             Reboot::Hard => "a hard reboot (Conductor shut down and run again)",
         }
     }

@@ -28,8 +28,8 @@
 //!   file in its region's folder (`chunk.rs`), which always wins over the
 //!   ground it was built from.
 //!
-//! Saving changed chunks, on STOP SERVER and every so often, comes next,
-//! along with anything that changes one.
+//! Saving changed chunks, on STOP SERVER and every so often, isn't built:
+//! it comes with the first thing that changes one (`design/world.md`).
 
 pub mod block;
 mod build;

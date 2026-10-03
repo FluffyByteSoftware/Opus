@@ -46,8 +46,8 @@
 //!
 //! `server.state` is stopped, starting, running or stopping; `since` is
 //! `null` until the launcher has said anything.  While the server isn't
-//! running, `monitor` is `null` and the page shows the Control Panel and
-//! the log and nothing else.
+//! running, `monitor` is `null` and the page shows the Server tab, the
+//! Log and the Settings and nothing else.
 //!
 //! `login` is who this browser is logged in as: `user` or `admin`, and
 //! whether they can change anything (`user` can't, and the page greys
@@ -68,7 +68,8 @@
 //!
 //! `networking` comes straight from the networking crate.  `tcp` and
 //! `udp` are where each side listens, `null` while it doesn't, and the
-//! Network Admin tabs are locked until both are there.  `connections` is
+//! Connections, Whitelist and Blacklist tabs are locked until both are
+//! there.  `connections` is
 //! every connection that reached the TCP listener since START SERVER,
 //! newest first, and where each one is: `stage` is queued, handshake,
 //! login, checking, in_line, asked or done, and `text` says it in words

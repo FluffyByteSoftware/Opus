@@ -3,7 +3,7 @@
 //! Author:     Jacob Chacko
 //!
 //! Random bytes on Windows: `BCryptGenRandom()` from `bcrypt.dll`, asking
-//! for the system's own generator.  Never built yet.
+//! for the system's own generator.  Built and run on Windows (2026-09-30).
 
 use std::ffi::c_void;
 use std::io;

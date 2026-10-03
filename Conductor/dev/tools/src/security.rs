@@ -147,7 +147,7 @@ use other::advise_huge_pages;
 /// How much memory one hash uses, in KiB.  This is the knob that matters:
 /// memory is what makes a graphics card's job expensive, and it's the
 /// one we raise when we want a harder hash.  The arena is this big, and
-/// it's held for as long as Conductor runs.  64 MiB is what RFC 9106
+/// it's held for as long as the server runs (START SERVER to STOP SERVER).  64 MiB is what RFC 9106
 /// suggests for a machine short on memory.  One pass over it measured
 /// 30 ms on the dev machine (the benchmark at the bottom); Stratum's two
 /// passes measured 64 ms on the same machine.
@@ -518,7 +518,7 @@ fn queue(job: Job) -> u64 {
 // ---------------------------------------------------------------------------
 
 /// The memory every hash runs in.  Allotted once, when the worker starts,
-/// and kept for good.
+/// and kept until it stops.
 struct Arena {
     blocks: Vec<Block>,
     /// What the OS said when asked for huge pages.  `Ok` means it took the

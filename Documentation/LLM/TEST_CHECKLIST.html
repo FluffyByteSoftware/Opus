@@ -197,6 +197,32 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>The stale words in the code (2026-10-03)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The build and the tests pass with the comments and strings reworded (nothing but words changed).
+    </span></label>
+    <pre class="cmd">cargo build</pre>
+    <pre class="cmd">cargo test</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The boot's Info line names all three soft files: "a changed postgres.cfg, networking.cfg or game.cfg
+      needs STOP SERVER and START SERVER", and the next says the server waits on START SERVER from the
+      Server tab.
+    </span></label>
+    <pre class="cmd">cargo run -p conductor-launcher</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Server tab's note under the buttons lists what START SERVER brings up (Fingerprinter through the
+      monitor, then networking once the ground is in), and the state line says "START SERVER on the Server
+      tab starts it".
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

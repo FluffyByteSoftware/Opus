@@ -8,46 +8,23 @@ Author:     Jacob Chacko
 
 ## Where things stand
 
-Conductor is eleven crates, each in a folder without the `conductor-` in front (`Conductor/dev/tools/`) while
-the crate keeps it (`conductor-tools`, `conductor_tools::` in code).  `conductor-tools` (lib) holds DiskMan,
-Scribe, Constellations, Fingerprinter, Security, Archivist, the notices, the clock, the thread list, the
-services list and the server's switch (`server.rs`).  `conductor-accounts` (lib) is the one way in to the
-accounts table and `player_characters`, and the account desk.  `conductor-monitor` (lib) looks at the
-process and the machine once a second.  `conductor-networking` (lib) is the front door: a login over TLS on
-TCP that hands a player a ticket for UDP, the UDP side, character select and the spawn (Protogame), a ledger
-of every connection, and the access lists.  `conductor-player-commands` (lib) is what a player types in the
-world: the table of commands and the anti-flood, `/chat` and `/who`.  `conductor-lua-parser` (lib) runs the
-Lua scripts, locked down, and reads saved GameObjects back.  `conductor-primlib` (lib) is the game library,
-an ECS in memory, with the Living and Character templates.  `conductor-gameworld` (lib) is GameWorld, the
-ground.  `conductor-gameclock` (lib) is the GameClock, the game loop: five checks of 50 ms to a 250 ms cycle;
-it owns primlib's `World` and GameWorld's `Terrain`, takes players' characters in and out through a mailbox,
-sends the chat out and answers `/who list` from its broadcast check, and saves the world.  `conductor-wgui`
-(lib) is the web admin at `http://127.0.0.1:9996/Opus`.  `conductor-launcher` (bin) boots the program and
-waits on the web admin's Server tab.
+Conductor is eleven crates under `Conductor/dev/`, a folder each without the `conductor-` in front while
+the crate keeps it: the tools, accounts, the monitor, networking, the player commands, the Lua parser,
+primlib, GameWorld, the GameClock, the web admin and the launcher.  README.md says what each is for, and
+PROJECT_OPUS.md has every file and the table of the named pieces.
 
 **The three programs, and how a player gets in** (2026-10-02): **Soundcheck** (`Soundcheck/dev/`, C# on .NET
-10 with Avalonia 11, `design/soundcheck.md`) is the launcher the player opens.  It does the login over TLS 1.3
-(the password's key, Remember Me, the other-session choice), and PLAY logs in a second time and starts
-**Ensemble** with the Ticket in its environment (`OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`,
-`OPUS_SOUNDCHECK`), then closes.  Ensemble (Unity 6000.6; its project settings and our four folders under
-`Assets/` are committed) never logs in and never sees a password: it reads the ticket at start, sends Connect
-over UDP, and the first screen a player sees is character select; PLAY puts the character in the world with the
-HUD and the chat window over the scene.  When the session ends (Kicked, the server gone, LOG OUT, `/camp`) the
-game starts Soundcheck again with why in its environment (`OPUS_SESSION_OVER`, `OPUS_SESSION_TROUBLE`) and
-closes, so the player is looking at the login with the reason in the status box; `/camp desktop` and QUIT
-close the game without.  A game with no ticket (started by hand, or in Unity's editor) shows **the start
-screen**: "Start Forgotten Legends from the launcher." and QUIT.  In the editor that screen is **dev mode**:
-it watches for the ticket Soundcheck's `--debug` SUBMIT writes to `debug_ticket.json` and joins the world when
-a fresh one lands.  Soundcheck finds the game beside itself (`Ensemble.x86_64`), or `--game <path>`,
-remembered.  **Admin mode (`--admin`) publishes a platform's build into the web folder**
-(`/opt/storage/WWW`, served at `http://opusensemble.duckdns.org:8553/`): the build mirrored into
-`download/<platform>/`, and `linux_manifest.json` or `windows_manifest.json` written at the root from it
-(PATCH_MANIFEST.md, format 3).  **User mode checks the install at start** (built and tested 2026-10-02),
-with the login locked: it fetches the manifest for the OS it's on (`--www <url>` for a test), hashes the
-game's folder against it, fetches whatever's missing or changed a file at a time into a temp beside it and
-swaps it in, checks again, and unlocks the login on a pass; a launcher that replaced one of its own files
-starts itself again (`--patched`).  Conductor has no part in it: it sends nothing and serves nothing.  **The game's name is Forgotten
-Legends**; the project, its folders and code stay Opus.  Ensemble speaks protocol version 10.
+10 with Avalonia 11, `design/soundcheck.md`) is the launcher the player opens.  At start, with the login
+locked, it checks the game's folder against the manifest for its OS from the web folder (`/opt/storage/WWW`,
+served at `http://opusensemble.duckdns.org:8553/`; PATCH_MANIFEST.md, format 3) and patches a file at a time;
+then the login over TLS 1.3, and PLAY logs in a second time and starts **Ensemble** with the Ticket in its
+environment.  Ensemble (Unity 6000.6) never logs in: it sends Connect over UDP, starts on character select,
+and PLAY puts the character in the world with the HUD and the chat window over the scene.  When the session
+ends it starts Soundcheck again with why, and closes; with no ticket (started by hand, or in the editor) it
+shows the start screen, which in the editor is dev mode, watching for the ticket Soundcheck's `--debug`
+SUBMIT writes.  Admin mode (`--admin`) publishes a platform's build into the web folder.  Conductor has no
+part in the patcher.  **The game's name is Forgotten Legends**; the project, its folders and code stay Opus.
+Everything speaks protocol version 10.  CLAUDE.md's "Client rules" and "Launcher rules" have the detail.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -71,49 +48,24 @@ this session (`git ls-files` shows none of the old login's files).
 
 ## Jacob's map (2026-09-30, and on)
 
+What's still ahead, in his words.  The steps already taken (the character as a template, character select,
+the spawn, chat, Soundcheck's login and patcher) are in the design files with the rest of what he said.
+
 **The 0.0.1 goal**: "get a player spawned in the world and able to chat."  **Done and released** (2026-10-02).
 
-His words: "We are going to work on marrying the network code to the game by finishing out character as a
-template for hydrating from an account.  Then we will build the character selection (start of UDP
-connection), then the log in to the world, and spawn character in world."  And the flow: "account logs in
-(done) -> character selection -> selected character spawns in world at its last save loc (0,0,0 for
-now)".  His to change.
+On the milestones (2026-10-02): **"If we can get it where people can log in and chat with each other...
+that's release 0.0.1 then movement is 0.0.12"**, and then, asked: movement is **"0.0.0.12"**.  His to change.
 
 On the world (2026-10-01): "we will test a mountain out after we get the client up".
 
-On the milestones (2026-10-02, opening the server's side of chat): **"If we can get it where people can log
-in and chat with each other... that's release 0.0.1 then movement is 0.0.12"**, and then, asked: movement
-is **"0.0.0.12"**.  His to change.
-
-At the 0.0.1 hand-off (2026-10-02): **"next session we're gonna start on Soundcheck I think"**.
-
-The Soundcheck session (2026-10-02): **"we should remove login from the game like monsters and memories
-did.  The patcher should be what goes through the tcp and TLS then we hand over udp to the ensemble"**; the
-check is of every file, **"the world is the least of our concerns"**; **"we're gonna build two modes to
-Soundcheck one is the admin the other is a user"**; and a debug mode: **"every time I make a change to the
-client (Ensemble) I don't want to have to repatch!"**  At the hand-off: **"I'll build a copy of the game and
-put in a folder and we'll next session try to get it started from the patcher"**.
-
-This session (2026-10-02): opened with **"can we check our existing code and see if we have any hang over in
-Ensemble or the Server that uses the old log in method?"**; on the editor's way in, **"Play/Dev Mode but
-yes"** (the game watches for the ticket file, no button); on the world's files, out of this pass; then
-**"keep going with PLAY"**; the game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a
-0.0.12").  At the hand-off: **"next session we need to get this all ready to ship to another person on
+On shipping (2026-10-02): **"next session we need to get this all ready to ship to another person on
 Windows... I need to make sure soundcheck is set up properly to validate off the host and I don't think it is
-yet"**.  His to change.
+yet"**.  The check and the patch are built since; the Windows builds aren't (TODO.md, "Soundcheck").
 
-The manifests session (2026-10-02): **"we need to fix up soundcheck now so that admin mode builds a working
-manifest for Windows and Linux -- then Soundcheck needs to know which environment its being run from in its
-user mode... and then look for that manifest which we're gonna store at this web address"**; then, the same
-day, a zip of the client ("Redesign number 23852357235"), then no zip: **"the patcher knows if they're on
-linux or not and looks for linux_manifest.json or windows_manifest.json :P  Fuck it!  Then we'll reach to
-the opusensemble.duckdns.org:8553/download/windows/<this will mimic the client directory so you find the
-file> and the same for Linux?  our admin patcher can pack and move the files where they need to be"**.
-So the stamp and the files come from a web folder, not from Conductor, and the world's dump (his) is a file
-of its own there, later.  All three shapes are in `design/soundcheck.md`, in his words.
+At the patcher's hand-off (2026-10-02): **"we got a bit more polish to do next session.  Then we're going to
+start working on the hard part getting the world to the client"**.  His to change.
 
-At that session's hand-off (2026-10-02, the patcher tested): **"we got a bit more polish to do next session.
-Then we're going to start working on the hard part getting the world to the client"**.  His to change.
+The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
 ## Last session -- 2026-10-02, the web folder: PUBLISH, the check at start, the patch
 
@@ -139,6 +91,17 @@ is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
   `--manifest`.  SUBMIT and PLAY are back to their simple shape: the pass is a flag they look at.
 - **Nothing in Conductor changed**, and nothing of its half is left but the report up and
   `allow_debug_clients`, both open (TODO.md).
+
+## This session -- 2026-10-02, the docs clean-up, pass one
+
+Jacob: "I'd like to go over our documentation and prune any out of date information or repeat information
+on the first pass.  Let's also see if theres any directions you can rephrase in fewer words."  No code
+changed.  What went: facts the code had overtaken (Ensemble's certificate copy, "four crates", "ten
+members", the GameClock's senders handed over "at networking's start", the design shapes Soundcheck went
+through written up as if live), TODO.md's built-and-tested history (the design files have it), and the
+doubles (CLAUDE.md's two player-commands bullets, its copy of the web admin's tabs, STATUS's crate list).
+CLAUDE.md's longer directions were cut to the rule and the reason.  Pass two is Jacob's to lay out; TODO.md's
+"A major clean-up" entry has what was seen and left.
 
 ## Where the next session starts
 

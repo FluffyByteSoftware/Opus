@@ -29,18 +29,23 @@
 # account's.  --no-key sends the password as typed instead, to see the
 # server turn it away without a hash.
 #
-#   python3 test_client.py jacob_01 'Correct horse 1!'
-#   python3 test_client.py --host 127.0.0.1 --cert ../../../Content/certs/conductor.crt jacob_01 'Correct horse 1!'
-#   python3 test_client.py --go-quiet jacob_01 'Correct horse 1!'   (stops the keep-alives, to see the 40 s drop)
-#   python3 test_client.py --pause-before-login 8 jacob_01 'Correct horse 1!'   (sits open, to KICK or ban it)
-#   python3 test_client.py --create Jacob jacob_01 'Correct horse 1!'   (makes a character, then lists again)
-#   python3 test_client.py --delete Jacob jacob_01 'Correct horse 1!'   (types DELETE; --delete-word to type another)
-#   python3 test_client.py --reset-home Jacob jacob_01 'Correct horse 1!'   (puts it back at 0, 0, 0)
-#   python3 test_client.py --play Jacob jacob_01 'Correct horse 1!'   (brings Jacob into the world)
-#   python3 test_client.py --play Jacob --type '/chat Yo yo yo!' jacob_01 'Correct horse 1!'   (says it to everybody)
-#   python3 test_client.py --play Jacob --type '/who' --type '/who list' jacob_01 'Correct horse 1!'
-#   python3 test_client.py --play Jacob --type '/chat 1' --type '/chat 2' --type-gap 0 jacob_01 'Correct horse 1!'
-#   python3 test_client.py --no-key jacob_01 'Correct horse 1!'   (sends the password, not its key: refused)
+# From Conductor/dev, where the terminal sits.  The script finds the
+# certificate from its own folder when --cert isn't given, and the account
+# here is jacob_01 with the password 'Correct horse 1!' (the two last
+# arguments every time):
+#
+#   python3 networking/test_client.py jacob_01 'Correct horse 1!'
+#   python3 networking/test_client.py --host 127.0.0.1 --cert /opt/storage/Coding/Opus/Content/certs/conductor.crt ...
+#   python3 networking/test_client.py --go-quiet ...   (stops the keep-alives, to see the 40 s drop)
+#   python3 networking/test_client.py --pause-before-login 8 ...   (sits open, to KICK or ban it)
+#   python3 networking/test_client.py --create Jacob ...   (makes a character, then lists again)
+#   python3 networking/test_client.py --delete Jacob ...   (types DELETE; --delete-word to type another)
+#   python3 networking/test_client.py --reset-home Jacob ...   (puts it back at 0, 0, 0)
+#   python3 networking/test_client.py --play Jacob ...   (brings Jacob into the world)
+#   python3 networking/test_client.py --play Jacob --type '/chat Yo yo yo!' ...   (says it to everybody)
+#   python3 networking/test_client.py --play Jacob --type '/who' --type '/who list' ...
+#   python3 networking/test_client.py --play Jacob --type '/chat 1' --type '/chat 2' --type-gap 0 ...
+#   python3 networking/test_client.py --no-key ...   (sends the password, not its key: refused)
 #
 # Standard library only.
 

@@ -23,7 +23,7 @@ pub struct Utc {
 impl Utc {
     /// The current time.
     pub fn now() -> Utc {
-        // A system clock set before 1970 is broken, not something to handle.
+        // A system clock set before 1970 is broken; it reads as 1970.
         let since_epoch = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default();

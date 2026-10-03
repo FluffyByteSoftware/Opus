@@ -11,8 +11,8 @@ covers:
 
 - `README.md` and every document in `Documentation/` (STATUS.md, TODO.md, PROJECT_OPUS.md, PROTOCOL.md,
   REGION_MAP.md, the files in `design/` and `HowTo/`)
-- Every comment in every source file, in Conductor (Rust) and Ensemble (C#): headers, doc comments, inline
-  comments
+- Every comment in every source file, in Conductor (Rust), Ensemble and Soundcheck (C#): headers, doc
+  comments, inline comments
 - Every `Cargo.toml`, `.csproj`, `.conf`, `.gitignore` and shell script, and any plain file Jacob edits by hand
 - Anything the programs write for a person to read: log messages, the comments inside a config file they
   generate, the messages a player sees, and any menus and prompts
@@ -106,8 +106,8 @@ like a slip, point it out; don't fix it.
 ### File header
 
 Every file starts with a header.  The `File:` line is the path from the repo root, starting with `Opus/` --
-never the full path on the drive.  The `Component:` line is Conductor, Ensemble, Documentation, or Opus for
-files at the root.  When a file moves or is renamed, its `File:` line moves with it.
+never the full path on the drive.  The `Component:` line is Conductor, Ensemble, Soundcheck, Documentation,
+or Opus for files at the root.  When a file moves or is renamed, its `File:` line moves with it.
 
 Rust uses `//!`, so the header also shows up in `cargo doc`:
 

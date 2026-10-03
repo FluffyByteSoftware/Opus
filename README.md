@@ -16,15 +16,10 @@ game loop ticking over it, and a player can pick a character, stand in that worl
 else is there, though nothing moves yet.  Ensemble has an editor tool for the art, and screens built from
 layout files: it starts with the launcher's ticket, makes, deletes and picks a character at character select,
 and puts it in the world with a chat window over the scene, though there's no world on screen yet.
-Soundcheck is the launcher, just started: it logs in over TLS 1.3, turning the password into a key before
-it's sent or kept, and in admin mode writes the manifest of a client folder, both tested.  The login has
-moved out of Ensemble into it, and PLAY starts the game with the ticket, both tested.  The patcher is built and
-tested on Linux: admin mode publishes a build into a web folder (a copy of the client and its manifest),
-and at start the launcher hashes the game's files against the manifest (1.3 s for 655 MB), fetches
-whatever's off a file at a time, and only then lets you log in.  Nothing of Soundcheck has been built on
-Windows.
-Things will change
-and things will break.
+Soundcheck checks the game's files against the manifest its admin mode published to a web folder (1.3 s
+for 655 MB), fetches whatever's off a file at a time, logs in over TLS 1.3 with the password turned into a
+key before it's sent or kept, and starts Ensemble with the ticket; all of it built and tested on Linux,
+none of it on Windows yet.  Things will change and things will break.
 
 **0.0.1 is released (2026-10-02): a player logs in, picks a character, and stands in the world chatting.**
 The next milestone is movement.
@@ -53,12 +48,10 @@ The next milestone is movement.
 | Ensemble's chat window, `/who`'s box, `/camp`    | Built and tested, EverQuest's keys included            |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 | Ensemble starting from the launcher's ticket     | Built and tested: the start screen, dev mode           |
-| The 0.0.1 review: four bugs, seven risks fixed   | Built, tested and checked (`CODE_REVIEW_0.0.1.md`)     |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
-| Soundcheck, the launcher                         | Built and tested: the login over TLS 1.3, Remember Me, |
-|                                                  | admin mode's manifest, debug mode                      |
-| Soundcheck's PLAY starting the game              | Built and tested, the way back with the reason too     |
-| Soundcheck's web folder, check and patch         | Built and tested on Linux, a file at a time            |
+| Soundcheck, the launcher                         | Built and tested on Linux: the login over TLS 1.3,     |
+|                                                  | Remember Me, PLAY and the way back, debug mode, admin  |
+|                                                  | mode's PUBLISH, the check at start, the patch          |
 
 Conductor is written and tested on Linux (Nobara and Fedora).  It builds and runs on Windows too, START
 SERVER included, but hasn't met a database there yet.
@@ -150,9 +143,8 @@ ticket, checks every file of the installed game against the manifest for its pla
 (`linux_manifest.json` or `windows_manifest.json`, written by Soundcheck's own admin mode, which also
 copies the folder we ship into the web folder at `http://opusensemble.duckdns.org:8553/download/`), fetches
 what's wrong a file at a time, and starts Ensemble with the ticket, which goes straight to character select
-over UDP.  Today the login works, PLAY starts the game, and Ensemble takes the ticket from its environment
-and goes back to the launcher when the session ends, all tested; admin mode's publish, the check at start
-and the patch are built and tested on Linux.
+over UDP.  When the session ends, Ensemble starts Soundcheck again with the reason and closes.  All of it
+is built and tested on Linux; none of it on Windows yet.
 
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
 each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).  The manifest's shape is
@@ -160,8 +152,9 @@ each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).  The
 
 ## What it needs
 
-- **Rust**, edition 2024, 1.88 or newer.  Four crates from outside: `postgres`, `argon2`, `rustls` and
-  `mlua`.  Everything else is the standard library and what the OS already has.
+- **Rust**, edition 2024, 1.88 or newer.  Six crates from outside: `postgres`, `argon2`, `pbkdf2` and
+  `sha2` in the tools, `rustls` in networking and `mlua` in the Lua parser.  Everything else is the
+  standard library and what the OS already has.
 - **A C compiler**, because `mlua` builds Lua from source.  `gcc` on Linux; on Windows, Visual Studio's
   Build Tools and Rust's MSVC toolchain (`Documentation/HowTo/WINDOWS_INSTALL.md` walks through it).
 - **PostgreSQL 18**, on the same machine (every table's `uuid` falls back on its `uuidv7()`).
@@ -176,9 +169,9 @@ the client both, see [INSTALLATION_INSTRUCTIONS.md](Documentation/HowTo/INSTALLA
 release is made is in [RELEASE.md](Documentation/HowTo/RELEASE.md).
 
 **The TLS certificate.**  Conductor doesn't make one.  Make it once from the `Opus` folder; the key stays
-out of git, and the certificate goes in, since a client needs a copy to trust (Ensemble carries one as
-`Assets/Data/Certs/conductor_crt.txt` and Soundcheck as `Soundcheck/dev/Certs/conductor.crt`, so a new
-certificate is copied over both):
+out of git, and the certificate goes in, since the launcher needs a copy to trust (Soundcheck carries it as
+`Soundcheck/dev/Certs/conductor.crt`, so a new certificate is copied there too; Ensemble never speaks TLS
+and has none):
 
 ```
 mkdir -p Content/certs && openssl req -x509 -newkey ec -pkeyopt ec_paramgen_curve:prime256v1 -nodes -keyout Content/certs/conductor.key -out Content/certs/conductor.crt -days 3650 -subj "/CN=Opus Conductor" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
@@ -235,16 +228,17 @@ running on.
 | `wgui.cfg`              | hard   | The web admin's two passwords                                      |
 | `postgres.cfg`          | soft   | Where Postgres is, how to log in, the time limits                  |
 | `networking.cfg`        | soft   | Ports, TLS files, secret word, client versions, which access list  |
-| `game.cfg`              | soft   | `view_chunks`: how far around a player the world is loaded         |
+| `game.cfg`              | soft   | `world_size`, `view_chunks`, `world_save_seconds`                  |
 | `whitelist.cfg`         | --     | One address or range a line.  A change from the page takes at once |
 | `blacklist.cfg`         | --     | The same, for the blacklist                                        |
 
 ## Talking to it
 
-Ensemble logs in and does all of character select.  For poking at the server without it,
-`Conductor/dev/networking/test_client.py` stands in for it: Python 3, standard library only.  It logs in, takes the ticket to UDP, lists the account's characters, keeps alive, and prints every
-packet both ways.  `--create Name`, `--delete Name` and `--reset-home Name` do the rest of character select,
-and `--play Name` brings that character into the world.  `--type '/chat Yo yo yo!'` types a line in the
+Soundcheck logs in and Ensemble does the rest.  For poking at the server without them,
+`Conductor/dev/networking/test_client.py` stands in for both: Python 3, standard library only.  It logs in,
+takes the ticket to UDP, lists the account's characters, keeps alive, and prints every packet both ways.
+`--create Name`, `--delete Name` and `--reset-home Name` do the rest of character select, and `--play Name`
+brings that character into the world.  `--type '/chat Yo yo yo!'` types a line in the
 chat window once it's there (`/who` and `/who list` too), and every chat it hears is printed.  Make a
 test account on the web admin's Accounts tab first (players can't make one), then, from the `Opus` folder:
 

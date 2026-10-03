@@ -3,7 +3,8 @@
 # Author:     Jacob Chacko
 #
 # The tools: DiskMan, Scribe, Constellations, Fingerprinter, Security,
-# Archivist and the clock.  A lib crate.
+# Archivist, the clock, the notices, the threads and services lists and
+# the server's switch.  A lib crate.
 #
 # postgres is the blocking Postgres client.  Archivist runs it on a thread
 # of its own, so blocking there never holds up anything else.

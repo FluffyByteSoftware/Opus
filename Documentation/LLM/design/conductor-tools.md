@@ -180,8 +180,8 @@ that buys the same protection.
   build on that line, not around it.
 - **A `Ticket` says where a job stands.**  Every job gets a number under the worker's lock, the worker
   counts what it has finished and keeps a running average of one job (30 ms to start, then an eighth of
-  each new time), and `place()` turns the three into "N ahead, about M ms".  The Connections tab shows it;
-  telling the waiting client isn't built.
+  each new time), and `place()` turns the three into "N ahead, about M ms".  The Connections tab shows it,
+  and the login thread sends it to the waiting client as an InLine.
 - **One arena of 64 MiB**, allotted on every START SERVER, owned by the worker, let go on every STOP.
   Otherwise the crate asks the OS for a fresh 64 MiB on every hash (16,384 page faults' worth of CPU that
   isn't ours).  Every hash runs in it through `hash_password_into_with_memory()`; a stored line made with
@@ -345,8 +345,9 @@ The files today, with their defaults:
   64), `token_deadline_seconds` (1 to 600, 30), `udp_timeout_seconds` (1 to 3600, 40), `access_list` (`off`,
   `whitelist` or `blacklist`), `whitelist_file` (`cfg/whitelist.cfg`), `blacklist_file`
   (`cfg/blacklist.cfg`).
-- **`game.cfg`**, soft, loaded by GameWorld's start: `view_chunks` (1 to 16, 4).  Soft because "the world
-  should need a reboot so the voxel engine or service restarts and rebuilds" (Jacob, 2026-09-30).
+- **`game.cfg`**, soft, loaded by GameWorld's start: `world_size` (2 to 32, 16), `view_chunks` (1 to 16,
+  4), `world_save_seconds` (30 to 1800, 150).  Soft because "the world should need a reboot so the voxel
+  engine or service restarts and rebuilds" (Jacob, 2026-09-30).
 
 ## Archivist
 
@@ -429,7 +430,7 @@ The list of threads our code started, in `threads.rs`.
 - A thread is marked finished when its closure ends, a panic included (a guard that's dropped either way).
   Finished threads stay on the list; there are a handful, not thousands.
 - Threads today: `main`, `diskman`, `security`, `archivist`, `account-desk`, `lua`, `gameworld`,
-  `gameclock`, `monitor`, `net-tcp`, `net-login-1` and up, `net-dns`, `net-udp`, `wgui`.  The postgres
+  `gameclock`, `monitor`, `net-tcp`, `net-login-1` and up, `net-dns`, `net-udp`, `protogame`, `wgui`.  The postgres
   crate starts some of its own, and those show up as "not ours".
 - main can't be started by `spawn()`, so it puts itself on the list with `name_this_thread("main")` as the
   first line of `main()`.  It stays "running" for good, since main ending ends Conductor.

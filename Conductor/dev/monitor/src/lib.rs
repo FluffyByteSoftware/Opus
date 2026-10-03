@@ -5,7 +5,8 @@
 //! The monitor is Conductor's probe into itself.  Once a second, on a
 //! thread of its own, it looks at how much memory and CPU the process is
 //! using, how much it has read and written, every thread the OS says it
-//! has, the threads our code asked for, and how Archivist is doing.  It
+//! has, the threads our code asked for, how Archivist is doing, every
+//! core's load, the machine's RAM, and every process on the machine.  It
 //! keeps the latest look, and `latest()` hands a copy to whoever asks
 //! (the web admin, today) without waiting on anything.
 //!

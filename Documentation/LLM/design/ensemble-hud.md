@@ -86,7 +86,12 @@ Phases 2 and 3 are in TODO.md.
   - **The editor's canvas starts at 2560 x 1440**, Jacob's monitor, not 1080 (his "b"), and the maker
     can change it.
 
-## The login and character select screens (2026-10-01; the login written)
+## The login and character select screens (2026-10-01; the login written, then gone)
+
+**The login left Ensemble on 2026-10-02** (`design/soundcheck.md`): its widgets, layout and style are gone,
+and the start screen took its place (`design/ensemble-networking.md`, "The login moved out").  What's below
+is kept for what it settled about every screen: a widget per piece, a background that fills the screen,
+the text's colour and font as slots on ScreenRoot.
 
 Jacob: "we need to build our HUD up for login and char select".  Settled so far:
 
@@ -129,10 +134,9 @@ Jacob: "we need to build our HUD up for login and char select".  Settled so far:
   Color and Login Text Font, in the Inspector, on every word of the login, changeable in Play mode.
   Told with it: those values live in the scene, and the scene isn't committed, so git never sees them.
 
-### The login, as written (2026-10-01, built and tested in Unity)
+### The login, as written (2026-10-01, built and tested in Unity; gone 2026-10-02)
 
 Every check passed (Jacob: "That was smooth!").
-
 
 - **Eight widgets** in `Assets/Code/Hud/Widgets/`, all `"screens": ["login"]`: `login_background`,
   `login_logo` (a box that says LOGO), `login_server_ip` (`10.0.0.84`), `login_server_port` (`9997`, five
@@ -167,7 +171,7 @@ With the client's net code (`design/ensemble-networking.md`):
   slot, a name or Empty, greyed when it can't be played) and `character_select_log_out`.  Look only for now.
   ScreenRoot has its Character Select Layout and Style slots, and puts the login's text colour and font on it.
 
-## The chat window (2026-10-02, written, waiting on Unity)
+## The chat window (2026-10-02, built and tested)
 
 Jacob: "We're in this conversation set to build Ensemble up to support the chat window".  TODO.md's chat
 entry has his answers in his words.

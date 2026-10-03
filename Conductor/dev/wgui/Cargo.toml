@@ -5,8 +5,8 @@
 # The web admin: a small web server on 127.0.0.1 that shows how Conductor is
 # doing and is how the admin shuts it down.  A lib crate.  The web server is
 # written on the standard library's TcpListener, so there's no crate for it.
-# conductor-networking is here for the Network Admin tabs: the door's
-# ledger, the kick and the access lists.  conductor-accounts is here for the
+# conductor-networking is here for the Connections, Whitelist and
+# Blacklist tabs: the door's ledger, the kick and the access lists.  conductor-accounts is here for the
 # Accounts tab: the game's accounts, and the account desk.
 
 [package]

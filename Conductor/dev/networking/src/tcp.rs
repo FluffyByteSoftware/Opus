@@ -23,8 +23,8 @@
 //! login waits in Security's line, the thread waits on its ticket a
 //! second at a time, and tells the client its place in between.  `stop()`
 //! wakes the acceptor by connecting to it and the login threads by
-//! shutting down the sockets they're reading, so a stop takes as long as
-//! the slowest thread needs to notice, never a deadline.
+//! shutting down the sockets they're reading, then gives them 2 seconds
+//! to notice before going on without them, with a Warn.
 //!
 //! The login, in order: we say Hello, the client sends its version, the
 //! secret word, the username and the password's key in one Login, and we

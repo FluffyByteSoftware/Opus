@@ -245,7 +245,8 @@ pub enum LoginAnswer {
     /// password, so it costs no hash.
     Outdated = 3,
     /// The server can't check logins right now: the database or Security
-    /// is down.  Nothing the player did.
+    /// is down, or Fingerprinter couldn't make a token.  Nothing the player
+    /// did.
     Unavailable = 4,
 }
 

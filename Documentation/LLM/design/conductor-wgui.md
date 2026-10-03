@@ -328,6 +328,5 @@ the GameClock is the server: expected until the first START SERVER, stopped afte
 - `wgui_port` is moving from `conductor_globals.cfg` into `wgui.cfg` (Jacob, 2026-09-29).  In TODO.md.
 - HTTPS.  rustls is in the build for the game's login now, so it waits only on wanting it and on the browser's
   warning for a self-signed certificate.  In TODO.md.
-- The Connections tab's UDP list has no character column yet: there are no characters.
 - The lock can't lift until Archivist reconnects, and Archivist only tries when a job comes in.  TODO.md.  A
   STOP SERVER and a START SERVER is the way round it today.

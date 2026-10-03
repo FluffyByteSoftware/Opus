@@ -9,8 +9,8 @@
 //!
 //! It listens on 127.0.0.1 and nowhere else, so it can't be reached from
 //! another machine, and it's plain HTTP.  HTTPS would mean a certificate,
-//! and with nothing leaving the machine it would buy us nothing yet.  When
-//! Security brings in TLS for the game, this can use it too.
+//! and with nothing leaving the machine it would buy us nothing yet.
+//! rustls is in the build for the game's login, so it's there when wanted.
 //!
 //! What it answers:
 //!
@@ -35,7 +35,7 @@
 //! - `POST /Opus/notices/ack-all` -- clears every notice.
 //! - `POST /Opus/notices/test` -- raises a test notice, to see the bell
 //!   work.
-//! - `POST /Opus/wwwhook/start`, `/stop`, `/restart` -- the Control Panel's
+//! - `POST /Opus/wwwhook/start`, `/stop`, `/restart` -- the Server tab's
 //!   buttons.  Each drops an ask in the server's mailbox (`server.rs` in
 //!   conductor-tools) for the launcher to act on, and answers straight
 //!   away.  Turned away with a 409 when it doesn't fit where the server is
@@ -84,9 +84,10 @@
 //! send a POST to 127.0.0.1:9996/Opus/shutdown.  Three checks stop that.
 //! The `Host` header has to be this server's own address; the login's
 //! cookie has to be there, and it's `SameSite=Strict`, which the browser
-//! won't send from another site's page; and the login, the shutdown, the
-//! server buttons and the ACKs have to carry an `X-Opus` header, which a
-//! browser won't let another site's page add.
+//! won't send from another site's page; and every POST (the login and
+//! LOG OUT, the shutdown, the server buttons, the ACKs, the settings, the
+//! kick, the lists and the accounts) has to carry an `X-Opus` header,
+//! which a browser won't let another site's page add.
 
 mod accounts;
 mod characters;
@@ -155,7 +156,7 @@ pub fn start(port: u16) -> bool {
 
 /// True once the web admin has stopped: somebody pressed SHUT DOWN on the
 /// page, or its thread died.  main asks this between commands from the
-/// Control Panel, and shuts Conductor down when it says so.  The first
+/// Server tab, and shuts Conductor down when it says so.  The first
 /// time it's true the thread is joined, and a death gets a line in the
 /// log.
 pub fn has_ended() -> bool {
@@ -426,7 +427,7 @@ fn only_admin(role: Role) -> Option<Answer> {
     }
 }
 
-/// START, STOP and RESTART SERVER from the Control Panel.  The launcher
+/// START, STOP and RESTART SERVER from the Server tab.  The launcher
 /// does the work; this only checks the ask came from the page, from
 /// admin, and fits where the server is right now.  The answer is sent
 /// before anything starts or stops, and the page sees it happen through
@@ -459,7 +460,7 @@ fn server_command(request: &Request, role: Role, command: Command) -> (Answer, N
     }
 }
 
-/// KICK on the TCP tab: closes one connection at the door, by its number
+/// KICK on the Connections tab: closes one connection at the door, by its number
 /// in the status.  Admin only, and from the page only.
 fn tcp_kick(request: &Request, role: Role) -> (Answer, Next) {
     if let Some(turned_away) = only_admin(role) {

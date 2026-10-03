@@ -10,8 +10,9 @@
 //! of the server can read them, and handles a change from the web admin.
 //!
 //! A file is **soft** or **hard** as a whole.  A soft file
-//! (`postgres.cfg`) is read every time the server starts, so STOP SERVER
-//! and START SERVER on the Control Panel is enough to pick up a change.
+//! (`postgres.cfg`, `networking.cfg`, `game.cfg`) is read every time the
+//! server starts, so STOP SERVER and START SERVER on the Server tab is
+//! enough to pick up a change.
 //! A hard file (`conductor_globals.cfg`, `wgui.cfg`) is read once at boot,
 //! so Conductor has to be shut down and run again.
 //!

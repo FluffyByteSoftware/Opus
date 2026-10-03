@@ -125,7 +125,7 @@ fn reboot_text(reboot: Reboot) -> &'static str {
     match reboot {
         Reboot::Soft => "\
 Every setting in this file needs a SOFT REBOOT to take: STOP SERVER and
-START SERVER (or RESTART SERVER) on the web admin's Control Panel.  The
+START SERVER (or RESTART SERVER) on the web admin's Server tab.  The
 server reads it again every time it starts.  Edit it by hand with the
 server stopped, or through the web admin, which holds the change in a
 .wait4server file beside it until the server stops.",

@@ -3,12 +3,13 @@
 //! Author:     Jacob Chacko
 //!
 //! Entry point.  Brings up the program -- DiskMan, Scribe, Constellations
-//! and the web admin -- and then waits on the web admin's Control Panel.
+//! and the web admin -- and then waits on the web admin's Server tab.
 //! The server itself (Fingerprinter, Security, Archivist, the account desk,
-//! Lua, GameWorld, the GameClock, networking, the monitor, and whatever
-//! comes later)
+//! Lua, GameWorld, the GameClock, the monitor, and whatever comes later)
 //! doesn't start until the admin presses START SERVER there, and STOP
-//! SERVER takes it back down while the program keeps running.
+//! SERVER takes it back down while the program keeps running.  Networking
+//! is the one piece `start_server()` doesn't start: `take_commands()` opens
+//! the door once the GameClock says the ground around 0,0,0 is in.
 //! The console is only Scribe's output, and typing in it does nothing.
 //! When the admin presses SHUT DOWN, the web admin stops, main wakes up,
 //! stops the server if it's running, and Conductor shuts down.  DiskMan
@@ -37,7 +38,7 @@ const DISKMAN_GRACE: Duration = Duration::from_secs(60);
 /// How often the countdown says where it's at.
 const COUNTDOWN_EVERY: Duration = Duration::from_secs(5);
 
-/// How long main waits for a command from the Control Panel before
+/// How long main waits for a command from the Server tab before
 /// checking that the web admin is still there, and whether the world is
 /// ready for the door to open.
 const COMMAND_WAIT: Duration = Duration::from_millis(250);
@@ -67,15 +68,15 @@ fn main() {
     scribe::info(Channel::System, &format!("Content folder: {}", constellations::content_dir().display()));
     scribe::info(Channel::System, &format!("Settings from {}", constellations::config_path().display()));
     scribe::info(Channel::System, "A changed conductor_globals.cfg or wgui.cfg needs Conductor run again; a \
-        changed postgres.cfg or networking.cfg needs STOP SERVER and START SERVER.");
+        changed postgres.cfg, networking.cfg or game.cfg needs STOP SERVER and START SERVER.");
 
-    server::set(State::Stopped, "Not started yet.  START SERVER on the Control Panel starts it.");
+    server::set(State::Stopped, "Not started yet.  START SERVER on the Server tab starts it.");
 
     // Last, the web admin, and then we wait on it.  If it can't start,
     // there'd be no way to shut Conductor down short of killing it, so we
     // don't run without it.
     if conductor_wgui::start(constellations::settings().wgui_port) {
-        scribe::info(Channel::System, "Conductor is up.  The server waits on START SERVER from the Control Panel.");
+        scribe::info(Channel::System, "Conductor is up.  The server waits on START SERVER from the Server tab.");
         take_commands();
     } else {
         scribe::error(Channel::System, "CONDUCTOR CAN'T RUN WITHOUT ITS WEB ADMIN.  \
@@ -96,7 +97,7 @@ fn main() {
     scribe::info(Channel::System, "Conductor has shut down.");
 }
 
-/// Sits on the Control Panel's mailbox for as long as Conductor runs,
+/// Sits on the Server tab's mailbox for as long as Conductor runs,
 /// doing what it asks: start, stop or restart the server.  Comes back
 /// once the web admin has ended, which is SHUT DOWN, or its thread dying.
 ///
@@ -177,9 +178,10 @@ fn start_server() {
     scribe::info(Channel::System, "The server is running.");
 }
 
-/// Takes the server back down, in the opposite order.  Networking goes first
-/// (if the door ever opened; stopping it is safe either way), so the door is
-/// shut and every player told before the pieces a login leans on go; the
+/// Takes the server back down, in the opposite order.  The monitor goes
+/// first, then networking (if the door ever opened; stopping it is safe
+/// either way), so the door is shut and every player told before the
+/// pieces a login leans on go; the
 /// GameClock stops once nobody is left in the world, and the world goes with
 /// it; GameWorld goes after it, once nobody is left to ask for a chunk; Lua
 /// goes once nobody is left in the world its scripts will run, and every
@@ -209,7 +211,7 @@ fn stop_server() {
     fingerprinter::stop();
     constellations::server_stopped();
 
-    server::set(State::Stopped, "Stopped.  START SERVER on the Control Panel starts it again.");
+    server::set(State::Stopped, "Stopped.  START SERVER on the Server tab starts it again.");
     scribe::info(Channel::System, "The server has stopped.");
 }
 

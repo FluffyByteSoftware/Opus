@@ -6,7 +6,8 @@ Author:     Jacob Chacko
 
 # Opus -- TODO
 
-The big features, the ones that are a run of sessions each, are in LONGTERM_TODO.md instead.
+The big features, the ones that are a run of sessions each, are in LONGTERM_TODO.md instead.  What's built
+isn't here: the design files hold Jacob's answers and what came of them, and git has the rest.
 
 ## Deferred
 
@@ -17,7 +18,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **An all-air chunk that costs nothing** (2026-10-01, put forward with the 1 m blocks, not Jacob's ask
   yet).  The world is eleven chunks tall now, so a player's 891 chunks are mostly air, each kept whole at
   64 KB (about 57 MB a player).  A chunk that's all one kind could be held as that one kind until a block
-  in it changes.  Worth it if memory bites with more players.
+  in it changes.  Worth it if memory bites with more players.  `CODE_REVIEW_0.0.1.md`, I1, has the
+  measurement.
 - **A `world_size` change that keeps the digging** (2026-10-01, Jacob's yes, for when chunks are saved).
   Today a change deletes the whole world and makes a new one from a new seed, which costs nothing while
   nothing writes chunk files.  Once digging is saved, it would wipe every dug chunk.  Keeping the old seed
@@ -27,298 +29,54 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **A character saved outside a smaller world** (2026-10-01).  A smaller `world_size` can leave a
   character's last saved spot past the edge.  Everybody stands at 0,0,0 today, so it can't happen yet;
   it can once there's movement.  Where it goes then (0,0,0, the nearest edge) is Jacob's call.
-
-- **Chat** (Jacob, 2026-09-30: the 0.0.1 goal is "get a player spawned in the world and able to chat").
-  **The order changed** (Jacob, 2026-10-02, "rewinding a bit"): the server's side first, the client's box
-  after.  Being settled, the server's side:
-  - **The command** (Jacob, 2026-10-02): "since EverQuest set precedent it will be `/chat <message>` (up to
-    300 chars)", and it posts `[Chat] <Player>: Yo yo yo`.  Only a player whose character is in the world
-    can chat.
-  - **Who hears it: everybody in the world** (Jacob, 2026-10-02: "for now its going to be everyone this is
-    our 0.0.1 release milestone").  Nearby chat waits on movement and positions.
-  - **What the client sends** (Jacob, 2026-10-02): "the entire command is sent... we have a "chat window" in
-    the client and whatever is sent there is sent as a plaintext string to the server and the server goes
-    "oh hey that started with / that means look for a command"".
-  - **What goes out** (Jacob, 2026-10-02): "we send a packet to all users including the person who sent the
-    message on the next "chat" GameClock tick that carries chat (which should be every beat)", the line
-    reading `[Chat] Jacob: Yo yo yo!`.  So chat goes out from the GameClock's broadcast check, once a
-    250 ms cycle, and the speaker hears their own line back ("yes").
-  - **What a message may hold** (Jacob, 2026-10-02): "Plain english characters letters numbers special
-    characters, spaces."  Printable ASCII.
-  - **300 characters** (Jacob, 2026-10-02): "The server will just ignore everything after 300", so a longer
-    message is cut, not refused.  **Ensemble**: "I want the client to refuse to generate more than 300
-    characters": the chat box stops taking keys at 300.  For the chat box's session.
-  - **One fixed channel** (Jacob, 2026-10-02, asked whether the server sends the pieces): "nah a fixed chat
-    channel is sufficient like the way the old shit muds did it!"  The server sends the finished line.
-  - **Built and tested** (2026-10-02, all nine checks passed): `design/conductor-networking.md`, "Chat",
-    and PROTOCOL.md have it.  The plan, OKed: protocol version 8; `PlayerCommand` (`0x37`, an ask number and the
-    line) answered with CommandAccepted or CommandRefused; the line into a chat mailbox in the GameClock;
-    the broadcast check sends `ChatDelivery` (`0x38`, a count and the lines) to everybody in the world,
-    through a function networking hands the GameClock at its start.
+- **Chat's rest** (chat, `/who` and the anti-flood are built: `design/conductor-networking.md`, "Chat",
+  "/who" and "Commands and the anti-flood"; the chat window is `design/ensemble-hud.md`):
   - **A line without a `/`** (Jacob, 2026-10-02): "anything typed will default to being said -- something
-    we won't implement yet but TODO!"  Saying things (nearby, once there are positions) is still to come;
-    until then a line without a `/` is refused.
-  - Later: a limit on how fast one player can chat, whether the web admin sees chat, nearby chat.
-  - **Ensemble's chat box**, after: whatever is typed goes out as a PlayerCommand as it was typed, every
-    ChatDelivery's lines are printed, and it stops taking keys at 300 characters.  Where it goes: the HUD,
-    after PLAY (below).
-  - **The chat window's look** (Jacob, 2026-10-02, opening Ensemble's chat): "the default lay out is to
-    place it in the lower left", "350 pixels wide, and about 200 pixels tall with a header "Chat"".  "It
-    has a sub-chat box inside of itself at the bottom row of the chat window is an "input field" for
-    typing your local commands in."  "The chat box will echo your commands as `>commandhere` in yellow
-    font", and "Commands coming from the server are in white over 50% transparent black background".
-  - **The font** (2026-10-02): `/who`'s box needs a monospaced one.  Fatality FPS Gaming Font, which Jacob
-    has, isn't.  Of his Font Nation pack (`Assets/Purchased/Font Nation/TTF Fonts/`, purchased, so a slot on
-    ScreenRoot and never committed), `fc-query` says two are: Arcade and Retro.  Jacob: "We'll do arcade for
-    the chat window and the input", then "apologies use retro".  So **Retro**, on the whole chat window.
-  - **After PLAY: "the HUD as it is"** (Jacob, 2026-10-02), the placeholder health bar and minimap with
-    the chat box, and "make it so we render the game scene for now": the HUD has no background, so the
-    Unity scene shows behind it.
-  - **The size** is 350 x 200 on the HUD's 2560 x 1440 layout ("yes").  **The background**: "The
-    background is 50% transparent black", the whole window.  Seen on 1440p: "holy shit we need to make
-    the font bigger in 1440p and the window needs to be twice as wide!"  So 700 x 300, 24 px text.
-  - **`/camp`** (Jacob, 2026-10-02): "`/camp desktop` will log out and close the game, `/camp` will log out
-    to the login again".  The client's own: caught before anything is sent, so the server never sees it,
-    and the log out is the Goodbye LOG OUT always sent.
-  - **Written** (2026-10-02, waiting on Unity): `design/ensemble-hud.md`, "The chat window", has it.
-- **`/who`** (Jacob, 2026-10-02, after chat passed, "we're barely 30% so we're gonna keep going"): "a /who
-  that shows all connected players", each as "[PlayerName] is currently at [x,y,z]".  Planning: who counts as
-  connected, who sees the answer, where the positions come from, the line's exact form.  His answers:
-  - **Characters in the world only** ("I agree characters in the world only").  Only the one who asked
-    sees the answer.
-  - **The line**: `[Aldric] is currently at [0, 0, 0]`, brackets and all.  "Eventually we will be putting
-    in a biome name there (or zone)".
-  - **Whole blocks**: "1, 0, -2 a block is the width of a player so they can only really fit on one".
-  - **Everybody seeing everybody's position**: "thats fine for now".  Who may see positions is for later.
-  - **The look** (his old MUD's, 79 wide), "except it will says ] Forgotten Legends [" and "There are
-    seven legends currently online.":
-
-    ```text
-    ----------------------======] Realms of the Dragon [======---------------------
-                                Fri Oct  2 03:53:24 2026
-    ----------------------------------] Players [----------------------------------
-    Bujin    Eetius   Guesty   Kriket   Malachy  Trzk     Zeleya
-    --------------> There are seven players in the Realms right now. <-------------
-    ```
-
-    **Both** (Jacob, 2026-10-02): "A but if they do /who list It shows [Aldric] is currently at [0, 0, 0]
-    and so on".  So `/who` is the grid of names, `/who list` the line each with the position.
-  - **The time** (Jacob, 2026-10-02): "we are going to send this to the client as seconds from midnight UTC
-    and let the client determine the local time zone".  **The count**: "Write them all out", and "we can
-    build a new tool that converts a number into written words?  Up to one million".  **The grid**: "make
-    it fit our actual chat size".  So the client draws the date, and the grid to its own chat box's width;
-    being settled: what the packet carries, and where the words tool lives.
-  - **The packet** (Jacob, 2026-10-02): "I like the idea of a who being a packet a list of names and the
-    time from the server The Who was run".  **The time is seconds since today's midnight UTC** (his pick of
-    the two), and the client takes the date from its own clock.
-  - **Numbers into words**: "I'd make it a static class in c# but words isn't right... I think actually we
-    build a new lib.  This isn't anything like tools.  It's just a Translator and a Math object in here."
-    Up to the largest int ("Past that it would show the number").  **It's the client's** (Jacob,
-    2026-10-02): "a static class `string NumberToWords(int number)`", British, with the "and" ("IN the honor
-    of Discworld!").  The server sends the names; the client counts them and writes the count out.
-  - **A big answer** (Jacob, 2026-10-02): "we need to build a "span packet" that tells the client there are
-    X of Y packets about to show up and to wait till all are received or a specified time elapses?"  Each
-    piece says which of how many (OKed, "yes"), and the client waits 2 seconds ("2s is fine").
-  - **Built and tested** (2026-10-02, every check passed): protocol version 9, WhoDelivery (`0x39`) and Span
-    (`0x3A`); `Translator.NumberToWords()` in Ensemble now ("a"), its `.meta` from Jacob's machine; the test
-    client draws the box at 79 with the count in digits.  `design/conductor-networking.md`, "/who", and
-    PROTOCOL.md have it.
-  - **A cooldown** (Jacob, 2026-10-02): "when a user sends a who request they need a temporary cooldown of
-    like 1 second to prevent spamming or flooding the server for who requests".  One cooldown for `/who`
-    and `/who list` ("yes"); a `/who` too soon gets a CommandRefused, which the client shows as "command
-    can't be run so soon".  Chat too, "not a second but maybe two full game ticks?  So 500 ms?"  Then:
-    "I think we're doing this stupid.  We can just make it so there's anti flood prevention on the server
-    for any chat commands right?"  So it's one anti-flood rule for every command, in a table of commands
-    ("the default should be 500 ms but if we make a command that hits the database a bunch maybe that
-    needs longer"): `/chat` 500 ms, `/who` 1 second.  Built and tested;
-    `design/conductor-networking.md`, "Commands and the anti-flood", has it.
-- **The commands out of networking, into a crate of their own** (Jacob, 2026-10-02, mid-way through the
-  chat window): "we need to rip the commands out of networking and put them into their own crate I
-  think... conductor::player_commands then we'll probably also have admin_commands and potentially
-  others", and "make that todo for next session that seems urgent to me before we get too deep in
-  commands".  Today they're `networking/src/commands.rs` and `commands/` (`chat.rs`, `who.rs`): the table,
-  the anti-flood, and each command.  By CLAUDE.md's naming that's a lib, folder `Conductor/dev/
-  player-commands/`, crate `conductor-player-commands`, `conductor_player_commands::` in code (Jacob,
-  2026-10-02: "That's correct").  To plan with him:
-  - **Which way the crates lean.**  The commands use networking's `sessions`, `udp` and `protocol` (the
-    book, sending, the packets), and networking calls the commands, so one of the two can't name the
-    other.  Like the GameClock's chat sender, networking could be handed the commands as a plain function
-    at its start (the launcher wires it), with the commands crate depending on networking; or the pieces
-    both need move somewhere both can reach.
-  - **What `admin_commands` means** (Jacob, 2026-10-02): "its a permissions difference but the commands
-    will otherwise be the same".  So the same table, with who may run each; from where, still open.
-  - **Built** (2026-10-02, the same session as the chat window, "we got tokens"; waiting on a build):
-    `design/conductor-networking.md`, "Commands and the anti-flood", has how it leans.  Built, 93 tests
-    pass, chat works through it (Jacob, 2026-10-02).
+    we won't implement yet but TODO!"  Saying things nearby waits on positions; until then a line without
+    a `/` is refused.
+  - **Nearby chat**, once there are positions.
+  - **Whether the web admin sees the chat.**
+  - **Who may see positions.**  Everybody sees everybody's today ("thats fine for now").
+  - **Kicking a player who keeps flooding** (2026-10-02): today a command too soon is only refused.
+    Whether enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's
+    call.
+  - **`/help`** (2026-10-02): could list the table of commands.  Its own feature.
+  - **Admin commands** (Jacob, 2026-10-02): "its a permissions difference but the commands will otherwise
+    be the same".  So the same table, with who may run each; from where, still open.
 - **The chat field and the Input System, once there's movement** (2026-10-02, Jacob: "Do we need to
   add or adjust anything in the new Unity input system?").  Not for the keys to the field: UI Toolkit's
   KeyDownEvents already reach it, and the panel's root sees them first.  Once WASD drives the character
   (`InputSystem_Actions.inputactions`), a focused field takes every key, movement included, and an
   unfocused one lets them through: the Player action map on while `GameFocus.Has` (its `Taken` and `Lost`
-  events), off while a widget has the keys.  **Settled** (Jacob, 2026-10-02, from EQ): "if you move while chatting your
-  movement keys just go to the chat when its focused... everything does its gotten me killed a few times
-  before I realized I was chatting".  So no key is ever both; the game never moves you while you're typing.
-  Part of movement.
+  events), off while a widget has the keys.  **Settled** (Jacob, 2026-10-02, from EQ): "if you move while
+  chatting your movement keys just go to the chat when its focused... everything does its gotten me killed
+  a few times before I realized I was chatting".  So no key is ever both; the game never moves you while
+  you're typing.  Part of movement.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
   the catalog's `MaxCount` for chat is 1 today.
 - **A major clean-up of code and documentation** (Jacob, 2026-10-02, at the chat window's hand-off: "Next
-  conversation we're gonna do major clean up of code and documentation").  His to lay out.  Candidates seen
-  on the way: the stale words entry below; `design/conductor-networking.md`'s "Chat" and "/who" sections,
-  patched for the commands' move rather than rewritten; STATUS.md's "Where things stand" paragraph, which
-  has grown to a page; `ChatWidget`'s `Font` being a static set by ScreenRoot, which works but is the only
-  slot handed over that way (the login's font goes through `ApplyText()`).
-- **Kicking a player who keeps flooding** (2026-10-02): today a command too soon is only refused.  Whether
-  enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's call.
-- **`/help`** (2026-10-02): could list the table of commands.  Its own feature.
-  - **Ensemble, with the chat box**: draw the WhoDelivery (the box to the chat box's width, the time in the
-    player's time zone, the count with `NumberToWords()`), and put Spans back together (2 seconds).
-    Written with the chat window (2026-10-02).
+  conversation we're gonna do major clean up of code and documentation").  **Pass one of the docs is done**
+  (2026-10-02): the facts the code had overtaken, the built history in this file, the doubles, and CLAUDE.md's
+  longer directions cut down; the stale words in the code went the day after.  Seen and left:
+  `ChatWidget`'s `Font` being a static set by ScreenRoot, which works but is the only slot handed over
+  that way (the other screens' font goes through `ApplyText()`); `design/conductor-networking.md`'s "Chat"
+  and "/who" sections, patched for the commands' move rather than rewritten; `design/ensemble-hud.md`'s
+  login sections, kept as history (Jacob: leave them); REPORT.html, not looked at.
 - **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up
   repeatedly needing but we don't need it... yet put this in todo".  A static class beside the Translator,
   when there's a formula used in more than one place.
-  - **Ensemble**: these lines only line up in a monospaced font, so the chat box needs one.  Retro
-    (above, "The font").
-- **Protogame**: the game-adjacent piece between a logged-in player and the world (Jacob's word).  Built:
-  character select and the spawn (`networking/src/protogame.rs`).  The history of how it was settled is
-  kept below.  Settled for its database side, the first step:
-  - **`player_characters`**, a new table (its own schema file, `id` and `uuid` like every table).  Each
-    row has its account's `id` (`account_id`, `ON DELETE CASCADE`, so deleting an account wipes its
-    characters).
-  - **Three slots on the account**: `character_slot_1` to `character_slot_3` on `accounts`, each the `id`
-    of a `player_characters` row or empty (`ON DELETE SET NULL`).  `accounts.sql` is frozen, so it's a
-    migration (`0002_...`).  The link is in two places, so making or deleting a character is two writes
-    in one transaction.
-  - **`conductor-accounts` writes the SQL for both tables**; protogame and the game library call its
-    functions.
-  - **`CharacterSnapshot`** lives in `conductor-accounts` beside `Account`: the surface of a character
-    (its name, where it is) for whatever needs one outside the world (character select, the web admin).
-    Read from the row, so it's the last save, and never written back.  The character itself lives in the
-    game library, and only it writes its row.
+- **Protogame's rest** (character select and the spawn are built, `networking/src/protogame.rs`;
+  `design/conductor-networking.md`, `design/conductor-accounts.md` and `design/primlib.md` have Jacob's
+  answers):
+  - **What the client is sent after CharacterEnteredWorld**: the chat, and nothing else yet.  The world
+    around it, other players and movement are the game's packets, to come.
+  - **The long name is the player's to capitalize, later** (Jacob: "there will be a way to set your
+    _LONG_ to be capitalized how you want in game but when creating its this way").  `LongName` is where
+    "McKay" goes; it's left empty until then.
   - Actor, Agent and Character (anything that acts; one the computer controls; one with a human on top)
     were named before primlib, and are likely sets of components now rather than types.
-
-  - **The flow** (Jacob, 2026-09-30): "account logs in (done) -> character selection -> selected character
-    spawns in world at its last save loc (0,0,0 for now)".  Character selection is the start of the UDP
-    connection, so a character is picked after the UDP connect, not at the TLS login (protocol version 5).
-  - **The character is a template** (primlib's), hydrated from the account: Jacob's first step of the
-    three on his map in STATUS.md.  Part A, the GameObject side (Living, Character, `PlayerCharacter`,
-    saving as Lua text), is written: `design/primlib.md`, "The character and saving", has Jacob's
-    answers.  **Part B** is what's left of this step:
-    - **`player_characters`**, as above, with the name and the last position as columns of their own and
-      the rest of the save as Lua text in one column (the mix, Jacob's yes: character select lists names
-      and the spawn reads the position without running anything).  Every UPDATE rewrites the row whole,
-      so how often it's saved doesn't pick the shape; what SQL needs to see does.
-    - **The account's slots point at the character by `id`**, per CLAUDE.md ("refer to CLAUDE on this").
-    - **Built and in the database** (2026-09-30, every check passed): the schema file
-      `player_characters.sql` and migration `0002_character_slots_on_accounts.sql`.  **A character's name
-      is 4 to 20 letters, a to z, and only the first can be a capital** (Jacob: "Character names are 4 to
-      20 alphabetical only, can start with a capital.  All names must be unique"), unique across the
-      server whatever the capital: "Jacob is fine JaCob is not Mckay is fine but not McKay".  The position
-      is three `REAL` columns, an f32 each like the Transform (Jacob's yes).
-    - **The long name is the player's to capitalize, later** (Jacob: "there will be a way to set your
-      _LONG_ to be capitalized how you want in game but when creating its this way").  The name rule
-      above is for making a character; `LongName` is where "McKay" goes.
-    - **The functions in `conductor-accounts`**: make, list, load and save a character, and delete one.
-      Jacob's answers, 2026-09-30:
-      - **A new character takes the first empty slot.**
-      - **All three full, and making one is refused**: "we refuse to even allow them to create".  So the
-        client isn't offered it, and the server turns it away too.
-      - **Only the player deletes a character, and only one on their own account**: "Player can delete
-        their character from their account that's it."  Not the admin.
-      - **The unplayable flag is built with them** (Jacob: "Now"), though nothing calls it until the spawn
-        loads a save.
-      - **Built and tested** (2026-09-30): `accounts/src/characters.rs`.  `design/conductor-accounts.md`,
-        "Characters", has what each does.
-    - **A corrupted character** (Jacob, 2026-09-30): a save that won't load fails the whole character
-      (built), "send a notification to admin and mark this as a corrupted player character somehow" (built).  Jacob's answers:
-      - **The mark is "unplayable", and that's all**: "it should just flag a character as unplayable so
-        the admin has to go and figure out if its salvageable or delete it".
-      - **The notice is an Error.**
-      - **The player still sees it at character select, and can't play it**: "the player would see the
-        character name but unable to play it (it won't let you in the client) so maybe we send in the
-        display characters packet to the client a boolean for this?"  So the list of characters carries
-        an unplayable flag per character (protocol version 5, with character select).  The server turns
-        it away too, since a changed client could ignore the flag.
-      - **The flag lives in memory, for the run only** (Jacob's pick): "the admin will need ot restart the
-        server to have it attempt again".  STOP SERVER and START SERVER forget it, and the next try loads
-        the save again.  No column and no migration; the Error in that day's log keeps the why.
-      - Built in `characters.rs` (`mark_unplayable()`, `is_unplayable()`, `forget_unplayable()`), and the
-        flag is in `CharacterListDelivery`; a reset home marks a broken save.  What's left is the spawn
-        calling it and turning an unplayable character away.
-  - **The player makes a character at character select**, from the client, so nothing makes one until
-    step 2, and it's tested through the game then: "We'll build it to test it through the game".
-
-  Open: which messages protogame carries; how the test client shows it working.  Jacob, 2026-09-30, once
-  the Characters tab was in: "to test it we'll need to build up our script and the networking portion (the
-  packets to support character creation)", so character select is `test_client.py` and the packets
-  together, and it's what puts the first character on the Characters tab.
-  - **The packets, Jacob's names** (2026-09-30), over UDP in `0x2_` (PROTOCOL.md keeps it free for "a
-    character select, say"), protocol version 5, each ask with a u32 ask number so a lost answer can be
-    asked for again (proposed, and his names kept):
-    - `CharacterListRequest`, client to server, and `CharacterListDelivery`, server to client ("makes it
-      less confusing").
-    - `CreateCharacter`, and `CharacterCreateResult`.
-    - `DeleteCharacter`, and `CharacterDeleteResult`.
-    - `CharacterRequestResetHome`, client to server only: "sends character back to 0, 0, 0".
-    - `CharacterIsPlayable`, server to client, "so client can gray their name out".
-    - "That's all I can think of right now."
-    - Jacob's answers after (2026-09-30):
-      - **A general answer packet that says "command accepted"**, "reused elsewhere" too: the answer to
-        `CharacterRequestResetHome`, and to any later command that needs no more than that.
-      - **The playable flag is a bool per character in `CharacterListDelivery`**, not a packet of its own
-        ("make it the server to client response already just add a bool in it").
-      - **Protogame is the name**: "the character selection and character construction are proto game then
-        become game objects after load".
-      - **A new character's name goes in `ShortName` only** ("short name here only").
-      - **Deleting is typed out**: "player should have to type out and send back delete and get a
-        deleteapproved or denied then the server deletes".  Then, asked how: "player presses delete, and the client
-        pre-reqs to ask them to type in delete then sends the packet to the server with the typed in
-        word.  Server either approves or denies."  One round: `DeleteCharacter` carries the uuid and the
-        typed word, and the server deletes only when the word is DELETE.
-      - **Two general packets in `0x3_`**, `CommandAccepted` (the ask number) and `CommandRefused` (the ask
-        number and why), Jacob's pick of the two readings.
-      - **The long name is left empty** until the player is in game ("the longname is not dealt with until
-        they're in game yup").
-    - **Built and tested** (2026-09-30): Protogame (`networking/src/protogame.rs`), the nine packets
-      (protocol version 5), the ask number in the book, primlib's `new_character()` and
-      `Save::of_blueprint()`, and the test client's `--create`, `--delete`, `--delete-word` and
-      `--reset-home`.  `design/conductor-networking.md`, "Character select and Protogame", has it.
-    - **Picking a character to play** is the spawn, step 3 of Jacob's map.  **Done, both halves.**
-      **The game library's half is built and tested** (2026-10-01): `conductor_gameclock::enter()`
-      and `leave()`, the players' list, saving on leaving and the world save (`design/gameclock.md`,
-      "Players and the world save").
-      **Networking's half, Jacob's answers (2026-10-01)**, built and tested, every check passed
-      (`design/conductor-networking.md`, "The spawn"):
-      - **The loop** is login, character select, the pick, the character in the world at its last save,
-        and the session ending whichever way it ends, with the character saved and taken out.
-      - **The packets are `UserPressPlay`** (client to server: the ask and the character's uuid) **and
-        `CharacterEnteredWorld`** (server to client: the ask, the uuid, the name, and x, y, z).  A pick that
-        can't be played gets a CommandRefused.  Protocol version 6.
-      - **No way back to character select from the world**: "you log out back to log in screen every
-        time".  Once a player is in the world, character select's asks are refused.  And when there's a
-        way to log out in game: "Even if you camp out, you go back to login screen not char select."
-      - **The race on a quick re-login** (the pick reading the row before the last session's leaving save
-        lands): "let's set a lockout on a character being instantiated for like 1 second?  The player
-        should get a reject disconnected packet but its so short they just reconnect".  So a character
-        that left the world can't be picked for 1 second, and a pick inside that second gets a Kicked
-        (a new reason, 6) and the client goes back to the login screen.  It can only bite after "log the
-        other session out", where the second login's hash is done before the first is kicked.  Jacob
-        confirmed the reading (a Kicked and the login screen, not a CommandRefused): "Yes, that's correct."
-        Then, his correction: what he meant was a "load" lock, "a temporary 'load' lock on a character as
-        its pulled from database to memory... and loaded in the world... locked for 1 second and then
-        released?  All that lock does is prevent another one from being instantiated."  Shown that a load
-        lock alone doesn't stop the stale save on a quick re-login: **both ways** ("yeah... that's the
-        solution we lock it when it does that"), so 1 second on loading and 1 second on leaving.  And he
-        asked: "do we have any way to force a save on the connection being kicked before the new one pops
-        in?"  The GameClock marks a leaving character "saving" until its save lands, and the login that
-        kicked it waits for that before handing out its ticket: up to 5 seconds (Jacob: "5 seconds"), and
-        past that Login Unavailable (proposed with it; his "yes" to the plan).  Built and tested;
-        `design/conductor-networking.md`, "The spawn", has it.
-      - **The character goes beside the account on the Connections tab's UDP list** now ("yes").
-      - **Still open**: what the client is sent after CharacterEnteredWorld (the world around it, other
-        players, movement: the game's packets, to come).
 - **The GameClock's checks**: an input packet (the mailbox is there, for entering and leaving), a brain for
   the AI, movement into `Transform`, the broadcast (only what each player may see).  `design/gameclock.md`.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their
@@ -333,15 +91,6 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 
 ### Networking
 
-- **A pick inside the character's lock waits instead of a Kicked** (Jacob, 2026-10-02, found testing the
-  double login: "we need to have the client wait for the lock out and then be allowed to play them...
-  instead of kicking them back to login", then "the client is told to wait and then pulled in?", then
-  "please add the PleaseWait feature before we release").  **Built and tested, 2026-10-02**: protocol version
-  10's PleaseWait (`0x3B`, the ask's number and words, general for any ask that will take a moment); Protogame
-  sends it and waits the lock out (the rest of its second, then the save) up to 5 s, then plays the character;
-  past that, the Kicked as today.  Ensemble shows the words on character select's status line and keeps PLAY
-  greyed until the answer.  PROTOCOL.md's "One moment" has it.
-
 - **Client management**, not this iteration:
   - A player limit: "The server is full."  Today `max_waiting_logins` caps the door and nothing caps the
     world.
@@ -351,8 +100,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - A session id in every UDP packet, so a home router changing the port mid-session doesn't end it.
   - Messaging a player from the web admin.
 - **A client certificate for every client** (mutual TLS).  Today the server never asks a client for
-  one; the test client's `--cert` is the client checking the server.  It waits on Soundcheck, which is
-  started (LONGTERM_TODO.md, and "Soundcheck" above).
+  one; the test client's `--cert` is the client checking the server.  Soundcheck is where it goes
+  (LONGTERM_TODO.md).
 - **The whitelist and blacklist changeable while the server is stopped** (Jacob, 2026-09-30).  Today the
   tabs are locked until both listeners are up, and `addip` / `removeip` answer 409 while networking isn't
   running.  It would take: the two tabs open while stopped, like Settings; `/Opus/networking` reading the
@@ -363,7 +112,7 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   lists take at once.  Jacob's call if the reboot is a bother.
 - The client versions are a list in `networking.cfg`, `0.0.0.1, 0.0.1` today.  `0.0.0.1` was Ensemble's
   pre-release version and is stale: the Login's version is Soundcheck's now (`0.0.1`, its csproj's
-  `<Version>`), and Ensemble sends none.  Taken out with the `tls12` feature ("Soundcheck", above).
+  `<Version>`), and Ensemble sends none.  Taken out with the `tls12` feature ("Soundcheck", below).
 - Reverse DNS on macOS: `dns/other.rs` hands back no name.  macOS has `getnameinfo` with its own
   `sockaddr` layout (a length byte first).  Waits on a Mac.
 
@@ -374,17 +123,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   longest and the latest, late cycles, maybe a graph of the last minute); the numbers the GameClock keeps
   for it (like the monitor's `latest()`); its read path under `/Opus/`, asked for when it's built.
   Nothing on it changes anything, so no `wwwhook` route.
-- **A tab for the game's entities under GAME MANAGEMENT** (Jacob, 2026-09-30: "Yes let's build a tab for
-  characters", then "this is going to be a heading under Game Management to edit player characters or
-  NPCs since they're 'in game' entities").  So it edits, not only looks, and covers NPCs as well as
-  players' characters.  The admin doesn't delete a player's character there (only the player does).
-  **Seeing the characters is built first** (Jacob, 2026-09-30: "implement the improvement to the web gui
-  for character visibility under Game Management"), look only.  A Characters tab, `GET /Opus/Content/characters` (Jacob's
-  yes), seen by `admin` and `user` both (Jacob's pick, though it shows account names), showing only "their
-  name, their X,Y,Z, and which account they're connected to", and the UUID.  **Editing is its own conversation**
-  (Jacob: "Next conversation we do this"): whether an edit goes to the row or to the copy in the world
-  (only the GameClock's thread touches the `World`), what can be edited, NPCs, and its routes under
-  `/Opus/wwwhook/`.
+- **Editing the game's entities under GAME MANAGEMENT** (Jacob, 2026-09-30: "this is going to be a heading
+  under Game Management to edit player characters or NPCs since they're 'in game' entities").  Seeing them
+  is built, the Characters tab, look only.  Editing is its own conversation (Jacob: "Next conversation we
+  do this"): whether an edit goes to the row or to the copy in the world (only the GameClock's thread
+  touches the `World`), what can be edited, NPCs, and its routes under `/Opus/wwwhook/`.  The admin doesn't
+  delete a player's character there (only the player does).
 - **A list of blocked names** (Jacob, 2026-09-30), its own session:
   - `Content/cfg/blocked_names.txt`, beside the two access lists, one entry a line and not in
     Constellations' table, so CLAUDE.md's "one exception" becomes three files.
@@ -407,10 +151,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 
 ### Soundcheck
 
-Started 2026-10-02 (`design/soundcheck.md`).  Built and tested: user mode's login over TLS 1.3 to the Ticket,
-PLAY, the way back, Ensemble's half.  **Built and tested on Linux** (2026-10-02, the web folder
-session): admin mode's PUBLISH, the check at start (1.3 s for 655 MB), the patch a file at a time.  The
-launcher's own restart after a patch is written and untested.  What's left, a step each:
+Started 2026-10-02 (`design/soundcheck.md`).  Built and tested on Linux: the login over TLS 1.3 to the
+Ticket, PLAY and the way back, Ensemble's half, admin mode's PUBLISH, the check at start (1.3 s for
+655 MB) and the patch a file at a time.  Untested: the launcher's own restart after a patch (Parked in
+TEST_CHECKLIST.html until Soundcheck ships beside the game), the Windows rename-aside, and anything else on
+Windows.  What's left, a step each:
 
 - **The world's dump** (Jacob, 2026-10-02): Conductor dumps a portable world to `Content/`, "a general
   shape of the world but 'smoothed'", for the client to carry (region.map and the heights, the ground as
@@ -420,52 +165,34 @@ launcher's own restart after a patch is written and untested.  What's left, a st
   client download.  Not designed yet: what's in it, how "smoothed", where it lands in the install
   (`Ensemble_Data/StreamingAssets/World/`, the fifth folder), and whether Conductor dumps it on START
   SERVER or on a button.  Its own session, after the patcher.
-- **The web folder, the check and the patch are built and tested** (2026-10-02; PATCH_MANIFEST.md at
-  format 3, `design/soundcheck.md`): `/opt/storage/WWW` served at `http://opusensemble.duckdns.org:8553/`,
-  `linux_manifest.json` and `windows_manifest.json` at its root and `download/<platform>/` an exact copy of
-  each client; admin mode's PUBLISH mirrors the build in and writes the manifest; user mode checks at
-  start with the login locked, fetches what's off a file at a time into a temp and swaps it in, checks
-  again, and starts itself again when one of its own files changed (`--patched` stops a loop).
-  Untested: the launcher's own restart (Parked in TEST_CHECKLIST.html until Soundcheck ships beside the
-  game) and the Windows rename-aside.
+- **The world's files on the client** go in `Assets/StreamingAssets/World/`, a fifth folder of ours under
+  `Assets/`, into the `.gitignore` with its `.meta` (Jacob, 2026-10-02: out of that pass).  A Unity build
+  packs everything under `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as
+  loose files, and a patcher writes loose files.
 - **Conductor's half**, what's left of it: the manifest and the files come from the web folder, so Conductor
   sends nothing and serves nothing.  What could still be its: the client's report up after the check
   (the manifest in the protocol's own bytes, in pieces or past the 4,096-byte frame cap) and Conductor
   checking it against its own copy, so a changed client can't just skip the check; and `allow_debug_clients`
   (below).  Neither is started, and whether the report is worth building is open.
-- **Ensemble's half is built and tested** (2026-10-02; `design/soundcheck.md`, "Ensemble's side"):
-  the login screen and the TCP half of `Assets/Code/Net/` are gone; it starts on character select with the
-  ticket read from its environment (`OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`, `OPUS_SOUNDCHECK`); no
-  ticket is the start screen, saying to start the game from the launcher; when its session ends it starts
-  Soundcheck and quits (`/camp desktop` and QUIT quit without); in the editor, dev mode watches for
-  Soundcheck's `debug_ticket.json`.  **Still to do from it**: the world's files move to
-  `Assets/StreamingAssets/World/`, a fifth folder of ours under `Assets/`, into the `.gitignore` with its
-  `.meta` (Jacob, 2026-10-02: out of that pass).
+- **Debug mode's Conductor half**: `allow_debug_clients`, off by default; a client that says it skipped the
+  check is let through to the Ticket only when it's on, else refused with words that say so.  Only means
+  something once the report up (above) exists; today `--debug` skips the check on the client alone, and
+  nothing on the server knows.
 - **Conductor's `tls12` feature can go**: nothing speaks 1.2 any more (Soundcheck and `test_client.py` both
   insist on 1.3).  `networking/Cargo.toml`'s feature list and the comment in `tls.rs`; and `0.0.0.1` comes
   out of `client_versions` in `Content/cfg/networking.cfg` (Ensemble's old pre-release version; the Login's
   version is Soundcheck's now, `0.0.1`).  A small Conductor step.
-- **PLAY in Soundcheck is built and tested** (2026-10-02; `design/soundcheck.md`, "PLAY is a
-  second login" and "Where the game is"): a second login, the game started with the ticket in its
-  environment, Soundcheck closing.  The game is beside the launcher, or `--game <path>` (remembered).  The
-  Ensemble package's name for the game is `Ensemble.x86_64` on Linux; a Unity build also leaves an
-  `Ensemble_BackUpThisFolder_ButDontShipItWithYourGame` folder beside it (the IL2CPP symbols), which the
-  one-package release step leaves out, and the mirror and the manifest do (2026-10-02).
 - **The check runs once, at the start**: neither SUBMIT nor PLAY hashes the install again.  Hashing a
   Unity build takes seconds, so once is the plain way; a file changed while the launcher sits open isn't
   caught until the next start.  Open whether that matters.
-- **Debug mode's other halves** (`--debug` is in Soundcheck, 2026-10-02; `design/soundcheck.md`):
-  - **Conductor**: `allow_debug_clients`, off by default; a client that says it skipped the check is let
-    through to the Ticket only when it's on, else refused with words that say so.  Only means something
-    once the report up (above) exists; today `--debug` skips the check on the client alone, and nothing on
-    the server knows.
-  - **Ensemble in the editor**: done with Ensemble's half (dev mode: the start screen watches for
-    `debug_ticket.json` and joins the world when a fresh one lands, editor only).
+- **The Remember Me file is readable by other users on the same Linux machine.**  It was Unity's .NET
+  that couldn't set a file's permissions; the file is Soundcheck's now (`Security/RememberedLogin.cs`),
+  whose .NET can (`File.SetUnixFileMode`).  Worth doing before players have it.
 - **Shipping to a player on Windows** (Jacob, 2026-10-02: "get this all ready to ship to another person on
   Windows... make sure soundcheck is set up properly to validate off the host"): the check and the patch
-  are written (above); then a Windows build of Ensemble (`Ensemble.exe`) and of Soundcheck, neither tried
-  yet, published as the Windows half of the web folder; whether `Process.Start`, the environment hand-off
-  and the rename-aside behave there; one package (below); the other person's server reachable
+  are built; then a Windows build of Ensemble (`Ensemble.exe`) and of Soundcheck, neither tried yet,
+  published as the Windows half of the web folder; whether `Process.Start`, the environment hand-off and
+  the rename-aside behave there; one package (below); the other person's server reachable
   (`bind_address`, the firewall on TCP 9997 and UDP 9998, `client_versions`); the web folder up at
   `opusensemble.duckdns.org:8553`.  The install has to be somewhere the player can write (not `Program
   Files`), and INSTALLATION_INSTRUCTIONS.md will say so.
@@ -480,16 +207,9 @@ launcher's own restart after a patch is written and untested.  What's left, a st
 
 ### The rest
 
-- **The 0.0.1 code review** (2026-10-02, `CODE_REVIEW_0.0.1.md`): all of Conductor read for flaws and
-  inefficiencies.  Four bugs (a double login can give one account two players; `region.map` and the
-  heights file panic GameWorld's thread on a corrupt header, an i32 multiply; deleting an account on a
-  slow database never kicks its player), seven risks worth fixing before the tag (`user` can read every
-  password through `/Opus/settings`, idle TLS connections tie up the login pool, a spoofed UDP Connect is
-  a disk-written Info line, accept failures flood the bell, a DiskMan write during a config swap is lost,
-  notices have no cap, a Warn per world save over `slow_job_ms`), and the rest.  **The four bugs are fixed,
-  built and tested, and the seven risks are fixed, built and tested too** (2026-10-02, 365 tests).  The rest (R8 on,
-  the inefficiencies, the stale words) is the clean-up's list.
-
+- **The 0.0.1 code review** (`CODE_REVIEW_0.0.1.md`): the four bugs and the seven risks worth fixing before
+  the tag are fixed, built and tested (2026-10-02, 365 tests).  What's left is R8 on, the inefficiencies and
+  the cleanliness list, Jacob's to pick from; the stale words below are the words half of it.
 - **Scribe: the Debug switch** in `conductor_globals.cfg` that drops Debug lines when off.  Then go
   through every log line and move the routine ones to Debug, per CLAUDE.md.  Archivist's connect, schema
   and settings lines first, and the launcher's four start and stop lines.
@@ -502,8 +222,8 @@ launcher's own restart after a patch is written and untested.  What's left, a st
   as each player leaves.  A new table, so its own session.
 - **Where the test client lives** and what it's called, once it outgrows `networking/`.
 - Monitor on macOS: `proc_pidinfo` / `proc_pid_rusage` from libproc.  Waits on a Mac to test on.
-- Ensemble has no way to find `Content/` yet, if it ever needs to.  The certificate didn't need it: the
-  client carries a copy, `Assets/Data/Certs/conductor_crt.txt` (2026-10-02).
+- Ensemble has no way to find `Content/` yet, if it ever needs to.  Nothing has needed it: the server's
+  certificate is Soundcheck's, beside the program.
 - **The purchased art lives in Ensemble** (2026-10-01): `Assets/Purchased/` in the Unity project, ignored
   like the rest of `Assets/` but our four folders.  It isn't in the repo at all, LFS or not.  Whether
   `Content/Assets/` (ignored, empty) still has a use is open; nothing reads it.
@@ -511,11 +231,10 @@ launcher's own restart after a patch is written and untested.  What's left, a st
   - `Packages/` is ignored, so `Packages/manifest.json` (which packages the project uses) and
     `packages-lock.json` aren't committed.  A Unity project usually commits both, and the first package
     the client code needs (the Input System, say) makes it matter.
-  - **Done** (2026-10-02, Jacob's yes): `Assembly-CSharp*.csproj`, `Opus.Ensemble.sln` and `.slnx` are out
-    of git and in the `.gitignore`.  Unity rewrote them on every compile, and the rewrite stopped a
-    `git checkout main`.
   - `.gitattributes` sends `.unity` scenes and `.anim` through LFS.  Both are text Unity can merge;
     asked on 2026-10-01, not answered yet.
+  - Done (2026-10-02, Jacob's yes): the `.csproj`, `.sln` and `.slnx` are out of git and in the
+    `.gitignore`, since Unity's rewrite of them on every compile stopped a checkout.
 - **Copy Anims From FBX Pack** (`Assets/Editor/CopyAnimsFromFbxPack.cs`), small things if they bite:
   - The red "would land on the same file" showed up once with the whole `Assets/Purchased/` as the
     source (about 1000 clips), and not again on `Male`.  With several packs at once, two packs' files
@@ -532,89 +251,13 @@ launcher's own restart after a patch is written and untested.  What's left, a st
     drag, move, resize to the minimum, anchor, remove, snap to a grid, and save as a layout JSON.  It's a
     new piece of the project, so it needs a name from Jacob, and a home (a new folder at the repo root is
     his call).
-  - The login and character select as layouts (`screen` `"login"` and `"character_select"`), shipped
-    with the game, never the player's.  **The login is built and tested** (2026-10-01,
-    `design/ensemble-hud.md`, "The login, as written"); character select's layout is still to come.
-- **Security in the client** (Jacob, 2026-10-01, at the login's hand-off: "next conversation we start
-  building security into the client").  **The client's half is built and tested** (2026-10-01, every check
-  passed); `design/client-security.md` has the contract.  **Conductor's half is built and tested**
-  (2026-10-02, every check passed): protocol version 7, the key refused if it isn't one, the account desk
-  making the key from what the admin types (`pbkdf2` and `sha2`, OKed), every account deleted.  What it
-  covers, Jacob's answers:
-  - **The password is turned into a key on the client**, in `Assets/Code/`, on SUBMIT and for Remember
-    Me: "even though its going over TLS we don't want to save it to their local disk as plain text!"
-    The point is that the password never crosses the internet or lands on disk as typed; "I suppose
-    there will be a few moments where its in memory."
-  - **This session builds the client half** and writes down the change Conductor needs (it takes the
-    key where it took the password); Conductor's half is built in a session of its own.
-  - **Every account is deleted** when the switch comes, rather than carried over (their stored hashes
-    are of the password, not the key).
-  - **Remember Me is a file of our own** in the folder every player file goes in,
-    `~/.config/unity3d/FluffyByte/Opus.Ensemble/` (`PlayerFiles.cs`).
-  - **The hash**: "whatever will work with the _server_".  PBKDF2 with SHA-256, **600,000 rounds,
-    settled** (Jacob: "Make this the full 600,000"), timed at 2852 ms in the Unity editor.
-  - **The key made "in the background while the player moves forward in login"** (Jacob, 2026-10-01).
-    It already runs on a worker thread.  **Jacob picked: after SUBMIT, the client connects to the server
-    (TCP, TLS) while the key is still being made, and sends the Login the moment the key's ready.**
-    Part of the client's net code; not started when the player leaves the Password box.
-  - **The Accounts tab: Conductor makes the key** from what the admin types (Jacob: "we'll have conductor
-    do it"); the page doesn't.
-  - **The Remember Me file is readable by other users on the same Linux machine**: Unity's .NET can't set
-    a file's permissions without reaching into the OS (a `chmod` through libc).  Worth doing before
-    players have it.
-  - The client checking the server's TLS certificate is written (2026-10-02, with the net code).  Further
-    off, Soundcheck handing each client a certificate of its own (LONGTERM_TODO.md).
-- **The login screen, later** (2026-10-01): SUBMIT logs in and Remember Me works (2026-10-02).  Still
-  open: the effects between screens ("cool ass effects if we can", "I don't know yet").
-- **The client's net code** (Jacob, 2026-10-02: "its time to build up the client to submit and move over
-  to character selection!").  **Built and tested** (2026-10-02, ten checks): `design/ensemble-networking.md`
-  has it.  `Assets/Code/Net/` (the protocol, the login over TLS, the server's certificate, UDP), a
-  `login_status` line under SUBMIT, character select's screen.  Jacob's answers:
-  - **Get there this session**: character select shows the account's characters and LOG OUT.  CREATE,
-    DELETE and PLAY are a session of their own.
-  - **Already logged in elsewhere**: the client offers to log the other session out or to log off, for
-    30 seconds (the server's own wait); "if no answer it disconnects this session not the existing".
-    The server already holds the ticket until the other character's save is in (the "safety" lock).
-  - **The certificate**: the client carries a copy of `conductor.crt` and refuses any other server.
-  - **TLS 1.2**: if Unity can't do 1.3, Conductor takes 1.2 as well (rustls's `tls12`), "but I'm pretty
-    sure it will do 1.3".  Unity's .NET has no `SslProtocols.Tls13` (the first compile), so it's done.
-  - **The client version**: "we're not ready for 0.0.1 yet".  Ensemble sends Player Settings' Version,
-    `0.0.0.1`, and `networking.cfg`'s `client_versions` takes it.
-  - **Next** (Jacob, at the hand-off: "create/delete/select/play character next round"): CREATE, DELETE,
-    RESET HOME and PLAY at character select.  **Built and tested** (2026-10-02, eleven checks):
-    `design/ensemble-networking.md`, "Character select, the rest of it".  On CharacterEnteredWorld the
-    client says "In the world as <name>" with LOG OUT; the world on screen is still to come.
-- **Stale words in the code**, for whichever session next touches each file:
-  - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and
-    Blacklist), and a comment the same.
-  - `dns.rs`, `dns/other.rs` and a comment in the web admin's `lib.rs` still say "the TCP tab".
-  - `security.rs` says the arena is kept for as long as Conductor runs (it goes with the server).
-  - `snapshot.rs` says uptime is a moment less than Conductor's (it's since START SERVER).
-  - `tcp.rs`'s header says a stop has no deadline (it has 2 seconds).
-  - `json.rs`'s notes and the Server tab's note on the page leave out the Settings tab and networking.
-  - The header of `constellations.rs` names only `postgres.cfg` as soft.
-  - The launcher's boot line (`main.rs:69`) says a changed postgres.cfg or networking.cfg needs STOP SERVER
-    and START SERVER, and leaves out game.cfg (seen 2026-10-01, with `world_save_seconds` in it).
-  - The monitor's `Cargo.toml` header leaves out the process list.
-  - `json.rs` and the web admin's `Cargo.toml` say "the Network Admin tabs", and `json.rs` says the page
-    shows "the Control Panel" while the server is stopped (the Server tab).
-  - "The Control Panel" where the Server tab is meant: `accounts.rs:202` (text the admin sees), the launcher's
-    boot line (`main.rs:78`), and comments in the web admin's `lib.rs`; `page.html:20` has a history note.
-  - The web admin's `lib.rs`: "KICK on the TCP tab"; "when Security brings in TLS for the game" (networking
-    has it); the header's list of what needs `X-Opus` leaves out LOG OUT, the settings, the kick, the lists
-    and the accounts.
-  - The launcher's `main.rs`: `stop_server()` says networking goes first (the monitor does), and the header
-    calls `start_server()` / `stop_server()` the list of what the server is (networking opens from
-    `take_commands()`).  Its boot line names the soft files and leaves out `game.cfg`.
-  - The monitor's `lib.rs` header leaves out the process list, per-core load and the machine's RAM.
-  - `protocol.rs`: `LoginAnswer::Unavailable`'s comment leaves out Fingerprinter failing to make a token.
-  - gameworld: `Ground::Flat`'s doc leaves out BEDROCK at -16; `lib.rs` says saving chunks "comes next".
-  - `test_client.py`'s usage lines only work from inside `networking/` (the terminal sits in
-    `Conductor/dev`), and its `--cert` example is relative to the working directory.
-  - `security/windows.rs`, `fingerprinter/windows.rs` and `fingerprinter.rs` say the Windows code was never
-    built (it was, 2026-09-30).  The tools' `Cargo.toml` header lists only some of what's in the crate.
-  - `accounts.sql`'s header says a player gets a clear message (the admin makes accounts now).  The file is
-    frozen, so it stays.
+  - The start screen and character select are shipped layouts (`screen` `"start"` and
+    `"character_select"`), built; only the HUD's layout is ever the player's.
+- **Effects between screens** (Jacob, 2026-10-01: "cool ass effects if we can", "I don't know yet").
+- **Stale words in the code**: done 2026-10-03 (the tabs' old names, "the Control Panel", the senders,
+  the soft files, the Windows files, the test client's usage lines, and the rest of the list).  Left on
+  purpose: `accounts.sql`'s header says a player gets a clear message (the admin makes accounts now),
+  since the file is frozen.
 - `RegionMap::from_bytes` never checks for a count of 0 regions.  REGION_MAP.md says 1 to 255, and a map of
   0 is refused anyway unless its width or depth is also 0.  The code is what gets fixed, if it's worth it.
 
@@ -643,7 +286,6 @@ Things we thought of along the way.  None of them are promised.
 - The Storage tab: "last read / last write" by file.  DiskMan sees every file, so it's ready when wanted.
 - DiskMan on Windows: it leans on `fs::rename` replacing a file (its writes and the `.wait4server` swap
   both), and skips flushing the folder.  It runs there; nobody has looked closer.
-- Notices: no cap.  A flood of Warns left alone for days keeps growing in memory.
 - Web admin: keep the CPU and memory history on the server, so a page opened late sees the last minutes.
 - Web admin: a Debug on / off switch for the Log tab, once Scribe has its switch.
 - Web admin: saved page layouts per account, and more accounts than `user` and `admin`.

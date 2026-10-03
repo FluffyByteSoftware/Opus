@@ -6,7 +6,8 @@
 //! finished line (`[Chat] Jacob: Yo yo yo!`) and leaves it here with
 //! `chat()`, which comes straight back.  The broadcast check takes
 //! everything left since the cycle before and hands it, in the order it
-//! came, to the function networking gave us at its start, which sends it
+//! came, to the function in our slot (`set_chat_sender()`, filled by
+//! conductor-player-commands' `wire()` from the launcher), which sends it
 //! to everybody in the world, the one who said it too.  Jacob,
 //! 2026-10-02: "we send a packet to all users including the person who
 //! sent the message on the next "chat" GameClock tick that carries chat
