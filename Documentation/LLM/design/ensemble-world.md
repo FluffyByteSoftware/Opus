@@ -223,3 +223,44 @@ Built and tested (session 9): Tester, Chatter and Asdf seen as capsules with the
 and going; the names read well in the Game window ("they look fine actually :D"; the Scene window shows
 them tilted, since they face the game's camera).
 
+
+## Movement (session 10, 2026-10-03; being talked through)
+
+0.0.2 on WAYPOINTS.md.  Jacob, opening it: "synchronizing movement across clients with Conductor being the
+central authority on where a unit is at any given moment".  It's the one he "failed at last time" on an
+earlier server of his.
+
+Put to him: what went wrong last time; whether his own character waits for the server or moves at once;
+the controls; the ground (stepping up, falling, walls, jumping); the speed; the edge of the loaded ground;
+characters bumping into each other.
+
+**His answers** (session 10, the first round):
+- **Last time**: "I kept having janky ass movement where the client and server kept fighting about your
+  position (you basically kept rubber banding)".  So not rubber banding is the thing this is built
+  around.
+- **His own character moves at once, EverQuest's way**: "we're gonna simulate the way EverQuest handles
+  movement where the client like has local authority and the server kinda just periodically validates the
+  client movement and pulls it backward if it doesn't match to the last known good spots.  I had that
+  working but the rubberbanding happened to much and we never did get it straight  I got so frustrated I
+  deleted the entire thing lol".  (The other shape was the client sending keys and the server doing all
+  the moving, a press waiting up to a cycle and a round trip before anything moved.)  This turns round
+  session 9's "the client is just a dumb renderer" for the player's own character: the server still has
+  the last word (it takes a move or pulls the character back), but the client says where it went.
+  Everybody else's character is still drawn where the server says.
+- **The controls, Project Zomboid's way**: "your playing in 3rd person this game... when you hold D it
+  will first turn your character to the right on the screen and then the longer you hold it the more they
+  start walking in that direction until they are walking forward in that direction same with S your
+  character will turn around and then start walking towards the camera."  So the keys are directions on
+  the screen, not turns: the character turns to face the way the key points and walks faster the more it
+  faces it.
+- **A player anchor in the scene**: "I'll need to set up a player anchor in the scene for this so that
+  program wise you're generating the Player Actor game object with all its mesh data, and our anchor has
+  all its local scripts.  The player controller script would go on this object I think.  Then the prefab
+  is just a skin we make the shell wear?"
+- **The ground**: walking follows it, a step up of one block happens on its own, a character falls off an
+  edge, and a wall two blocks high stops it.  "yes all of that we can do jumping later".  Jumping is in
+  TODO.md.
+- **The speed**: "we'll start with 4 blocks per second".
+- **The edge of the loaded ground**: all of it now ("b"): the server loading the ground around each player
+  as they walk, and the client pulling new chunks as it walks and letting the far ones go.
+- **Colliders**: "the prefabs should have a capsule collider and the voxels should have a cube collider".

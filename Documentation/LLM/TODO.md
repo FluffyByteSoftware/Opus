@@ -59,6 +59,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   chatting your movement keys just go to the chat when its focused... everything does its gotten me killed
   a few times before I realized I was chatting".  So no key is ever both; the game never moves you while
   you're typing.  Part of movement.
+- **Jumping** (Jacob, 2026-10-03, session 10, on movement: "we can do jumping later").  Movement steps up
+  one block on its own and falls off edges; a jump is its own feature.  `design/ensemble-world.md`,
+  "Movement".
 - **A resizable chat window** (session 7, 2026-10-03, Jacob's pick: "Resizable chat window").  Being
   talked through.  What's there: the catalog already says chat is `Resizable` (min 320 x 160), but
   nothing in the game lets a player change a size, and nothing writes the player's `hud_layout.json`
