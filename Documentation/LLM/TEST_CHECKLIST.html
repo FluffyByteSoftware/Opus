@@ -197,34 +197,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>The world's objects, Ensemble's half (2026-10-03, session 9)</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Unity compiles clean once it has focus (Console: no errors), with the four new <code>.meta</code>s
-      (<code>WorldObjects.cs</code>, <code>WorldObjectsView.cs</code>, <code>FluffyGameObject.cs</code>,
-      <code>Actor.cs</code>) committed with <code>git meta</code>.  The stand-in Cube still has its script, now
-      called Camera Anchor.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      In the editor with Soundcheck's <code>--debug</code>: PLAY puts a capsule on the ground where the character
-      stands, its feet on top of the block, "Tester" over its head, readable, and the camera frames it as it framed
-      the Cube.  The Console says "object N (Tester) came into view", and the Hierarchy has "Object N (Tester),
-      yours" under World Objects.
-    </span></label>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Another player: with Tester in the world in the editor, Chatter comes in from the test client.  A second
-      capsule with "Chatter" over it appears beside Tester; Ctrl-C on the test client and it's gone.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter testuser456 'Testpass1!'</pre>
-  </li>
-</ul>
-
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">
