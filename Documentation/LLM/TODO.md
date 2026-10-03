@@ -113,6 +113,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   the broadcast's 50 ms, and growing with the square.  Keeping the objects by their column of chunks, so a
   player only looks at the squares within their view, would make it grow with how crowded a place is
   instead.  Not needed at today's numbers (`design/gameclock.md`, "The view").
+- **An unreachable spawn point** (Jacob, session 9, 2026-10-03): "if the player is in an unreachable spawn
+  point, it moves them to the next spawn point and deletes the invalid one".  Waits on there being more than
+  one spawn point, and on spawn points being data rather than `SPAWN_POINTS` in the code (generated with the
+  world).  "Unreachable" today would be a column whose top is too high to stand on inside the world
+  (`design/world.md`, "A saved character inside the ground").
 - **"Reliable ordered" packets over UDP** (Jacob, session 9, 2026-10-03): "we could consider redesigning
   the UDP service to have "reliable ordered" packets?"  Today only a client's ask is sent again until
   answered; nothing the server starts on its own is (ChatDelivery, the world's objects).  The objects in

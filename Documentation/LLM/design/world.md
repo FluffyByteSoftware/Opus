@@ -356,8 +356,15 @@ height, then it puts them at reset position or a spawn point again".**  Put to h
   (the world ends at y 319): the spawn point instead.
 - **The player is told** (his "Yes"): a line in their chat when they come in, "You were inside the ground,
   and have been moved on top of it."
-- **GameWorld not answering in time** (10 s, as RESET HOME): "refused and reset home".  Being talked
-  through: RESET HOME needs GameWorld's answer too.
+- **GameWorld not answering in time** (10 s, as RESET HOME): "refused and reset home".  RESET HOME needs
+  GameWorld's answer too, so, put to him, his "b": **PLAY is refused, and the server moves the character to
+  the spawn point at the last height it knew there and saves it to its row**; the next PLAY checks again.
+  GameWorld works the spawn points' heights out once as it starts, so there's always a last height unless
+  the world couldn't be read at all (and then nobody gets in anyway).
+- **An unreachable spawn point** (Jacob, after: "if the player is in an unreachable spawn point, it moves
+  them to the next spawn point and deletes the invalid one"; "this may be a todo mark for now").  There's one
+  spawn point, written in the code, so there's no next one and nothing to delete yet: TODO.md, for when spawn
+  points are generated with the world.
 
 ## Still open
 
