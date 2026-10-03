@@ -33,6 +33,8 @@ Ensemble/dev/Opus.Ensemble/Assets/*
 !Ensemble/dev/Opus.Ensemble/Assets/Scripts.meta
 !Ensemble/dev/Opus.Ensemble/Assets/Data/
 !Ensemble/dev/Opus.Ensemble/Assets/Data.meta
+Ensemble/dev/Opus.Ensemble/Assets/Fonts/
+Ensemble/dev/Opus.Ensemble/Assets/Fonts.meta
 Ensemble/dev/Opus.Ensemble/Packages/
 Ensemble/dev/Opus.Ensemble/UserSettings/
 # UI Builder writes the UXML schemas beside Assets/ and rewrites them
