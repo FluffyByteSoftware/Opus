@@ -194,6 +194,12 @@ Windows.  What's left, a step each:
   copy it to /opt/storage/WWW/download/map/<somename>".  Open: the name; what "turn the save rate down" means;
   how the patcher learns the dump's hash, since the platform manifests are PUBLISH's and the dump changes on
   its own clock.
+  **Redesigned** (Jacob, same session): the game downloads it, not the patcher: "the unity client is going to
+  have to download this at play?  Yeah actually it should and it should override with whatever the server
+  sends it every time."  So Ensemble fetches the dump at PLAY and the server's copy always wins over the one
+  on the client; the stamp for Soundcheck goes.  Open: whether "the server" is the web folder over HTTP or
+  Conductor over the game's own connection, and whether "every time" is a fresh download each PLAY or only
+  when it changed.
 - **The world's files on the client** go in `Assets/StreamingAssets/World/`, a fifth folder of ours under
   `Assets/`, into the `.gitignore` with its `.meta` (Jacob, 2026-10-02: out of that pass).  A Unity build
   packs everything under `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as
