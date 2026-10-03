@@ -67,6 +67,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   chat's font size, "on a sliding scale from 1 to 18 for now we'll make this a px measurement but it might
   be an algorithm later".  Unity's own right-click menu is editor-only, so the menu is ours; a runtime
   pointer can't turn into a resize arrow without a picture of one, so the edge under the mouse lights up.
+  **Then** (Jacob): the file is **`playername_hud_layout.json`** in the player's folder ("we can do this
+  even better"), a layout a player; **the border flashes the whole time a widget's unlocked** ("its gonna
+  be annoying but yes until I get a lock/unlock icon in to draw on the title bar of the UI element");
+  **the font size 18 to 42**; **moving by grabbing the inside, resizing by the edges, and "the mouse cursor
+  should change appearance like it would in windows"**; **every widget movable, only chat resizable** for
+  now.  The start screen and character select stay fixed.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
