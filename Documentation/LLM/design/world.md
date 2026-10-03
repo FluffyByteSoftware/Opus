@@ -233,6 +233,8 @@ bulk.
   distance by kind, the way Minecraft draws its maps.  Minecraft itself draws no distance: past what the
   server sent, there's fog.
 - **Not squeezed**: "no squeezing concern".  4 MB at `world_size` 16, 16 MB at 32.
+- **Measured** (Jacob, 2026-10-03, `--release`): 1.17 s to make at `world_size` 16, 1,048,576 patches,
+  4,194,332 bytes.  Paid once a world, on GameWorld's thread, with the door shut.
 - **Its name is `simple_overworld.map`**, and it's **written before connections are allowed** when it's
   missing ("yes should do this before we allow connections"), so a world made before it gets one.  **If it
   can't be written, the door stays shut** ("keep the door shut and notify the end user to wipe their local
