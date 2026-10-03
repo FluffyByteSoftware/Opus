@@ -61,7 +61,7 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 | Lua and the sandbox                          | `design/lua-parser.md`                                    |
 | The game library: entities, components, templates, saving | `design/primlib.md`                          |
 | The world: blocks, chunks, regions, its files| `design/world.md`                                         |
-| Smooth voxels, stage 1 (settled, not built)  | `design/smooth-voxels.md`                                 |
+| Smooth voxels, stage 1 (being built)         | `design/smooth-voxels.md`                                 |
 | The GameClock: the beat, the checks, the mailbox, the world save, the view | `design/gameclock.md`        |
 | The world on the client: the ground, the objects, the camera | `design/ensemble-world.md`                 |
 | Ensemble's screens, widgets, the chat window | `design/ensemble-hud.md`                                  |
@@ -430,10 +430,13 @@ When I say we're wrapping up:
 - **The ground is `conductor-gameworld`** (`design/world.md`).  A block is
   1 m a side, Minecraft's size; chunks 32 a side; the world eleven chunks
   tall, -32 to +319; `world_size` in `game.cfg` is the width, 1024 blocks a
-  step.  **Smooth voxels, stage 1, is settled and not built**
-  (`design/smooth-voxels.md`): the terrain kinds get a density and a smooth
-  mesher, structures stay cubes, 7 Days to Die's split.  The code counts in blocks only, never in metres.  A block's number
-  never changes once it's out there.  A chunk's own file always wins over
+  step.  **Smooth voxels, stage 1, is being built a step at a time**
+  (`design/smooth-voxels.md`): every voxel holds a kind and a density (a
+  byte, 128 and over solid, AIR exactly when under), the terrain kinds
+  drawn smooth by surface nets, structures cubes, 7 Days to Die's split;
+  nothing is drawn past the view.  The code counts in blocks only, never in
+  metres.  A block's number never changes once it's out there, and a
+  dropped one is never used again (4 was GOLD).  A chunk's own file always wins over
   its region's ground, and a bad file is never built over: it may be the
   only copy of somebody's digging.
 - **The tick is 250 ms, five checks of 50 ms, fixed in code** ("anything
@@ -617,11 +620,12 @@ When I say we're wrapping up:
   `git add -A /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/ProjectSettings`.
   Unity writes `ProjectSettings.asset` only on File > Save Project or on
   closing, which is why a setting changed in Player Settings can be missing
-  from a commit.  **A deletion round is Jacob's too**: the session's harness
-  refuses a `git rm` of many files, so the files that go are one `git rm -r
-  -q` line with absolute paths and globs, run right after the pull and
-  before Unity gets focus, and `git meta` commits the deletions with the
-  `.meta`s.  **A rename needs no round**: the session `git mv`s the file
+  from a commit.  **A deletion of a few files is the session's**: it `git
+  rm`s each file and its `.meta` together (session 12: four went through).
+  **Many is Jacob's**: the harness refuses a `git rm` of many files, so the
+  files that go are one `git rm -r -q` line with absolute paths and globs,
+  run right after the pull and before Unity gets focus, and `git meta`
+  commits the deletions with the `.meta`s.  **A rename needs no round**: the session `git mv`s the file
   and its `.meta` together, so the GUID stays and Unity sees a move
   (session 8, `WhoBox.cs` to `WhoLines.cs`).
 - **Every object the client draws carries a FluffyGameObject** (Jacob,

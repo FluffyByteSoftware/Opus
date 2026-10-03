@@ -24,26 +24,26 @@ ends it starts Soundcheck again with why, and closes; with no ticket (started by
 shows the start screen, which in the editor is dev mode, watching for the ticket Soundcheck's `--debug`
 SUBMIT writes.  Admin mode (`--admin`) publishes a platform's build into the web folder.  Conductor has no
 part in the patcher.  **The game's name is Forgotten Legends**; the project, its folders and code stay Opus.
-**Everything speaks protocol version 14** as built and tested (session 9, the world's objects); **session 10
-moved all four (Conductor, the test client, Ensemble, Soundcheck) to 15, movement, and none of it is built
-yet**.
+**Everything speaks protocol version 17**, built and tested (session 12): 15 was movement (session 10), 16
+the block kinds (GOLD out, MASONED_STONE in), 17 the simple overworld map dropped (PLAY answered with a
+GroundOffer).
 CLAUDE.md's "Client rules" and "Launcher rules" have the detail.  **The built game in
 `Ensemble/build/Linux/0.0.12/` still speaks 12**, so Soundcheck without `--debug` can't play it against
 today's Conductor: a fresh build first, or the editor with `--debug`.
 
-**The world to the client** (0.0.13 on WAYPOINTS.md): **Conductor's side is whole**.  The bulk:
-GameWorld writes `simple_overworld.map`, the world's rough shape for the distance, before the door opens
-(session 1), and **every PLAY sends it** over UDP behind a red loading bar, checked by its SHA-256 and kept
-in the player's folder, before PlayerReady puts the character in the world (session 2; PROTOCOL.md's "The
-map at PLAY").  An account waits `map_cooldown_seconds` (5, down from 300 in session 6) between maps.  The detail: **the
-client pulls the chunks around its character** (session 3; PROTOCOL.md's "The chunks around the player"),
+**The world to the client** (0.0.13 on WAYPOINTS.md): **Conductor's side is whole**.  The simple overworld
+map sent at PLAY (sessions 1 and 2) is **dropped** (session 12): nothing is drawn past the view, so PLAY's
+answer is a **GroundOffer** (where the character will stand and how far it sees) and PlayerReady its ask
+number only (PROTOCOL.md, "The way into the world").  **The client pulls the chunks around its character** (session 3; PROTOCOL.md's "The chunks around the player"),
 up to 64 at a time, each squeezed as runs, out of a cache GameWorld's thread fills; the offer at PLAY says
 where the character will stand and how many chunks it sees.  **Ensemble pulls them** (session 4), nearest
 first, **and draws them** (session 5, `design/ensemble-world.md`): a mesh a chunk, faces only against air,
 a material a block kind from GroundView's slots, a stand-in box for the Cinemachine camera.  **PlayerReady
 waits until the nearest 99 are drawn** (session 6), 10 s at most, so nobody comes in on ground that isn't on
 screen.  **The distance from the simple overworld map isn't drawn yet.**  New characters and RESET HOME
-stand on top of a **spawn point**'s highest block (session 6, `design/world.md`), 0.5, 1, 0.5 today.
+stand on top of a **spawn point**'s highest block (session 6, `design/world.md`); with the GOLD gone that's
+Omega's dirt at 0,0, under 0 in Jacob's world, so a character saved on the old GOLD at 0.5, 1, 0.5 comes in
+standing over the ground.
 
 **The HUD is the player's** (session 7, `design/ensemble-hud.md`, "Moving, resizing and locking"): every
 widget moves, chat resizes by its edges and corners, a right-click gives LOCK / UNLOCK and chat's FONT SIZE
@@ -68,7 +68,7 @@ Velocity is in the packets and always 0 until movement; models come with the mod
 saved inside the ground** is stood on top of its column at PLAY, and told so in its chat (`design/world.md`).
 
 **Movement, round one** (session 10, `design/ensemble-world.md`, "Movement"; `design/gameclock.md`,
-"Movement"; PROTOCOL.md, "Movement"): **written and pushed, not yet built**.  EverQuest's way: the client
+"Movement"; PROTOCOL.md, "Movement"): **built and tested** (session 12, every check).  EverQuest's way: the client
 walks its own character and says where it went (PlayerMoved), and the GameClock takes each move or pulls it
 back to the last good spot (MoveCorrection, numbered).  Built against the rubber banding that sank Jacob's
 earlier server.  Conductor and the test client only: Ensemble reads version 15 and walks nothing yet.  The
@@ -77,8 +77,11 @@ server's ground now follows each player.  `player.cfg` (`turn_degrees_per_second
 when watchers hear a move is (b), EQ's, at once from networking, not built**: round one passes moves on
 once a cycle.  (b) was planned in session 11 and put down unanswered (the end of `design/ensemble-world.md`).
 
-**Smooth voxels, stage 1, is settled and not built** (session 11, `design/smooth-voxels.md`): talked through
-in a separate chat from a brief, its summary brought back by Jacob.  7 Days to Die's split: the terrain kinds
+**Smooth voxels, stage 1, is settled and being built** (session 11, `design/smooth-voxels.md`): talked
+through in a separate chat from a brief, its summary brought back by Jacob.  **Two steps built and tested in
+session 12**: every voxel holds a density (a byte, 128 and over solid) beside its kind, the chunk file at
+version 3, DIRT, STONE and BEDROCK terrain, WOOD and the new MASONED_STONE structure, GOLD gone; and the
+simple overworld map dropped.  Surface nets is the mesher.  7 Days to Die's split: the terrain kinds
 smooth (a density a voxel, a smooth mesher, Shader Graph fading one kind into the next), structures cubes;
 1 m voxels; -32 to +319 kept; caves, catacombs and sewers from a 3D density; buildings voxel by voxel in
 **Opus.Treble** (a Unity tool, named, not started) as `.fbm`s Conductor stamps in; a 45-degree slope on the
@@ -93,7 +96,7 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 **The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
 the GitHub Release.  **`main` was fast-forwarded to `testing` at the end of session 9** (2026-10-03, Jacob:
 "merge this to main please"), at `887a6d5`, sessions 0 to 9 past the tag, with no tag of its own; `testing`
-and `unstable` are level, session 10's commits past it (round one of movement, unbuilt).  `main` moves when
+and `unstable` are level, sessions 10 to 12 past it, all built and tested.  `main` moves when
 Jacob says.
 
 **Built and tested on Linux**: all of Conductor as released, and sessions 0 to 8 since; Soundcheck through
@@ -102,18 +105,20 @@ start screen, dev mode, the launcher's ticket, the map at PLAY, the chunks and t
 HUD moved, resized and locked.
 **Session 3, everything**: the build and the tests, the squeezed sizes, the test client pulling the whole
 view, the refusal past the edge, the Services tab's line, Soundcheck and the editor at version 12.
-**Measured**: the map takes 0.08 to 0.16 s on the LAN (16.8 MB at `world_size` 32), a guess of some 13 s over
-the internet at a 50 ms ping; **a whole view of chunks at `view_chunks` 8 is 3,179 chunks, 88,746 bytes
+**Measured**: **a whole view of chunks at `view_chunks` 8 is 3,179 chunks, 88,746 bytes
 squeezed, 0.04 s on the LAN**, the biggest chunk 693 bytes, every chunk one packet; squeezing is 13 to 14 us a
 chunk; hashing the 655 MB build takes 1.3 s at Soundcheck's start.  **Session 5's meshing**: 437 chunks in
-0.46 to 0.51 s, all on the worker, 302 drawn.  TEST_CHECKLIST.html has session 10's seven checks for
-movement's round one, none run, and one Parked: the launcher's own restart after a patch.  **On Windows**: Conductor builds and runs, START SERVER included, without a database;
+0.46 to 0.51 s, all on the worker, 302 drawn.  TEST_CHECKLIST.html has one check left, Parked: the launcher's own
+restart after a patch.  **Conductor's memory** with the server up: about 810 MB before densities, 918 with
+them, 905.8 with the map dropped (session 12).  **On Windows**: Conductor builds and runs, START SERVER included, without a database;
 nothing since the world has been tried there (GitHub issue #10), and neither Soundcheck nor the new Ensemble
 has been built there at all.
 
 **Jacob's settings worth knowing**: `world_size = 32`, `view_chunks = 8` ("keeping as 8", session 3; the
 code's default stays 4), `world_save_seconds = 1800`, `map_cooldown_seconds = 5`, `bind_address =
-10.0.0.84`, and from session 10 `movement_tolerance_blocks = 16`, `turn_degrees_per_second = 450`.  In Unity: GroundView on a GameObject with five material slots (grass in GOLD's for now), the
+10.0.0.84`, and from session 10 `movement_tolerance_blocks = 16`, `turn_degrees_per_second = 450`; `map_cooldown_seconds` is gone (session 12).
+In Unity: GroundView on a GameObject with five material slots (GOLD's slot became MASONED_STONE's in
+session 12, empty; the grass that was in it went with it), the
 stand-in Cube with CharacterStandIn, a Cinemachine camera on it; ScreenRoot's Move Pointer and Grip Pointer
 are Move_PremiumCursor and Hand2_PremiumCursor, each imported at Max Size 32 with its hotspot at 2, 2; the
 scene isn't committed.
@@ -184,6 +189,12 @@ the end of `design/ensemble-world.md`, unanswered.  The redesign was talked thro
 at the hand-off, with its summary in: **"Prepare a hand off to a new conversation with yourself that we will
 begin implementation of this system."**  His to change.
 
+Session 12 (2026-10-03) opened on it: **"We begin implementing smooth voxels, stage 1"**.  His answers: surface
+nets; the simple overworld map "we are dropping it... we don't need it anymore"; "DIRT & STONE are terrain.
+WOOD will be structure (i'll make it look like planks).  Drop gold.  Add in MASONED_STONE"; BEDROCK
+"Probably terrain".  After step 1 his pick was "drop the overworld map"; then **"wrap up this
+conversation"**, no pick named for next.  His to change.
+
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
 ## The last day
@@ -239,101 +250,66 @@ have no number.
   degrees off, (b) for watchers); round one written, protocol version 15: the GameClock judges every
   PlayerMoved and pulls back with a MoveCorrection, `Collider` in primlib, the server's ground follows the
   players, `player.cfg`, the test client's `--walk`, `--jump`, `--spin`; Ensemble and Soundcheck read 15.
-  **Not built yet.**  What EQ does looked up in EQEmu's source.
+  Built and tested in session 12.  What EQ does looked up in EQEmu's source.
 - **Session 11, 2026-10-03**: (b) planned (networking's own "whose client has it" list, the view's "last" as
   what the watchers were told) and put down unanswered; the world asleep and awake talked through (cold,
   warm and hot chunks, catching up, zone managers, wakers, the dragon; a region, a biome and a zone split);
   a brief written for a separate chat on smooth voxels, and its summary written in as stage 1
   (`design/smooth-voxels.md`); Opus.Treble named.  Docs only, no code.
+- **Session 12, 2026-10-03**: movement round one built and every check passed; smooth voxels begun: step 1,
+  a density a voxel (a byte, 128 solid), the chunk file version 3, terrain and structure kinds, GOLD gone
+  and MASONED_STONE in (protocol 16); step 2, the simple overworld map dropped, PLAY answered with a
+  GroundOffer (protocol 17), the cooldown gone.  Built and tested, every check; 905.8 MB.
 
-## Last session -- session 11, 2026-10-03, (b) planned, the world asleep and awake, smooth voxels
+## Last session -- session 12, 2026-10-03, smooth voxels steps 1 and 2, movement round one tested
 
-Opened on (b), from session 10's hand-off.  **Docs only: no code was written**, so round one of movement
-is still unbuilt.
+Opened on smooth voxels, stage 1.  Session 10's movement, unbuilt till now, built clean first.  **Everything
+in it is built and tested**: TEST_CHECKLIST.html's twelve checks passed, the Parked one left.
 
-- **(b) planned, not OKed**: who sees a move worked out by networking from the Hydrates, ObjectsGone and
-  roll calls it already sends; only moves the GameClock wouldn't drop passed on, the velocity held to
-  walking; the view's "last" made what the watchers were last told, so a taken move isn't sent twice (a
-  repeat a cycle late would snap a watcher's copy back about a block every move); a pull-back to the
-  watchers in that cycle's broadcast; the cost a guess until a timing test.  Four questions put and left:
-  the version, a walker carried along in the roll call and the Hydrate, "whose client has it", the 100 ms.
-  The end of `design/ensemble-world.md`.
-- **The world asleep and awake** (LONGTERM_TODO.md): Jacob's NPCs that wake the world ("2 or 3"), the
-  dragon "an existential threat"; ground asleep where nothing wakes it, **cold, warm and hot** a chunk
-  ("IN a warm state we'll have the system do "catch up" ticks"); goblins with a controller for their needs;
-  **a region (the map), a biome (the ground, what grows and spawns) and a zone (the server's NPC manager,
-  a square of chunks, NPCs guests in another's) are three things**; the ground isn't mined, only broken
-  by combat and effects.  Five questions left open there.
-- **Smooth voxels**: the world's height and depth told; Jacob asked for "a LLM dump conversation to discuss
-  this with you in another chat not a code one", against CLAUDE.md's "never in a brief" (said to him), so
-  the brief carried the facts, how to talk to him and a four-heading summary to bring back.  It came back
-  whole, and is `design/smooth-voxels.md`'s "Stage 1, as settled".  **Opus.Treble** named there.
-- Session 10's hand-off had its local copy shallow and behind; `git fetch --unshallow` fixed it.
+- **Stage 1's open questions answered** (`design/smooth-voxels.md`, "Settled in session 12"): surface nets;
+  the simple overworld map dropped; a density is a byte, 0 to 255, 128 and over solid, every voxel holds
+  one (air too: it says where the surface sits), and a kind is AIR exactly when its density is under 128;
+  DIRT, STONE and BEDROCK terrain, WOOD ("planks") and the new MASONED_STONE ("gray bricks... a wall")
+  structure, GOLD dropped, its number 4 never used again.
+- **Step 1, what a voxel holds** (protocol 16): `Density` and `Block::is_terrain()` in `block.rs`; a
+  density beside every kind in `Chunk`, the chunk file version 3 (version 2 still read), a file whose kind
+  and density disagree turned away; the ground still built from the kinds, full or empty, so it looks as
+  it did; no GOLD at 0,0,0, so 0,0 is Omega's dirt, under 0 in Jacob's world.  Squeezing still sends kinds
+  only.  108 MB more measured (810 to 918).
+- **Step 2, the simple overworld map dropped** (protocol 17): PLAY's answer a **GroundOffer** (`0x40`,
+  where and how far), the map's packets (`0x41`, `0x42`) retired, PlayerReady its ask number only,
+  `map_cooldown_seconds` gone ("its no longer a risk"); `overworld.rs` out of gameworld and networking,
+  `sha2` out of networking, Ensemble's `MapDownload.cs` and `SimpleOverworldMap.cs` deleted (the session's
+  own `git rm`, four files, went through), SIMPLE_OVERWORLD_MAP.md deleted.  905.8 MB after.
+- **Movement round one** checked through: walks, the watcher, the pull-back on purpose, the ground
+  following, the stop saved.  Gravity is the client's (EQ's way); the server only catches a character
+  hanging in the air 2 s.
+- **CLAUDE.md**: the questions remind Jacob to go through TEST_CHECKLIST.html while it has checks waiting.
 
-## The session before -- session 10, 2026-10-03, movement, round one
+## The session before -- session 11, 2026-10-03, (b) planned, the world asleep and awake, smooth voxels
 
-Jacob, opening it: **"in this session we do the task I failed at last time I worked on this game server
-engine... synchronizing movement across clients with Conductor being the central authority on where a unit
-is at any given moment."**  Talked through in five rounds, every answer in `design/ensemble-world.md`
-("Movement") in his words, then round one written.  **None of the code has been built**: the next session
-starts by expecting compile fixes.
-
-- **The answers**: last time "the client and server kept fighting about your position (you basically kept
-  rubber banding)"; **EverQuest's way**, "the client like has local authority and the server kinda just
-  periodically validates the client movement and pulls it backward"; **Project Zomboid's keys** (D turns
-  the character to face screen-right, then walks it there), a fixed camera (first person maybe, TODO.md);
-  **a player anchor** in the scene with the controller on it, the prefab "just a skin we make the shell
-  wear"; walking follows the ground, one block steps up, falls, walls stop it, jumping later; **4 blocks a
-  second**, fixed in code (speed modifiers to come, TODO.md); the ground loaded as players walk, all of it
-  now; **a mesh collider a chunk**, capsules on characters, collider shapes in primlib; **a character
-  standing still blocks on the server, a moving one only on screens**; the turn in **`player.cfg`**, the
-  server's; **Warns** at 1 to 16 blocks past and a turn 90 degrees off, one a character a minute; the
-  tolerance in `game.cfg`, 16; check-ins every half second, hard-coded in the client; the capsule stays 1
-  by 2; the server holds only the ground it needs; **(b)**, moves passed on at once, EQ's way.
-- **The rule turned round**: CLAUDE.md's "the client is just a dumb renderer" has one exception now, the
-  player's own character.
-- **Round one, written** (protocol version 15; PROTOCOL.md's "Movement", `design/gameclock.md`'s
-  "Movement"): `gameclock/src/movement.rs` (the mailbox, the check against the time since the last good
-  spot, numbered pull-backs that moves must say they had, the Warns, the quiet walker stopped) and
-  `ground.rs` (2 chunks each way of each player, let go of every 4 seconds); `view.rs` sends velocities, the
-  collider, the pull-backs and each player's column, and never a player's own moves; primlib's `Collider`
-  and `Transform`'s velocity; `Terrain` remembers what's coming and what failed, reads a block anywhere;
-  networking's PlayerMoved and MoveCorrection, the walk and turn at CharacterEnteredWorld, the chunks
-  following the character with one more each way; `player.cfg`; the test client's `--walk`, `--jump`,
-  `--spin`; Ensemble and Soundcheck read 15.
-- **The input check**: Jacob asked what professional games do; once a cycle as built.  Then "What does EQ
-  do?": read in EQEmu's source (the client's update is taken and passed on the moment it arrives; its cheat
-  check averages speed over 2.5 seconds and only logs).  He picked (b), not built.
-- A lint suppression slipped into the first draft of `movement.rs` and was taken out before the push.
+Docs only.  (b) planned and put down unanswered (the end of `design/ensemble-world.md`, four questions); the
+world asleep and awake talked through (LONGTERM_TODO.md, five questions open); smooth voxels' stage 1
+settled in a separate chat and written in (`design/smooth-voxels.md`); Opus.Treble named.
 
 ## Where the next session starts
 
-**Jacob's pick: smooth voxels, stage 1, built** ("we will begin implementation of this system").
-`design/smooth-voxels.md` is the source: "Stage 1, as settled", then its Leaning and Open.
+**No pick named** ("wrap up this conversation").  Everything is built and tested; nothing to expect compile
+fixes from.  `unstable` and `testing` are level.
 
-**First, round one of movement is still unbuilt** (session 10's).  The voxel work lands in the same crates
-(`gameworld`, the GameClock's `movement.rs` checks), so Jacob's `cargo build` and `cargo test` come first,
-and compile fixes are expected.
+What's next in smooth voxels, stage 1, a step each (`design/smooth-voxels.md`, "Stage 1, as settled" and
+"As written"):
+- **Densities on the wire**: a squeezed chunk's first byte says how it's packed, so a 2 could be "runs, with
+  densities", no new packet; protocol 18, all four programs; Ensemble's `Chunk` keeps them.
+- **Making the world from a 3D density**: heights and carving (caves, catacombs, one way in), the strip of 1
+  to 5 voxels where one kind turns into another, in place of Alpha and Omega's step.
+- **Ensemble's surface-nets mesher** beside the cube one, its colliders, and the Shader Graph fade (where
+  the `.shadergraph` lives and who makes it is Jacob's to say).
+- **The server's move checks on the density**: inside the ground, the height between two densities, the
+  45-degree slope.
 
-**Then a plan, and his OK, before building.**  Stage 1 is a run of sessions; the first conversation takes
-one small step of it.  The pieces, unordered:
-- **What a voxel holds**: which kinds are terrain and which are structure (today AIR, DIRT, STONE, WOOD,
-  GOLD, BEDROCK), and a density on the terrain ones (a byte is the guess, 64 KB to 96 KB a chunk).
-  `gameworld`'s `block.rs`, `chunk.rs`.
-- **The squeezed chunk on the wire** (`squeeze.rs`, PROTOCOL.md's chunk pieces, Ensemble's `Chunk`
-  reader): carrying the density is a packet change, a version bump, all four programs.
-- **Making the world**: the 3D density (heights and carving), the strip of 1 to 5 voxels where one kind
-  turns into another, in place of Alpha and Omega's step.  The region, biome and zone split waits on its
-  own talk.
-- **Ensemble's smooth mesher** beside the cube one (surface nets leaning), the colliders from it, and the
-  Shader Graph fade (where a `.shadergraph` asset lives and who makes it is Jacob's to say: it's made in
-  Unity's editor).
-- **The server's move checks** on the density: inside the ground, the ground's height between two
-  densities, the 45-degree slope.
-- **Later**: blasts and spells changing the density, changed chunks sent again; Treble and the `.fbm`.
-
-Open, to put to Jacob before the first step: marching cubes or surface nets; the simple overworld map
-dropped or kept; a density's range and where halfway sits; which of today's kinds are terrain.
+Also waiting from session 10 and 11: **(b)**, moves passed on at once (its four questions at the end of
+`design/ensemble-world.md`); Ensemble walking (rounds two and three); the world asleep and awake.
 
 Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy); `testuser` /
 `Testpass123!` (Asdf), for a second player beside the first.
@@ -342,10 +318,10 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
 
 - **The HUD's rest** (TODO.md, "A resizable chat window"): a lock/unlock icon on a widget's title bar
   in place of the flashing, Reset HUD To Default where a player can reach it, the pointers on Windows.
-- **The world to the client's rest**: the distance from the simple overworld map, drawn.  Conductor's
-  leftovers (TODO.md, "The chunks streamed"): a stamp on a chunk's pieces once blocks change, a faked
+- **The world to the client's rest**: the distance is closed (nothing past the view, session 12).
+  Conductor's leftovers (TODO.md, "The chunks streamed"): a stamp on a chunk's pieces once blocks change, a faked
   address getting a player flooded (`design/conductor-networking.md`).  The GameClock's ground following
-  the players, and letting go of what nobody's near, is written in session 10 (unbuilt); GameWorld's
+  the players, and letting go of what nobody's near, is built (session 10, tested in session 12); GameWorld's
   squeezed copies are still kept until STOP SERVER.
 - **Soundcheck's rest** (TODO.md): Conductor's report up and debug clients (open), Windows, one package;
   and the certificate for every client (LONGTERM_TODO.md).
@@ -354,8 +330,6 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
 - **A web admin login that went to "a random web page"**, once (session 1's morning), not seen again; nothing in
   `page.html` or the server navigates anywhere.  If it comes back: the URL it lands on, the browser, a private
   window.
-- **The simple overworld map's rest** (TODO.md, "The world's dump"): writing it again at the world save
-  once blocks change, a timing over the internet, the stuck PLAY (LOG OUT is the way out).
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale
   words.
 - **Saying things without a `/`**, **`/who <character name>`**, **kicking a player who keeps flooding**,
@@ -363,10 +337,14 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
   client**: TODO.md.
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
 - **Ensemble**: the HUD's Phases 2 and 3; its project files in git (Packages/, LFS for scenes): TODO.md.
-- **Movement** (0.0.2 on WAYPOINTS.md): round one built and checked, (b) (planned in session 11, its four
-  questions open), Ensemble's rounds two and three; jumping, speed modifiers, first person (TODO.md).
-- **Smooth voxels**, stage 1 settled (`design/smooth-voxels.md`); **Opus.Treble** and the `.fbm`
-  (LONGTERM_TODO.md).
+- **Movement** (0.0.2 on WAYPOINTS.md): round one built and tested (session 12), (b) (planned in session
+  11, its four questions open), Ensemble's rounds two and three; jumping, speed modifiers, first person
+  (TODO.md).  **The server's own gravity** (NPCs, a player whose ground is blown away): asked in session
+  12, unanswered, not in TODO.md yet.
+- **Smooth voxels**, stage 1: steps 1 and 2 built (session 12), the rest above; **Opus.Treble** and the
+  `.fbm` (LONGTERM_TODO.md).
+- **`AGENTS.md`** sits untracked at the root of Jacob's clone (his `git meta` showed it, session 12): his, or
+  a `.gitignore` line?  Asked, unanswered.
 - **The world asleep and awake**: cold, warm and hot chunks, zone managers, wakers, the dragon; a region,
   a biome and a zone split (LONGTERM_TODO.md, five questions open).
 - **The model draw** (session 9's pick): `design/ensemble-world.md`, "The player in the world".
