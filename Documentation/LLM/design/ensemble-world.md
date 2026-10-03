@@ -264,3 +264,29 @@ characters bumping into each other.
 - **The edge of the loaded ground**: all of it now ("b"): the server loading the ground around each player
   as they walk, and the client pulling new chunks as it walks and letting the far ones go.
 - **Colliders**: "the prefabs should have a capsule collider and the voxels should have a cube collider".
+
+Then put to him: the rule change for his own character; how fast the character turns, and how the walk
+grows as it faces the key's way; whether the camera turns; a mesh collider on each chunk or a box a block;
+characters bumping on the screen but not on the server; how forgiving the server is.
+
+**His answers** (session 10, the second round):
+- **The rule change**: yes.  And how he sees it working: "the server checks in periodically if they're
+  moving in the same direction as the last check in.  The second their input changes (which the server
+  should detect because it should be ingesting input on every 50 ms cycle) that would fire an event that
+  notifies the Conductor that there is a directional change which is how it can than see which characters
+  are going to need a network update about this character changing its direction or rotation or something
+  else.  That _should_ work."  So the client speaks when its movement changes, and checks in now and then
+  while it doesn't; the server passes a change on to whoever sees the character.
+- **The turn**: "make it a value we can adjust in player.cfg (a new config file)".
+- **The camera**: "the camera stays fixed for now.  The only further improvement I might do is allowing you
+  to go first person."  First person is in TODO.md.
+- **The ground's colliders**: "we can probably make a mesh collider around the chunks I mean.  Only an
+  individual voxel would need a box if its been broken from its chunk."  A broken-off block's box is in
+  TODO.md, with breaking blocks.
+- **Colliders in the game library**: "we're gonna design in our game library collider primitives
+  capsule/cylinder, and cube that should cover our needs for this.  This will have to be our
+  representative of the player in the servers memory.  Is it not possible to make it so a player blocks
+  another player up front then?"
+- **How forgiving**: "we're gonna make this configurable in game.cfg I think...
+  MOVEMENT_TOLERANCE_BLOCK_THRESHHOLD or something... for now let's default it to 16 until we get a feel".
+  (The other shape was a quarter over 4 blocks a second and up to a second of allowance saved up.)

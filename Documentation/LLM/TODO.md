@@ -62,6 +62,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **Jumping** (Jacob, 2026-10-03, session 10, on movement: "we can do jumping later").  Movement steps up
   one block on its own and falls off edges; a jump is its own feature.  `design/ensemble-world.md`,
   "Movement".
+- **First person** (Jacob, 2026-10-03, session 10: "the camera stays fixed for now.  The only further
+  improvement I might do is allowing you to go first person").  The camera is fixed behind the character
+  for movement.
+- **A block broken from its chunk gets a box collider** (Jacob, 2026-10-03, session 10: "Only an
+  individual voxel would need a box if its been broken from its chunk").  The ground's chunks each have a
+  mesh collider; this waits on breaking blocks.
 - **A resizable chat window** (session 7, 2026-10-03, Jacob's pick: "Resizable chat window").  Being
   talked through.  What's there: the catalog already says chat is `Resizable` (min 320 x 160), but
   nothing in the game lets a player change a size, and nothing writes the player's `hud_layout.json`
