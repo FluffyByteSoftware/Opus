@@ -130,7 +130,8 @@ Put to him at the start of building, the four questions the hand-off left open.
 ### As written
 
 **Step 1, what a voxel holds** (session 12, 2026-10-03; Jacob's OK; **written, not built**).  Conductor's
-`gameworld` only; nothing on the wire changes, so the protocol stays at 15 and Ensemble is untouched.
+`gameworld`, and the kinds in the other three.  No packet changes shape, but the kinds a chunk carries do,
+so **protocol version 16** (Jacob: "bump protocol version up"), all four programs together.
 - `block.rs`: `Density`, a byte, `EMPTY` 0, `HALF` 128, `FULL` 255, `is_solid()` at 128 and over, and
   `fits()`, the rule that a kind and its density agree (AIR under halfway, terrain halfway and over,
   structure only full).  `Block::is_terrain()` (DIRT, STONE, BEDROCK), `plain_density()` (empty for AIR,
@@ -142,6 +143,9 @@ Put to him at the start of building, the four questions the hand-off left open.
   spawn point's height follows it.  Every voxel at its plain density.
 - `squeeze.rs`: the kinds only, as before; a chunk unsqueezed comes back at plain densities.
 - `test_client.py`: the block names, 4 out and 6 in.
+- Ensemble: `Blocks` (`Chunk.cs`) loses Gold and gains MasonedStone; GroundView's GOLD slot is gone and a
+  MASONED_STONE slot is new (empty until Jacob gives it a material; nothing makes it yet).
+- Version 16 in `protocol.rs`, `test_client.py`, Ensemble's and Soundcheck's `Protocol.cs`, PROTOCOL.md.
 
 ---
 

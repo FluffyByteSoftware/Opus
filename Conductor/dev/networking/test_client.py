@@ -83,7 +83,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-PROTOCOL_VERSION = 15
+PROTOCOL_VERSION = 16
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -227,7 +227,7 @@ CHUNKS_AT_ONCE = 64
 CHUNK_SIDE = 32
 CHUNK_BLOCKS = CHUNK_SIDE * CHUNK_SIDE * CHUNK_SIDE
 CHUNK_ROWS = 11
-# 4 was GOLD, dropped 2026-10-03, and never used again.
+# 4 was GOLD, dropped in protocol version 16, and never used again.
 BLOCK_NAMES = {0: "AIR", 1: "DIRT", 2: "STONE", 3: "WOOD", 5: "BEDROCK", 6: "MASONED_STONE"}
 
 

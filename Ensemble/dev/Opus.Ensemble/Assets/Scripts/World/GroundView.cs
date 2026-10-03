@@ -35,11 +35,11 @@ namespace Opus.World
         [Tooltip("WOOD's material.")]
         public Material wood;
 
-        [Tooltip("GOLD's material.")]
-        public Material gold;
-
         [Tooltip("BEDROCK's material.")]
         public Material bedrock;
+
+        [Tooltip("MASONED_STONE's material: grey bricks, what a wall is made of.")]
+        public Material masonedStone;
 
         [Header("Making the meshes")]
         [Tooltip("The most chunks' meshes made into Unity's Mesh in one frame, so a view coming in doesn't stop "
@@ -249,8 +249,8 @@ namespace Opus.World
                 case Blocks.Dirt: material = dirt; break;
                 case Blocks.Stone: material = stone; break;
                 case Blocks.Wood: material = wood; break;
-                case Blocks.Gold: material = gold; break;
                 case Blocks.Bedrock: material = bedrock; break;
+                case Blocks.MasonedStone: material = masonedStone; break;
                 default: material = null; break;
             }
             if (material == null && saidMissing.Add(kind))

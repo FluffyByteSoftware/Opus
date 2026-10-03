@@ -101,13 +101,17 @@
 //! ends with how fast a character walks and turns, the Hydrate carries
 //! the room an object takes up (its collider), and a player is no longer
 //! sent their own character's moves.
+//!
+//! Version 16 (2026-10-03) changes the block kinds a squeezed chunk can
+//! carry, no packet's shape: GOLD (4) is gone, never to be used again,
+//! and MASONED_STONE (6), grey bricks, is new.
 
 use conductor_gameclock::{Hydrate, Motion, PullBack};
 use conductor_gameworld::ChunkPos;
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 15;
+pub const PROTOCOL_VERSION: u8 = 16;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.

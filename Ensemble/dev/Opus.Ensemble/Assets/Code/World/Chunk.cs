@@ -50,15 +50,16 @@ namespace Opus.World
     }
 
     // The block numbers, the world's.  A number never changes once it's
-    // out there.
+    // out there, and a dropped one is never used again: 4 was GOLD, dropped
+    // in protocol version 16.
     public static class Blocks
     {
         public const ushort Air = 0;
         public const ushort Dirt = 1;
         public const ushort Stone = 2;
         public const ushort Wood = 3;
-        public const ushort Gold = 4;
         public const ushort Bedrock = 5;
+        public const ushort MasonedStone = 6;
 
         public static string NameOf(ushort kind)
         {
@@ -68,8 +69,8 @@ namespace Opus.World
                 case Dirt: return "DIRT";
                 case Stone: return "STONE";
                 case Wood: return "WOOD";
-                case Gold: return "GOLD";
                 case Bedrock: return "BEDROCK";
+                case MasonedStone: return "MASONED_STONE";
                 default: return "block " + kind;
             }
         }

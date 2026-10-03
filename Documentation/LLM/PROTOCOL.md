@@ -13,8 +13,10 @@ launcher (`Soundcheck/dev/Net/`), speaks the login over TCP, and Ensemble (`Asse
 UDP, from the Connect the launcher's ticket earns it (2026-10-02); when any of them disagrees with this
 document, it is the code that gets fixed.
 
-Protocol version **15**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 15 (2026-10-03)
+Protocol version **16**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 16 (2026-10-03)
+changed the block kinds a squeezed chunk can carry, and no packet's shape: GOLD (4) is gone and never used
+again, and MASONED_STONE (6), grey bricks, is new (below, "A chunk, squeezed").  Version 15 (2026-10-03)
 added movement, EverQuest's way: the client walks its own character and says where it went with a
 **PlayerMoved** (`0x55`), and the server takes each move or pulls the character back to its last good spot
 with a **MoveCorrection** (`0x56`) (below, "Movement").  CharacterEnteredWorld now ends with how fast a
@@ -490,8 +492,8 @@ then runs, until all 32,768 blocks are covered:
 ```
 
 Nothing is left over after the last run, and the runs never come to more than 32,768 blocks.  The block
-numbers are the world's: AIR 0, DIRT 1, STONE 2, WOOD 3, BEDROCK 5, MASONED_STONE 6 (4 was GOLD, dropped
-2026-10-03, and never used again; nothing makes MASONED_STONE yet); a number never changes once it's
+numbers are the world's: AIR 0, DIRT 1, STONE 2, WOOD 3, BEDROCK 5, MASONED_STONE 6 (version 16: 4 was
+GOLD, and is never used again; nothing makes MASONED_STONE yet); a number never changes once it's
 out there.  An all-air chunk is 8 bytes, a flat one 13; a chunk of Omega's hills under 700 (measured,
 2026-10-03: a whole view of 3,179 chunks came to 88,746 bytes, every chunk one piece).  The worst there is, every
 block different, is 163,843 bytes, 138 pieces.
