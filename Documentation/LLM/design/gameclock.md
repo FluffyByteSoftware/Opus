@@ -241,7 +241,7 @@ half:
 - **Its cost**: a guess, not measured.  Every move is checked against every player standing still, so a
   cycle's checks grow with players times moves.  If it shows up in a late cycle, a timing test comes first.
 
-## Gravity (session 13, 2026-10-03; planned, waiting on Jacob's OK)
+## Gravity (session 13, 2026-10-03; being talked through, not built)
 
 Jacob, opening session 13: **"set up gravity on the server now (Conductor) so that clients cannot cheat
 and fly around"**.  Gravity alone is the server's; walking stays the client's (session 12's "gravity
@@ -261,7 +261,7 @@ sorry").
   that goes quiet in the air hangs there for everybody else, and so would an NPC, or a player whose
   ground is blown away.
 
-**The plan** (each piece a question until he answers; his picks go in here as they come):
+**The first plan**, put to him (kept for why; his answers below turned it):
 
 - **The server drops everything**, in the movement check, every cycle: an object with a `Transform` and a
   `Collider` standing on nothing speeds up downward and lands on the first block under its collider.  A
@@ -284,6 +284,43 @@ sorry").
   pulled back.
 - **The cost**: a footing check for each object every cycle, a guess of nothing much until an `#[ignore]`
   timing test says (500 falling).
+
+**His answers to the first plan** (2026-10-03):
+
+- **Flying has to be possible**: "hold on we need to make sure we add a means for players to fly because
+  I totally want flight magic and flying creatures in this".  So gravity is something an object has, and
+  something it can be let off.
+- **How fast**: "Minecrafts speed but you need to look it up".  Looked up in Minestom, an open-source
+  Minecraft server (`Minestom/Minestom` on GitHub: `registry/RegistryData.java` has every entity's
+  `acceleration` 0.08 and `drag` 0.02 as the defaults, and `collision/PhysicsUtils.java`'s
+  `updateVelocity()` runs `y = (y - gravity) * (1 - drag)` once a tick), at Minecraft's 20 ticks a second:
+  each tick a falling thing's downward speed goes up 0.08 blocks a tick and is then cut to 98 %, so it
+  tops out at 3.92 blocks a tick, 78.4 a second.  That's the emulator's, said as such; the Minecraft
+  wiki doesn't reach the session, and a web search's summary of it says the same numbers.  Our check is
+  50 ms, a Minecraft tick exactly, so a cycle runs that step five times.  `FASTEST_FALL` (60) goes up to
+  78.4 to match.
+- **Whether the client hears the server drop it**: "yes we will need a protocol revision for it".  Asked
+  back which revision he means (below).
+- **Caught flying**: a Warn "only if they don't have a flying effect on them or some legitimate means to
+  be flying it would be like speed hacking".
+- **The 45-degree slope**: "now".
+- **Who falls**: "every GameObject in the game code (I think our LUA) that has a gravity component;
+  actors will all have gravity as a component or maybe we call it mass?  PHysics component?  I dont' know
+  yet".  The templates are still Rust today (`primlib/src/gameobject.rs`); Lua templates are primlib's
+  part two, not built, and the component would go to Lua with the rest.
+- **Building**: "lets discuss if we need to".
+
+**The second shape**, put to him, not settled:
+
+- **A component**, in primlib, on the Living template (so every actor has it), holding whether gravity
+  pulls the object and whether it may fly right now (a flying creature's blueprint says yes; a flying
+  effect, once there are effects, says yes while it lasts).  Its name is his to pick: `Physics`, `Mass`
+  or `Gravity`.  An object that may fly is left alone by gravity and its client's moves aren't held to a
+  fall; no Warn.  Its speed in the air is walking's until speed modifiers come.
+- **The protocol, version 18**: CharacterEnteredWorld ends with whether the character may fly and the
+  fall's two numbers (as it already ends with the walk and the turn), and a new packet tells a client
+  when its character's flight changes.  Ensemble and Soundcheck have to read 18 (a Unity round).
+- **Turning flight on to test it** with no spells yet: open.
 
 ## Open
 
