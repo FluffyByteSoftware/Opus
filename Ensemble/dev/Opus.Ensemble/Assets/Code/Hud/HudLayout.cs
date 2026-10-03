@@ -33,6 +33,13 @@ namespace Opus.Hud
         public Offset offset = new Offset();
         public PixelSize size = new PixelSize();
         public int layer;
+
+        // Version 2.  Whether the player locked it where it is (false, the
+        // start, lets it be moved), and the size its text is shown at in
+        // the layout's pixels, for a widget that has one to pick (0 is the
+        // widget's own).
+        public bool locked;
+        public int fontSize;
     }
 
     [Serializable]

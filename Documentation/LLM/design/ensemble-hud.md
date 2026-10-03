@@ -58,7 +58,8 @@ Phases 2 and 3 are in TODO.md.
     (`~/.config/unity3d/FluffyByte/Opus.Ensemble`).  The code takes the company's folder above Unity's
     `persistentDataPath` and names its own under it, since Unity names its folder after the Product Name
     and makes the dot an underscore (`Opus_Ensemble`).  Nothing writes the player's layout yet (that's the
-    web editor, Phase 3), so moving it cost nothing.
+    web editor, Phase 3), so moving it cost nothing.  **Since session 7 it's one a character**,
+    `<character>_hud_layout.json`, and the game writes it (below, "Moving, resizing and locking").
 - **Every screen is built with the tool, and only the player's HUD is dynamic** (Jacob: "we are going to
   use the tool to build layouts but the only dynamic one is the player hud").  The login and character
   select are layouts too, made in the editor and shipped with the game, but never read from the player's
@@ -231,3 +232,53 @@ entry has his answers in his words.
   one letter's, measured in the chat's font by a hidden ruler of ten Ms, less one so a full-width line
   never wraps on a rounding.  A footer longer than the box ("There are seven legends currently online.")
   wraps.
+
+## Moving, resizing and locking (2026-10-03, session 7, written, not built by Jacob yet)
+
+Jacob's pick ("Resizable chat window"), then: "I'd like it so that you can right click it and lock it or
+unlock it and when unlocked if you go to the border of the chat box you can drag its edges out into the game
+screen space and resize it."  TODO.md's entry has each of his answers in his words.
+
+- **Every widget on the HUD is movable and lockable; only chat is resizable** ("I want all elements movable
+  but chat window is the only resizable for now"), so health and the minimap say `Resizable = false`.  The
+  start screen and character select stay fixed.
+- **`WidgetFrame`** (`Assets/Code/Hud/WidgetFrame.cs`) sits around each box on the HUD, since a widget never
+  moves or sizes its own box; HudBuilder gives one to every box on an editable screen, which is only the HUD.
+  **Unlocked, which is how everything starts**, the border flashes orange, red and yellow every 300 ms
+  (`hud.uss`'s `widget-flash-*`; "its gonna be annoying but yes until I get a lock/unlock icon in to draw on
+  the title bar").  **The inside drags the widget about**, except where the widget keeps the mouse for
+  itself (chat's field and its scroll bar carry the class `widget-keeps-mouse`); **the edges and corners drag
+  its size**, "like windows window": a band 10 px in from the border, and a corner 24 px along each edge
+  from it.  Never smaller than the catalog's minimum (scaled to the layout's reference), never off the
+  screen; a grip on the left or top keeps the opposite edge where it was.  The frame catches the pointer on
+  the way down (TrickleDown) and holds it while the button's down, so a drag that starts on the lines or
+  the field is the frame's.
+- **The right-click menu** (`WidgetMenu.cs`) is ours, since Unity's own only works in the editor: the
+  widget's name, LOCK or UNLOCK, and for chat **FONT SIZE**, a slider from 18 to 42 with the number beside it
+  ("make it 18-42"), shown as it slides.  It sits on a see-through cover across the screen, so a click
+  anywhere else closes it; so does Escape.  The keys go back to `GameFocus` when it closes.
+- **The font size is the chat's lines and its field**, not its header ("just the contents of the chat window
+  not the header"), and the ruler `/who`'s box is measured with, so the box keeps fitting.  24 px until the
+  player picks, the same as `hud.uss`; a widget's sizes are in `WidgetInfo` (`SmallestFont`, `BiggestFont`,
+  `DefaultFont`), the game's own, not in the catalog's file yet.
+- **The pointers are Jacob's own**, a purchased pack (the PremiumCursors, in `Assets/Purchased/`), so they're
+  two slots on ScreenRoot, **Move Pointer** and **Grip Pointer**, each with its hotspot (32, 32, the middle
+  of a 64 x 64).  `HudPointer.cs` hands them to `Cursor.SetCursor` with `CursorMode.Auto`, the operating
+  system's own pointer, the same call UI Toolkit makes for a `cursor` style.  **The pointer changes the
+  moment the mouse is where a drag can start**, stays through the drag, and is the one for wherever the
+  mouse is once it's let go (the normal one off the widget).  The picture's Texture Type has to be Cursor
+  (Unity can only make a pointer from a picture it can read); one that isn't is a warning, once, and the
+  normal pointer.  An empty slot is the normal pointer, and the drags work the same.  **Size**: Windows holds
+  the hardware pointer to about 32 x 32 and Linux took 128 x 128 (Unity's forums and issue tracker; Unity's
+  own docs don't reach the session), so the 64 x 64s, Linux first.  If Windows cuts them down,
+  `CursorMode.ForceSoftware` draws any size a frame behind the mouse.
+- **Remembered, a layout a character** ("we can do this even better playername_hud_layout.json"): every
+  change (a drag let go, LOCK, UNLOCK, and the slider half a second after it stops) writes the HUD as it is
+  to `<character>_hud_layout.json` in the player's folder, through a `.new` file and a replace.  The name is
+  `Session.InWorldAs` in lower case; Ensemble never learns the account's.  The HUD shown by hand in the
+  editor (ScreenRoot's Show HUD) has no character, so it's the default and isn't saved.  Reset HUD To
+  Default deletes the character's file.  The old shared `hud_layout.json` isn't read any more; nothing ever
+  wrote it.  The layout's version 2 has the two new fields (`../HUD_FORMATS.md`).
+- **One limit**: the file's offsets are kept against the layout's 2560 x 1440 reference, so on a screen of
+  another shape, a widget dragged into the extra room at the sides is moved back inside the reference's
+  width on the next load.

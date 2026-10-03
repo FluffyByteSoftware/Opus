@@ -7,10 +7,11 @@ Author:     Jacob Chacko
 # Opus -- HUD Formats
 
 The two files the HUD's tools pass between them: the **catalog** (every widget there is, written by the game)
-and the **layout** (where the widgets go on one screen, written by the web editor, read by the game).  This is
-the contract, the same way PROTOCOL.md is the packets': the game, the web editor and any in-game editor are all
-written from it, and when one disagrees with this document, the code is what gets fixed.  A change to either
-format bumps its `version`, and this document gets a line in the version history saying what changed.
+and the **layout** (where the widgets go on one screen, written by the web editor or by the game, read by the
+game).  This is the contract, the same way PROTOCOL.md is the packets': the game, the web editor and any
+in-game editor are all written from it, and when one disagrees with this document, the code is what gets
+fixed.  A change to either format bumps its `version`, and this document gets a line in the version history
+saying what changed.
 
 The design behind it is `design/ensemble-hud.md`; Jacob's brief is `HUD_LAYOUT_SYSTEM.md`.
 
@@ -58,7 +59,7 @@ reference, an anchored widget stays with its corner or edge.
 ```json
 {
   "format": "opus-hud-layout",
-  "version": 1,
+  "version": 2,
   "screen": "hud",
   "name": "Default",
   "reference": { "width": 2560, "height": 1440 },
@@ -66,6 +67,11 @@ reference, an anchored widget stays with its corner or edge.
     {
       "id": "health", "anchor": "TopLeft",
       "offset": { "x": 24, "y": 24 }, "size": { "width": 400, "height": 48 }, "layer": 0
+    },
+    {
+      "id": "chat", "anchor": "BottomLeft",
+      "offset": { "x": 24, "y": -24 }, "size": { "width": 900, "height": 420 }, "layer": 1,
+      "locked": true, "fontSize": 30
     }
   ]
 }
@@ -74,7 +80,7 @@ reference, an anchored widget stays with its corner or edge.
 | Field       | Kind   | What it is |
 |-------------|--------|------------|
 | `format`    | string | Always `"opus-hud-layout"`.  Anything else isn't a layout. |
-| `version`   | number | `1`. |
+| `version`   | number | `2`, or `1`, which the game still reads (it has no `locked` or `fontSize`). |
 | `screen`    | string | The screen it's for: `"hud"`, `"start"` or `"character_select"`.  Only the HUD's layout is ever the player's; the other two ship with the game. |
 | `name`      | string | A name for a person to read ("Default", "Combat").  The game doesn't use it yet. |
 | `reference` | object | `width` and `height`, the screen the layout was made on, in pixels.  320 to 7680 wide, 240 to 4320 tall. |
@@ -89,6 +95,14 @@ Each widget:
 | `offset` | object | `x` and `y`, from the anchor's point, in reference pixels. |
 | `size`   | object | `width` and `height`, in reference pixels. |
 | `layer`  | number | A whole number.  Higher layers draw on top; widgets in the same layer draw in the file's order. |
+| `locked` | boolean | Version 2.  `true` when the player locked it from its right-click menu; it can't be moved or resized until it's unlocked.  Missing is `false`, so everything starts unlocked. |
+| `fontSize` | number | Version 2.  The size its text is shown at, in reference pixels, for a widget with a size to pick (chat: 18 to 42, its lines and its field).  Missing or `0` is the widget's own (chat's is 24). |
+
+**The player's HUD layout is the game's to write too** (2026-10-03): once the player moves, resizes or locks
+a widget, or picks chat's font size, the game writes the HUD as it is to `<character>_hud_layout.json` in the
+player's folder (`tester_hud_layout.json`), the character's name in lower case, as version 2, with the
+reference and name of the layout it was built from.  That file is read when the character enters the world;
+a character without one gets the default.
 
 ### What the game does with a layout
 
@@ -108,6 +122,7 @@ the sizes above.
 5. A widget that isn't `resizable`: its `defaultSize` (scaled to the reference), whatever the file says.
 6. A size under the widget's `minSize` (scaled to the reference): raised to it.  A size bigger than the reference: cut to it.
 7. A widget off the reference screen, wholly or partly: moved back on, by changing its offset.
+8. A `fontSize` on a widget with no size to pick: ignored.  One outside the widget's range: brought into it.
 
 **A widget whose catalog entry says `fillsScreen`** (the start screen's background) covers the whole real screen,
 whatever its shape, and its `anchor`, `offset` and `size` are ignored, so rules 4 to 7 don't apply to it.
@@ -163,3 +178,6 @@ Each widget:
 
 - **Layout 1, catalog 1** (2026-10-01): the first.
 - **Catalog 2** (2026-10-01): `fillsScreen`, for the login's background.  The layout is still version 1.
+- **Layout 2** (2026-10-03, session 7): `locked` and `fontSize` on each widget, and rule 8; the game writes the
+  player's HUD layout, one a character.  Version 1 is still read.  The catalog is still version 2: a widget's
+  font sizes (chat's 18 to 42) are the game's own for now.

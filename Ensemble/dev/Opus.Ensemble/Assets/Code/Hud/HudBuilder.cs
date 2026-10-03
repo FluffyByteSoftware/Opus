@@ -3,8 +3,10 @@
 // Author:     Jacob Chacko
 // Turns the checked widgets into a screen (the HUD, the start screen): a stack of
 // layers, a box per widget in its layer, and each box placed from its
-// anchor.
+// anchor.  On the HUD each box gets a WidgetFrame, so the player can move,
+// resize and lock it, and Changed says when they have.
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -16,14 +18,25 @@ namespace Opus.Hud
         VisualElement screen;
         readonly List<PlacedWidget> placed = new List<PlacedWidget>();
         readonly List<VisualElement> boxes = new List<VisualElement>();
+        readonly List<WidgetFrame> frames = new List<WidgetFrame>();
+
+        // The player moved, resized or locked a widget, or picked its text
+        // size.  Placed has where everything is now.
+        public event Action Changed;
 
         // The screen this builder built last, or null.
         public VisualElement Screen { get { return screen; } }
 
+        // The widgets on it, as the player has them now.
+        public List<PlacedWidget> Placed { get { return placed; } }
+
         // Build a screen under root, with its own style sheet.  The sheet
         // goes on the screen, not the root, so the HUD's look and the
-        // start screen's never meet.  Anything this builder built before goes first.
-        public void Build(VisualElement root, List<PlacedWidget> widgets, string name, StyleSheet styleSheet)
+        // start screen's never meet.  Anything this builder built before
+        // goes first.  The player can move the widgets on an editable
+        // screen, which is only ever the HUD.
+        public void Build(VisualElement root, List<PlacedWidget> widgets, string name, StyleSheet styleSheet,
+                          bool editable)
         {
             Clear();
 
@@ -56,6 +69,10 @@ namespace Opus.Hud
                 box.style.position = Position.Absolute;
                 layers[p.Layer].Add(box);
                 p.Widget.Build(box);
+                if (p.FontSize != 0)
+                    p.Widget.UseFontSize(p.FontSize);
+                if (editable && !p.Widget.Info.FillsScreen)
+                    frames.Add(new WidgetFrame(box, p, screen, SayChanged));
 
                 placed.Add(p);
                 boxes.Add(box);
@@ -69,6 +86,8 @@ namespace Opus.Hud
 
         public void Clear()
         {
+            WidgetMenu.Close();
+            HudPointer.Show(PointerKind.Normal);
             if (screen != null)
             {
                 screen.UnregisterCallback<GeometryChangedEvent>(ScreenChanged);
@@ -77,6 +96,13 @@ namespace Opus.Hud
             }
             placed.Clear();
             boxes.Clear();
+            frames.Clear();
+        }
+
+        void SayChanged()
+        {
+            if (Changed != null)
+                Changed();
         }
 
         void ScreenChanged(GeometryChangedEvent e)

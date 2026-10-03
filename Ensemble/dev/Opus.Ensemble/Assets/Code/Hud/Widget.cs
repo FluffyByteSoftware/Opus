@@ -22,6 +22,13 @@ namespace Opus.Hud
 
         // Fill the box.  Called once, when the HUD is built.
         public abstract void Build(VisualElement box);
+
+        // The size the player picked for the widget's text, in the layout's
+        // pixels.  Only a widget whose Info has font sizes is ever handed
+        // one, after Build() and again whenever it's picked.
+        public virtual void UseFontSize(int pixels)
+        {
+        }
     }
 
     // A widget's entry in the catalog.  HUD_FORMATS.md has what each field
@@ -38,6 +45,19 @@ namespace Opus.Hud
         public bool Resizable = true;
         public Anchor DefaultAnchor = Anchor.TopLeft;
         public int MaxCount = 1;
+
+        // The text sizes a player can pick from the widget's right-click
+        // menu, smallest to biggest, and the one it has until they do.  All
+        // 0 for a widget with no size to pick.  The game's own for now; not
+        // in the catalog's file.
+        public int SmallestFont;
+        public int BiggestFont;
+        public int DefaultFont;
+
+        public bool HasFontSize
+        {
+            get { return BiggestFont > 0; }
+        }
 
         // Covers the whole real screen, whatever the layout says about its
         // anchor, offset and size: a background, say.  The layout still

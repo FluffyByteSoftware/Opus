@@ -18,6 +18,18 @@ namespace Opus.Hud
         public Vector2 Offset;   // reference pixels
         public Vector2 Size;     // reference pixels
         public int Layer;
+
+        // Locked where it is by the player; unlocked, it can be moved (and
+        // resized, if its catalog entry says so).
+        public bool Locked;
+
+        // The text size the player picked, reference pixels; 0 is the
+        // widget's own.
+        public int FontSize;
+
+        // The smallest it can be resized to, reference pixels: its catalog
+        // minimum, scaled to the layout's reference.
+        public Vector2 Smallest;
     }
 
     public static class LayoutChecker
@@ -131,6 +143,22 @@ namespace Opus.Hud
                     Debug.LogWarning(which + " is off the screen.  Moved back on.");
                 }
 
+                // 8. A text size: only for a widget that has one to pick,
+                // and inside its range.
+                int fontSize = entry.fontSize;
+                if (fontSize != 0 && !info.HasFontSize)
+                {
+                    Debug.LogWarning(which + " has a font size, and it has none to pick.  Ignored.");
+                    fontSize = 0;
+                }
+                else if (fontSize != 0 && (fontSize < info.SmallestFont || fontSize > info.BiggestFont))
+                {
+                    int fixedFont = Mathf.Clamp(fontSize, info.SmallestFont, info.BiggestFont);
+                    Debug.LogWarning(which + " has a font size of " + fontSize + ", outside " + info.SmallestFont
+                        + " to " + info.BiggestFont + ".  Using " + fixedFont + ".");
+                    fontSize = fixedFont;
+                }
+
                 placed.Add(new PlacedWidget
                 {
                     Widget = widget,
@@ -138,6 +166,9 @@ namespace Opus.Hud
                     Offset = offset,
                     Size = size,
                     Layer = entry.layer,
+                    Locked = entry.locked,
+                    FontSize = fontSize,
+                    Smallest = Vector2.Min(smallest, screen),
                 });
             }
             return placed;

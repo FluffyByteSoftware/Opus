@@ -192,9 +192,13 @@ Opus/
 │           │   │   ├── Widget.cs      # what every widget is, and WidgetInfo, its catalog entry
 │           │   │   ├── WidgetRegistry.cs # every widget there is, a line each
 │           │   │   ├── HudLayout.cs   # a layout file's classes, and the nine anchors
-│           │   │   ├── LayoutLoader.cs # a screen's shipped layout; the HUD's can be the player's file instead
+│           │   │   ├── LayoutLoader.cs # a screen's shipped layout; the HUD's can be the character's own file,
+│           │   │   │                  #   <character>_hud_layout.json, which it also writes
 │           │   │   ├── LayoutChecker.cs # the load rules: skipped, clamped, moved back on
 │           │   │   ├── HudBuilder.cs  # a screen: the layers and a box per widget, placed from its anchor
+│           │   │   ├── WidgetFrame.cs # a HUD widget moved, resized (chat) and locked; its flashing border
+│           │   │   ├── WidgetMenu.cs  # a HUD widget's right-click menu: LOCK / UNLOCK, chat's font size
+│           │   │   ├── HudPointer.cs  # the pointer over the HUD: normal, Jacob's move one or his grip one
 │           │   │   ├── WhoBox.cs      # /who's answer drawn as the MUD's box, to the chat window's width
 │           │   │   ├── GameFocus.cs   # the game's place-holder for the keyboard's focus on the HUD
 │           │   │   └── Widgets/       # the HUD's health and minimap (placeholders) and the chat window; the

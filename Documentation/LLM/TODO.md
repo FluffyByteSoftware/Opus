@@ -82,7 +82,13 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   `Cursor.SetCursor(texture, hotspot, CursorMode.Auto)`, the hardware pointer, and the texture is imported
   with Read/Write on or Texture Type: Cursor.  The forums and Unity's issue tracker: Windows' hardware
   pointer is held to about 32 x 32, Linux takes 128 x 128; `CursorMode.ForceSoftware` draws any size, a
-  frame behind the mouse.  So the 64 x 64s, Linux first; Windows untried.
+  frame behind the mouse.  So the 64 x 64s, Linux first; Windows untried.  **Then** (Jacob): they're a
+  purchased pack, already in `Assets/Purchased/` (the PremiumCursors: Move, Hand1, Hand2 the fist, and
+  twenty more), so slots on ScreenRoot; **the pointer changes the moment the mouse is where a drag can
+  start, stays while dragging, and goes back to the normal one on letting go or leaving that place**.
+  **Written** (session 7, not built by Jacob yet): `design/ensemble-hud.md`, "Moving, resizing and
+  locking"; HUD_FORMATS.md's layout version 2.  Left: a lock/unlock icon on a widget's title bar (Jacob's,
+  to replace the flashing), Reset HUD To Default somewhere a player can reach it, and the pointers on Windows.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;

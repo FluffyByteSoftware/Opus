@@ -20,7 +20,9 @@ namespace Opus.Hud
             Screens = new[] { "hud" },
             DefaultSize = new Vector2(400f, 48f),
             MinSize = new Vector2(200f, 32f),
-            Resizable = true,
+            // Movable, but only chat is resizable for now (Jacob,
+            // 2026-10-03).
+            Resizable = false,
             DefaultAnchor = Anchor.TopLeft,
         };
 

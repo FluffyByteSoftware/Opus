@@ -20,6 +20,21 @@
     border-color: rgba(255, 255, 255, 0.6);
 }
 
+/* An unlocked widget (Jacob, 2026-10-03): its border flashes orange, red
+ * and yellow until it's locked from its right-click menu (WidgetFrame).
+ * After .widget:hover, so it wins under the mouse too. */
+.widget.widget-flash-orange {
+    border-color: rgb(255, 140, 0);
+}
+
+.widget.widget-flash-red {
+    border-color: rgb(220, 30, 30);
+}
+
+.widget.widget-flash-yellow {
+    border-color: rgb(255, 220, 0);
+}
+
 /* Health: the word, then the bar. */
 .widget-health {
     flex-direction: row;
@@ -64,7 +79,9 @@
  * is echoed in yellow, what the server says is white.  The font is
  * ScreenRoot's Chat Font slot; the sizes are the three font-size lines
  * below, in the layout's 2560 x 1440 pixels (the first 16 px "holy shit"
- * was too small on 1440p). */
+ * was too small on 1440p).  The lines' and the field's 24 px is where the
+ * right-click menu's font size starts (ChatWidget's DefaultFont), so the
+ * two change together. */
 .widget-chat {
     background-color: rgba(0, 0, 0, 0.5);
     padding: 6px;
@@ -106,4 +123,48 @@
 .chat-input {
     margin: 4px 0 0 0;
     font-size: 24px;
+}
+
+/* A widget's right-click menu (WidgetMenu): LOCK or UNLOCK, and chat's
+ * font size.  The cover behind it is see-through and catches the click
+ * that closes it. */
+.widget-menu-cover {
+    background-color: rgba(0, 0, 0, 0);
+}
+
+.widget-menu {
+    min-width: 300px;
+    background-color: rgba(16, 18, 24, 0.95);
+    border-width: 2px;
+    border-color: rgba(255, 255, 255, 0.35);
+    border-radius: 6px;
+    padding: 10px;
+}
+
+.widget-menu-title {
+    color: rgb(255, 255, 255);
+    font-size: 24px;
+    margin: 0 0 8px 0;
+    padding: 0;
+}
+
+.widget-menu-button {
+    font-size: 22px;
+    margin: 0 0 8px 0;
+}
+
+.widget-menu-row {
+    flex-direction: row;
+    justify-content: space-between;
+}
+
+.widget-menu-label {
+    color: rgb(255, 255, 255);
+    font-size: 22px;
+    margin: 0;
+    padding: 0;
+}
+
+.widget-menu-slider {
+    margin: 4px 0 0 0;
 }

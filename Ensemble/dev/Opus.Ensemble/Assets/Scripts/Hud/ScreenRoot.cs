@@ -10,8 +10,10 @@
 // session (Opus.Net's Session) switches between the start screen,
 // character select and the HUD, drawn over the game scene once the
 // character is in the world.  This is where the network's threads get
-// their turn on the main thread, once a frame.  Right-click it in the
-// Inspector for Show Start Screen, Show HUD and Reset HUD To Default.
+// their turn on the main thread, once a frame.  The HUD's layout is the
+// character's own once the player has moved, resized or locked a widget,
+// and this is where it's written.  Right-click it in the Inspector for Show
+// Start Screen, Show HUD and Reset HUD To Default.
 
 using Opus.Net;
 using UnityEngine;
@@ -70,6 +72,27 @@ namespace Opus.Hud
             + "Empty is Unity's own.  It can be changed in Play mode and shows at once.")]
         public Font chatFont;
 
+        // Jacob's pointer pack is purchased, so it's never committed: the
+        // two pictures are dragged on by hand (2026-10-03).
+        [Header("The HUD's pointers")]
+        [Tooltip("The pointer while the mouse is where a widget can be dragged about: Move_PremiumCursor, the "
+            + "64 x 64 one, from Assets/Purchased.  Its Texture Type has to be Cursor.  Empty keeps the normal "
+            + "pointer.")]
+        public Texture2D movePointer;
+
+        [Tooltip("The pixel of the Move Pointer that does the clicking, from its top-left corner.  32, 32 is "
+            + "the middle of a 64 x 64.")]
+        public Vector2 movePointerHotspot = new Vector2(32f, 32f);
+
+        [Tooltip("The pointer while the mouse is on an edge a widget can be resized by: Hand2_PremiumCursor, "
+            + "the fist, the 64 x 64 one, from Assets/Purchased.  Its Texture Type has to be Cursor.  Empty keeps "
+            + "the normal pointer.")]
+        public Texture2D gripPointer;
+
+        [Tooltip("The pixel of the Grip Pointer that does the clicking, from its top-left corner.  32, 32 is "
+            + "the middle of a 64 x 64.")]
+        public Vector2 gripPointerHotspot = new Vector2(32f, 32f);
+
         // The game starts on the start screen.
         string showing = LayoutLoader.StartScreen;
 
@@ -81,6 +104,10 @@ namespace Opus.Hud
         PanelSettings ownSettings;
         readonly HudBuilder builder = new HudBuilder();
 
+        // What the HUD showing was built from, for saving it back.
+        PixelSize hudReference;
+        string hudName;
+
         void OnEnable()
         {
             Session.ReachedCharacterSelect += ShowCharacterSelect;
@@ -88,6 +115,8 @@ namespace Opus.Hud
             Session.ReachedWorld += ShowHudInWorld;
             CharacterSelectForm.Filled += ApplyText;
             ChatWidget.Font = chatFont;
+            SetPointers();
+            builder.Changed += SaveHud;
             CharacterSelectForm.Listen();
             Show(showing);
             TakeTicket();
@@ -100,6 +129,7 @@ namespace Opus.Hud
             Session.ReachedWorld -= ShowHudInWorld;
             CharacterSelectForm.Filled -= ApplyText;
             CharacterSelectForm.StopListening();
+            builder.Changed -= SaveHud;
             builder.Clear();
         }
 
@@ -130,6 +160,8 @@ namespace Opus.Hud
             if (!Application.isPlaying)
                 return;
             ChatWidget.Font = chatFont;
+            SetPointers();
+            HudPointer.Refresh();
             if (showing == LayoutLoader.HudScreen)
                 ApplyChatFont();
             else
@@ -195,7 +227,7 @@ namespace Opus.Hud
             string styleFile;
             if (screen == LayoutLoader.HudScreen)
             {
-                layout = LayoutLoader.LoadHud(hudLayout);
+                layout = LayoutLoader.LoadHud(hudLayout, Session.InWorldAs);
                 style = hudStyle;
                 styleFile = "hud.uss onto ScreenRoot's Hud Style";
             }
@@ -237,7 +269,12 @@ namespace Opus.Hud
                 Debug.LogWarning("Screens: no style sheet for the \"" + screen + "\" screen, so its widgets will "
                     + "be bare.  Drag " + styleFile + ", from Assets/Data/Styles.");
 
-            builder.Build(root, LayoutChecker.Check(layout), screen, style);
+            builder.Build(root, LayoutChecker.Check(layout), screen, style, screen == LayoutLoader.HudScreen);
+            if (screen == LayoutLoader.HudScreen)
+            {
+                hudReference = layout.reference;
+                hudName = layout.name;
+            }
 
             // The game's place for the keys is on the HUD only; the start
             // screen and character select are all widgets.  Placed before
@@ -278,6 +315,25 @@ namespace Opus.Hud
             VisualElement screen = builder.Screen;
             if (screen != null)
                 screen.Query<VisualElement>(className: "widget-chat").ForEach(ChatWidget.UseFont);
+        }
+
+        // The two pointer slots, to HudPointer.
+        void SetPointers()
+        {
+            HudPointer.MovePicture = movePointer;
+            HudPointer.MoveHotspot = movePointerHotspot;
+            HudPointer.GripPicture = gripPointer;
+            HudPointer.GripHotspot = gripPointerHotspot;
+        }
+
+        // The player moved, resized or locked a widget, or picked a text
+        // size: the HUD as it is now goes to the character's own layout.
+        void SaveHud()
+        {
+            if (showing != LayoutLoader.HudScreen || hudReference == null)
+                return;
+            LayoutFile layout = LayoutLoader.HudLayoutOf(builder.Placed, hudReference, hudName);
+            LayoutLoader.SaveHud(Session.InWorldAs, layout);
         }
 
         // The whole screen is scaled from the layout's reference to the real
@@ -332,14 +388,14 @@ namespace Opus.Hud
                 Debug.Log("Screens: switching screens only works in Play mode.");
         }
 
-        // Back to the HUD's default layout: the player's file is deleted, and
-        // if the HUD is showing in Play mode it's built again straight away.
-        // A settings menu will call this one day; for now it's the
-        // right-click.
+        // Back to the HUD's default layout: the character's file is deleted,
+        // and if the HUD is showing in Play mode it's built again straight
+        // away.  A settings menu will call this one day; for now it's the
+        // right-click, for the character in the world.
         [ContextMenu("Reset HUD To Default")]
         public void ResetHudToDefault()
         {
-            LayoutLoader.ForgetPlayerLayout();
+            LayoutLoader.ForgetPlayerLayout(Session.InWorldAs);
             if (Application.isPlaying && isActiveAndEnabled && showing == LayoutLoader.HudScreen)
                 Show(LayoutLoader.HudScreen);
         }

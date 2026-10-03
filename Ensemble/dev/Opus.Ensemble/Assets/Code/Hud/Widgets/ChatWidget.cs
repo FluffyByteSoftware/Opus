@@ -9,7 +9,9 @@
 // keys (Jacob, 2026-10-02): Enter or a "/" while the game has the keys
 // (GameFocus) brings them to the field, the "/" already typed; Enter in
 // the field sends the line and hands the keys back; so do Escape and a
-// click away.
+// click away.  The size of its lines and its field is the player's to pick
+// on its right-click menu, 18 to 42 (Jacob, 2026-10-03: "just the contents
+// of the chat window not the header"); the header stays as hud.uss has it.
 
 using Opus.Net;
 using UnityEngine;
@@ -30,6 +32,11 @@ namespace Opus.Hud
             MinSize = new Vector2(320f, 160f),
             Resizable = true,
             DefaultAnchor = Anchor.BottomLeft,
+            SmallestFont = 18,
+            BiggestFont = 42,
+            // hud.uss's size for the lines and the field; the two change
+            // together.
+            DefaultFont = 24,
         };
 
         // The server ignores anything past 300, and the client never
@@ -46,6 +53,10 @@ namespace Opus.Hud
         // The chat box's font, from ScreenRoot's Chat Font slot.  Null is
         // Unity's own.
         public static Font Font;
+
+        // The size the player picked for the lines and the field, or 0 for
+        // hud.uss's own.
+        int fontSize;
 
         VisualElement box;
         ScrollView lines;
@@ -82,6 +93,10 @@ namespace Opus.Hud
             // to the field, not selected whole to be typed over.
             input.selectAllOnFocus = false;
             input.AddToClassList("chat-input");
+            // The mouse in the field is for typing, not for dragging the
+            // window about (WidgetFrame).
+            input.AddToClassList(WidgetFrame.KeepsMouse);
+            lines.verticalScroller.AddToClassList(WidgetFrame.KeepsMouse);
 
             // Caught on the way down (TrickleDown), before the text field
             // does anything of its own with Enter.
@@ -109,6 +124,22 @@ namespace Opus.Hud
 
             // Straight to typing once the HUD is up.
             input.schedule.Execute(() => input.Focus());
+        }
+
+        // The size the player picked, on every line, the field, and the
+        // ruler /who's box is measured with.  Not on the header.
+        public override void UseFontSize(int pixels)
+        {
+            fontSize = pixels;
+            box.Query<Label>(className: "chat-line").ForEach(line => line.style.fontSize = pixels);
+            input.style.fontSize = pixels;
+
+            // The lines got taller or shorter: back down to the newest.
+            lines.schedule.Execute(() =>
+            {
+                if (lines.childCount > 0)
+                    lines.ScrollTo(lines[lines.childCount - 1]);
+            });
         }
 
         // ScreenRoot's Chat Font on every piece of text in here.  Set on
@@ -242,6 +273,8 @@ namespace Opus.Hud
             line.enableRichText = false;
             line.AddToClassList("chat-line");
             line.AddToClassList(kind);
+            if (fontSize != 0)
+                line.style.fontSize = fontSize;
             UseFont(line);
             lines.Add(line);
 

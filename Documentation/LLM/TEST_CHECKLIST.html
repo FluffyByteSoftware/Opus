@@ -216,6 +216,75 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>The HUD moved, resized and locked (2026-10-03, session 7)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Unity compiles with no errors after the pull, and the three new files (HudPointer, WidgetFrame,
+      WidgetMenu) have their <code>.meta</code>s.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      ScreenRoot in the Inspector has "The HUD's pointers": Move_PremiumCursor (64 x 64) on Move Pointer,
+      Hand2_PremiumCursor on Grip Pointer, both pictures Texture Type: Cursor.  File &gt; Save after.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      PLAY with a character that has no layout of its own: the Console says "no layout of yours at
+      .../&lt;name&gt;_hud_layout.json", and the health bar, the minimap and chat all have borders flashing
+      orange, red and yellow.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The mouse over the inside of any unlocked widget is the move pointer; holding the left button and
+      dragging moves it, and it can't go off the screen.  Let go off the widget: the normal pointer.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Over chat's field to type in, or its scroll bar: the normal pointer, and a click in the field still
+      types.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Chat's four edges and four corners: the grip pointer, and dragging resizes it like a window, never
+      smaller than 320 x 160 (on 1440p) and never off the screen.  Health and the minimap have no grip
+      at their edges, only the move pointer.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A right-click on any widget opens its menu at the mouse (the widget's name and LOCK); a click
+      anywhere else, or Escape, closes it.  LOCK stops the flashing, and the locked widget no longer moves
+      and shows the normal pointer; right-click and UNLOCK brings both back.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Chat's menu has FONT SIZE, 18 to 42, starting at 24: sliding it changes the size of the lines and
+      the field as it goes, not the "Chat" header, and <code>/who</code>'s box still fits the window at 18
+      and at 42.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      After a move, a resize, a LOCK and a font size, the Console says "saved your layout,
+      .../&lt;name&gt;_hud_layout.json"; <code>/camp</code> and PLAY the same character again: everything is
+      where it was left, locked as left, the font as picked.  Another character still gets the default.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      ScreenRoot's right-click Reset HUD To Default in Play mode: the character's file is deleted and the
+      HUD is back to the default, all unlocked.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">
