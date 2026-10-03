@@ -281,7 +281,8 @@ screen space and resize it."  TODO.md's entry has each of his answers in his wor
   to `<character>_hud_layout.json` in the player's folder, through a `.new` file and a replace.  The name is
   `Session.InWorldAs` in lower case; Ensemble never learns the account's.  The HUD shown by hand in the
   editor (ScreenRoot's Show HUD) has no character, so it's the default and isn't saved.  Reset HUD To
-  Default deletes the character's file.  The old shared `hud_layout.json` isn't read any more; nothing ever
+  Default deletes the character's file.  So (Jacob): "if the character's HUD save file is missing they start
+  unlocked.  Otherwise they resume from the state they were in on last save of the HUD file".  The old shared `hud_layout.json` isn't read any more; nothing ever
   wrote it.  The layout's version 2 has the two new fields (`../HUD_FORMATS.md`).
 - **One limit**: the file's offsets are kept against the layout's 2560 x 1440 reference, so on a screen of
   another shape, a widget dragged into the extra room at the sides is moved back inside the reference's
