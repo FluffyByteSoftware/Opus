@@ -233,7 +233,7 @@ entry has his answers in his words.
   never wraps on a rounding.  A footer longer than the box ("There are seven legends currently online.")
   wraps.
 
-## Moving, resizing and locking (2026-10-03, session 7, written, not built by Jacob yet)
+## Moving, resizing and locking (2026-10-03, session 7, built; Jacob's checks under way)
 
 Jacob's pick ("Resizable chat window"), then: "I'd like it so that you can right click it and lock it or
 unlock it and when unlocked if you go to the border of the chat box you can drag its edges out into the game
@@ -266,7 +266,8 @@ screen space and resize it."  TODO.md's entry has each of his answers in his wor
   of a 64 x 64).  `HudPointer.cs` hands them to `Cursor.SetCursor` with `CursorMode.Auto`, the operating
   system's own pointer, the same call UI Toolkit makes for a `cursor` style.  **The pointer changes the
   moment the mouse is where a drag can start**, stays through the drag, and is the one for wherever the
-  mouse is once it's let go (the normal one off the widget).  The picture's Texture Type has to be Cursor
+  mouse is once it's let go (the normal one off the widget; Jacob, after trying it: "It feels right as
+  is").  The picture's Texture Type has to be Cursor
   (Unity can only make a pointer from a picture it can read); one that isn't is a warning, once, and the
   normal pointer.  An empty slot is the normal pointer, and the drags work the same.  **Size**: Windows holds
   the hardware pointer to about 32 x 32 and Linux took 128 x 128 (Unity's forums and issue tracker; Unity's
