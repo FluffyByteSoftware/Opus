@@ -296,7 +296,14 @@ sorry").
   `updateVelocity()` runs `y = (y - gravity) * (1 - drag)` once a tick), at Minecraft's 20 ticks a second:
   each tick a falling thing's downward speed goes up 0.08 blocks a tick and is then cut to 98 %, so it
   tops out at 3.92 blocks a tick, 78.4 a second.  That's the emulator's, said as such; the Minecraft
-  wiki doesn't reach the session, and a web search's summary of it says the same numbers.  Our check is
+  wiki doesn't reach the session, and a web search's summary of it says the same numbers.  **Jacob pasted
+  the wiki's own words** the same day, and they agree to the number: "Every tick (1/20 second), non-flying
+  players and mobs have their vertical speed decremented ... by 0.08 blocks per tick ... then multiplied
+  by 0.98.  This would produce a terminal velocity of 3.92 blocks per tick, or 78.4 m/s", with the speed
+  after t ticks of a fall from standing `v(t) = (0.98^floor(t) - 1) x 3.92` blocks a tick (after one tick,
+  -0.0784, the same as Minestom's step) and the distance fallen about `196 - 3.92 t - 194.04 x 0.98^(t -
+  0.5)`.  The wiki's fall from 256 to bedrock takes about 5.5 seconds, landing at 3.5 blocks a tick; ours,
+  +319 to -32, is a little longer.  Our check is
   50 ms, a Minecraft tick exactly, so a cycle runs that step five times.  `FASTEST_FALL` (60) goes up to
   78.4 to match.
 - **Whether the client hears the server drop it**: "yes we will need a protocol revision for it".  Asked
