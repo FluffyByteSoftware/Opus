@@ -15,14 +15,6 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 
 ### The game
 
-- **A pull-back nobody can place yet** (session 12, 2026-10-03): Jacob, testing session 10's movement
-  checks on version 17, saw one run pulled back that shouldn't have been ("I think it was the first
-  test"), and couldn't make it happen again.  Only `--jump 30 --spin` is meant to pull back.  **A guess,
-  not a finding**: with the GOLD gone, 0.5, 1, 0.5 is over Omega's dirt, which is under 0 in Jacob's
-  world, so a character coming in there stands a block or more over the ground; one whose first move
-  comes 2 s or more after it's in is "hanging in the air" and goes back.  Next time it happens: the run's
-  output and the log's line for it ("was pulled back: ...").  RESET HOME stands a character on the ground.
-
 - **An all-air chunk that costs nothing** (2026-10-01, put forward with the 1 m blocks, not Jacob's ask
   yet).  The world is eleven chunks tall now, so a player's 891 chunks are mostly air, each kept whole at
   64 KB (about 57 MB a player).  A chunk that's all one kind could be held as that one kind until a block
