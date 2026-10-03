@@ -59,7 +59,14 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   would be HudBuilder's, not ChatWidget's.  **Jacob**: "I'd like it so that you can right click it and
   lock it or unlock it and when unlocked if you go to the border of the chat box you can drag its edges
   out into the game screen space and resize it."  So a right-click menu on the window (Lock / Unlock),
-  and while unlocked its border is a grip, any edge.
+  and while unlocked its border is a grip, any edge.  His answers (session 7): **every edge and corner**,
+  "like windows window"; **unlocked by default**; **remembered**, "saved in userprefs and regenerated at
+  boot"; **an unlocked window has "a flashing orange/red/yellow border temporarily drawn on it"**; **moving
+  too**; **every widget** "become[s] movable and lockable and unlockable with this pass", not only chat;
+  the text keeps its size when the window grows.  **Added**: the chat's right-click menu also sets the
+  chat's font size, "on a sliding scale from 1 to 18 for now we'll make this a px measurement but it might
+  be an algorithm later".  Unity's own right-click menu is editor-only, so the menu is ours; a runtime
+  pointer can't turn into a resize arrow without a picture of one, so the edge under the mouse lights up.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
