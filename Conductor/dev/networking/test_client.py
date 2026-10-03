@@ -210,9 +210,11 @@ BLOCK_NAMES = {0: "AIR", 1: "DIRT", 2: "STONE", 3: "WOOD", 4: "GOLD", 5: "BEDROC
 
 
 def unsqueeze(data):
-    """A squeezed chunk (PROTOCOL.md, "The chunks around the player") back
-    as its 32,768 block numbers, bottom layer first, the south row first
-    in a layer, west to east in a row.  Raises ValueError if it's wrong."""
+    """A squeezed chunk (PROTOCOL.md, "The chunks around the player") read
+    as its runs: (block number, how many), in the chunk's order, bottom
+    layer first, the south row first in a layer, west to east in a row.
+    Kept as runs rather than 32,768 numbers a chunk, so counting a whole
+    view's blocks takes no time.  Raises ValueError if it's wrong."""
     if not data or data[0] != 1:
         raise ValueError("not squeezed as runs")
     (count,) = struct.unpack_from("<H", data, 1)
@@ -222,8 +224,9 @@ def unsqueeze(data):
     kinds = list(struct.unpack_from("<%dH" % count, data, at))
     at += 2 * count
     wide = count > 256
-    blocks = []
-    while len(blocks) < CHUNK_BLOCKS:
+    runs = []
+    covered = 0
+    while covered < CHUNK_BLOCKS:
         first = data[at]
         at += 1
         if first < 128:
@@ -237,12 +240,13 @@ def unsqueeze(data):
         else:
             place = data[at]
             at += 1
-        if place >= count or len(blocks) + length > CHUNK_BLOCKS:
+        if place >= count or covered + length > CHUNK_BLOCKS:
             raise ValueError("a bad run")
-        blocks.extend([kinds[place]] * length)
+        runs.append((kinds[place], length))
+        covered += length
     if at != len(data):
         raise ValueError("%d bytes left over" % (len(data) - at))
-    return blocks
+    return runs
 
 
 def chunk_place(data, at):
@@ -769,15 +773,16 @@ class CharacterSelect:
         gold = None
         for place, data in squeezed.items():
             try:
-                blocks = unsqueeze(data)
+                runs = unsqueeze(data)
             except (ValueError, IndexError, struct.error) as e:
                 print("   %d,%d row %d doesn't unsqueeze: %s" % (place + (e,)))
                 bad += 1
                 continue
-            for block in blocks:
-                kinds[block] = kinds.get(block, 0) + 1
+            for block, length in runs:
+                kinds[block] = kinds.get(block, 0) + length
+            # Block 0,0,0 is the first in chunk 0,0 row 1.
             if place == (0, 0, 1):
-                gold = BLOCK_NAMES.get(blocks[0], blocks[0])
+                gold = BLOCK_NAMES.get(runs[0][0], runs[0][0])
         biggest = max(squeezed.items(), key=lambda item: len(item[1]), default=None)
         print("   The chunks: %d in, %d refused, in %.2f s; %d bytes squeezed (%.1f KB, %.0f MB as they are), "
               "%d packets, %d requests, %d \"not yet\"s."

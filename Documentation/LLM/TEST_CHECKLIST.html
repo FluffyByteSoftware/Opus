@@ -197,86 +197,14 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>The map's cooldown (2026-10-03)</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The build and the tests pass with <code>map_cooldown_seconds</code> in <code>networking.cfg</code>, the
-      book's <code>cooling_down()</code> and Protogame's refusal.
-    </span></label>
-    <pre class="cmd">cargo build</pre>
-    <pre class="cmd">cargo test</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The Settings tab shows <code>map_cooldown_seconds</code> under networking.cfg, 300.
-    </span></label>
-    <pre class="cmd">cargo run -p conductor-launcher</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Another account plays inside the first's cooldown: PLAY as Tester, then at once as Chatter (testuser456),
-      and Chatter fetches the map as usual.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter testuser456 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      In the editor, PLAY inside the cooldown: the words show on character select's status line in the red
-      band, and the buttons come back.
-    </span></label>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      <code>map_cooldown_seconds = 0</code> on the Settings tab, STOP SERVER, START SERVER: PLAY twice in a row
-      both fetch the map.  Put it back to 300 after.
-    </span></label>
-  </li>
-</ul>
-
 <h2>The chunks around the player (2026-10-03, session 3)</h2>
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      The build and the tests pass with protocol version 12: the squeezed chunks (<code>squeeze.rs</code>),
-      GameWorld's cache, the three chunk packets, <code>chunks.rs</code> and the book's <code>standing()</code>.
-    </span></label>
-    <pre class="cmd">cargo build</pre>
-    <pre class="cmd">cargo test</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      How big a view's chunks come out squeezed, and how long it takes: two lines, Alpha and Omega.  Paste
-      them back.
-    </span></label>
-    <pre class="cmd">cargo test --release -p conductor-gameworld squeezed_view_sizes -- --ignored --nocapture</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The test client pulls the chunks around Tester before PlayerReady: the offer says where Tester will
-      stand and the view, every chunk comes in, none refused, none that won't unsqueeze, the block at 0,0,0
-      is GOLD, then Tester is in the world.  Paste back the summary lines (the time, the bytes, the biggest).
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --chunks testuser123 'Testpass123!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      One chunk past the view's edge is refused, "outside the view", and the rest come in as before.
+      The test client's chunk summary prints at once after "100%", with one past the edge refused: it
+      counts the blocks from the runs now, where before it took most of a minute.
     </span></label>
     <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --chunks --chunk-outside testuser123 'Testpass123!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The Services tab's GameWorld line says how many chunks are squeezed for players.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Soundcheck and Ensemble at version 12 (only their version, and Ensemble reading the offer's new end):
-      log in from Soundcheck, PLAY in the editor, the map comes and the character is in the world.
-    </span></label>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
   </li>
 </ul>
 

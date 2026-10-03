@@ -40,7 +40,8 @@ through the 19 seconds: nobody gets in before there's a voxel to step on (TCP an
 `simple_overworld.map` on START SERVER when it's missing or another world's, before the first chunk goes
 out, so the door waits on it too (under "The simple overworld map" below).
 
-**The chunks streamed** (2026-10-03, session 3, **written, not built by Jacob yet**): the client pulls the
+**The chunks streamed** (2026-10-03, session 3, **built and tested on Linux**, Conductor's half and the test
+client): the client pulls the
 chunks around its character, and GameWorld's thread squeezes each chunk once and keeps it for networking
 to send (under "The chunks streamed" below).  Conductor's half and the test client; Ensemble's half is to
 come.
@@ -295,7 +296,11 @@ chunks around the player", protocol version 12).
   packet over 256 bytes) was talked through: it might halve what's left, mostly Omega's hills, and matters
   more once the ground is busier, but it's a crate on Conductor's side.  So it's left for later: the first
   byte of a squeezed chunk says how it's squeezed, so zipping can come as another kind without new packets.
-  How big Omega's chunks come out is `squeezed_view_sizes` to run (guessed at 200 to 300 KB a player in all).
+  **Measured** (Jacob, 2026-10-03, `--release`): 891 of Alpha's chunks squeeze to 7,938 bytes, 891 of
+  Omega's to 36,925 (the biggest 547), 13 to 14 us a chunk.  A whole view at `view_chunks` 8 (his
+  `game.cfg`), 3,179 chunks at `world_size` 32, came to 88,746 bytes, the biggest 693, every chunk one
+  packet, in 0.04 s on the LAN, against 199 MB as they are.  The guess was 200 to 300 KB at 4; it's a
+  tenth of that, so zipping has nothing to win yet.
 - **Squeezed once, on GameWorld's thread, and shared**: every chunk GameWorld reads or builds for the
   GameClock is squeezed as it goes and kept until STOP SERVER (`squeezed()`); a chunk a player asks for
   that nobody has loaded is read or built for that alone, and refused "not yet" meanwhile.  Every player is

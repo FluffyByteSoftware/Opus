@@ -275,15 +275,16 @@ Windows.  What's left, a step each:
   ChunkRequest (`0x43`, up to 64 chunks), ChunkPiece (`0x44`) and ChunkRefused (`0x45`); GameWorld's thread
   squeezes each chunk as it loads it, into a cache networking sends from; a player waiting on the map or in
   the world may ask, for chunks within `view_chunks` of where their character stands; the test client's
-  `--chunks`.  **Written in session 3, not built by Jacob yet.**  One change from the plan, found while
+  `--chunks`.  **Built and tested in session 3** (every check; 3,179 chunks, 88,746 bytes squeezed, 0.04 s
+  on the LAN at `view_chunks` 8).  One change from the plan, found while
   writing it: the client didn't know where its character stands until after PlayerReady, so the
   OverworldMapOffer now ends with its x, y, z and the view.  Soundcheck's and Ensemble's version went to
   12 with it, and Ensemble reads (and skips) the offer's new end; nothing else of Ensemble's changed.
   `design/world.md` has the rest ("The chunks streamed").  **Left**: Ensemble's half (asking, when to send
   PlayerReady, reading the squeezed chunks, blocks on screen); a stamp on a chunk's pieces once blocks can
   change, so two versions' pieces never mix; forgetting squeezed chunks nobody's near once players move;
-  the GameClock loading around a player who isn't at 0,0,0; zipping, if `squeezed_view_sizes` calls for
-  it; a faked player's address getting that player flooded with chunks or the map's pieces
+  the GameClock loading around a player who isn't at 0,0,0; zipping, if busier ground ever calls for it
+  (it has nothing to win today); a faked player's address getting that player flooded with chunks or the map's pieces
   (`design/conductor-networking.md`, "What's open").
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map

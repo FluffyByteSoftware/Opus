@@ -460,8 +460,8 @@ then runs, until all 32,768 blocks are covered:
 
 Nothing is left over after the last run, and the runs never come to more than 32,768 blocks.  The block
 numbers are the world's: AIR 0, DIRT 1, STONE 2, WOOD 3, GOLD 4, BEDROCK 5; a number never changes once it's
-out there.  An all-air chunk is 8 bytes, a flat one 13; a chunk of Omega's hills, a few hundred to a few
-thousand (`squeezed_view_sizes` in `gameworld/src/squeeze.rs` measures them).  The worst there is, every
+out there.  An all-air chunk is 8 bytes, a flat one 13; a chunk of Omega's hills under 700 (measured,
+2026-10-03: a whole view of 3,179 chunks came to 88,746 bytes, every chunk one piece).  The worst there is, every
 block different, is 163,843 bytes, 138 pieces.
 
 ### A worked example

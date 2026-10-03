@@ -53,7 +53,7 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
 | The world's map sent at PLAY, behind a bar       | Built and tested (protocol version 11)                 |
 |                                                  | and a five-minute cooldown on it, by account           |
-| The chunks around the player, client-pulled      | Conductor's half written, not built (protocol 12);     |
+| The chunks around the player, client-pulled      | Built and tested with the test client (protocol 12);   |
 |                                                  | Ensemble's half to come                                |
 | Soundcheck, the launcher                         | Built and tested on Linux: the login over TLS 1.3,     |
 |                                                  | Remember Me, PLAY and the way back, debug mode, admin  |
