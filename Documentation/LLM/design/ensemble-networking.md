@@ -226,4 +226,12 @@ there (session 2); this is the chunks, received and held, nothing drawn.
 - **Trouble**: no new chunk in 10 seconds gives up and goes back to the launcher ("Couldn't get the
   ground around you"), the same as the map.  A chunk the server calls unavailable stays empty, a warning
   in the log, and the game goes on.
-- **Open**: when PlayerReady goes, all of the view or the nearest chunks with the rest coming after.
+- **PlayerReady goes once the nearest chunks are in**, Minecraft's and 7 Days to Die's way (Jacob: "Their
+  way"): the 3 by 3 columns around the character, every row, 99 chunks, each in or refused for good.  The
+  rest of the view keeps coming after, with the character in the world, so the download already runs in
+  the world when movement (0.0.2) needs it to.  The 10 seconds' give-up holds in the world too.  The other
+  shape was all of the view before PlayerReady (0.04 s on the LAN today), simpler, with streaming in the
+  world left to 0.0.2.
+- **Nothing drawn, so nothing to look at**: one line in the Console when the whole view is in, the test
+  client's summary (how many, how many bytes, how long, the blocks by kind, the block at 0,0,0).  Drawing,
+  plain colours or the purchased art (an atlas), is for when the chunks are drawn.
