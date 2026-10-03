@@ -279,8 +279,9 @@ Opus/
 │       └── Screens/                   # namespace Opus.Soundcheck.Screens, a .axaml and its code each
 │           ├── LoginScreen.axaml(.cs) # the check at start with the boxes locked, the patch, the restart; then the
 │           │                          #   login: the boxes, SUBMIT, the status box, the other-session buttons, PLAY
-│           └── AdminScreen.axaml(.cs) # admin mode: Linux or Windows, that build folder, the version, the web folder,
+│           ├── AdminScreen.axaml(.cs) # admin mode: Linux or Windows, that build folder, the version, the web folder,
 │                                      #   PUBLISH
+│           └── Reserved.cs            # shows or hides a piece without giving up its room (the window's fixed size)
 ├── Content/                           # committed, except Assets/, logs/, world/ and patch/; made on first run if missing
 │   ├── Assets/                        # purchased art -- never committed
 │   ├── cfg/conductor_globals.cfg      # the program's settings: the log folder, the web admin's port (hard reboot)

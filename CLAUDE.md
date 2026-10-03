@@ -222,7 +222,12 @@ When I say we're wrapping up:
    a line each, "we did X, Y, Z", headed by the session's number and date.
    **Sessions are numbered from 0** (2026-10-03, the docs clean-up), each the
    one after; the number goes on the "Last session" heading too.  Older than
-   a day, a line comes out, unless it still bears on what's next.
+   a day, a line comes out, unless it still bears on what's next.  **Chats
+   run side by side**, so a session that finds commits past STATUS.md's last
+   session writes those sessions into the rolling day from their commits and
+   design files before its own (sessions 4 and 5 left none, and session 6,
+   session 1's chat reopened, wrote them in).  A reopened chat's new work
+   takes the next number.
 2. Update `TODO.md`, `PROJECT_OPUS.md` and the `design/` files the session
    changed, so they match reality.  Add the session's checks to
    `TEST_CHECKLIST.html`.  A check that passes is taken out, not struck

@@ -31,12 +31,15 @@ the detail.
 GameWorld writes `simple_overworld.map`, the world's rough shape for the distance, before the door opens
 (session 1), and **every PLAY sends it** over UDP behind a red loading bar, checked by its SHA-256 and kept
 in the player's folder, before PlayerReady puts the character in the world (session 2; PROTOCOL.md's "The
-map at PLAY").  An account waits `map_cooldown_seconds` (5, down from 300) between maps.  The detail: **the client pulls
-the chunks around its character** (session 3; PROTOCOL.md's "The chunks around the player"), up to 64 at a
-time, each squeezed as runs, out of a cache GameWorld's thread fills; the offer at PLAY now says where the
-character will stand and how many chunks it sees.  **Ensemble's side is the map's download and nothing
-more**: it reads the offer's new end and skips it, asks for no chunks, and draws nothing of the world.
-That's what Jacob opens next (below).
+map at PLAY").  An account waits `map_cooldown_seconds` (5, down from 300 in session 6) between maps.  The detail: **the
+client pulls the chunks around its character** (session 3; PROTOCOL.md's "The chunks around the player"),
+up to 64 at a time, each squeezed as runs, out of a cache GameWorld's thread fills; the offer at PLAY says
+where the character will stand and how many chunks it sees.  **Ensemble pulls them** (session 4), nearest
+first, **and draws them** (session 5, `design/ensemble-world.md`): a mesh a chunk, faces only against air,
+a material a block kind from GroundView's slots, a stand-in box for the Cinemachine camera.  **PlayerReady
+waits until the nearest 99 are drawn** (session 6), 10 s at most, so nobody comes in on ground that isn't on
+screen.  **The distance from the simple overworld map isn't drawn yet.**  New characters and RESET HOME
+stand on top of a **spawn point**'s highest block (session 6, `design/world.md`), 0.5, 1, 0.5 today.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -45,24 +48,28 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 
 **The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
 the GitHub Release.  `main` is two docs commits past the tag; `testing` and `unstable` are level with each
-other, sessions 0 to 3 past `main`.  `main` moves when Jacob says.
+other, sessions 0 to 6 past `main`.  `main` moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor as released, and sessions 0 to 3 since; Soundcheck through
+**Built and tested on Linux**: all of Conductor as released, and sessions 0 to 6 since; Soundcheck through
 PLAY and the way back, the check at start and the patch against the real web folder; Ensemble through the
-start screen, dev mode, the launcher's ticket and the map at PLAY.  **Session 3, everything**: the build and
-the tests, the squeezed sizes, the test client pulling the whole view, the refusal past the edge, the
-Services tab's line, Soundcheck and the editor at version 12.  **Measured**: the map takes 0.08 to 0.16 s
-on the LAN (16.8 MB at `world_size` 32), a guess of some 13 s over the internet at a 50 ms ping; **a whole
-view of chunks at `view_chunks` 8 is 3,179 chunks, 88,746 bytes squeezed, 0.04 s on the LAN**, the biggest
-chunk 693 bytes, every chunk one packet; squeezing is 13 to 14 us a chunk; hashing the 655 MB build takes
-1.3 s at Soundcheck's start.  TEST_CHECKLIST.html has only its two Parked checks left (the test client's
-summary passed, 2026-10-03): the launcher's own restart after a patch (needs Soundcheck shipped beside the
-game) and Spans for real.  **On Windows**: Conductor builds and runs, START SERVER included, without a database; nothing
-since the world has been tried there (GitHub issue #10), and neither Soundcheck nor the new Ensemble has
-been built there at all.
+start screen, dev mode, the launcher's ticket, the map at PLAY, the chunks and the ground on screen.
+**Session 3, everything**: the build and the tests, the squeezed sizes, the test client pulling the whole
+view, the refusal past the edge, the Services tab's line, Soundcheck and the editor at version 12.
+**Measured**: the map takes 0.08 to 0.16 s on the LAN (16.8 MB at `world_size` 32), a guess of some 13 s over
+the internet at a 50 ms ping; **a whole view of chunks at `view_chunks` 8 is 3,179 chunks, 88,746 bytes
+squeezed, 0.04 s on the LAN**, the biggest chunk 693 bytes, every chunk one packet; squeezing is 13 to 14 us a
+chunk; hashing the 655 MB build takes 1.3 s at Soundcheck's start.  **Session 5's meshing**: 437 chunks in
+0.46 to 0.51 s, all on the worker, 302 drawn.  TEST_CHECKLIST.html has two open checks from session 6 (the
+bar's three stages, too fast to see; GroundView switched off sends the player back after 10 s) and three
+Parked: seeing a character stand on the GOLD (no player model yet), the launcher's own restart after a patch,
+and Spans for real.  **On Windows**: Conductor builds and runs, START SERVER included, without a database;
+nothing since the world has been tried there (GitHub issue #10), and neither Soundcheck nor the new Ensemble
+has been built there at all.
 
 **Jacob's settings worth knowing**: `world_size = 32`, `view_chunks = 8` ("keeping as 8", session 3; the
-code's default stays 4), `world_save_seconds = 1800`, `bind_address = 10.0.0.84`.
+code's default stays 4), `world_save_seconds = 1800`, `map_cooldown_seconds = 5`, `bind_address =
+10.0.0.84`.  In Unity: GroundView on a GameObject with five material slots (grass in GOLD's for now), the
+stand-in Cube with CharacterStandIn, a Cinemachine camera on it; the scene isn't committed.
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -94,7 +101,10 @@ At session 2's hand-off (2026-10-03): **"we'll move on to the next conversation 
 chunks"**.  Done in session 3, Conductor's half.
 
 At session 3's hand-off (2026-10-03): **"prepare next conversation for wiring up ensemble to receive the
-streams and the map and the hardest part - rendering it"**.  His to change.
+streams and the map and the hardest part - rendering it"**.  Receiving and the chunks drawn: sessions 4 and
+5 ("THE GROUND WORKED"); the distance from the map, not yet.
+
+At session 6's hand-off (2026-10-03): **"wrap it up bro!  We're good"**, no pick for next.  His to make.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -123,85 +133,69 @@ have no number.
   (ChunkRequest, ChunkPiece, ChunkRefused), squeezed as runs by hand (`squeeze.rs`), cached by GameWorld,
   `may_see()` the one place that says what a player gets; the offer says where and how far; the test
   client's `--chunks`.  Built and tested: 3,179 chunks, 88,746 bytes, 0.04 s.
+- **Session 4, 2026-10-03** (its own chat, no hand-off of its own; written in from its commits by session
+  6): Ensemble receives the chunks (`ChunkDownload`, `Chunk`, `Ground`), nearest first, PlayerReady once the
+  nearest 99 were in.  Built and tested: 3,179 in 0.12 s, the nearest 99 in 0.02 s, 35.1 MB held.
+- **Session 5, 2026-10-03** (the same): the ground on screen (`ChunkMesher`, `GroundView`,
+  `CharacterStandIn`, `design/ensemble-world.md`), a fixed Cinemachine camera on a stand-in.  Built and
+  tested in session 6: "THE GROUND WORKED", 437 chunks meshed in 0.51 s.
+- **Session 6, 2026-10-03** (session 1's chat, reopened): the map's cooldown down to 5 s; Soundcheck's
+  window fits itself, 5 % bigger, and keeps that size; PlayerReady once the nearest 99 are drawn, 10 s at
+  most; spawn points, a new character and RESET HOME on top of the highest block.  All built and tested
+  but two Unity checks.
 
-## Last session -- session 3, 2026-10-03, the chunks streamed (Conductor's half)
+## Last session -- session 6, 2026-10-03, the afternoon after the ground
 
-Jacob opened with: "prepare conductor for 'streaming' the world around the player in its chunk data and
-voxel data I think... we essentially want to copy minecraft."  The simple overworld map is "a 'broad outline'
-map... we're gonna use to draw at a distance"; the stream "is meant to give the high resolution details".
-Every answer is in `design/world.md` ("The chunks streamed") and TODO.md.
+Session 1's chat, reopened after sessions 4 and 5 had run in chats of their own and left no hand-off (both
+are written into the rolling day above from their commits).  Jacob came back to "THE GROUND WORKED" and
+asked for a run of small things, each planned, OKed, built and checked on its own:
 
-- **His answers**: **pull** ("Pull your preference"), not Minecraft's push; before PlayerReady is "the
-  clients call but I think we are gonna want to wait till most of the scene is filled?"; **squeezed by
-  hand, runs only** ("yes absolutely", then "runs only for now"), after asking whether zipping on the fly
-  would help (it might halve what's left; not worth a crate yet, and the measurement says there's little
-  left); `view_chunks` as it is ("keep view_chunks 4", then, told his `game.cfg` says 8, "keeping as 8");
-  **Ensemble in sessions of its own** "to bring it in line with these server changes".
-- **Built**: GameWorld's thread squeezes every chunk it reads or builds (`gameworld/src/squeeze.rs`: a
-  byte for how it's squeezed, the kinds listed, then runs) and keeps it until STOP SERVER
-  (`squeezed()`); a chunk a player asks for that nobody loaded is read or built for them, "not yet"
-  meanwhile.  Networking: **ChunkRequest** (`0x43`, up to 64 places), **ChunkPiece** (`0x44`, up to 1,192
-  bytes a piece), **ChunkRefused** (`0x45`: outside the view, not yet, unavailable); `chunks.rs`'s
-  `may_see()`, every chunk within the view of the character's column, every row; the book's
-  `standing()`, set at PLAY.  The test client's `--chunks` and `--chunk-outside`.
-- **A change from the plan**, found while writing: the client didn't know where its character stands
-  until after PlayerReady, so it couldn't ask before it.  The **OverworldMapOffer now ends with x, y, z and
-  the view** (u8).  So Soundcheck's and Ensemble's version went to 12, and Ensemble reads and skips the
-  new end; nothing else of Ensemble's changed.
-- **Measured** (Jacob, Linux): Alpha's 891 chunks squeeze to 7,938 bytes, Omega's to 36,925; a view at 8,
-  3,179 chunks, 88,746 bytes, the biggest 693, in 0.04 s on the LAN, against 199 MB as they are.
-- **A wrong turn in the testing**: the test client's `--chunk-outside` looked stuck after 100%: it was
-  counting 104 million blocks one at a time in Python.  It counts from the runs now, and prints at once (passed).
+- **The `.meta` round** for sessions 4 and 5's files (Jacob's `git meta`), and the scene set up: GroundView
+  wasn't on a GameObject at first, so nothing was drawn and nothing was said.  **Measured**: 437 chunks
+  meshed, 246,903 faces, in 0.51 s on the worker, 302 drawn (`design/ensemble-world.md`).
+- **The map's cooldown, 300 s to 5** ("well our DDOS protection works xD"): the default and the committed
+  `networking.cfg`.
+- **Soundcheck's window fits itself** ("is there any way to rely on avalonia to make the window the right
+  size?"): `SizeToContent`, then 5 % of that added round the edges and the size fixed; the pieces that come
+  and go keep their room (`Screens/Reserved.cs`), the status box four lines and scrolling
+  (`design/soundcheck.md`, "The window's size").
+- **PlayerReady once the nearest 99 are drawn**, not only in ("I just don't want a situation where a player
+  walks forward and 'falls' until the server catches up"): GroundView says each chunk it's done with, the
+  bar says "Drawing the ground...", and 10 s without it sends the player back with his words.  No packet
+  change.
+- **The ground stays where it's drawn** (a block at y fills y to y+1); characters stand on top of it.
+- **Spawn points** (turned round from "start at Y=1" to "a designated spawn point ... put the player on top
+  of the highest voxel"): a column, `SPAWN_POINTS` in `gameworld/src/spawn.rs`, its top worked out on
+  GameWorld's thread from the chunk files or the region's ground, so any column in the world will do;
+  only new characters and RESET HOME use it; the middle of the block.  **Tested**: Poopy (new) and Tester
+  (reset) at 0.5, 1, 0.5; Asdf and Chatter still at 0, 0, 0, as saved.
+- Earlier in the same chat (session 1, the morning): a web admin login that "kicks you to a random web
+  page" couldn't be made to happen again; nothing in `page.html` or the server navigates anywhere.  If it
+  comes back: the URL it lands on, the browser, a private window.
 
 ## Where the next session starts
 
-**Jacob's pick**: "wiring up ensemble to receive the streams and the map and the hardest part - rendering
-it".  That's three things, and the session should say so and let him pick where to start and where to
-stop: **receiving the chunks** (the net code), **drawing the chunks**, and **drawing the distance from the
-map**.  Plan with him first; none of the client's half is designed.
+**No pick from Jacob** ("We're good").  What's open, for him to choose from:
+- **0.0.13's last piece, the distance**: the simple overworld map drawn as coarse ground past the chunks
+  (16 by 16 blocks a patch, coloured by its top block; a million patches at `world_size` 32, so tiles or a
+  coarser cut further out).  Whether 0.0.13 needs it before it's released is his call (WAYPOINTS.md).
+- **0.0.2, movement**, the next waypoint: the GameClock loading around players who move, chunks forgotten
+  when nobody's near, the client pulling more as it walks.
+- The two open checks in TEST_CHECKLIST.html (session 6).
 
-**What's there to build on**:
-- The contracts: PROTOCOL.md's "The chunks around the player" (the packets, which chunks, the squeezed
-  layout, a worked example, **a C# `Unsqueeze()` to copy**) and "The map at PLAY" (the offer's new end:
-  `f32 x, y, z, u8 view`); SIMPLE_OVERWORLD_MAP.md for the map (a patch is 16 by 16 blocks, its average
-  height and commonest top block).  REGION_MAP.md if the client wants regions.
-- Ensemble's net code (`Assets/Code/Net/`, `design/ensemble-networking.md`): `GameConnection.cs` reads the
-  offer (the new end skipped, just after `packet.String()`), `MapDownload.cs` is the pattern for a
-  download (the next 64, again after 250 ms, given up after 10 s, the sender thread woken by the listener),
-  `Session.cs` has the LoadingWorld stage, where PlayerReady goes once the map is in.
-  `Code/World/SimpleOverworldMap.cs` holds the map as `SimpleOverworldMap.Current`, read and drawn by
-  nothing.  The test client's `fetch_chunks()` is a working pull to copy: nearest first, 64 at a time,
-  "not yet" asked again.
-- The block numbers: AIR 0, DIRT 1, STONE 2, WOOD 3, GOLD 4, BEDROCK 5.  A block is 1 m; a chunk 32 a side;
-  rows 0 to 10 from y -32; block x, y, z inside a chunk is `(y * 32 + z) * 32 + x`.
-
-**Not designed, to talk through with Jacob**:
-- **Receiving**: when PlayerReady goes ("most of the scene": all of the view, or the rings nearest the
-  character, or a share of it?); whether the red bar covers the chunks too; what a refused chunk does on
-  screen.
-- **Holding them**: a view at 8 is 3,179 chunks; as `ushort[32768]` each that's 199 MB on the client.  Kept
-  as runs, or as bytes, or only the chunks with something but air in them?
-- **Drawing the chunks**, the hard part: a mesh per chunk with only the faces between a block and air
-  (Minecraft's way; a face at a chunk's edge needs the chunk beside it), maybe merged into bigger faces
-  later; built off the main thread with Unity's Mesh filled on it; colours per block kind (plain colours,
-  or the purchased art's textures?); 32-bit indices where a chunk needs them.
-- **Where things are**: our x is east, z north, y up; Unity is y up, so x east and z north map straight on.
-  Does block 0,0,0 fill 0 to 1 on each axis, and does a character at 0, 0, 0 stand on the GOLD or in it?
-- **The distance**: the map as a coarse ground, 16 by 16 blocks a patch, coloured by its top block, hidden
-  where real chunks are; at `world_size` 32 that's a million patches, so it wants tiles, or a coarser cut
-  further out.
-- **A camera to look with**: nobody moves until 0.0.2.
-
-Accounts to log in with: `testuser123` / `Testpass123!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
+Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy).
 
 ## What's waiting
 
-- **The world to the client, Ensemble's half** (above): receiving the chunks, drawing them, drawing the
-  distance.  Conductor's leftovers (TODO.md, "The chunks streamed"): a stamp on a chunk's pieces once
-  blocks change, forgetting chunks nobody's near once players move, the GameClock loading around a player
-  who isn't at 0,0,0, a faked address getting a player flooded (`design/conductor-networking.md`).
+- **The world to the client's rest**: the distance from the simple overworld map, drawn.  Conductor's
+  leftovers (TODO.md, "The chunks streamed"): a stamp on a chunk's pieces once blocks change, forgetting
+  chunks nobody's near once players move, the GameClock loading around a player who isn't at 0,0,0, a faked
+  address getting a player flooded (`design/conductor-networking.md`).
 - **Soundcheck's rest** (TODO.md): Conductor's report up and debug clients (open), Windows, one package;
   and the certificate for every client (LONGTERM_TODO.md).
+- **Spawn points' rest** (TODO.md): which one a character gets once there are many; the height from a
+  column changed since the last world save, once blocks change.
+- **A web admin login that went to "a random web page"**, once, not seen again (above).
 - **The simple overworld map's rest** (TODO.md, "The world's dump"): writing it again at the world save
   once blocks change, a timing over the internet, the stuck PLAY (LOG OUT is the way out).
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale

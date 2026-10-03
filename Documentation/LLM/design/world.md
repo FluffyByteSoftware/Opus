@@ -315,7 +315,8 @@ chunks around the player", protocol version 12).
 
 ### Spawn points
 
-Settled with Jacob on 2026-10-03, session 1, and **written, not built yet**.  It went through two shapes:
+Settled with Jacob on 2026-10-03, session 6, and **built and tested** (Poopy, new, and Tester, reset
+home, both at 0.5, 1, 0.5).  It went through two shapes:
 first "characters start at Y=1", then "we shouldn't give them a fixed position to spawn at (I mean no Y=X)
 instead we need ot make a designated spawn point which for right now is only 0,0,0 but the code needs to be
 able to tell how many physical voxels (not air) are on top of 0,0,0 and then put the player on top of the

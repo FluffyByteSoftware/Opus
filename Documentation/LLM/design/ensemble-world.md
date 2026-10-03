@@ -61,7 +61,7 @@ on the worker; the main thread only fills Unity's Mesh, 32 a frame.
   from CharacterEnteredWorld's x, y, z); hidden again at `SessionOver`.  The Cinemachine camera follows it.
 - **`Ground`** has `Added` and `Cleared`.
 
-## PlayerReady once the ground is drawn (asked 2026-10-03, session 1; being talked through)
+## PlayerReady once the ground is drawn (2026-10-03, session 6; built and tested)
 
 Jacob, after the ground worked: "can we make so the world starts 'loading in chunks' before the player is
 drawn?  We need to sync this to the server too so that the server knows when the player client is ready".
@@ -80,7 +80,8 @@ refused, so the ones beside it can't be meshed either, or no GroundView in the s
 the main screen and state: Your connection may be to slow or the server is unresponsive.  Please try
 again.  If this happens repeatedly please talk to the admin."  (Written "too slow" on screen.)
 
-**As written** (session 1, **not built yet**): `Session.NearGroundIn()` no longer sends PlayerReady; it
+**As built** (session 6; Jacob's Console showed "in.  Drawing them." then "drawn.  PlayerReady." before
+the character came in): `Session.NearGroundIn()` no longer sends PlayerReady; it
 starts the 10 s wait.  GroundView calls `Session.ChunkShown(place)` for every chunk it's done with: drawn,
 meshed to nothing, or all air (never sent to the worker).  Session counts the nearest 99 among them
 (`GroundDrawn`, the column from `GameConnection.FetchChunks()`, `ChunkDownload.NearColumns`), and
@@ -89,7 +90,7 @@ meshed to nothing, or all air (never sent to the worker).  Session counts the ne
 99", then "The ground is drawn.  Entering the world...".  No packet or Conductor change: the server
 already waits on PlayerReady.
 
-## Where the ground sits in Unity (asked 2026-10-03, session 1; being talked through)
+## Where the ground sits in Unity (2026-10-03, session 6; settled)
 
 Jacob, after the ground worked: "it loaded the whole damn world with the split perfectly" (Alpha flat to
 the west, Omega's hills to the east; a grass material in place of GOLD for now), and "we need to origin

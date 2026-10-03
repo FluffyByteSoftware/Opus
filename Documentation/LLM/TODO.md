@@ -293,7 +293,7 @@ Windows.  What's left, a step each:
   feet, so a character at 0, 0, 0 stands in the GOLD, one block into Alpha's ground (the DIRT layer is y 0
   to 1).  Whether the spawn (and RESET HOME) should be y 1, or the server should put a character on top of
   whatever is under it, is Conductor's to settle.  Ensemble draws it where the server says.  **Jacob
-  (session 1): "yes characters start at Y=1"**, and the drawing stays as it is ("I'll jsut set characters
+  (session 6): "yes characters start at Y=1"**, and the drawing stays as it is ("I'll jsut set characters
   to stand on top of 0").  A plan for it (new characters and RESET HOME at 0, 1, 0) was **turned round**
   (Jacob, same session): "we shouldn't give them a fixed position to spawn at (I mean no Y=X) instead we
   need ot make a designated spawn point which for right now is only 0,0,0 but the code needs to be able to
@@ -306,7 +306,7 @@ Windows.  What's left, a step each:
   though when they're not spawning at 0,0,0?  When we get to where the map is generating we're gonna fill
   it with spawn points so we want to be ready for that", so **GameWorld** works it out (any column in the
   world, its files or its region's ground), not the GameClock (only what's loaded).  Plan OKed ("Yes").
-  **Written** (session 1, **not built yet**): `design/world.md`, "Spawn points".  What's left of it: the
+  **Built and tested** (session 6): `design/world.md`, "Spawn points".  What's left of it: the
   height from a column changed since the last world save is the old one, once anything changes blocks
   (the GameClock holds the newer chunk); and which spawn point a character gets, once there's more than
   one.

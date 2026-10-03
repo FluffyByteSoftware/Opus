@@ -194,7 +194,7 @@ other-session choice against the test client, admin mode's manifest, debug mode'
   Soundcheck ends the process itself and skips Avalonia's tidy-up.  A launcher that has just started the game
   has nothing left to tidy.
 
-## The window's size (2026-10-03, session 1, written, not built yet)
+## The window's size (2026-10-03, session 6, built and tested)
 
 Jacob: "is there any way to rely on avalonia to make the window the right size?  Like scaled?", then
 "padding on the edges thats equivalent to 5% of the total size of the window (so there's plenty of space

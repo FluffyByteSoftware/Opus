@@ -52,9 +52,11 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 | Ensemble starting from the launcher's ticket     | Built and tested: the start screen, dev mode           |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
 | The world's map sent at PLAY, behind a bar       | Built and tested (protocol version 11)                 |
-|                                                  | and a five-minute cooldown on it, by account           |
-| The chunks around the player, client-pulled      | Built and tested with the test client (protocol 12);   |
-|                                                  | Ensemble's half to come                                |
+|                                                  | and a cooldown on it by account (5 s)                  |
+| The chunks around the player, client-pulled      | Built and tested (protocol 12), Ensemble and the test  |
+|                                                  | client; the player waits until the nearest are drawn   |
+| The ground on screen in Ensemble                 | Built and tested: a mesh a chunk; the distance to come |
+| Spawn points: on top of the highest block        | Built and tested: new characters and RESET HOME        |
 | Soundcheck, the launcher                         | Built and tested on Linux: the login over TLS 1.3,     |
 |                                                  | Remember Me, PLAY and the way back, debug mode, admin  |
 |                                                  | mode's PUBLISH, the check at start, the patch          |
