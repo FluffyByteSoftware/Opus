@@ -248,7 +248,11 @@ bulk.
   gets it.  The client keeps it in `Application.persistentDataPath` ("their userprefs folder").  A new
   packet Jacob named: **PlayerReady**, "verification from client it streamed the terrain and is good to
   display", and **the character isn't spawned until it comes**: "it doesn't show them or spawn them in the
-  physical world until they're ready".  The packets aren't designed yet (TODO.md, "The world's dump").
+  physical world until they're ready".  **The packets** (session 2, 2026-10-03, protocol version 11):
+  PLAY's answer is an offer (the size, the pieces, the SHA-256), the client pulls the pieces 64 at a time,
+  and PlayerReady with the hash it has puts the character in the world; PROTOCOL.md has them.  **A fresh
+  download every PLAY** ("we're just gonna write over whatever the client already has every time"), and a
+  client that can't get it goes back to the launcher with the message.
 - **Hidden things are sent ahead and hidden by the client** ("honestly with the way we're building this I
   am not too worried about cheating this isn't a serious game like that... not yet at least"), with room
   to tighten later ("make it so that we have the option I guess?  Like a flexibility to add more

@@ -225,6 +225,16 @@ Windows.  What's left, a step each:
   packets (the map in pieces over UDP at PLAY, PlayerReady, the character spawned on it; a protocol bump),
   then Ensemble's half (the loading bar, keeping it, drawing the distance), then writing it again at the
   world save once blocks change.  The heading says Soundcheck, but none of it is the patcher's any more.
+  **Session 2, 2026-10-03** (Jacob): "A packets first in the server and then we'll in this conversation also
+  integrate Ensemble with receipt of those packets."  The packets as planned and OKed: UserPressPlay loads the
+  character as before but holds it, answered by **OverworldMapOffer** (`0x40`: size, pieces, SHA-256); the
+  client pulls pieces with **OverworldMapRequest** (`0x41`, up to 64 at once, no ask number) and gets
+  **OverworldMapPiece**s (`0x42`, 1024 bytes each) straight from the UDP thread; **PlayerReady** (`0x29`, an
+  ask carrying the hash it has) puts the character in the world, answered by CharacterEnteredWorld.  Protocol
+  version 11.  His answers: **a fresh download every PLAY** ("we're just gonna write over whatever the client
+  already has every time"), no skipping on a matching hash; **the loading bar draws over character select's
+  list** "and look like an enemy healthbar going backwards lol"; **`sha2` in networking**, OK; **a client that
+  can't get the map goes back to the launcher with the message**.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
