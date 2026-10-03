@@ -62,6 +62,7 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 | Lua and the sandbox                          | `design/lua-parser.md`                                    |
 | The game library: entities, components, templates, saving | `design/primlib.md`                          |
 | The world: blocks, chunks, regions, its files| `design/world.md`                                         |
+| Smooth voxels, stage 1 (settled, not built)  | `design/smooth-voxels.md`                                 |
 | The GameClock: the beat, the checks, the mailbox, the world save, the view | `design/gameclock.md`        |
 | The world on the client: the ground, the objects, the camera | `design/ensemble-world.md`                 |
 | Ensemble's screens, widgets, the chat window | `design/ensemble-hud.md`                                  |
@@ -85,6 +86,11 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
   1.3 to the Ticket) and starts Ensemble with the ticket.  C#, .NET 10,
   Avalonia 11, not Unity, in `Soundcheck/dev/`.  Linux and Windows.  One day
   it hands each client a certificate of its own (LONGTERM_TODO.md).
+- **Opus.Treble** -- named 2026-10-03, not started: "a unity powered
+  application that's meant to place the voxels we've 'defined' down and
+  build prefabs out and save them to a .fbm (fluffybyte model)", which
+  Conductor stamps into the world as it's made.  Its folder is mine to say
+  before it's made (LONGTERM_TODO.md).
 - **Content/** -- the data the programs read and write: `cfg/`, `certs/`,
   `scripts/`, `psql/`, and the uncommitted `logs/`, `world/`, `Assets/`
   (the purchased art) and `patch/`.  Files are named so it's clear who owns
@@ -149,8 +155,12 @@ every folder and file.
 - **Design talk is written down as it settles.**  Each answer goes into its
   TODO.md entry or design file and is pushed as it comes, not saved for the
   hand-off, so a lost chat loses nothing.  Design is talked through here,
-  with the docs at hand, never in a brief for a separate chat (tried once;
-  the other chat lost the thread).  What another chat settles (a GDD, say)
+  with the docs at hand, never in a brief for a separate chat on your own
+  say (tried once for the ECS; the other chat lost the thread).  When I ask
+  for one, it's written like `design/smooth-voxels.md`'s brief: the facts it
+  needs, how to talk to me, and a summary at the end under Settled, Leaning,
+  Open and What it touches, which comes back through me and is written in
+  (session 11: the smooth voxels came back whole that way).  What another chat settles (a GDD, say)
   comes in through me.  **I redesign out loud, and every shape is written
   down as it comes**, in my words, so the one I settle on has the others
   beside it for why; the code follows the last OK.
@@ -417,7 +427,9 @@ When I say we're wrapping up:
 - **The ground is `conductor-gameworld`** (`design/world.md`).  A block is
   1 m a side, Minecraft's size; chunks 32 a side; the world eleven chunks
   tall, -32 to +319; `world_size` in `game.cfg` is the width, 1024 blocks a
-  step.  The code counts in blocks only, never in metres.  A block's number
+  step.  **Smooth voxels, stage 1, is settled and not built**
+  (`design/smooth-voxels.md`): the terrain kinds get a density and a smooth
+  mesher, structures stay cubes, 7 Days to Die's split.  The code counts in blocks only, never in metres.  A block's number
   never changes once it's out there.  A chunk's own file always wins over
   its region's ground, and a bad file is never built over: it may be the
   only copy of somebody's digging.

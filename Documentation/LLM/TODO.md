@@ -69,13 +69,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   code as every character's base; a character's own speed, with what's on it, would be a component the
   server checks moves against, and a packet telling the client when it changes (CharacterEnteredWorld only
   says it once).  `design/ensemble-world.md`, "Movement".
-- **Fewer voxels a column, EQ Next's style** (Jacob, 2026-10-03, session 10: "about possibly trimming down
-  the number of voxels per column because we want the EQ Next style voxels not Minecraft really but that's
-  for next iteration").  His to bring up; nothing settled.  Session 11: "we're only going to have voxels
-  being destroyed by combat and effects.  You won't mine the chunks of the world awway.  In fact we're gonna
-  change this section to be about smoothing out our voxel world."  Being talked through in a separate chat from
-  `design/smooth-voxels.md`, a brief written for it; its summary comes back through Jacob.  It touches GameWorld's chunks, the squeezed
-  chunks, Ensemble's mesher and `design/world.md`.
+- **Fewer voxels a column, EQ Next's style**: became smooth voxels, settled in session 11 (a separate chat,
+  its summary brought back by Jacob): `design/smooth-voxels.md`, and LONGTERM_TODO.md's "Smooth voxels".
 - **Jumping** (Jacob, 2026-10-03, session 10, on movement: "we can do jumping later").  Movement steps up
   one block on its own and falls off edges; a jump is its own feature.  `design/ensemble-world.md`,
   "Movement".

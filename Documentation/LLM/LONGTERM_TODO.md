@@ -94,6 +94,24 @@ was a biome; Jacob split the three in session 11, below in "The world asleep and
   change today remakes the world.  `region.map` keeps its size in its header, so growing one without
   remaking it is possible one day; keeping the digging across a change is in TODO.md.
 
+## Smooth voxels (Jacob, 2026-10-03, session 11; stage 1 settled, not built)
+
+`design/smooth-voxels.md` has all of it.  The ground's kinds drawn smooth (a density a terrain voxel, a
+smooth mesher), structures as cubes, 7 Days to Die's split; voxels stay 1 m; the height stays -32 to +319;
+caves, overhangs, catacombs and sewers from a 3D density; the ground changed both ways by blasts and
+spells; materials blended with Shader Graph; the move check on the density, with a 45-degree slope; damage
+sent as the changed chunks again; nothing drawn past the view.  Jacob: "Prepare a hand off to a new
+conversation with yourself that we will begin implementation of this system."
+
+## Opus.Treble (Jacob, 2026-10-03, session 11; named, not started)
+
+"Opus.Treble -- its a unity powered application that's meant to place the voxels we've 'defined' down and
+build prefabs out and save them to a .fbm (fluffybyte model) which can then be called on by conductor during
+world generation to place points of interest like 7 days."  A building is a grid of voxels, made by hand in
+Treble and stamped into the world by Conductor; it breaks apart like the ground.  The `.fbm` is a contract
+of its own when it comes (`design/smooth-voxels.md`, "Open").  Where its folder goes is Jacob's to say (a
+new top-level folder is asked about first).
+
 ## The world asleep and awake (Jacob, 2026-10-03, session 11; being talked through)
 
 Waits on NPCs (0.0.3 on WAYPOINTS.md) and on saving changed chunks (above).  Players wake the world two ways:

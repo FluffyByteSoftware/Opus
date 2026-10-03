@@ -364,6 +364,8 @@ Opus/
             ├── primlib.md             # the game library: entities, components, templates, blueprints; what's open
             ├── gameclock.md           # the GameClock: the beat, the order of the checks, a late cycle; what's open
             ├── world.md               # the world: regions, chunks, blocks, its files; GameWorld; what's open
+            ├── smooth-voxels.md       # smooth voxels, stage 1 as settled (not built), and the brief it was talked from
+            ├── ensemble-world.md      # the world on the client: the ground, the objects, the camera, movement
             ├── ensemble-hud.md        # the HUD and its layouts; the login screen
             ├── ensemble-networking.md # the client's net code: the login, UDP, character select
             ├── client-security.md     # the password's key: the contract, the client's half and Conductor's
@@ -383,6 +385,8 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | Soundcheck           | The launcher: the login, the manifest check, then      | Tested 2026-10-02: the login,    |
 |                      | Ensemble.  C# on .NET 10, Avalonia.                     | PLAY, debug mode, the web folder,|
 |                      |                                                         | the check, the patch (Linux)     |
+| Opus.Treble          | Unity tool: buildings placed voxel by voxel, saved as   | Named 2026-10-03, not started;   |
+|                      | `.fbm`s for Conductor to stamp into the world.          | its folder is Jacob's to say     |
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |

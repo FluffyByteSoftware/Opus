@@ -22,6 +22,8 @@ come in as `design/ensemble-networking.md` says ("The chunks, Ensemble's half") 
   how many faces and how long (a guess at the cost is no use; the line is the measurement).
 - **The materials are Jacob's**: "we'll make the materials on my end -- for now they're just colors".  A
   block kind is a submesh with its own material, from a slot each in the Inspector.  No shader of ours.
+  (Turned round for smooth voxels, session 11: "Shader Graph is fine", for the fade where two kinds meet;
+  `design/smooth-voxels.md`.)
 - **The camera**: "we're gonna be using a cinemachine following camera in the style of zomboid except a bit
   more direct".  Project Zomboid's is a fixed, angled view from above that follows the character.
   **Fixed**: "I'm going for the zomboid style where you can walk towards the camera but the camera only

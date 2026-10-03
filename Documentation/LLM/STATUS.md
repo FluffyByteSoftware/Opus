@@ -75,7 +75,15 @@ earlier server.  Conductor and the test client only: Ensemble reads version 15 a
 server's ground now follows each player.  `player.cfg` (`turn_degrees_per_second`, 450) and `game.cfg`'s
 `movement_tolerance_blocks` (16) are new; the walk, 4 blocks a second, is fixed in code.  **Jacob's pick for
 when watchers hear a move is (b), EQ's, at once from networking, not built**: round one passes moves on
-once a cycle.
+once a cycle.  (b) was planned in session 11 and put down unanswered (the end of `design/ensemble-world.md`).
+
+**Smooth voxels, stage 1, is settled and not built** (session 11, `design/smooth-voxels.md`): talked through
+in a separate chat from a brief, its summary brought back by Jacob.  7 Days to Die's split: the terrain kinds
+smooth (a density a voxel, a smooth mesher, Shader Graph fading one kind into the next), structures cubes;
+1 m voxels; -32 to +319 kept; caves, catacombs and sewers from a 3D density; buildings voxel by voxel in
+**Opus.Treble** (a Unity tool, named, not started) as `.fbm`s Conductor stamps in; a 45-degree slope on the
+server; damage sent as the changed chunks again; nothing drawn past the view.  **A region, a biome and a
+zone are three things now** (LONGTERM_TODO.md, "The world asleep and awake"), not yet in code.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -172,7 +180,9 @@ that's for next iteration"**.  The model draw is still waiting.  His to change.
 Session 11 (2026-10-03) opened on (b), planned it, then turned to the world asleep and awake
 (LONGTERM_TODO.md) and from there: **"we are not going to implement movement yet that will be next session.
 instead we are going to redesign our voxel world."**  (b)'s plan and its four questions are written down at
-the end of `design/ensemble-world.md`, unanswered.  His to change.
+the end of `design/ensemble-world.md`, unanswered.  The redesign was talked through in a separate chat, and
+at the hand-off, with its summary in: **"Prepare a hand off to a new conversation with yourself that we will
+begin implementation of this system."**  His to change.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -230,8 +240,37 @@ have no number.
   PlayerMoved and pulls back with a MoveCorrection, `Collider` in primlib, the server's ground follows the
   players, `player.cfg`, the test client's `--walk`, `--jump`, `--spin`; Ensemble and Soundcheck read 15.
   **Not built yet.**  What EQ does looked up in EQEmu's source.
+- **Session 11, 2026-10-03**: (b) planned (networking's own "whose client has it" list, the view's "last" as
+  what the watchers were told) and put down unanswered; the world asleep and awake talked through (cold,
+  warm and hot chunks, catching up, zone managers, wakers, the dragon; a region, a biome and a zone split);
+  a brief written for a separate chat on smooth voxels, and its summary written in as stage 1
+  (`design/smooth-voxels.md`); Opus.Treble named.  Docs only, no code.
 
-## Last session -- session 10, 2026-10-03, movement, round one
+## Last session -- session 11, 2026-10-03, (b) planned, the world asleep and awake, smooth voxels
+
+Opened on (b), from session 10's hand-off.  **Docs only: no code was written**, so round one of movement
+is still unbuilt.
+
+- **(b) planned, not OKed**: who sees a move worked out by networking from the Hydrates, ObjectsGone and
+  roll calls it already sends; only moves the GameClock wouldn't drop passed on, the velocity held to
+  walking; the view's "last" made what the watchers were last told, so a taken move isn't sent twice (a
+  repeat a cycle late would snap a watcher's copy back about a block every move); a pull-back to the
+  watchers in that cycle's broadcast; the cost a guess until a timing test.  Four questions put and left:
+  the version, a walker carried along in the roll call and the Hydrate, "whose client has it", the 100 ms.
+  The end of `design/ensemble-world.md`.
+- **The world asleep and awake** (LONGTERM_TODO.md): Jacob's NPCs that wake the world ("2 or 3"), the
+  dragon "an existential threat"; ground asleep where nothing wakes it, **cold, warm and hot** a chunk
+  ("IN a warm state we'll have the system do "catch up" ticks"); goblins with a controller for their needs;
+  **a region (the map), a biome (the ground, what grows and spawns) and a zone (the server's NPC manager,
+  a square of chunks, NPCs guests in another's) are three things**; the ground isn't mined, only broken
+  by combat and effects.  Five questions left open there.
+- **Smooth voxels**: the world's height and depth told; Jacob asked for "a LLM dump conversation to discuss
+  this with you in another chat not a code one", against CLAUDE.md's "never in a brief" (said to him), so
+  the brief carried the facts, how to talk to him and a four-heading summary to bring back.  It came back
+  whole, and is `design/smooth-voxels.md`'s "Stage 1, as settled".  **Opus.Treble** named there.
+- Session 10's hand-off had its local copy shallow and behind; `git fetch --unshallow` fixed it.
+
+## The session before -- session 10, 2026-10-03, movement, round one
 
 Jacob, opening it: **"in this session we do the task I failed at last time I worked on this game server
 engine... synchronizing movement across clients with Conductor being the central authority on where a unit
@@ -269,23 +308,32 @@ starts by expecting compile fixes.
 
 ## Where the next session starts
 
-**First, round one's build**: Jacob runs `cargo build`, `cargo test`, `dotnet build` of Soundcheck, and the
-checks under "Movement, round one" in TEST_CHECKLIST.html.  Expect compile fixes: nothing of session 10's
-was compiled.
+**Jacob's pick: smooth voxels, stage 1, built** ("we will begin implementation of this system").
+`design/smooth-voxels.md` is the source: "Stage 1, as settled", then its Leaning and Open.
 
-**Then (b), Jacob's pick**: "B but this might have to be dumped to a new conversation".  Networking passes
-each PlayerMoved to the players near it the moment it arrives, before the GameClock judges it, and a
-pull-back corrects the watchers too.  What's open is at the end of `design/ensemble-world.md`, "Movement":
-who is near whom outside the GameClock, a watcher told a move twice, a pull-back to the watchers, the cost.
-A plan, and his OK, before building.
+**First, round one of movement is still unbuilt** (session 10's).  The voxel work lands in the same crates
+(`gameworld`, the GameClock's `movement.rs` checks), so Jacob's `cargo build` and `cargo test` come first,
+and compile fixes are expected.
 
-**Still to come for movement** (`design/ensemble-world.md`, "Movement"): round two, Ensemble (the player
-anchor, `CameraAnchor` renamed `PlayerAnchor` with its `.meta`, a PlayerController with Zomboid's turning and
-Unity's CharacterController, a MeshCollider a chunk, capsules from the Hydrate's collider, sending moves every
-half second and on a change, taking MoveCorrections, never its own place from ObjectsMoved or the roll call,
-the chat field taking the keys while focused); round three, Ensemble pulling the chunks as it walks and
-letting the far ones go.  Jacob also wants to talk about **fewer voxels a column, EQ Next's style**
-(TODO.md).  The model draw (session 9's pick) is still waiting.
+**Then a plan, and his OK, before building.**  Stage 1 is a run of sessions; the first conversation takes
+one small step of it.  The pieces, unordered:
+- **What a voxel holds**: which kinds are terrain and which are structure (today AIR, DIRT, STONE, WOOD,
+  GOLD, BEDROCK), and a density on the terrain ones (a byte is the guess, 64 KB to 96 KB a chunk).
+  `gameworld`'s `block.rs`, `chunk.rs`.
+- **The squeezed chunk on the wire** (`squeeze.rs`, PROTOCOL.md's chunk pieces, Ensemble's `Chunk`
+  reader): carrying the density is a packet change, a version bump, all four programs.
+- **Making the world**: the 3D density (heights and carving), the strip of 1 to 5 voxels where one kind
+  turns into another, in place of Alpha and Omega's step.  The region, biome and zone split waits on its
+  own talk.
+- **Ensemble's smooth mesher** beside the cube one (surface nets leaning), the colliders from it, and the
+  Shader Graph fade (where a `.shadergraph` asset lives and who makes it is Jacob's to say: it's made in
+  Unity's editor).
+- **The server's move checks** on the density: inside the ground, the ground's height between two
+  densities, the 45-degree slope.
+- **Later**: blasts and spells changing the density, changed chunks sent again; Treble and the `.fbm`.
+
+Open, to put to Jacob before the first step: marching cubes or surface nets; the simple overworld map
+dropped or kept; a density's range and where halfway sits; which of today's kinds are terrain.
 
 Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy); `testuser` /
 `Testpass123!` (Asdf), for a second player beside the first.
@@ -315,10 +363,13 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
   client**: TODO.md.
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
 - **Ensemble**: the HUD's Phases 2 and 3; its project files in git (Packages/, LFS for scenes): TODO.md.
-- **Movement** (0.0.2 on WAYPOINTS.md): round one built and checked, (b), Ensemble's rounds two and
-  three (above); jumping, speed modifiers, first person (TODO.md).
+- **Movement** (0.0.2 on WAYPOINTS.md): round one built and checked, (b) (planned in session 11, its four
+  questions open), Ensemble's rounds two and three; jumping, speed modifiers, first person (TODO.md).
+- **Smooth voxels**, stage 1 settled (`design/smooth-voxels.md`); **Opus.Treble** and the `.fbm`
+  (LONGTERM_TODO.md).
+- **The world asleep and awake**: cold, warm and hot chunks, zone managers, wakers, the dragon; a region,
+  a biome and a zone split (LONGTERM_TODO.md, five questions open).
 - **The model draw** (session 9's pick): `design/ensemble-world.md`, "The player in the world".
-- **Fewer voxels a column, EQ Next's style**: Jacob's to bring up.  TODO.md.
 - **The world's objects' rest** (TODO.md): reliable ordered UDP, the view by column, an unreachable
   spawn point.
 - **Editing characters and NPCs** from GAME MANAGEMENT.  TODO.md.

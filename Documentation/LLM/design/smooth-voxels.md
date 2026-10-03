@@ -4,7 +4,114 @@ Component:  Documentation
 Author:     Jacob Chacko
 -->
 
-# Smooth voxels -- a brief for a discussion chat
+# Smooth voxels
+
+**Stage 1 is settled** (the discussion chat's summary, brought back by Jacob in session 11, 2026-10-03,
+below under "Stage 1, as settled").  **Nothing is built.**  Jacob: "Prepare a hand off to a new conversation
+with yourself that we will begin implementation of this system."  The brief the discussion chat was given
+is kept after it, as it was, so what it knew is on record.
+
+## Stage 1, as settled (the discussion chat, 2026-10-03)
+
+### Settled
+
+- **A voxel stays 1 m.**  A 0.5 m voxel was put to him and turned round: "okay voxels are the same 1x1x1
+  cube."  A player is still about 2 x 1 x 1.
+- **Soft ground, crisp structures, 7 Days to Die's split**: "Crisp sharp edges and rounded ones :S Like nice
+  soft hills contrasted by jagged cliff mountains."  **Cliffs are ground, not blocks**: "cliffs are terrain
+  -- smooth mesher."  So the **terrain kinds** (dirt, stone and the like) are drawn by a smooth mesher and
+  the **structure kinds** (brick, plank and the like) by the cube mesher there is now, both out of the same
+  chunks.  No dual contouring: a cliff's edge is rounded over about a voxel, which he took after seeing
+  7DTD's ground.
+- **A terrain voxel gets a density**: its kind as now, and how solid it is.  The surface is drawn where the
+  density crosses halfway.  A structure voxel has none (it's a whole cube).
+- **The height and the depth stay**: -32 to +319, BEDROCK at -31 and -32.  A floor at -5 was put and turned
+  round: "I do want you to be able to go down below for like tombs and stuff... but I think now the
+  majority of the world is just stone and that will save on chunk space."  A chunk of untouched stone costs
+  nothing (made again when it's needed, and it squeezes to nearly nothing).
+- **Caves, overhangs and places underground**: "Yes I do."  "you walk to a graveyard and there's like a
+  tunnel and shaft that leads down into the catacombs.  SO its under the city sorta.  There's also sewers a
+  classic fantasy location for rogues."  One way in each: "there would be a single entry way for them."  So
+  the world is made from a **3D density** (a height for the ground and carving in three dimensions), not a
+  height a column.
+- **The server makes all of it, and the ground changes both ways while the game runs**: "the server does
+  during world generation and we may have spells that can grow mountains."  No ground shaped by hand.  A
+  blast lowers the density in a sphere (strongest in the middle, fading out); a spell that grows raises
+  it.  A changed chunk is saved whole, as now.
+- **Buildings are voxels placed by hand in Treble, and stamped into the world by Conductor**: "Opus.Treble
+  -- its a unity powered application that's meant to place the voxels we've 'defined' down and build
+  prefabs out and save them to a .fbm (fluffybyte model) which can then be called on by conductor during
+  world generation to place points of interest like 7 days."  A `.fbm` is a grid of voxels, 7DTD's way:
+  "no reason to reinvent the wheel unless you can do ti better."  And: "we're gonna build prefabs to
+  represent the 'building' components but they break apart like a voxel in terrain."  So a building lives
+  in the same chunks as the ground, and damage carves it like anything else; there's no separate prefab
+  mesh.  The catacombs and the sewers are built this way, in hollows in the stone.
+- **Materials blend with Shader Graph**: "Shader Graph is fine."  The first step past "no shader of ours"
+  (`design/ensemble-world.md`).  The shader does one fixed fade, about a voxel, wherever two kinds meet.
+  **How wide a change is, is the generator's**: it hands out kinds over a strip of 1 to 5 voxels, soft
+  (grass to dirt, about 5) or hard (soil to rock, 1 or 2 at random).  Jacob: "probably three voxels? so I'd
+  say ~1 to ~5 voxels depending on how sharp the change is?" and "the terrain generator should know when to
+  use 5 voxels and when to use random 1 to 2."  The exact rule was left to the session ("trust your
+  instinct on this one"): a start, to tune by eye.  The same rule does a biome's edge, in place of the step
+  between Alpha and Omega.
+- **The move check**: the density sampled at the feet, the waist and the head for "inside the ground"; a
+  "ground height at x, z, looking down from y" that finds the crossing under the feet and goes between the
+  two densities.  A step up of 1 m is free.  **A slope**: "you can't walk up anything steeper than 45
+  degrees."
+- **Damage over the wire**: the changed chunks are sent again.  "a for now, I don't know."  Sending the edit
+  itself (middle, radius, strength) is for later.
+- **No distance drawn**: "its a fixed camera so not far 8 chunks is probably far enough and the skybox will
+  take care of the rest of that."  Nothing past the chunks in view: no far mesh, no levels of detail.
+
+### Leaning
+
+- **Surface nets over marching cubes**: simpler, fewer triangles, no lookup table.  Both read the same
+  data, so one can be swapped for the other.
+- **Dropping the simple overworld map** sent at PLAY: with no distance drawn, its one use left would be
+  skipping all-air chunks, and an all-air chunk squeezes to a few bytes already.  Not ruled on.
+- **Sending the edit for damage**, later, with "send the chunk again if in doubt" behind it.
+
+### Open
+
+- Marching cubes or surface nets.
+- The simple overworld map: dropped, or kept for skipping the sky.
+- **The `.fbm` format**: as plain as can be (its size, the voxel kinds, a ground-level mark, maybe spawn
+  points), read by Rust and by C#.  A contract of its own when it comes.
+- **Block shapes for structures** (ramps, half blocks, arches, 7DTD's): not for stage 1.
+- **How a density is held**: a byte a terrain voxel is the natural guess; a chunk goes from 64 KB to 96 KB
+  before squeezing.  A guess until measured.
+- **The generator's 3D rule** for caves, overhangs, the catacombs' hollows and their one way in; how a
+  building flattens or fills the ground under it (7DTD's ground-level mark).
+- Whether a blast changes the kind at its rim too (scorched dirt).
+- **The cost of a blast**: meshes and colliders made again for up to 8 chunks and their neighbours.  Timed
+  once it exists.
+- How the mesher draws where a structure voxel meets a terrain voxel.
+- Where the Shader Graph blend gets "which kinds at this corner" from the mesher.
+- **A tuning note**: with a 45-degree limit and 1 m voxels, slopes the generator makes will often sit near
+  the limit; walkable slopes want to be clearly gentler, cliffs clearly steeper.
+
+### What it touches
+
+- **What a voxel holds**: terrain voxels get a density; structure voxels stay a kind.
+- **Making the world**, the biggest change: a 3D density with carving, the rule for how wide a change of
+  kind is, buildings stamped from `.fbm`s, placed from the seed so a stamped chunk still counts as
+  untouched.
+- **Saving and streaming chunks**: small; the same files and the same stream; a changed smooth chunk
+  squeezes less well; the simple overworld map may go.
+- **The client's mesher and materials**: a second, smooth mesher for the terrain kinds beside the cube one;
+  the Shader Graph blend.
+- **Collisions on the client**: the same (a mesh collider a chunk), a new shape of mesh; the cost of
+  making it again after an edit to watch.
+- **The server's move checks**: the density sampled, the ground's height between two densities, the
+  45-degree slope; the 1 m step stays.
+- **Damage**: edits in a sphere that lower (blasts) or raise (spells) the density; changed chunks sent
+  again for now.
+- **The distance**: closed.  Nothing past 8 chunks, the skybox past that.
+- **The height**: unchanged, -32 to +319.
+
+---
+
+# The brief, as the discussion chat had it
 
 Written in session 11 (2026-10-03) for Jacob to paste into a separate, non-code chat.  Jacob: "we are going
 to be eventually moving away from cube shape voxels into smoother ones... but I'm not sure how that works".

@@ -15,6 +15,12 @@ world's size became `world_size` in `game.cfg`, 16 to start, twice as wide as be
 
 ## Where it stands
 
+**Smooth voxels, stage 1, is settled and not built** (session 11, 2026-10-03, `design/smooth-voxels.md`):
+1 m voxels still, the terrain kinds smooth with a density each, structures cubes, caves and catacombs from
+a 3D density, -32 to +319 kept, buildings stamped from Treble's `.fbm`s, a 45-degree slope.  What follows
+is the world as built, all cubes, until that lands.
+
+
 **Part one is built and tested on Linux** (Jacob's first world took 19 seconds to make, at 50 cm blocks).
 Every run check passed, the door waiting on the world, the sharp divide, BEDROCK and only housekeeping
 running until the ground is in included.
