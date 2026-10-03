@@ -205,24 +205,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
       <code>Ground.cs</code>), and <code>git meta</code> commits their <code>.meta</code>s.
     </span></label>
   </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      PLAY in the editor (Soundcheck <code>--debug</code>): the red bar fills with the map, then from empty
-      again with "Loading the ground...  N of 99 chunks" (on the LAN it may only flash), and the character
-      comes into the world.  The
-      Console says "asking for 3179 chunks around column 0, 0, 8 each way, the nearest 99 first" (the
-      character's own column, if it isn't at 0,0) and "the nearest 99 chunks are in.  PlayerReady."
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The Console's "the ground is in" line matches the test client's summary: 3179 chunks, 3179 in and 0
-      refused (the test client's 1 was the one it asked for past the edge on purpose), 88746 bytes
-      squeezed, the same block counts (AIR 94389257, DIRT 295936, STONE 8892406, GOLD 1, BEDROCK 591872 at
-      Jacob's settings), 0 didn't unsqueeze, the block at 0,0,0 GOLD.  Its "Held" says how many chunks are
-      kept as blocks and how many MB (about 37 was the guess).
-    </span></label>
-  </li>
 </ul>
 
 <h2>Parked</h2>
