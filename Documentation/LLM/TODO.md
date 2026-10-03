@@ -294,7 +294,14 @@ Windows.  What's left, a step each:
   to 1).  Whether the spawn (and RESET HOME) should be y 1, or the server should put a character on top of
   whatever is under it, is Conductor's to settle.  Ensemble draws it where the server says.  **Jacob
   (session 1): "yes characters start at Y=1"**, and the drawing stays as it is ("I'll jsut set characters
-  to stand on top of 0").  A plan for it is with him: new characters and RESET HOME at 0, 1, 0.
+  to stand on top of 0").  A plan for it (new characters and RESET HOME at 0, 1, 0) was **turned round**
+  (Jacob, same session): "we shouldn't give them a fixed position to spawn at (I mean no Y=X) instead we
+  need ot make a designated spawn point which for right now is only 0,0,0 but the code needs to be able to
+  tell how many physical voxels (not air) are on top of 0,0,0 and then put the player on top of the
+  highest voxel."  So a spawn point is a column (0, 0 today, more later), and the character stands on the
+  highest block in it that isn't AIR, worked out from the ground as it is.  Open: when (new characters and
+  RESET HOME only, or every PLAY), where it's worked out (the GameClock holds the chunks), and whether the
+  character stands in the middle of the block (0.5, 0.5) or on its corner.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
