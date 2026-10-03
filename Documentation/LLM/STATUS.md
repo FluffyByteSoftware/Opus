@@ -198,7 +198,10 @@ to change.  Then, turning it round: **"sorry actually we're gonna implement grav
 controlled on taht"**.  Which of two shapes he means is asked, unanswered: gravity alone the server's (the
 client still walks its own character, EQ's way, and the server drops characters, NPCs too, when nothing is
 under them), or all movement the server's (the client sends its keys and the server moves everybody,
-session 10's EQ choice turned round).
+session 10's EQ choice turned round).  **His answer: "gravity sorry"**, gravity alone; walking stays the
+client's.  The order: **"Gravity on conductor next session then we'll make movement in the client"**.  On a
+character saved over the old GOLD dropping on its own: "we're gonna be rebuilding the world with randomness
+soon" (the world from a 3D density, smooth voxels' stage 1).
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -299,16 +302,35 @@ settled in a separate chat and written in (`design/smooth-voxels.md`); Opus.Treb
 
 ## Where the next session starts
 
-**Jacob's pick: movement on the client, Ensemble** ("next session we bring in movement on the client
-(Ensemble)"), **then turned round: "we're gonna implement gravity and make movement server controlled on
-taht"**.  Which he means, gravity alone the server's or all movement the server's, was asked at the end of
-session 12; if it's not answered in Jacob's map above, ask before anything else.  What follows was written
-before the turn, for the client walking its own character.  Everything is built and tested, so nothing waits on compile fixes; `unstable` and `testing`
-are level.  Start by reading `design/ensemble-world.md`'s "Movement" (his five rounds of answers, in his
-words), PROTOCOL.md's "Movement", `design/gameclock.md`'s "Movement" (how the server judges a move), and
-`design/ensemble-networking.md` for the net code it plugs into.
+**Jacob's pick: gravity on Conductor** ("Gravity on conductor next session then we'll make movement in the
+client").  Gravity alone is the server's; walking stays the client's, EverQuest's way (his "gravity sorry",
+after "we're gonna implement gravity and make movement server controlled" was asked about).  Everything is
+built and tested, so nothing waits on compile fixes; `unstable` and `testing` are level.  Read
+`design/gameclock.md`'s "Movement" (`gameclock/src/movement.rs`: the check, the hanging rule,
+`FASTEST_FALL`, `stands_on_something()`), PROTOCOL.md's "Movement" and "The world's objects", and
+`design/primlib.md` (the `Transform`'s velocity, the `Collider`).
 
-**What's settled for Ensemble's half** (session 10, all his):
+**Why** (session 12): gravity was the client's in round one; the server never moved anybody, only pulled
+back a character hanging in the air 2 s.  NPCs have no client to drop them, and a player whose ground is
+blown away under them would hang until their client moves.
+
+**To put to Jacob before planning** (a guess at the questions, not settled):
+- **The player's own client**: walking is the client's and only a MoveCorrection moves its own character
+  today.  When the server drops a player, how does their client hear it: a MoveCorrection (it's numbered,
+  and moves wait for it), a new packet, or the client falls on its own as it would anyway and the server
+  only drops the ones that don't (the hanging rule made active)?
+- **How it falls**: a fixed speed, or speeding up (Minecraft's is about 32 blocks a second squared, to
+  about 78 a second, from memory, not looked up; ours caps a client's fall at 60), and landing on the first
+  solid block under the collider.
+- **Who falls**: every object with a Transform and a Collider (players now, NPCs to come), in which of the
+  GameClock's checks (movement, most likely), every cycle (250 ms, four steps a second: a fall drawn on
+  other screens along its velocity in between).
+- **What changes**: the hanging rule (kept, or the server's own drop takes its place), moves from a
+  falling player (its y taken or the server's), and the watchers' ObjectsMoved.
+- **The cost**: a footing check per character per cycle, a guess until timed.
+
+**After that, movement on the client** (round two), already settled for Ensemble's half (session 10, all
+his):
 - **EverQuest's way**: the client walks its own character at once and says where it went (PlayerMoved:
   the move's number, the last pull-back had, position, rotation, velocity); the server takes it or pulls
   it back (MoveCorrection: the pull-back's number, position, rotation), and only a MoveCorrection moves the
@@ -320,9 +342,8 @@ words), PROTOCOL.md's "Movement", `design/gameclock.md`'s "Movement" (how the se
 - **A player anchor** in the scene with the controller on it: "the prefab is just a skin we make the shell
   wear".  The anchor is Jacob's to set up in the editor.
 - **The ground**: walking follows it, a step up of one block is free, falling off edges, a wall two blocks
-  high stops it.  Jumping later.  **Gravity is the client's**: the server only pulls back a character
-  that hangs in the air 2 s without coming down a block.  (A character saved on the old GOLD comes in a
-  block or more over Omega's ground at 0,0, and should just fall.)
+  high stops it.  Jumping later.  **Gravity becomes the server's** (session 12's pick, above); how the
+  client's own falling fits with it is that session's to settle.
 - **Colliders**: a mesh collider a chunk (the cube mesh for now; smooth voxels' surface-nets mesh will
   replace it), capsules on characters, 1 by 2, from the Hydrate's collider.
 - **Check-ins every half second** while walking, hard-coded, and a move whenever the input changes.
@@ -373,10 +394,9 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
   client**: TODO.md.
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
 - **Ensemble**: the HUD's Phases 2 and 3; its project files in git (Packages/, LFS for scenes): TODO.md.
-- **Movement** (0.0.2 on WAYPOINTS.md): round one built and tested (session 12), (b) (planned in session
-  11, its four questions open), Ensemble's rounds two and three; jumping, speed modifiers, first person
-  (TODO.md).  **The server's own gravity** (NPCs, a player whose ground is blown away): asked in session
-  12, unanswered, not in TODO.md yet.
+- **Movement** (0.0.2 on WAYPOINTS.md): round one built and tested (session 12), **the server's own
+  gravity** (Jacob's pick for next), (b) (planned in session 11, its four questions open), Ensemble's
+  rounds two and three; jumping, speed modifiers, first person (TODO.md).
 - **Smooth voxels**, stage 1: steps 1 and 2 built (session 12), the rest above; **Opus.Treble** and the
   `.fbm` (LONGTERM_TODO.md).
 - **The world asleep and awake**: cold, warm and hot chunks, zone managers, wakers, the dragon; a region,
