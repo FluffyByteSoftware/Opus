@@ -26,6 +26,10 @@ SUBMIT writes.  Admin mode (`--admin`) publishes a platform's build into the web
 part in the patcher.  **The game's name is Forgotten Legends**; the project, its folders and code stay Opus.
 Everything speaks protocol version 10.  CLAUDE.md's "Client rules" and "Launcher rules" have the detail.
 
+**The world to the client** (0.0.13) has its first step: GameWorld writes `simple_overworld.map`, the
+world's rough shape for the client's distance, before the door opens (session 1; SIMPLE_OVERWORLD_MAP.md,
+`design/world.md`).  Nothing sends it yet.
+
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
@@ -33,18 +37,19 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 
 **The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
 the GitHub Release.  `main` is two docs commits past the tag; `testing` and `unstable` are level with each
-other, this session's work past `main`.  `main` moves when Jacob says.
+other, sessions 0 and 1 past `main`.  `main` moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor as released (365 tests), Soundcheck through PLAY and the way
-back, and Ensemble through the start screen, dev mode and the launcher's ticket.  **Built and tested 2026-10-02**: PUBLISH, the check at start, the patch (two files, and the game's program
-itself fetched back runnable), the extra file, the web server down, a 404, a file missing from the web
+**Built and tested on Linux**: all of Conductor as released, and sessions 0 and 1 since (375 tests pass),
+Soundcheck through PLAY and the way back, and Ensemble through the start screen, dev mode and the launcher's
+ticket.  **Built and tested 2026-10-02**: PUBLISH, the check at start, the patch (two files, and the game's
+program itself fetched back runnable), the extra file, the web server down, a 404, a file missing from the web
 folder, a bad hash, `--debug`, the farewell after a KICK, all against the real address.  **Hashing the 655 MB
 build takes 1.3 s** at a start (193 files; the disk cache does most of that, a cold start will be slower).
-TEST_CHECKLIST.html is down to two Parked checks: the launcher's own restart after a patch (needs
-Soundcheck shipped beside the game) and Spans for real.  **On Windows**: Conductor builds and runs, START SERVER included,
-without a database; nothing since the world has been tried there (GitHub issue #10), and neither Soundcheck
-nor the new Ensemble has been built there at all.  The `.meta` round from the login's move landed before
-this session (`git ls-files` shows none of the old login's files).
+TEST_CHECKLIST.html is down to two Parked checks (session 0's and 1's all passed): the launcher's own restart
+after a patch (needs Soundcheck shipped beside the game) and Spans for real.  **On Windows**: Conductor builds
+and runs, START SERVER included, without a database; nothing since the world has been tried there (GitHub
+issue #10), and neither Soundcheck nor the new Ensemble has been built there at all.  The `.meta` round from
+the login's move landed before session 0 (`git ls-files` shows none of the old login's files).
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -68,6 +73,9 @@ yet"**.  The check and the patch are built since; the Windows builds aren't (TOD
 At the patcher's hand-off (2026-10-02): **"we got a bit more polish to do next session.  Then we're going to
 start working on the hard part getting the world to the client"**.  At the clean-up's (2026-10-03): **"I
 think we are going to have to figure out how to serve the world up to the client :)"**.  His to change.
+
+At session 1's hand-off (2026-10-03): **"next session we prepare Ensemble for receiveing this"**, the
+simple overworld map.  His to change.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -93,78 +101,63 @@ have no number.
   check at start, the patch a file at a time.  Built and tested against the real web folder.
 - **2026-10-02**: REPORT.html, the easy version of how Opus hangs together, with diagrams.
 - **Session 0, 2026-10-03**: the docs clean-up, pass one: facts the code had overtaken, the built history out of
-  TODO.md, the doubles merged, Soundcheck's first design told as history; the stale words in the code (a
-  build to run); CLAUDE.md cut to the rules and a "where to look" map; this rolling day.
+  TODO.md, the doubles merged, Soundcheck's first design told as history; the stale words in the code;
+  CLAUDE.md cut to the rules and a "where to look" map; this rolling day.  Built and tested in session 1.
+- **Session 1, 2026-10-03**: the world to the client designed with Jacob (the bulk and the stream; the bulk
+  smoothed; sent by Conductor over UDP at PLAY; PlayerReady; one world save); `simple_overworld.map` written
+  by GameWorld before the door opens, with its contract.  Built and tested (1.17 s at `world_size` 16).
 
-## Last session -- session 0, 2026-10-03, the docs clean-up, pass one
+## Last session -- session 1, 2026-10-03, the world to the client: the simple overworld map
 
-Jacob: "I'd like to go over our documentation and prune any out of date information or repeat information
-on the first pass.  Let's also see if theres any directions you can rephrase in fewer words."  What went:
-facts the code had overtaken (Ensemble's certificate copy, "four crates", "ten members", the GameClock's
-senders handed over "at networking's start", the design shapes Soundcheck went through written up as if
-live), TODO.md's built-and-tested history (the design files have it), and the doubles (CLAUDE.md's two
-player-commands bullets, its copy of the web admin's tabs, STATUS's crate list).  His answers after: trim
-CLAUDE.md down to the rules and pointers at the documents, so a session reads the one for the concern in
-front of it (done: a "Where to look" table, and each piece's detail left to its design file); STATUS.md
-keeps the last 24 hours of sessions as one-line summaries (done, above); the pass-two candidates
-(`ensemble-hud.md`'s login sections, networking's "Chat" and "/who", the launcher rules, REPORT.html) are
-left alone; the stale words in the code go now (done: comments, log lines and the Server tab's note, no
-behaviour changed; three checks in TEST_CHECKLIST.html, **not built by Jacob yet**).  At the hand-off: the
-session count starts at 0 here; CLAUDE.md's depth is right ("we don't need to trim that much... I just mostly
-wanted to reduce token overhead with obsolete instructions and drift"); and his pick for next, below.
+Jacob opened with a web admin bug (after a login, the page "kicks you to a random web page"); nothing in
+`page.html` or the server navigates anywhere, and a headless Chromium against a fake server (not Conductor)
+stayed on `/Opus`.  He couldn't make it happen again, so it was let go.  If it comes back: the URL it lands
+on, the browser, and whether a private window does it too.
 
-## The session before -- 2026-10-02, the web folder: PUBLISH, the check at start, the patch
+Then the world.  "Players need to download the bulk map data and then stream in the chunk changes as they
+walk through the world right?"  Talked through and written down as it settled, every answer in Jacob's
+words in `design/world.md` ("The simple overworld map") and TODO.md ("The world's dump"):
 
-Kept because the next code session starts from it.  Two rounds in one chat, built and tested the same
-evening.  The first (two manifests from a web address, the
-check after SUBMIT) went up and was overtaken the same afternoon by Jacob's redesign (above); the second
-is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
+- **The bulk is smoothed**, the surface's shape and nothing under it, so the secrets aren't in it; a seed
+  was weighed and left out (it rebuilds the whole world).  16 by 16 blocks a patch, each its average height
+  and its commonest top block, which colours the distance.  Not squeezed.
+- **Redesigned once**: first the patcher was to ship it from the web folder (`download/map/`); then "the
+  unity client is going to have to download this at play", **from Conductor over UDP**, in pieces, behind a
+  loading bar, into `Application.persistentDataPath`, by the same means the chunks will stream.
+- **PlayerReady** is the client saying it has the terrain, and the character isn't spawned until it comes.
+- **Hidden things** are sent ahead and hidden by the client, with room to tighten later.
+- **The terrain save and the character save are one save**, every `world_save_seconds`.
+- **If the map can't be written, the door stays shut**; **a client that can't get it tells the player** to
+  delete the local map file (or the client) and try again.  "The end user" was the player: the session took
+  it for the admin first, so the Error on the bell says to delete the file, and a comment in
+  `gameworld/src/lib.rs` (`with_overworld()`) quotes that answer as its reason.  The comment wants
+  correcting next time Conductor's code is open (hand-offs make no code changes).
 
-- **The web folder** (PATCH_MANIFEST.md, format 3): `linux_manifest.json` and `windows_manifest.json` at
-  its root, `download/linux/` and `download/windows/` exact copies of the clients.  A manifest line gained
-  `executable` for a Linux program, since a download comes with no permissions.  The patcher's leftovers
-  (`.patch`, `.old`) are skipped by the walk and cleaned up at the next start.
-- **Admin mode** (`Patch/Mirror.cs`, `Screens/AdminScreen`): Linux / Windows radio buttons, a build folder
-  remembered per platform, the web folder (default `/opt/storage/WWW`), PUBLISH: the mirror (copied by size
-  and time, stale files taken out, Unity's backup folder skipped), then the manifest hashed from the mirror.
-  The old `soundcheck_admin.json` remembered one folder; the box starts blank once.
-- **User mode** (`Patch/ManifestSource.cs`, `Patch/Patcher.cs`, `Screens/LoginScreen`): the check runs at
-  start with the boxes locked; what's off is fetched from `download/<platform>/<path>` (each piece
-  URL-escaped) into a `.patch` temp, its hash checked, the execute bit set back, and swapped in; then the
-  check again.  A replaced file directly in the launcher's own folder means `Patcher.Restart()` with the
-  same command line and `--patched`, and the window closes; a `--patched` launcher whose check fails is
-  "couldn't repair the game".  On Windows a file in use is renamed aside (`.old`).  The game's farewell
-  ("You were kicked by the admin.") is kept in front of the check's words.  `--www <url>` replaced
-  `--manifest`.  SUBMIT and PLAY are back to their simple shape: the pass is a flag they look at.
-- **Nothing in Conductor changed**, and nothing of its half is left but the report up and
-  `allow_debug_clients`, both open (TODO.md).
+Built: `gameworld/src/overworld.rs` (makes, writes, reads the map), `build.rs`'s `top()` (one column's
+top, shared by the chunks and the map), `lib.rs` (`with_overworld()`, before the first chunk goes out),
+`regionmap.rs`'s `block_bounds()`, and SIMPLE_OVERWORLD_MAP.md, the contract, with a worked example the
+tests check and a C# reader sketch.  **Built and tested by Jacob**: every check passed, the door staying
+shut on an unwritable file included; 1.17 s at `world_size` 16 (`--release`), and his world is 32, 16.8 MB
+(a guess of 4 to 5 s to make, unmeasured).
 
 ## Where the next session starts
 
-**Jacob's pick** (2026-10-03): "figure out how to serve the world up to the client", waypoint 0.0.13
-(WAYPOINTS.md).  It starts with a plan,
-talked through here with the docs at hand.  What's written so far: `design/world.md` ("Where it stands":
-part two, and "Saving"); LONGTERM_TODO.md, "The world" ("Sending chunks to a client: only the ones near it,
-since the server decides what each client sees.  A protocol change.  And how Ensemble gets `region.map`";
-"Loading around players who move"); TODO.md, "Soundcheck" ("The world's dump", Jacob's "broad stroke" world
-the client carries, shipped through the manifest, and "The world's files on the client",
-`Assets/StreamingAssets/World/`); REGION_MAP.md (the C# reader for Ensemble); `design/gameclock.md`'s open
-list (the positions in the broadcast, only what each player may see).  Nothing of it is designed past
-those lines: what a chunk packet is, how many go and when, what the client does with them and with the dump,
-and whether movement comes with it, are his to settle.
-
-The patcher's polish is still in TODO.md under "Soundcheck", for whenever he wants it.  **The stale-words
-build from session 0 hasn't been run**: `cargo build` and `cargo test` first, and the three checks in
-TEST_CHECKLIST.html.
+**Jacob's pick**: "next session we prepare Ensemble for receiveing this".  What's written: the file's layout
+and a C# reader in SIMPLE_OVERWORLD_MAP.md; where it's kept (`Application.persistentDataPath`, which is
+`PlayerFiles.PathOf()`'s folder, CLAUDE.md's Client rules); the loading bar at PLAY, PlayerReady, and the
+player told to start over when the map can't be had (`design/world.md`).  **The packets aren't designed**:
+how the map goes in pieces, how a lost piece is sent again, what PlayerReady carries, and the protocol
+bump.  Whether Ensemble's side starts before, with or after them is the plan's first question for him.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
 ## What's waiting
 
-- **Soundcheck's rest** (above, and TODO.md): the world's dump, Conductor's report up and debug clients
+- **Soundcheck's rest** (TODO.md): Conductor's report up and debug clients
   (open), Windows, one package; and the certificate for every client (LONGTERM_TODO.md).
-- **The world's files on the client** (`Assets/StreamingAssets/World/`, a fifth folder of ours), left out of
-  this session's pass.
+- **The simple overworld map's rest** (TODO.md, "The world's dump"): the packets, PlayerReady, Ensemble's
+  half, writing it again at the world save.  And `with_overworld()`'s comment in `gameworld/src/lib.rs`,
+  which quotes the player's notice as the admin's.
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale
   words.
 - **Saying things without a `/`**, **kicking a player who keeps flooding**, **`/help`**, **whether the web

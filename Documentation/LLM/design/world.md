@@ -237,8 +237,11 @@ bulk.
   4,194,332 bytes.  Paid once a world, on GameWorld's thread, with the door shut.
 - **Its name is `simple_overworld.map`**, and it's **written before connections are allowed** when it's
   missing ("yes should do this before we allow connections"), so a world made before it gets one.  **If it
-  can't be written, the door stays shut** ("keep the door shut and notify the end user to wipe their local
-  copy and try again"): an Error on the bell saying to delete the file and START SERVER again.
+  can't be written, the door stays shut** ("keep the door shut"): an Error on the bell saying to delete the
+  file and START SERVER again.  **A player whose client can't get it is told to start over** (Jacob, the
+  same answer, "notify the end user to wipe their local copy and try again", and after: "if the client
+  can't get the file it needs to notify the person playing the game to delete the local map file or client
+  and try again").  "The end user" is the player, not the admin; that half is Ensemble's.
 - **Conductor sends it over UDP**, "broken into smaller packets obviously", **at PLAY**, behind a loading
   bar ("before it puts them into the world"), by the same means the chunks will stream ("its going to have
   to be able to stream the chunk data anyways so we may as well use the same tool set").  Every connect

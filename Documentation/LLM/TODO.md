@@ -210,7 +210,10 @@ Windows.  What's left, a step each:
   know what numbers are gonna make this feel not like shit lol" (it was 15 minutes).  **No squeezing**: "no
   squeezing concern".
   **And** (Jacob, same session): the plan for Conductor's half is OKed ("yes build it").  **If the file can't
-  be written, the door stays shut**, with a notice to "wipe their local copy and try again".  **The client
+  be written, the door stays shut**.  **A client that can't get it tells the player** to "wipe their local
+  copy and try again": "if the client can't get the file it needs to notify the person playing the game to
+  delete the local map file or client and try again" (the session first took "the end user" for the admin
+  and put the advice in Conductor's Error; it's the player's, Ensemble's half).  **The client
   keeps it in Unity's `Application.persistentDataPath`** (his "userprefs folder"), not
   `StreamingAssets/World/`.  **The download starts at PLAY**, by the same means the chunks will stream ("its
   going to have to be able to stream the chunk data anyways so we may as well use the same tool set").  **The

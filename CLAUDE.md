@@ -240,6 +240,10 @@ When I say we're wrapping up:
   anything outside it, never a relative path with "from the repo root" in
   front (one of those once made a second `Content` inside `dev/`, and
   Conductor found that one first).
+- **"The end user" is the person playing the game**, never the admin
+  (2026-10-03: "notify the end user to wipe their local copy" was built as
+  advice on the web admin's bell, and he meant a message in the client).
+  When an answer could land on either side, say which before building.
 - When talking about the web admin, name the tab ("the Log tab"), not the
   tool behind it ("Where does Scribe go?" read as moving the crate).  If I
   say "the Control Panel" I may mean the Server tab; it had that name once.
