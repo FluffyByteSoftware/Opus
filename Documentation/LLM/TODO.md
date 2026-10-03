@@ -292,7 +292,9 @@ Windows.  What's left, a step each:
 - **The spawn's height** (session 5): a block at x, y, z fills x to x+1 each way and a character's y is its
   feet, so a character at 0, 0, 0 stands in the GOLD, one block into Alpha's ground (the DIRT layer is y 0
   to 1).  Whether the spawn (and RESET HOME) should be y 1, or the server should put a character on top of
-  whatever is under it, is Conductor's to settle.  Ensemble draws it where the server says.
+  whatever is under it, is Conductor's to settle.  Ensemble draws it where the server says.  **Jacob
+  (session 1): "yes characters start at Y=1"**, and the drawing stays as it is ("I'll jsut set characters
+  to stand on top of 0").  A plan for it is with him: new characters and RESET HOME at 0, 1, 0.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
