@@ -35,7 +35,14 @@ come in as `design/ensemble-networking.md` says ("The chunks, Ensemble's half") 
   feet, so a character at 0, 0, 0 stands in the GOLD, a block into Alpha's ground.  Drawn as it is; the
   spawn's height is a Conductor question in TODO.md.
 
-## As written (2026-10-03, session 5, not built yet)
+## Built and working (Jacob, 2026-10-03: "THE GROUND WORKED")
+
+**Measured** (Jacob, Linux, in the editor, a view of 8 at `world_size` 32): "World: 437 chunks meshed,
+246903 faces, in 0.51 s (the worker's share 0.51 s, 1.16 ms a chunk); 302 chunks drawn in all."  The 135
+meshed and not drawn had no faces: buried stone and BEDROCK with no air beside them.  All of the 0.51 s is
+on the worker; the main thread only fills Unity's Mesh, 32 a frame.
+
+## As written (2026-10-03, session 5)
 
 - **`Code/World/ChunkMesher.cs`**: a chunk and the six round it into lists (`ChunkMesh`): four corners and
   a normal a face, two triangles, kept by block kind.  A face wherever a block that isn't air meets air;
