@@ -223,6 +223,55 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>The simple overworld map (2026-10-03)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The build and the tests pass with <code>overworld.rs</code> and the column's top in <code>build.rs</code>.
+    </span></label>
+    <pre class="cmd">cargo build</pre>
+    <pre class="cmd">cargo test</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The timing test prints how long the map takes to make at <code>world_size</code> 16, and the size,
+      4,194,332 bytes.  Paste back the line.
+    </span></label>
+    <pre class="cmd">cargo test --release -p conductor-gameworld overworld_map_timing_at_size_16 -- --ignored --nocapture</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      START SERVER on the world already on disk: the log says "GameWorld is making
+      .../simple_overworld.map: it isn't there yet.", the Services tab's GameWorld line counts "lines of
+      patches" while it works, then GameWorld is up and the door opens as before.
+    </span></label>
+    <pre class="cmd">cargo run -p conductor-launcher</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The file is there, the header's seed is region.map's, the size says "should be" the same, and block
+      0,0's patch has a height near 0 and DIRT (or GOLD) on top.
+    </span></label>
+    <pre class="cmd">python3 -c "import struct,sys;d=open(sys.argv[1],'rb').read();t,v,s,w,so,sd,wd,dp=struct.unpack_from('&lt;8sHQhhHHH',d);print(t.decode(),'version',v,'seed',s,'| blocks x',w,'to',w+wd*sd-1,'z',so,'to',so+dp*sd-1,'| patch',sd,'blocks,',wd,'by',dp,'| size',len(d),'should be',28+wd*dp*4);x,z=map(int,sys.argv[2:4]);a,u=(x-w)//sd,(z-so)//sd;h,k=struct.unpack_from('&lt;hH',d,28+(u*wd+a)*4);print('block',x,z,'-&gt; patch',a,u,'-&gt; height',h,'top',k,['AIR','DIRT','STONE','WOOD','GOLD','BEDROCK'][k] if k&lt;6 else 'UNKNOWN')" /opt/storage/Coding/Opus/Content/world/simple_overworld.map 0 0</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      STOP SERVER and START SERVER again: it isn't made again (no "making" line at Info; at Debug, "it's this
+      world's").
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      With the server stopped, make the file unwritable to see the door stay shut: START SERVER, and the
+      bell has an Error saying the simple overworld map isn't ready, to delete the file and START SERVER
+      again; the Services tab has GameWorld in trouble, and nobody can connect.  Then put it back, STOP
+      SERVER, START SERVER, and the door opens.
+    </span></label>
+    <pre class="cmd">rm -f /opt/storage/Coding/Opus/Content/world/simple_overworld.map &amp;&amp; mkdir /opt/storage/Coding/Opus/Content/world/simple_overworld.map</pre>
+    <pre class="cmd">rmdir /opt/storage/Coding/Opus/Content/world/simple_overworld.map</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

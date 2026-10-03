@@ -217,10 +217,15 @@ Windows.  What's left, a step each:
   character isn't spawned until PlayerReady**: "it doesn't show them or spawn them in the physical world until
   they're ready".  **The terrain save and the character save become one save**, every `world_save_seconds`, so
   the database and the chunk files hold the same moment; `save_minutes` goes.
-- **The world's files on the client** go in `Assets/StreamingAssets/World/`, a fifth folder of ours under
-  `Assets/`, into the `.gitignore` with its `.meta` (Jacob, 2026-10-02: out of that pass).  A Unity build
-  packs everything under `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as
-  loose files, and a patcher writes loose files.
+  **Where it stands**: Conductor's file is written (session 1, `gameworld/src/overworld.rs`,
+  SIMPLE_OVERWORLD_MAP.md, `design/world.md`), **not built by Jacob yet**.  What's left, a step each: the
+  packets (the map in pieces over UDP at PLAY, PlayerReady, the character spawned on it; a protocol bump),
+  then Ensemble's half (the loading bar, keeping it, drawing the distance), then writing it again at the
+  world save once blocks change.  The heading says Soundcheck, but none of it is the patcher's any more.
+- **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
+  fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
+  comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
+  with the client and no fifth folder is needed, unless something else wants one.
 - **Conductor's half**, what's left of it: the manifest and the files come from the web folder, so Conductor
   sends nothing and serves nothing.  What could still be its: the client's report up after the check
   (the manifest in the protocol's own bytes, in pieces or past the 4,096-byte frame cap) and Conductor

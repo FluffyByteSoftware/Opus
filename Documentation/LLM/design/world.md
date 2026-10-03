@@ -36,6 +36,10 @@ while the server world isn't ready"; `design/gameclock.md`) and the door stays s
 (`design/conductor-launcher.md`).  Jacob asked for the door after his first run, when networking listened
 through the 19 seconds: nobody gets in before there's a voxel to step on (TCP and UDP both, "may as well").
 
+**The simple overworld map** (2026-10-03, session 1, **written, not built by Jacob yet**): GameWorld writes
+`simple_overworld.map` on START SERVER when it's missing or another world's, before the first chunk goes
+out, so the door waits on it too (under "The simple overworld map" below).
+
 **Part two is saving** (under "Saving" below).  Nothing changes a chunk yet, so it comes with the first thing
 that does (digging, or a way to set a block for testing).
 
@@ -78,6 +82,10 @@ u8        row, 0 (bottom, -32 to -1) to 10 (top, 288 to 319)
 u16 x 32768  the blocks, bottom layer first; in a layer, the south row
              first; in a row, west to east.  (y * 32 + z) * 32 + x.
 ```
+
+`simple_overworld.map`: the world's rough shape for the client, a patch of 16 by 16 blocks at a time.
+**`Documentation/LLM/SIMPLE_OVERWORLD_MAP.md`** has it byte for byte, with a worked example and a C#
+reader; it's a contract with Ensemble, like REGION_MAP.md.  4,194,332 bytes at `world_size` 16.
 
 The block numbers: AIR 0, DIRT 1, STONE 2, WOOD 3, GOLD 4, BEDROCK 5.  A number never changes once it's
 out there.
@@ -196,13 +204,53 @@ out there.
   later never reshapes hills already there.  **Kept as one heights file**: one number per column, how
   high the dirt is, -5 to +5, about 134 MB at `world_size` 16 (every Omega chunk whole would be about
   94 GB).
-- **It's saved on STOP SERVER, and by a global save every 15 minutes.**  A chunk that changes is marked, and
-  the GameClock hands copies of the changed ones to GameWorld to write, never waiting on it.
-- **The global save is the terrain only**: "whatever is in memory about the voxel states", dumped to disk.
-  Not primlib's objects, which go to the database on STOP SERVER (`design/primlib.md`).
-- **The 15 minutes is a setting in `game.cfg`**, `save_minutes`, not fixed in code like the tick; it goes in
-  with part two, when something reads it.  **`game.cfg` is soft** (in Constellations' table, read on every
-  START SERVER): "the world should need a reboot so the voxel engine or service restarts and rebuilds".
+- **It's saved on STOP SERVER, and by the one world save** (Jacob, 2026-10-03: the terrain "at like 2.5
+  minutes maybe", and one save with the characters', so the database and the chunk files hold the same
+  moment): every `world_save_seconds`, 150 today.  It was a terrain save of its own every 15 minutes.  A
+  chunk that changes is marked, and the GameClock hands copies of the changed ones to GameWorld to write,
+  never waiting on it.
+- **The world save's ground is the terrain only**: "whatever is in memory about the voxel states", dumped
+  to disk.  Not primlib's objects, which go to the database on STOP SERVER (`design/primlib.md`); the
+  players' characters go in the same save, to the database (`design/gameclock.md`).
+- **The rate is `world_save_seconds` in `game.cfg`**, the characters' already (2026-10-03); `save_minutes`,
+  the terrain's own rate, is dropped before it was ever built.  **`game.cfg` is soft** (in Constellations'
+  table, read on every START SERVER): "the world should need a reboot so the voxel engine or service
+  restarts and rebuilds".
+
+### The simple overworld map
+
+Designed with Jacob on 2026-10-03, session 1, every quote his.  The client needs the world in two halves:
+the bulk, downloaded once a connect, and the chunks near the player, streamed as they walk.  This is the
+bulk.
+
+- **Smoothed, not the real ground**: "I am imagining a smoothed shape", since the point is "didn't want to
+  give them the entire worlds voxel information so they could find all the secrets".  A seed was weighed
+  and left out for that reason: it rebuilds the whole world exactly.  So the map is the surface's shape,
+  nothing under it, and the real chunks come from the server near the player and win.
+- **A patch is 16 by 16 blocks** ("the world is going to be rather large though so maybe we go with
+  16x16?"), with **its average height and its commonest top block** ("we can take the average with the
+  highest occurence (if its dirt) and put dirt to color the whole thing"), so the client colours the
+  distance by kind, the way Minecraft draws its maps.  Minecraft itself draws no distance: past what the
+  server sent, there's fog.
+- **Not squeezed**: "no squeezing concern".  4 MB at `world_size` 16, 16 MB at 32.
+- **Its name is `simple_overworld.map`**, and it's **written before connections are allowed** when it's
+  missing ("yes should do this before we allow connections"), so a world made before it gets one.  **If it
+  can't be written, the door stays shut** ("keep the door shut and notify the end user to wipe their local
+  copy and try again"): an Error on the bell saying to delete the file and START SERVER again.
+- **Conductor sends it over UDP**, "broken into smaller packets obviously", **at PLAY**, behind a loading
+  bar ("before it puts them into the world"), by the same means the chunks will stream ("its going to have
+  to be able to stream the chunk data anyways so we may as well use the same tool set").  Every connect
+  gets it.  The client keeps it in `Application.persistentDataPath` ("their userprefs folder").  A new
+  packet Jacob named: **PlayerReady**, "verification from client it streamed the terrain and is good to
+  display", and **the character isn't spawned until it comes**: "it doesn't show them or spawn them in the
+  physical world until they're ready".  The packets aren't designed yet (TODO.md, "The world's dump").
+- **Hidden things are sent ahead and hidden by the client** ("honestly with the way we're building this I
+  am not too worried about cheating this isn't a serious game like that... not yet at least"), with room
+  to tighten later ("make it so that we have the option I guess?  Like a flexibility to add more
+  security"): what a player is sent will go through one place on the server that can hold things back.
+  None of it is in this map either way.
+- **It's written again** at the world save, once blocks can change, when a top block has.  Today only a
+  new world changes it.
 
 ## Still open
 

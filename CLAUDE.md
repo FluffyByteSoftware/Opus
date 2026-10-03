@@ -49,6 +49,7 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 | What to check on `testing`                   | `Documentation/LLM/TEST_CHECKLIST.html`                   |
 | The packets, byte for byte                   | `Documentation/LLM/PROTOCOL.md`                           |
 | `region.map`, byte for byte                  | `Documentation/LLM/REGION_MAP.md`                         |
+| `simple_overworld.map`, byte for byte        | `Documentation/LLM/SIMPLE_OVERWORLD_MAP.md`               |
 | The HUD's layout and catalog files           | `Documentation/LLM/HUD_FORMATS.md`; the brief, `HUD_LAYOUT_SYSTEM.md`|
 | The patcher's manifests and the web folder   | `Documentation/LLM/PATCH_MANIFEST.md`                     |
 | The password's key, both halves              | `Documentation/LLM/design/client-security.md`             |
@@ -96,12 +97,12 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 - **Shared contracts** -- whatever two sides have to agree on is written down
   once, byte for byte, and the code is written from it; when they disagree,
   the code is what gets fixed.  The packets (PROTOCOL.md), `region.map`
-  (REGION_MAP.md), the HUD's files (HUD_FORMATS.md), the manifests
-  (PATCH_MANIFEST.md), the password's key (`design/client-security.md`).  A
-  change bumps the contract's version, and the code and the document change
-  together with a line in its history.  A recipe both sides compute gets a
-  worked example (an input and the exact output) each side is checked
-  against.
+  (REGION_MAP.md), `simple_overworld.map` (SIMPLE_OVERWORLD_MAP.md), the HUD's
+  files (HUD_FORMATS.md), the manifests (PATCH_MANIFEST.md), the password's
+  key (`design/client-security.md`).  A change bumps the contract's version,
+  and the code and the document change together with a line in its history.  A
+  recipe both sides compute gets a worked example (an input and the exact
+  output) each side is checked against.
 
 Each component keeps `dev/` (where code is written) and `build/` (what the
 compiler makes, never committed).  Don't create new top-level folders

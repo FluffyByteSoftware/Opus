@@ -120,14 +120,16 @@ Opus/
 │       │   ├── Cargo.toml             # depends on conductor-tools
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(); reads the world (or makes it, or remakes it when world_size
-│       │       │                      #   changed) and hands the GameClock chunks
+│       │       │                      #   changed), sees to simple_overworld.map, and hands the GameClock chunks
 │       │       ├── make.rs            # making the world: a seed, Omega's heights, then region.map last
 │       │       ├── block.rs           # Block: AIR, DIRT, STONE, WOOD, GOLD, BEDROCK; the numbers never change
 │       │       ├── chunk.rs           # ChunkPos and Chunk (32 blocks a side), and a changed chunk's .chunk file
 │       │       ├── regionmap.rs       # region.map: which region every chunk is in (REGION_MAP.md is its contract)
 │       │       ├── heights.rs         # a heights region's file (omega.heights): the dirt's height per column
 │       │       ├── noise.rs           # Omega's rolling hills, from the seed, written by hand
-│       │       ├── build.rs           # an untouched chunk, built from its region's ground
+│       │       ├── build.rs           # an untouched chunk, built from its region's ground; a column's top
+│       │       ├── overworld.rs       # simple_overworld.map: the world's rough shape for the client's distance
+│       │       │                      #   (SIMPLE_OVERWORLD_MAP.md is its contract)
 │       │       ├── terrain.rs         # Terrain: the chunks in memory, held by the GameClock's thread
 │       │       └── bytes.rs           # reading the binary files a number at a time, little-endian
 │       ├── gameclock/                 # lib, conductor-gameclock -- the GameClock, the game loop; a server piece
@@ -285,6 +287,7 @@ Opus/
         ├── PROJECT_OPUS.md            # this file
         ├── PROTOCOL.md                # the server/client contract: the login over TLS, the game over UDP
         ├── REGION_MAP.md              # region.map, byte for byte: which region every chunk is in
+        ├── SIMPLE_OVERWORLD_MAP.md    # simple_overworld.map, byte for byte: the world's rough shape for the client
         ├── HUD_FORMATS.md             # the HUD's layout and catalog files, field by field: the contract
         ├── PATCH_MANIFEST.md          # the two manifests, field by field, and the web folder's layout: the launcher's contract
         ├── HUD_LAYOUT_SYSTEM.md       # Jacob's brief for the HUD, kept as he wrote it
