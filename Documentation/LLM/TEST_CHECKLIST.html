@@ -197,26 +197,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>A saved character inside the ground (2026-10-03, session 9)</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Sink Asdf into the ground by hand with this SQL (in DataGrip, with Conductor stopped or Asdf out of the
-      world), then play it: the test client's CharacterEnteredWorld says 0.5, 1, 0.5, the log has a Debug line
-      "Asdf was saved inside the ground at 0, 0, 0.  Stood on top of it...", and the test client prints the
-      ChatDelivery "You were inside the ground, and have been moved on top of it."  In the editor the line is
-      in the chat window.
-    </span></label>
-    <pre class="cmd">UPDATE player_characters SET save_lua = regexp_replace(save_lua, 'position = \{[^}]*\}', 'position = { x = 0, y = 0, z = 0 }'), position_x = 0, position_y = 0, position_z = 0 WHERE character_name = 'Asdf';</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A character standing where it should comes in with no line in its chat and no Debug line about the
-      ground.
-    </span></label>
-  </li>
-</ul>
-
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">
@@ -231,12 +211,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
       web folder is fetched, "The launcher was updated. Starting it again...", and the new launcher opens
       with "Started again after a patch." in its log and passes.  On Windows, the old <code>.exe</code> is
       left as <code>.old</code> and gone on the start after.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Spans for real: a <code>/who</code> with forty-odd characters in the world goes out in pieces and
-      comes back whole.  <code>cargo test</code> covers it until there are that many players.
     </span></label>
   </li>
 </ul>
