@@ -167,4 +167,13 @@ an Actor is on the client; how a model's name finds a model.
   Unity and looking at its script for "FluffyGameObject" :)", a script on every prefab that shows its
   number in the Inspector.
 - **When**: "we'll do the model draw next session".  This one draws every object as its fallback shape,
-  with the packets as they'll stay: the Hydrate carries the model's number (0 for now).
+  with the packets as they'll stay.
+- **The database, maybe** (Jacob, on the `id` and `uuid` rule): "The ID however is relative to the
+  insertion point in the table, the UUID is the games unique identifier for a thing.  We actually may want
+  to store this animation data in the database and not on a catalog file on disk?"  For the model draw's
+  session.  Whichever it is, the game names a model by its uuid, so **the Hydrate carries the model's uuid
+  as a string, empty for none** (the fallback shape), and the packet doesn't change when models come.
+- **FluffyGameObject** (yes): "every single drawn object to the client is going to need a FluffyGameObject
+  now.  It's going to define how to represent it in the client I think."  Actor goes on top of it for
+  anything Living.
+- **The OK** (session 9): round one, Conductor and the test client, then Ensemble.
