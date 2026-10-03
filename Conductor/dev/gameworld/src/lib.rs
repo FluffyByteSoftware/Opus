@@ -27,6 +27,9 @@
 //!   its hills (`heights.rs`), and a chunk somebody changed gets its own
 //!   file in its region's folder (`chunk.rs`), which always wins over the
 //!   ground it was built from.
+//! - `simple_overworld.map`: the world's rough shape, for the client to
+//!   draw the distance with (`overworld.rs`).  Written before the first
+//!   chunk goes out, so the door doesn't open without it.
 //!
 //! Saving changed chunks, on STOP SERVER and every so often, isn't built:
 //! it comes with the first thing that changes one (`design/world.md`).
@@ -38,6 +41,7 @@ pub mod chunk;
 pub mod heights;
 mod make;
 pub mod noise;
+pub mod overworld;
 pub mod regionmap;
 pub mod terrain;
 
@@ -176,6 +180,11 @@ fn region_map_path() -> PathBuf {
     world_dir().join("region.map")
 }
 
+/// `Content/world/simple_overworld.map`.
+fn overworld_path() -> PathBuf {
+    world_dir().join("simple_overworld.map")
+}
+
 /// `Content/world/Regions/<Region>/`.
 fn region_dir(region: &str) -> PathBuf {
     world_dir().join("Regions").join(region)
@@ -201,8 +210,9 @@ struct Shape {
 /// `stop()` drops the mailbox.
 fn run(jobs: Receiver<Job>) {
     // If the world can't be read, the thread stays up anyway and turns
-    // every ask away, so the Services tab keeps saying why.
-    let shape = match read_world() {
+    // every ask away, so the Services tab keeps saying why.  The GameClock
+    // is never ready without its chunks, so the door stays shut.
+    let shape = match read_world().and_then(with_overworld) {
         Ok(shape) => {
             services::set(services::GAMEWORLD, State::Running, "The world is read.  No chunks asked for yet.");
             scribe::info(Channel::Game, "GameWorld is up.");
@@ -250,6 +260,23 @@ fn run(jobs: Receiver<Job>) {
 
     scribe::info(Channel::Game, &format!("GameWorld has stopped, after handing over {handed} chunks."));
     services::set(services::GAMEWORLD, State::Stopped, "Shut down.");
+}
+
+/// Makes sure the simple overworld map is there before the first chunk
+/// goes out, and hands the world back.  Without it there's nothing to send
+/// a player at PLAY, so it's the same as no world: every ask is turned
+/// away and the door stays shut (Jacob, 2026-10-03: "keep the door shut
+/// and notify the end user to wipe their local copy and try again").
+fn with_overworld(shape: Shape) -> Result<Shape, String> {
+    overworld::ensure(&shape.map, &shape.heights).map_err(|why| {
+        // A stop part way is no fault: the next START SERVER makes it.
+        if stopping() {
+            return why;
+        }
+        format!("the simple overworld map isn't ready ({why}).  The door stays shut this run.  Delete {} if it's \
+            there, then STOP SERVER and START SERVER", overworld_path().display())
+    })?;
+    Ok(shape)
 }
 
 /// Reads `region.map` and the heights files, or makes the world if there's

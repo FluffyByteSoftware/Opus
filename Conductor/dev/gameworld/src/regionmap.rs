@@ -133,6 +133,12 @@ impl RegionMap {
         self.width * SIDE
     }
 
+    /// The blocks the whole map covers: its westmost x, southmost z, and how
+    /// many blocks east-west and north-south.
+    pub fn block_bounds(&self) -> (i32, i32, i32, i32) {
+        (self.west * SIDE, self.south * SIDE, self.width * SIDE, self.depth * SIDE)
+    }
+
     /// The region a chunk is in, and its number in the list.  `None` for a
     /// chunk outside the world.
     pub fn region_at(&self, pos: ChunkPos) -> Option<(usize, &Region)> {

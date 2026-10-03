@@ -30,14 +30,7 @@ pub fn untouched(pos: ChunkPos, region: &Region, heights: Option<&Heights>) -> R
 
     for z in 0..SIDE {
         for x in 0..SIDE {
-            let world_x = pos.west_x() + x;
-            let world_z = pos.south_z() + z;
-            let ground = match region.ground {
-                Ground::Flat => 0,
-                Ground::Heights => heights
-                    .and_then(|heights| heights.at(world_x, world_z))
-                    .ok_or_else(|| format!("{}'s heights don't cover column {world_x},{world_z}", region.name))?,
-            };
+            let ground = ground_at(region, heights, pos.west_x() + x, pos.south_z() + z)?;
             for y in 0..SIDE {
                 let world_y = bottom + y;
                 chunk.set(x, y, z, layer(world_y, ground));
@@ -52,6 +45,30 @@ pub fn untouched(pos: ChunkPos, region: &Region, heights: Option<&Heights>) -> R
         }
     }
     Ok(chunk)
+}
+
+/// How high the dirt is in column x,z of `region`: 0 everywhere in a flat
+/// region, wherever its heights file says in one with hills.
+pub fn ground_at(region: &Region, heights: Option<&Heights>, x: i32, z: i32) -> Result<i32, String> {
+    match region.ground {
+        Ground::Flat => Ok(0),
+        Ground::Heights => heights
+            .and_then(|heights| heights.at(x, z))
+            .ok_or_else(|| format!("{}'s heights don't cover column {x},{z}", region.name)),
+    }
+}
+
+/// The highest block in column x,z that isn't AIR, as nobody has changed
+/// it: its height and its kind.  That's the dirt, except at 0,0, where
+/// the GOLD is on top whenever the dirt there is at 0 or under it (it's
+/// either in the dirt's place or sitting on air above it).  The simple
+/// overworld map is made from this, so it and the chunks never disagree.
+pub fn top(region: &Region, heights: Option<&Heights>, x: i32, z: i32) -> Result<(i32, Block), String> {
+    let ground = ground_at(region, heights, x, z)?;
+    if x == 0 && z == 0 && ground <= 0 {
+        return Ok((0, Block::GOLD));
+    }
+    Ok((ground, Block::DIRT))
 }
 
 /// What's at height `y` in a column whose dirt is at `ground`.
@@ -148,6 +165,48 @@ mod tests {
             assert_eq!(at(&rows, x, -30, z), Block::STONE);
             assert_eq!(at(&rows, x, -31, z), Block::BEDROCK);
         }
+    }
+
+    #[test]
+    fn the_top_of_a_column_is_its_highest_block_that_isnt_air() {
+        let bytes = heights::make(11, -64, -64, 192, 192, |_| true).unwrap();
+        let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
+        // Columns in chunk 2,2 and chunk -1,0, and 0,0 itself, checked
+        // against the chunks the same rules build.
+        for (x, z) in [(64, 64), (77, 85), (-1, 0), (-32, 31), (0, 0)] {
+            let (region, from) = if x < 0 { (alpha(), None) } else { (omega(), Some(&heights)) };
+            let (height, block) = top(&region, from, x, z).unwrap();
+            let rows = column(x.div_euclid(SIDE), z.div_euclid(SIDE), &region, from);
+            let (inside_x, inside_z) = (x.rem_euclid(SIDE), z.rem_euclid(SIDE));
+            assert_eq!(at(&rows, inside_x, height, inside_z), block, "{x},{z}");
+            for y in height + 1..=BOTTOM_Y + ROWS as i32 * SIDE - 1 {
+                assert_eq!(at(&rows, inside_x, y, inside_z), Block::AIR, "{x},{y},{z}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_gold_is_the_top_at_0_0_unless_a_hill_covers_it() {
+        let alpha = alpha();
+        assert_eq!(top(&alpha, None, 0, 0).unwrap(), (0, Block::GOLD));
+        assert_eq!(top(&alpha, None, 1, 0).unwrap(), (0, Block::DIRT));
+        // Some seed puts Omega's dirt over 0 at 0,0, and some under it.
+        let mut seen_buried = false;
+        let mut seen_on_top = false;
+        for seed in 0..200 {
+            let bytes = heights::make(seed, 0, 0, 1, 1, |_| true).unwrap();
+            let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
+            let ground = heights.at(0, 0).unwrap();
+            let found = top(&omega(), Some(&heights), 0, 0).unwrap();
+            if ground > 0 {
+                assert_eq!(found, (ground, Block::DIRT));
+                seen_buried = true;
+            } else {
+                assert_eq!(found, (0, Block::GOLD));
+                seen_on_top = true;
+            }
+        }
+        assert!(seen_buried && seen_on_top);
     }
 
     #[test]
