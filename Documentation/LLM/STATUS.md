@@ -194,7 +194,11 @@ nets; the simple overworld map "we are dropping it... we don't need it anymore";
 WOOD will be structure (i'll make it look like planks).  Drop gold.  Add in MASONED_STONE"; BEDROCK
 "Probably terrain".  After step 1 his pick was "drop the overworld map"; then "wrap up this
 conversation", and at the hand-off: **"next session we bring in movement on the client (Ensemble)"**.  His
-to change.
+to change.  Then, turning it round: **"sorry actually we're gonna implement gravity and make movement server
+controlled on taht"**.  Which of two shapes he means is asked, unanswered: gravity alone the server's (the
+client still walks its own character, EQ's way, and the server drops characters, NPCs too, when nothing is
+under them), or all movement the server's (the client sends its keys and the server moves everybody,
+session 10's EQ choice turned round).
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -296,7 +300,10 @@ settled in a separate chat and written in (`design/smooth-voxels.md`); Opus.Treb
 ## Where the next session starts
 
 **Jacob's pick: movement on the client, Ensemble** ("next session we bring in movement on the client
-(Ensemble)").  Everything is built and tested, so nothing waits on compile fixes; `unstable` and `testing`
+(Ensemble)"), **then turned round: "we're gonna implement gravity and make movement server controlled on
+taht"**.  Which he means, gravity alone the server's or all movement the server's, was asked at the end of
+session 12; if it's not answered in Jacob's map above, ask before anything else.  What follows was written
+before the turn, for the client walking its own character.  Everything is built and tested, so nothing waits on compile fixes; `unstable` and `testing`
 are level.  Start by reading `design/ensemble-world.md`'s "Movement" (his five rounds of answers, in his
 words), PROTOCOL.md's "Movement", `design/gameclock.md`'s "Movement" (how the server judges a move), and
 `design/ensemble-networking.md` for the net code it plugs into.
