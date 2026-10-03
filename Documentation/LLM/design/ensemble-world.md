@@ -60,3 +60,13 @@ on the worker; the main thread only fills Unity's Mesh, 32 a frame.
   `Session.ReachedWorld`, then moved so its bottom is at the character's feet (`Session.Standing`, new,
   from CharacterEnteredWorld's x, y, z); hidden again at `SessionOver`.  The Cinemachine camera follows it.
 - **`Ground`** has `Added` and `Cleared`.
+
+## PlayerReady once the ground is drawn (asked 2026-10-03, session 1; being talked through)
+
+Jacob, after the ground worked: "can we make so the world starts 'loading in chunks' before the player is
+drawn?  We need to sync this to the server too so that the server knows when the player client is ready".
+Today PlayerReady goes once the nearest 99 chunks have *arrived* (`Session.NearGroundIn()`), and meshing
+runs after, so the character can be put in the world, and the stand-in shown, before the ground round it
+is on screen.  The server already waits for PlayerReady before it puts the character in, with no deadline
+but the UDP timeout.  Open: what "ready" is (the nearest 99 drawn, or the whole view), whether the server
+needs more than PlayerReady at a later moment, and what the loading bar says meanwhile.
