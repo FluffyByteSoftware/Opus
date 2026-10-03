@@ -21,7 +21,12 @@
 # there, the way a player types in the chat window (`/chat Yo yo yo!`,
 # protocol version 8), and every chat the server sends is printed; a
 # `/who` (version 13) is drawn the way Ensemble draws it, a line a
-# character with the count and the stamp under them.  An answer in Spans is put back together.  Every
+# character with the count and the stamp under them.  An answer in Spans is put back together.
+# In the world it's told what it sees (protocol version 14): every object
+# whole as it comes into view (a Hydrate), what moves, what's gone, and a
+# roll call once a second, printed only when it finds something to mend
+# (--show-roll-calls prints them all); a number on a roll call it doesn't
+# know, it asks about with an ObjectAsk, the way Ensemble does.  Every
 # packet in and out is printed, meaning first and raw bytes under it.  The
 # bytes are the ones in Documentation/LLM/PROTOCOL.md; when this and the
 # document disagree, the document wins.  To try "already logged in", leave
@@ -51,6 +56,7 @@
 #   python3 networking/test_client.py --play Jacob --wrong-map-hash ...   (says the wrong hash: refused)
 #   python3 networking/test_client.py --play Jacob --chunks ...   (pulls the chunks around Jacob before PlayerReady)
 #   python3 networking/test_client.py --play Jacob --chunks --chunk-outside ...   (asks for one out of view too)
+#   python3 networking/test_client.py --play Jacob --miss-first-hydrate ...   (drops one, to see the roll call mend it)
 #   python3 networking/test_client.py --play Jacob --type '/chat Yo yo yo!' ...   (says it to everybody)
 #   python3 networking/test_client.py --play Jacob --type '/who' ...
 #   python3 networking/test_client.py --play Jacob --type '/chat 1' --type '/chat 2' --type-gap 0 ...
@@ -70,7 +76,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-PROTOCOL_VERSION = 13
+PROTOCOL_VERSION = 14
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -112,6 +118,12 @@ OVERWORLD_MAP_PIECE = 0x42
 CHUNK_REQUEST = 0x43
 CHUNK_PIECE = 0x44
 CHUNK_REFUSED = 0x45
+HYDRATE = 0x50
+OBJECTS_MOVED = 0x51
+OBJECTS_GONE = 0x52
+ROLL_CALL = 0x53
+OBJECT_ASK = 0x54
+OBJECT_PACKETS = (HYDRATE, OBJECTS_MOVED, OBJECTS_GONE, ROLL_CALL)
 
 NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "LoginResult",
          SESSION_CHOICE: "SessionChoice", TICKET: "Ticket", CONNECT: "Connect", CONNECT_RESULT: "ConnectResult",
@@ -125,12 +137,15 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          CHAT_DELIVERY: "ChatDelivery", WHO_DELIVERY: "WhoDelivery", SPAN: "Span", PLEASE_WAIT: "PleaseWait",
          PLAYER_READY: "PlayerReady", OVERWORLD_MAP_OFFER: "OverworldMapOffer",
          OVERWORLD_MAP_REQUEST: "OverworldMapRequest", OVERWORLD_MAP_PIECE: "OverworldMapPiece",
-         CHUNK_REQUEST: "ChunkRequest", CHUNK_PIECE: "ChunkPiece", CHUNK_REFUSED: "ChunkRefused"}
+         CHUNK_REQUEST: "ChunkRequest", CHUNK_PIECE: "ChunkPiece", CHUNK_REFUSED: "ChunkRefused",
+         HYDRATE: "Hydrate", OBJECTS_MOVED: "ObjectsMoved", OBJECTS_GONE: "ObjectsGone", ROLL_CALL: "RollCall",
+         OBJECT_ASK: "ObjectAsk"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
 DELETE_ANSWERS = {0: "approved", 1: "denied"}
 CHUNK_REFUSALS = {1: "outside the view", 2: "not yet", 3: "unavailable"}
+SHAPES = {0: "a cube", 1: "a sphere", 2: "a capsule", 3: "a cylinder", 4: "a plane", 5: "a quad"}
 KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin",
                 5: "ACCOUNT TERMINATED", 6: "character locked for a moment; log in again"}
 
@@ -298,6 +313,120 @@ def show_who(data):
         print("   " + line, flush=True)
 
 
+def numbers(values):
+    """Floats as Python prints them shortest: 0.5, 1, -2.25."""
+    return ", ".join("%g" % value for value in values)
+
+
+class Objects:
+    """What the client knows of the world's objects (protocol version 14),
+    the way Ensemble keeps it: each one by its number, from its Hydrate,
+    moved by ObjectsMoved and the roll call, forgotten by ObjectsGone and
+    by a roll call it isn't on.  A number on a roll call it doesn't know
+    is asked about."""
+
+    def __init__(self, udp, server):
+        self.udp = udp
+        self.server = server
+        # Number: [name, position].
+        self.known = {}
+        # The player's own character's number, from CharacterEnteredWorld.
+        self.own = None
+        # The roll call being put together: its number and its pieces.
+        self.roll = None
+        self.pieces = {}
+        self.miss_first_hydrate = False
+        self.show_roll_calls = False
+
+    def name(self, number):
+        if number in self.known:
+            label = self.known[number][0] or "no name"
+        else:
+            label = "unknown"
+        return "%d (%s%s)" % (number, label, ", yours" if number == self.own else "")
+
+    def heard(self, data):
+        """One of the world's objects' packets, off the wire."""
+        if data[0] == HYDRATE:
+            self.hydrate(data)
+        elif data[0] == OBJECTS_MOVED:
+            count = data[1]
+            say("<-", OBJECTS_MOVED, "%d object(s)" % count, data[1:])
+            for at in range(2, 2 + 40 * count, 40):
+                number, position, rotation, velocity = self.motion(data, at)
+                print("   %s is at %s, facing %s, moving %s" % (self.name(number), numbers(position),
+                                                               numbers(rotation), numbers(velocity)))
+        elif data[0] == OBJECTS_GONE:
+            (count,) = struct.unpack_from("<H", data, 1)
+            gone = struct.unpack_from("<%dI" % count, data, 3)
+            say("<-", OBJECTS_GONE, ", ".join(self.name(number) for number in gone), data[1:])
+            for number in gone:
+                self.known.pop(number, None)
+        elif data[0] == ROLL_CALL:
+            self.roll_call(data)
+
+    def motion(self, data, at):
+        """One object's number and motion, and it's moved there if known."""
+        (number,) = struct.unpack_from("<I", data, at)
+        floats = struct.unpack_from("<9f", data, at + 4)
+        position, rotation, velocity = floats[0:3], floats[3:6], floats[6:9]
+        if number in self.known:
+            self.known[number][1] = position
+        return number, position, rotation, velocity
+
+    def hydrate(self, data):
+        (number,) = struct.unpack_from("<I", data, 1)
+        uuid, at = take_string(data, 5)
+        living = data[at] == 1
+        short_name, at = take_string(data, at + 1)
+        floats = struct.unpack_from("<12f", data, at)
+        at += 48
+        model, at = take_string(data, at)
+        shape = data[at]
+        track, at = take_string(data, at + 1)
+        if self.miss_first_hydrate:
+            self.miss_first_hydrate = False
+            say("<-", HYDRATE, "object %d: --miss-first-hydrate, so it's dropped as if it never came" % number)
+            return
+        self.known[number] = [short_name, floats[0:3]]
+        say("<-", HYDRATE, "object %s: %s, uuid %s" % (self.name(number), "an Actor (Living)" if living else
+                                                         "a world object", uuid), data[1:])
+        print("   at %s, facing %s, moving %s, scale %s" % (numbers(floats[0:3]), numbers(floats[3:6]),
+                                                          numbers(floats[6:9]), numbers(floats[9:12])))
+        print("   model %s, drawn as %s; doing %s" % (repr(model) if model else "none",
+                                                     SHAPES.get(shape, "shape %d" % shape),
+                                                     repr(track) if track else "nothing"))
+
+    def roll_call(self, data):
+        (roll,) = struct.unpack_from("<I", data, 1)
+        piece, pieces, count = data[5], data[6], data[7]
+        if self.show_roll_calls:
+            say("<-", ROLL_CALL, "roll %d, piece %d of %d, %d object(s)" % (roll, piece, pieces, count), data[1:])
+        if roll != self.roll:
+            # A new roll call: whatever was left of the last is given up.
+            self.roll = roll
+            self.pieces = {}
+        self.pieces[piece] = [self.motion(data, at)[0] for at in range(8, 8 + 40 * count, 40)]
+        if len(self.pieces) < pieces:
+            return
+        listed = set(number for some in self.pieces.values() for number in some)
+        unknown = sorted(listed - set(self.known))
+        missing = sorted(set(self.known) - listed)
+        for number in missing:
+            print("   Roll call %d: %s isn't on it.  Dropped." % (roll, self.name(number)))
+            del self.known[number]
+        if unknown:
+            print("   Roll call %d: object(s) %s aren't known here.  Asking about them." %
+                  (roll, ", ".join(str(number) for number in unknown)))
+            for start in range(0, len(unknown), 64):
+                some = unknown[start:start + 64]
+                packet = bytes([OBJECT_ASK, len(some)]) + struct.pack("<%dI" % len(some), *some)
+                self.udp.sendto(packet, self.server)
+                say("->", OBJECT_ASK, ", ".join(str(number) for number in some), packet[1:])
+        elif self.show_roll_calls and not missing:
+            print("   Roll call %d: all %d known, nothing to mend." % (roll, len(listed)))
+
+
 class Tcp:
     """One packet at a time off a TLS stream."""
 
@@ -426,6 +555,8 @@ class CharacterSelect:
         self.wrong_map_hash = False
         self.chunks = False
         self.chunk_outside = False
+        # The world's objects (protocol version 14).
+        self.objects = Objects(udp, server)
 
     def ask(self, kind, rest, detail):
         """Sends one ask and hands back (answer type, the answer after its
@@ -488,6 +619,8 @@ class CharacterSelect:
                     say("<-", data[0], "for ask %d, an old one; ignored" % answered, data[1:])
                 elif data[0] == CHAT_DELIVERY:
                     show_chat(data)
+                elif data[0] in OBJECT_PACKETS:
+                    self.objects.heard(data)
                 elif data[0] != KEEP_ALIVE:
                     say("<-", data[0], "", data[1:])
         print("No answer to ask %d in 10 seconds." % ask)
@@ -592,9 +725,10 @@ class CharacterSelect:
         if kind == CHARACTER_ENTERED_WORLD:
             entered_uuid, at = take_string(data, 5)
             entered_name, at = take_string(data, at)
-            x, y, z = struct.unpack_from("<fff", data, at)
-            say("<-", kind, "%s (%s) is in the world at %g, %g, %g" % (entered_name, entered_uuid, x, y, z),
-                data[1:])
+            x, y, z, own = struct.unpack_from("<fffI", data, at)
+            self.objects.own = own
+            say("<-", kind, "%s (%s) is in the world at %g, %g, %g, object %d" %
+                (entered_name, entered_uuid, x, y, z, own), data[1:])
             return entered_name
         if kind == COMMAND_REFUSED:
             message, _ = take_string(data, 5)
@@ -812,6 +946,8 @@ def character_select(args, udp, server):
     select.wrong_map_hash = args.wrong_map_hash
     select.chunks = args.chunks
     select.chunk_outside = args.chunk_outside
+    select.objects.miss_first_hydrate = args.miss_first_hydrate
+    select.objects.show_roll_calls = args.show_roll_calls
     playing = None
     try:
         select.list()
@@ -947,6 +1083,8 @@ def session(args, token, udp, server):
                 return False
             elif data[0] == CHAT_DELIVERY:
                 show_chat(data)
+            elif data[0] in OBJECT_PACKETS:
+                select.objects.heard(data)
             else:
                 say("<-", data[0])
         if args.show_keepalives or not answered:
@@ -1000,6 +1138,10 @@ def main():
     parser.add_argument("--type-gap", type=float, default=1.1,
                         help="seconds between --type lines (default 1.1, past /who's wait of 1 second); 0 floods, "
                              "to see the server refuse the lines that come too soon")
+    parser.add_argument("--miss-first-hydrate", action="store_true",
+                        help="with --play, drop the first Hydrate as if it was lost, to see the roll call mend it")
+    parser.add_argument("--show-roll-calls", action="store_true",
+                        help="print every roll call, not just the ones that find something to mend")
     parser.add_argument("--show-keepalives", action="store_true",
                         help="print every keep-alive, not just the ones that go unanswered")
     args = parser.parse_args()

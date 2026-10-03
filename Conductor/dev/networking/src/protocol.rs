@@ -83,12 +83,23 @@
 //! way: WhoDelivery loses its list byte (`/who list` is gone into `/who`),
 //! and every character carries where it stands and its seconds online,
 //! the one in the world longest first.
+//!
+//! Version 14 (2026-10-03) is the world's objects, the new group 0x5_:
+//! what a player sees of the world around them, the server deciding
+//! where everything is and the client only drawing it (Jacob: "The
+//! client is just a dumb renderer").  A Hydrate sends an object whole
+//! when it comes into view, ObjectsMoved where known ones are now,
+//! ObjectsGone the ones that left, and a RollCall once a second
+//! everything the player is believed to know; the client asks about a
+//! number it doesn't know with an ObjectAsk.  CharacterEnteredWorld now
+//! ends with the number of the player's own character.
 
+use conductor_gameclock::{Hydrate, Motion};
 use conductor_gameworld::ChunkPos;
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 13;
+pub const PROTOCOL_VERSION: u8 = 14;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -127,12 +138,35 @@ const CHUNK_PIECE_HEADER: usize = 1 + 2 + 2 + 1 + 1 + 1;
 /// less: whatever MAX_UDP_BYTES leaves, 1,192.  Most chunks are one piece.
 pub const CHUNK_PIECE_BYTES: usize = MAX_UDP_BYTES - CHUNK_PIECE_HEADER;
 
+/// The bytes one object's motion takes (version 14): its number, then
+/// nine f32s, its position, rotation and velocity.
+const MOTION_BYTES: usize = 4 + 9 * 4;
+
+/// The most motions one ObjectsMoved carries: its type and count, then as
+/// many as fit under MAX_UDP_BYTES, 29.
+pub const MOVED_AT_ONCE: usize = (MAX_UDP_BYTES - 2) / MOTION_BYTES;
+
+/// The most numbers one ObjectsGone carries: its type and a u16 count,
+/// then as many as fit, 299.
+pub const GONE_AT_ONCE: usize = (MAX_UDP_BYTES - 3) / 4;
+
+/// What goes in front of a RollCall's motions: its type, the roll's
+/// number, which piece and how many, and the count.
+const ROLL_CALL_HEADER: usize = 1 + 4 + 1 + 1 + 1;
+
+/// The most motions one piece of a RollCall carries, 29.
+pub const ROLL_CALL_AT_ONCE: usize = (MAX_UDP_BYTES - ROLL_CALL_HEADER) / MOTION_BYTES;
+
+/// The most numbers one ObjectAsk may carry.
+pub const ASKS_AT_ONCE: u8 = 64;
+
 /// Every packet type there is.  The high four bits say the group and the
 /// low four which one in it: 0x1_ is the login, over TCP; 0x2_ is
 /// character select, between the login and the world, over UDP (version
 /// 5, 2026-09-30); 0x3_ is the game, over UDP; and 0x4_ is the ground,
 /// over UDP (version 11, 2026-10-03), the simple overworld map and, since
-/// version 12, the chunks.
+/// version 12, the chunks; and 0x5_ is the world's objects, over UDP
+/// (version 14, 2026-10-03).
 // Rust note: `repr(u8)` stores the enum as one byte, and `as u8` turns a
 // value back into its number, the same as a C# `enum : byte`.
 #[repr(u8)]
@@ -189,8 +223,9 @@ pub enum PacketType {
     UserPressPlay = 0x27,
     /// Server to client: the character is in the world.  The ask number,
     /// its uuid and name (strings), then where it stands, x, y and z, an
-    /// f32 each, y up.  Version 6.  Since version 11 it answers
-    /// PlayerReady, not UserPressPlay.
+    /// f32 each, y up, then the number its Hydrate and the rest of the
+    /// world's objects know it by (u32, version 14).  Version 6.  Since
+    /// version 11 it answers PlayerReady, not UserPressPlay.
     CharacterEnteredWorld = 0x28,
     /// Client to server: the simple overworld map is in and good to
     /// draw.  The ask number, then the map's SHA-256 as the client has it
@@ -281,6 +316,37 @@ pub enum PacketType {
     /// Server to client: a chunk asked for that isn't sent.  Its x, z and
     /// row, then a ChunkRefusal byte saying why.  Version 12.
     ChunkRefused = 0x45,
+    /// Server to client: an object in the player's view, whole, to draw
+    /// (Jacob's word: the client hydrates an Actor or a plain object with
+    /// it).  Its number (u32), its uuid (a string), whether it's Living
+    /// (u8, 1 yes), its short name (a string, empty for none), then its
+    /// motion's nine f32s (position, rotation in degrees, velocity), its
+    /// scale (three f32s), its model's uuid (a string, empty for none),
+    /// the shape to draw without one (u8: 0 cube, 1 sphere, 2 capsule, 3
+    /// cylinder, 4 plane, 5 quad) and what it's doing (a string, empty
+    /// for nothing).  Sent when it comes into view, and when the client
+    /// asks about it.  Version 14.
+    Hydrate = 0x50,
+    /// Server to client: objects the player knows that moved.  A u8
+    /// count, then each one's motion: its number (u32), position,
+    /// rotation and velocity (f32 each).  Version 14.
+    ObjectsMoved = 0x51,
+    /// Server to client: objects gone from the player's view, or from the
+    /// world.  A u16 count, then each one's number (u32).  Version 14.
+    ObjectsGone = 0x52,
+    /// Server to client, once a second: every object the player is
+    /// believed to know, and where it is now.  The roll call's number
+    /// (u32), which piece (u8, from 1) and how many (u8), a u8 count,
+    /// then that many motions.  Once a roll call's pieces are all in, the
+    /// client drops what isn't on it and asks about what it doesn't
+    /// know.  Version 14.
+    RollCall = 0x53,
+    /// Client to server: tell me about these objects.  A u8 count (1 to
+    /// ASKS_AT_ONCE), then each one's number (u32).  No ask number, like
+    /// the chunks': asking twice is harmless.  Answered by the next
+    /// broadcast, a Hydrate for each one in view and an ObjectsGone for
+    /// the rest.  Version 14.
+    ObjectAsk = 0x54,
 }
 
 impl PacketType {
@@ -322,6 +388,11 @@ impl PacketType {
             0x43 => Some(PacketType::ChunkRequest),
             0x44 => Some(PacketType::ChunkPiece),
             0x45 => Some(PacketType::ChunkRefused),
+            0x50 => Some(PacketType::Hydrate),
+            0x51 => Some(PacketType::ObjectsMoved),
+            0x52 => Some(PacketType::ObjectsGone),
+            0x53 => Some(PacketType::RollCall),
+            0x54 => Some(PacketType::ObjectAsk),
             _ => None,
         }
     }
@@ -496,6 +567,9 @@ pub struct EnteredCharacter {
     pub name: String,
     /// Where it stands: x, y and z, y up.
     pub position: [f32; 3],
+    /// The number its client knows it by among the world's objects
+    /// (version 14), so the camera knows which one to follow.
+    pub object: u32,
 }
 
 /// One character in a WhoDelivery: its name, the block it stands in, and
@@ -824,9 +898,8 @@ pub fn entered_world(ask: u32, character: &EnteredCharacter) -> Vec<u8> {
     bytes.extend_from_slice(&ask.to_le_bytes());
     put_string(&mut bytes, &character.uuid);
     put_string(&mut bytes, &character.name);
-    for axis in character.position {
-        bytes.extend_from_slice(&axis.to_le_bytes());
-    }
+    put_floats(&mut bytes, &character.position);
+    bytes.extend_from_slice(&character.object.to_le_bytes());
     bytes
 }
 
@@ -907,6 +980,92 @@ pub fn spans(ask: u32, answer: &[u8]) -> Vec<Vec<u8>> {
         bytes.push(index as u8 + 1);
         bytes.push(count);
         bytes.extend_from_slice(piece);
+        bytes
+    }).collect()
+}
+
+/// f32s, one after another, lowest byte first.
+fn put_floats(bytes: &mut Vec<u8>, floats: &[f32]) {
+    for float in floats {
+        bytes.extend_from_slice(&float.to_le_bytes());
+    }
+}
+
+/// One object's motion, MOTION_BYTES of it.
+fn put_motion(bytes: &mut Vec<u8>, motion: &Motion) {
+    bytes.extend_from_slice(&motion.object.to_le_bytes());
+    put_floats(bytes, &motion.position);
+    put_floats(bytes, &motion.rotation);
+    put_floats(bytes, &motion.velocity);
+}
+
+/// An object whole, for the player who's to draw it.  About 100 bytes
+/// for a character: a uuid, a name and nothing in the strings past that.
+pub fn hydrate(object: &Hydrate) -> Vec<u8> {
+    let mut bytes = vec![PacketType::Hydrate as u8];
+    bytes.extend_from_slice(&object.motion.object.to_le_bytes());
+    put_string(&mut bytes, &object.uuid);
+    bytes.push(object.living as u8);
+    put_string(&mut bytes, &object.short_name);
+    put_floats(&mut bytes, &object.motion.position);
+    put_floats(&mut bytes, &object.motion.rotation);
+    put_floats(&mut bytes, &object.motion.velocity);
+    put_floats(&mut bytes, &object.scale);
+    put_string(&mut bytes, &object.model);
+    bytes.push(object.shape);
+    put_string(&mut bytes, &object.track);
+    bytes
+}
+
+/// Objects that moved, as few ObjectsMoved as they fit in, MOVED_AT_ONCE
+/// to a packet.  None, no packets.
+pub fn objects_moved(motions: &[Motion]) -> Vec<Vec<u8>> {
+    motions.chunks(MOVED_AT_ONCE).map(|some| {
+        let mut bytes = Vec::with_capacity(2 + some.len() * MOTION_BYTES);
+        bytes.push(PacketType::ObjectsMoved as u8);
+        bytes.push(some.len() as u8);
+        for motion in some {
+            put_motion(&mut bytes, motion);
+        }
+        bytes
+    }).collect()
+}
+
+/// Objects gone, as few ObjectsGone as they fit in, GONE_AT_ONCE to a
+/// packet.  None, no packets.
+pub fn objects_gone(objects: &[u32]) -> Vec<Vec<u8>> {
+    objects.chunks(GONE_AT_ONCE).map(|some| {
+        let mut bytes = Vec::with_capacity(3 + some.len() * 4);
+        bytes.push(PacketType::ObjectsGone as u8);
+        bytes.extend_from_slice(&(some.len() as u16).to_le_bytes());
+        for object in some {
+            bytes.extend_from_slice(&object.to_le_bytes());
+        }
+        bytes
+    }).collect()
+}
+
+/// A roll call, in as many pieces as it takes, ROLL_CALL_AT_ONCE motions
+/// to a piece.  Knowing nothing is one piece with a count of 0, so the
+/// client still hears it.  At most 255 pieces (7,395 objects); one that
+/// knows more is told about the first 7,395, and the rest come and go on
+/// their own.
+pub fn roll_call(roll: u32, motions: &[Motion]) -> Vec<Vec<u8>> {
+    let mut pieces: Vec<&[Motion]> = motions.chunks(ROLL_CALL_AT_ONCE).take(u8::MAX as usize).collect();
+    if pieces.is_empty() {
+        pieces.push(&[]);
+    }
+    let count = pieces.len() as u8;
+    pieces.iter().enumerate().map(|(index, some)| {
+        let mut bytes = Vec::with_capacity(ROLL_CALL_HEADER + some.len() * MOTION_BYTES);
+        bytes.push(PacketType::RollCall as u8);
+        bytes.extend_from_slice(&roll.to_le_bytes());
+        bytes.push(index as u8 + 1);
+        bytes.push(count);
+        bytes.push(some.len() as u8);
+        for motion in some.iter() {
+            put_motion(&mut bytes, motion);
+        }
         bytes
     }).collect()
 }
@@ -1053,6 +1212,22 @@ pub fn read_player_command(payload: &[u8]) -> Result<(u32, String), String> {
     let line = take_string(payload, &mut at)?;
     finished(payload, at)?;
     Ok((ask, line))
+}
+
+/// The payload of an ObjectAsk: the numbers asked about, 1 to
+/// ASKS_AT_ONCE, in the order asked.  Whether the player may see them is
+/// the GameClock's to say.
+pub fn read_object_ask(payload: &[u8]) -> Result<Vec<u32>, String> {
+    let Some((&count, numbers)) = payload.split_first() else {
+        return Err("an empty object ask".to_string());
+    };
+    if count == 0 || count > ASKS_AT_ONCE {
+        return Err(format!("an object ask for {count} objects, and it's 1 to {ASKS_AT_ONCE}"));
+    }
+    if numbers.len() != count as usize * 4 {
+        return Err(format!("an object ask for {count} objects with {} bytes of numbers", numbers.len()));
+    }
+    Ok(numbers.chunks(4).map(|number| u32::from_le_bytes([number[0], number[1], number[2], number[3]])).collect())
 }
 
 // ---------------------------------------------------------------------------
@@ -1263,7 +1438,8 @@ mod tests {
                      PacketType::ChatDelivery, PacketType::WhoDelivery, PacketType::Span, PacketType::PleaseWait,
                      PacketType::PlayerReady, PacketType::OverworldMapOffer, PacketType::OverworldMapRequest,
                      PacketType::OverworldMapPiece, PacketType::ChunkRequest, PacketType::ChunkPiece,
-                     PacketType::ChunkRefused];
+                     PacketType::ChunkRefused, PacketType::Hydrate, PacketType::ObjectsMoved,
+                     PacketType::ObjectsGone, PacketType::RollCall, PacketType::ObjectAsk];
         for kind in every {
             assert_eq!(PacketType::from_byte(kind as u8), Some(kind));
         }
@@ -1272,6 +1448,7 @@ mod tests {
         assert_eq!(PacketType::from_byte(0x2A), None);
         assert_eq!(PacketType::from_byte(0x3C), None);
         assert_eq!(PacketType::from_byte(0x46), None);
+        assert_eq!(PacketType::from_byte(0x55), None);
     }
 
     #[test]
@@ -1446,7 +1623,7 @@ mod tests {
         // 1.5 is 0x3FC00000 as an f32, and -2.0 is 0xC0000000, lowest
         // byte first.
         let jacob = EnteredCharacter { uuid: "u-1".to_string(), name: "Jacob".to_string(),
-                                       position: [1.5, 0.0, -2.0] };
+                                       position: [1.5, 0.0, -2.0], object: 7 };
         let mut expected = vec![0x28, 12, 0, 0, 0];
         expected.extend_from_slice(&[3, 0, 0, 0]);
         expected.extend_from_slice(b"u-1");
@@ -1455,6 +1632,7 @@ mod tests {
         expected.extend_from_slice(&[0x00, 0x00, 0xC0, 0x3F]);
         expected.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
         expected.extend_from_slice(&[0x00, 0x00, 0x00, 0xC0]);
+        expected.extend_from_slice(&[7, 0, 0, 0]);
         assert_eq!(entered_world(12, &jacob), expected);
     }
 
@@ -1557,5 +1735,92 @@ mod tests {
         // Past 255 pieces, nothing.
         assert!(spans(7, &vec![0u8; SPAN_PIECE * 255 + 1]).is_empty());
         assert_eq!(spans(7, &vec![0u8; SPAN_PIECE * 255]).len(), 255);
+    }
+
+    /// PROTOCOL.md's worked example: Jacob, object 7, standing at 0.5, 1,
+    /// 0.5 facing 90 degrees round, a capsule with no model.
+    fn jacob_whole() -> Hydrate {
+        Hydrate {
+            motion: Motion { object: 7, position: [0.5, 1.0, 0.5], rotation: [0.0, 90.0, 0.0], velocity: [0.0; 3] },
+            uuid: "u-1".to_string(),
+            living: true,
+            short_name: "Jacob".to_string(),
+            scale: [1.0; 3],
+            model: String::new(),
+            shape: 2,
+            track: String::new(),
+        }
+    }
+
+    #[test]
+    fn a_hydrate_in_bytes() {
+        // 0.5 is 0x3F000000, 1.0 0x3F800000 and 90.0 0x42B40000, lowest
+        // byte first.
+        let mut expected = vec![0x50, 7, 0, 0, 0];
+        expected.extend_from_slice(&[3, 0, 0, 0]);
+        expected.extend_from_slice(b"u-1");
+        expected.push(1);
+        expected.extend_from_slice(&[5, 0, 0, 0]);
+        expected.extend_from_slice(b"Jacob");
+        expected.extend_from_slice(&[0, 0, 0, 0x3F, 0, 0, 0x80, 0x3F, 0, 0, 0, 0x3F]);
+        expected.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0xB4, 0x42, 0, 0, 0, 0]);
+        expected.extend_from_slice(&[0; 12]);
+        expected.extend_from_slice(&[0, 0, 0x80, 0x3F, 0, 0, 0x80, 0x3F, 0, 0, 0x80, 0x3F]);
+        expected.extend_from_slice(&[0, 0, 0, 0]);
+        expected.push(2);
+        expected.extend_from_slice(&[0, 0, 0, 0]);
+        assert_eq!(hydrate(&jacob_whole()), expected);
+    }
+
+    #[test]
+    fn moves_and_goings_in_bytes_and_split_under_the_udp_limit() {
+        let jacob = jacob_whole().motion;
+        let moved = objects_moved(&[jacob]);
+        assert_eq!(moved.len(), 1);
+        assert_eq!(&moved[0][..6], &[0x51, 1, 7, 0, 0, 0]);
+        assert_eq!(moved[0].len(), 2 + MOTION_BYTES);
+        assert_eq!(&moved[0][6..18], &[0, 0, 0, 0x3F, 0, 0, 0x80, 0x3F, 0, 0, 0, 0x3F]);
+        assert!(objects_moved(&[]).is_empty());
+
+        let many = vec![jacob; MOVED_AT_ONCE * 2 + 1];
+        let packets = objects_moved(&many);
+        assert_eq!(packets.iter().map(|packet| packet[1] as usize).collect::<Vec<_>>(),
+                   vec![MOVED_AT_ONCE, MOVED_AT_ONCE, 1]);
+        assert!(packets.iter().all(|packet| packet.len() <= MAX_UDP_BYTES));
+
+        assert_eq!(objects_gone(&[7, 300]), vec![vec![0x52, 2, 0, 7, 0, 0, 0, 0x2C, 0x01, 0, 0]]);
+        assert!(objects_gone(&[]).is_empty());
+        let packets = objects_gone(&vec![1; GONE_AT_ONCE + 1]);
+        assert_eq!(packets.len(), 2);
+        assert!(packets.iter().all(|packet| packet.len() <= MAX_UDP_BYTES));
+    }
+
+    #[test]
+    fn a_roll_call_in_pieces_and_knowing_nothing_is_still_said() {
+        let jacob = jacob_whole().motion;
+        let one = roll_call(3, &[jacob]);
+        assert_eq!(one.len(), 1);
+        assert_eq!(&one[0][..12], &[0x53, 3, 0, 0, 0, 1, 1, 1, 7, 0, 0, 0]);
+        assert_eq!(one[0].len(), ROLL_CALL_HEADER + MOTION_BYTES);
+
+        assert_eq!(roll_call(4, &[]), vec![vec![0x53, 4, 0, 0, 0, 1, 1, 0]]);
+
+        let pieces = roll_call(5, &vec![jacob; ROLL_CALL_AT_ONCE + 1]);
+        assert_eq!(pieces.len(), 2);
+        assert_eq!((pieces[0][5], pieces[0][6], pieces[0][7]), (1, 2, ROLL_CALL_AT_ONCE as u8));
+        assert_eq!((pieces[1][5], pieces[1][6], pieces[1][7]), (2, 2, 1));
+        assert!(pieces.iter().all(|piece| piece.len() <= MAX_UDP_BYTES));
+    }
+
+    #[test]
+    fn an_object_ask_is_one_to_sixty_four_numbers() {
+        assert_eq!(read_object_ask(&[2, 7, 0, 0, 0, 0x2C, 0x01, 0, 0]), Ok(vec![7, 300]));
+        assert!(read_object_ask(&[]).is_err());
+        assert!(read_object_ask(&[0]).is_err());
+        assert!(read_object_ask(&[1, 7, 0, 0]).is_err());
+        assert!(read_object_ask(&[1, 7, 0, 0, 0, 0]).is_err());
+        let mut too_many = vec![ASKS_AT_ONCE + 1];
+        too_many.extend(vec![0; (ASKS_AT_ONCE as usize + 1) * 4]);
+        assert!(read_object_ask(&too_many).is_err());
     }
 }

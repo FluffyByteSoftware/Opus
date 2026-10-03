@@ -62,6 +62,11 @@
 //! here too, out of GameWorld's squeezed chunks, to a player whose
 //! character is waiting on the map or in the world, for the chunks
 //! `chunks.rs` says they may see.
+//!
+//! What a player sees of the world (protocol version 14) goes out from
+//! the GameClock's broadcast check (`view.rs`).  An ObjectAsk, the client
+//! asking about a number it doesn't know, comes in here and goes to the
+//! GameClock's mailbox.
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
@@ -82,6 +87,7 @@ use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
 use crate::protogame::{self, Work};
 use crate::sessions::{self, Ask, Connected};
 use crate::settings::Settings;
+use crate::view;
 use crate::{timed_out, wake_address};
 
 /// How long the thread waits on a receive before it sweeps and checks in.
@@ -406,6 +412,13 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 sessions::heard(from);
             }
         },
+        // The world's objects (version 14): the client doesn't know these.
+        Some(PacketType::ObjectAsk) => match protocol::read_object_ask(payload) {
+            Ok(objects) => view::asked(from, objects),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
         // Anything else from a player counts as hearing from them: there
         // are no other game packets yet.  From a stranger, silence.
         _ => {
@@ -628,6 +641,10 @@ mod tests {
 
         // Chunks from a stranger: silence too.
         heard(&ours, &[PacketType::ChunkRequest as u8, 1, 0, 0, 0, 0, 1], from);
+        assert!(stranger.recv_from(&mut buffer).is_err());
+
+        // Asking about an object, from a stranger: silence too.
+        heard(&ours, &[PacketType::ObjectAsk as u8, 1, 7, 0, 0, 0], from);
         assert!(stranger.recv_from(&mut buffer).is_err());
     }
 

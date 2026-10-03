@@ -40,12 +40,24 @@ use crate::who::{Standing, block_of};
 
 /// A note for the GameClock.
 pub enum Note {
-    /// Put this character in the world.  The blueprint is the Character
-    /// template with its save laid over it, `PlayerCharacter` and all.
-    Enter(Blueprint),
+    /// Put this character in the world.
+    Enter(Arrival),
     /// Take this character out of the world, by its row's id, and save
     /// it on the way.
     Leave(i64),
+}
+
+/// A player's character on its way into the world.
+pub struct Arrival {
+    /// The Character template with its save laid over it,
+    /// `PlayerCharacter` and all.
+    pub character: Blueprint,
+    /// Its row's uuid, the game's name for it, for the clients
+    /// (`view.rs`).
+    pub uuid: String,
+    /// The number its clients know it by from now on, handed out by
+    /// `enter()`.
+    pub object: u32,
 }
 
 /// The sending end of the mailbox while the GameClock runs.  `None` while
@@ -75,15 +87,19 @@ pub(crate) fn close_mailbox() {
     lock(&MAILBOX).take();
 }
 
-/// Asks for a player's character to be put in the world.  Comes straight
-/// back; the character is in by the end of the next cycle's input check.
-/// An error says why it wasn't asked: the blueprint isn't a player's
-/// character, or the GameClock isn't running.
-pub fn enter(character: Blueprint) -> Result<(), String> {
+/// Asks for a player's character, whose row's uuid is `uuid`, to be put
+/// in the world.  Comes straight back with the number every client will
+/// know it by (protocol version 14), so the player can be told it before
+/// it's there; the character is in by the end of the next cycle's input
+/// check.  An error says why it wasn't asked: the blueprint isn't a
+/// player's character, or the GameClock isn't running.
+pub fn enter(character: Blueprint, uuid: &str) -> Result<u32, String> {
     if character_id_of(&character).is_none() {
         return Err("it has no PlayerCharacter with a row behind it, so it isn't a player's character".to_string());
     }
-    send(Note::Enter(character))
+    let object = crate::view::next_object_number();
+    send(Note::Enter(Arrival { character, uuid: uuid.to_string(), object }))?;
+    Ok(object)
 }
 
 /// Asks for a player's character to be taken out of the world and saved.
@@ -167,11 +183,13 @@ pub struct Players {
     notes: Receiver<Note>,
 }
 
-/// A player's character in the world: its entity, and when it came in,
-/// for `/who`'s time online.
+/// A player's character in the world: its entity, when it came in (for
+/// `/who`'s time online), its uuid and its number (for the clients).
 struct InWorld {
     entity: Entity,
     entered: Instant,
+    uuid: String,
+    object: u32,
 }
 
 impl Players {
@@ -193,7 +211,7 @@ impl Players {
         let mut leaving = Vec::new();
         loop {
             match self.notes.try_recv() {
-                Ok(Note::Enter(character)) => self.enter(world, &character),
+                Ok(Note::Enter(arrival)) => self.enter(world, arrival),
                 Ok(Note::Leave(character_id)) => leaving.extend(self.leave(world, character_id)),
                 // Empty is the usual end.  Disconnected only comes in the
                 // gap inside `stop()` between the mailbox closing and the
@@ -205,8 +223,9 @@ impl Players {
     }
 
     /// Spawns a character, unless it's already in the world.
-    fn enter(&mut self, world: &mut World, character: &Blueprint) {
-        let Some(character_id) = character_id_of(character) else {
+    fn enter(&mut self, world: &mut World, arrival: Arrival) {
+        let Arrival { character, uuid, object } = arrival;
+        let Some(character_id) = character_id_of(&character) else {
             return;
         };
         if let Some(there) = self.in_world.get(&character_id) {
@@ -214,8 +233,8 @@ impl Players {
                 it's already there.  The one there stands.", name(world, there.entity)));
             return;
         }
-        let entity = world.spawn(character);
-        self.in_world.insert(character_id, InWorld { entity, entered: Instant::now() });
+        let entity = world.spawn(&character);
+        self.in_world.insert(character_id, InWorld { entity, entered: Instant::now(), uuid, object });
         scribe::debug(Channel::Game, &format!("Character {character_id} ({}) came into the world.",
                                               name(world, entity)));
     }
@@ -254,6 +273,15 @@ impl Players {
                 online: now.saturating_duration_since(character.entered),
             }
         }).collect()
+    }
+
+    /// Every player's character in the world, for what the clients are
+    /// told (`view.rs`): its row's id, its entity, its number and its uuid,
+    /// in row id order.
+    pub fn objects(&self) -> Vec<(i64, Entity, u32, &str)> {
+        self.in_world.iter()
+            .map(|(&id, character)| (id, character.entity, character.object, character.uuid.as_str()))
+            .collect()
     }
 
     /// Every player's character in the world as it stands right now, for a
@@ -296,6 +324,12 @@ mod tests {
         blueprint
     }
 
+    /// A note asking a character in, numbered as its row id.
+    fn enter_note(character: Blueprint) -> Note {
+        let id = character_id_of(&character).unwrap_or_default();
+        Note::Enter(Arrival { character, uuid: format!("u-{id}"), object: id as u32 })
+    }
+
     fn players() -> (Sender<Note>, Players) {
         let (sender, receiver) = mpsc::channel();
         (sender, Players::new(receiver))
@@ -305,7 +339,7 @@ mod tests {
     fn a_character_asked_in_is_spawned() {
         let (mailbox, mut players) = players();
         let mut world = World::new();
-        assert!(mailbox.send(Note::Enter(character("Jacob", 42))).is_ok());
+        assert!(mailbox.send(enter_note(character("Jacob", 42))).is_ok());
         assert!(players.take_notes(&mut world).is_empty());
         assert_eq!(players.count(), 1);
         assert_eq!(world.count(), 1);
@@ -315,8 +349,8 @@ mod tests {
     fn a_character_asked_in_twice_is_spawned_once() {
         let (mailbox, mut players) = players();
         let mut world = World::new();
-        assert!(mailbox.send(Note::Enter(character("Jacob", 42))).is_ok());
-        assert!(mailbox.send(Note::Enter(character("Jacob", 42))).is_ok());
+        assert!(mailbox.send(enter_note(character("Jacob", 42))).is_ok());
+        assert!(mailbox.send(enter_note(character("Jacob", 42))).is_ok());
         players.take_notes(&mut world);
         assert_eq!(players.count(), 1);
         assert_eq!(world.count(), 1);
@@ -326,8 +360,8 @@ mod tests {
     fn leaving_despawns_and_hands_back_the_save() {
         let (mailbox, mut players) = players();
         let mut world = World::new();
-        assert!(mailbox.send(Note::Enter(character("Jacob", 42))).is_ok());
-        assert!(mailbox.send(Note::Enter(character("Mckay", 43))).is_ok());
+        assert!(mailbox.send(enter_note(character("Jacob", 42))).is_ok());
+        assert!(mailbox.send(enter_note(character("Mckay", 43))).is_ok());
         players.take_notes(&mut world);
 
         assert!(mailbox.send(Note::Leave(42)).is_ok());
@@ -350,8 +384,8 @@ mod tests {
     fn a_snapshot_is_every_player_as_they_stand() {
         let (mailbox, mut players) = players();
         let mut world = World::new();
-        assert!(mailbox.send(Note::Enter(character("Jacob", 42))).is_ok());
-        assert!(mailbox.send(Note::Enter(character("Mckay", 43))).is_ok());
+        assert!(mailbox.send(enter_note(character("Jacob", 42))).is_ok());
+        assert!(mailbox.send(enter_note(character("Mckay", 43))).is_ok());
         players.take_notes(&mut world);
 
         // Jacob walks off, after he came in.
@@ -375,10 +409,10 @@ mod tests {
         let (mailbox, mut players) = players();
         let mut world = World::new();
         // Mckay comes in first, though Jacob's row is the older.
-        assert!(mailbox.send(Note::Enter(character("Mckay", 43))).is_ok());
+        assert!(mailbox.send(enter_note(character("Mckay", 43))).is_ok());
         players.take_notes(&mut world);
         std::thread::sleep(Duration::from_millis(5));
-        assert!(mailbox.send(Note::Enter(character("Jacob", 42))).is_ok());
+        assert!(mailbox.send(enter_note(character("Jacob", 42))).is_ok());
         players.take_notes(&mut world);
 
         let jacob = world.all().into_iter()
@@ -444,7 +478,7 @@ mod tests {
         let mut blueprint = new_character("Jacob");
         blueprint.remove(Kind::PlayerCharacter);
         assert_eq!(character_id_of(&blueprint), None);
-        assert!(enter(blueprint).is_err());
+        assert!(enter(blueprint, "u-1").is_err());
     }
 
     /// How long a world save holds up the GameClock: the snapshot of
@@ -456,7 +490,7 @@ mod tests {
         let (mailbox, mut players) = players();
         let mut world = World::new();
         for character_id in 1..=10_000 {
-            assert!(mailbox.send(Note::Enter(character("Jacob", character_id))).is_ok());
+            assert!(mailbox.send(enter_note(character("Jacob", character_id))).is_ok());
         }
         players.take_notes(&mut world);
         assert_eq!(players.count(), 10_000);

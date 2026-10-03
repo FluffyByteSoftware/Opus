@@ -6,9 +6,10 @@
 //! Each one gets the game (the world, the terrain, the players and the
 //! saves on their way) and does whatever it needs to on its own group of
 //! objects.  Input brings players' characters in and out, broadcast
-//! sends out the chat and answers `/who`, and housekeeping takes in the chunks GameWorld has
-//! sent and saves the world; nothing in the world moves yet, and the
-//! protocol has no input packet.  Each says what goes in it.
+//! sends out the chat, answers `/who` and tells each player what they see
+//! of the world, and housekeeping takes in the chunks GameWorld has sent
+//! and saves the world; nothing in the world moves yet, and the protocol
+//! has no input packet.  Each says what goes in it.
 //!
 //! Until the ground around 0,0,0 is in, only housekeeping runs, so it can
 //! take the chunks in.  The other four wait their turn and do nothing:
@@ -64,14 +65,16 @@ fn ai(_game: &mut Game) {}
 /// for, checked against the world, lands in each `Transform`.
 fn movement(_game: &mut Game) {}
 
-/// What the players are told goes out.  Today that's the chat said since
-/// the last cycle, to everybody in the world (`chat.rs`), and the answer
-/// to each `/who` asked, to the one who asked (`who.rs`).  The
-/// positions will go out here too: each player sent what moved, and only
-/// what that player may see.
+/// What the players are told goes out.  The chat said since the last
+/// cycle, to everybody in the world (`chat.rs`); the answer to each
+/// `/who` asked, to the one who asked (`who.rs`); and what each player
+/// sees of the world (`view.rs`): what came into their view whole, what
+/// moved, what's gone, and once a second a roll call, only what that
+/// player may see.
 fn broadcast(game: &mut Game) {
     crate::chat::broadcast();
     crate::who::answer(game);
+    crate::view::broadcast(game);
 }
 
 /// The rest.  The chunks GameWorld has finished with come into the

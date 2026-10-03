@@ -32,6 +32,9 @@ gameclock/
 ├── Cargo.toml     depends on conductor-tools, conductor-primlib, conductor-gameworld and conductor-accounts
 └── src/
     ├── chat.rs    the chat's mailbox: chat(line), set_chat_sender(send); broadcast(), for the broadcast check
+    ├── view.rs    what each player sees of the world (protocol version 14): next_object_number(),
+    │                ask_about(), set_view_sender(); Motion, Hydrate, News; View (what each player's client
+    │                knows), its news() for the broadcast check
     ├── who.rs     /who's mailbox: who(WhoAsked), set_who_sender(send), Standing; answer(), for
     │                the broadcast check; block_of()
     ├── lib.rs     start(), stop(), ready(); enter() and leave() handed on from players.rs, chat() and
@@ -160,11 +163,36 @@ the one in longest first (Jacob: "Oldest log in goes at the top, newest at the b
 2026-10-03 this was `/who list` only, and a plain `/who` was answered from networking's book.
 `design/conductor-networking.md` has the rest.
 
+## The view (2026-10-03, session 9)
+
+Jacob: "The server will be the authority, always on where the object actually is in the world.  The client
+is just a dumb renderer."  `design/ensemble-world.md` ("The player in the world") has his answers;
+PROTOCOL.md ("The world's objects") the packets.  The GameClock's half, `view.rs`:
+
+- **Every object has a number**, handed out by `enter()` from a counter (`next_object_number()`, from 1,
+  never 0, never used again in the run), carried on the note into the world with the character's uuid, and
+  kept on the players' list.  `enter()` hands it back, so networking can put it in the
+  CharacterEnteredWorld before the character is spawned.
+- **The broadcast check** reads every object once a cycle: where it is, which way it faces, and whether that
+  changed since the cycle before.  For each player in the world it works out what their client is to be
+  told: every object within `view_chunks` of their column it hasn't had whole (a Hydrate), every one it has
+  that moved, every one it has that's out of view or out of the world (gone), and every fourth cycle, once a
+  second, a roll call of everything it's believed to have.  `View` keeps what each player's client was sent,
+  by their character's row id, and forgets a player whose character has left.
+- **What the client asks about** (`ask_about()`, a mailbox like `/who`'s) is forgotten in `View` at the next
+  broadcast, so it's sent whole again if it's in view, or sent gone if it isn't.
+- **It's sent through a slot**, `set_view_sender()`, filled by networking as it starts; the GameClock only
+  hands over plain data (`News`).
+- **Velocity is 0** until movement: nothing gives it a place to live yet.
+- **The cost**: every player against every object, every cycle, O(players x objects).  A guess, until the
+  timing test is run: `view_of_five_hundred` (`#[ignore]`, `--release`), 500 players in sight of each
+  other, every one moved.
+
 ## Open
 
 - What each check does, as the pieces come: the input mailbox and the input packet (a protocol version
-  bump), a brain component for the AI, movement into `Transform`, the positions in the broadcast (only what
-  each player may see), the spawn system in housekeeping.
+  bump), a brain component for the AI, movement into `Transform` (and a velocity for the view to send), the
+  spawn system in housekeeping.  The positions go out in the broadcast since session 9 (above).
 - Whether a check's group of objects is picked by its components (the AI check runs over everything with a
   brain), which is how an ECS usually does it.
 - The Tick evaluator tab under GAME MANAGEMENT: what it shows, and the numbers the GameClock keeps for it

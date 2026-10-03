@@ -177,3 +177,23 @@ an Actor is on the client; how a model's name finds a model.
   now.  It's going to define how to represent it in the client I think."  Actor goes on top of it for
   anything Living.
 - **The OK** (session 9): round one, Conductor and the test client, then Ensemble.
+
+### As written, round one: Conductor and the test client (session 9; not yet built)
+
+Protocol version 14.  PROTOCOL.md's "The world's objects" has the packets byte for byte; `design/gameclock.md`
+("The view") and `design/conductor-networking.md` ("The world's objects") the server's half.  In short:
+
+- **Each object has a number** (from 1, never 0), handed out by `conductor_gameclock::enter()` and sent at the
+  end of CharacterEnteredWorld, so the client knows which object is its own before any Hydrate comes.
+- **Once a cycle the GameClock's broadcast** works out, for each player in the world, what their client is to
+  be told about the objects within `view_chunks` of their column: a **Hydrate** for each one it hasn't had
+  whole (number, uuid, Living, short name, position, rotation, velocity, scale, model's uuid, fallback shape,
+  what it's doing), **ObjectsMoved** for the ones that moved, **ObjectsGone** for the ones that left, and once a
+  second a **RollCall** of everything it's believed to have.  A number on a roll call the client doesn't know,
+  it asks about with an **ObjectAsk**, and the next cycle answers.
+- **Today**: the objects are players' characters, a capsule each with no model, never moving (velocity 0).
+- **The test client** prints all of it, asks about what it doesn't know, and with `--miss-first-hydrate`
+  drops one to see the roll call mend it.
+
+Round two, Ensemble's half (FluffyGameObject, Actor, the camera on the player's own), is to come.
+

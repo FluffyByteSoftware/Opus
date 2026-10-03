@@ -13,8 +13,14 @@ launcher (`Soundcheck/dev/Net/`), speaks the login over TCP, and Ensemble (`Asse
 UDP, from the Connect the launcher's ticket earns it (2026-10-02); when any of them disagrees with this
 document, it is the code that gets fixed.
 
-Protocol version **13**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 13 (2026-10-03)
+Protocol version **14**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 14 (2026-10-03)
+added the world's objects, the group `0x5_`: what a player sees of the world around them, the server
+deciding where everything is and the client only drawing it.  Hydrate (`0x50`) sends an object whole as it
+comes into view, ObjectsMoved (`0x51`) where known ones are now, ObjectsGone (`0x52`) the ones that left, and
+RollCall (`0x53`), once a second, everything the player is believed to know; the client asks about a number it
+doesn't know with an ObjectAsk (`0x54`).  CharacterEnteredWorld now ends with the number of the player's own
+character (below, "The world's objects").  Version 13 (2026-10-03)
 made `/who` a line a character, EverQuest's way: WhoDelivery lost its list byte (`/who list` went into
 `/who`), and every character in it carries where it stands and its seconds online, the one in the world
 longest first (below, "/who").  Version 12 (2026-10-03)
@@ -107,7 +113,8 @@ The largest UDP packet the server takes is 1200 bytes.  A larger one is dropped 
 
 The high four bits are the group, the low four which one in it.  `0x1_` is the login, over TCP.  `0x2_` is
 character select, between the login and the world, over UDP.  `0x3_` is the game, over UDP.  `0x4_` is the
-ground, over UDP: the simple overworld map at PLAY, and the chunks around the player.
+ground, over UDP: the simple overworld map at PLAY, and the chunks around the player.  `0x5_` is the world's
+objects, over UDP: what the player sees standing in the world around them.
 
 | Type   | Name           | Way              | Payload                                                  |
 |--------|----------------|------------------|----------------------------------------------------------|
@@ -125,7 +132,7 @@ ground, over UDP: the simple overworld map at PLAY, and the chunks around the pl
 | `0x25` | CharacterDeleteResult | server to client | u32 ask, u8 answer, string message              |
 | `0x26` | CharacterRequestResetHome | client to server | u32 ask, string uuid                          |
 | `0x27` | UserPressPlay  | client to server | u32 ask, string uuid                                     |
-| `0x28` | CharacterEnteredWorld | server to client | u32 ask, string uuid, string name, f32 x, y, z  |
+| `0x28` | CharacterEnteredWorld | server to client | u32 ask, string uuid, string name, f32 x, y, z, u32 object |
 | `0x29` | PlayerReady    | client to server | u32 ask, string the map's SHA-256 as the client has it   |
 | `0x30` | Connect        | client to server | string token                                             |
 | `0x31` | ConnectResult  | server to client | u8 answer, string message                                |
@@ -145,6 +152,11 @@ ground, over UDP: the simple overworld map at PLAY, and the chunks around the pl
 | `0x43` | ChunkRequest   | client to server | u8 how many (1 to 64), then each: i16 x, i16 z, u8 row   |
 | `0x44` | ChunkPiece     | server to client | i16 x, i16 z, u8 row, u8 piece, u8 pieces, then the piece's bytes |
 | `0x45` | ChunkRefused   | server to client | i16 x, i16 z, u8 row, u8 why                             |
+| `0x50` | Hydrate        | server to client | u32 object, string uuid, u8 living, string short name, 9 f32 motion, 3 f32 scale, string model, u8 shape, string doing |
+| `0x51` | ObjectsMoved   | server to client | u8 count, then each: u32 object, 9 f32 motion            |
+| `0x52` | ObjectsGone    | server to client | u16 count, then each: u32 object                         |
+| `0x53` | RollCall       | server to client | u32 roll, u8 piece, u8 pieces, u8 count, then each: u32 object, 9 f32 motion |
+| `0x54` | ObjectAsk      | client to server | u8 how many (1 to 64), then each: u32 object             |
 
 ## The login, over TCP
 
@@ -279,8 +291,9 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
   from download for DDOS protection. You have 214 seconds remaining." (the seconds rounded up;
   `map_cooldown_seconds` in `networking.cfg`, 5 by default (300 until 2026-10-03), counted from the last offer
   the account was sent, whichever address it came from).  Then **PlayerReady** brings it into the world and
-  gets a **CharacterEnteredWorld**: its uuid and name, and where it stands, x, y and z (y up).  Before version
-  11 the CharacterEnteredWorld answered UserPressPlay itself.
+  gets a **CharacterEnteredWorld**: its uuid and name, where it stands, x, y and z (y up), and the number
+  its client knows it by among the world's objects (version 14; below, "The world's objects").  Before
+  version 11 the CharacterEnteredWorld answered UserPressPlay itself.
 - **A character is locked for a moment** whenever it moves between the database and the world: for 1
   second from the moment the server starts loading it, and for 1 second after it leaves the world, longer
   if its save from leaving hasn't reached the database yet.  A UserPressPlay for a locked character isn't
@@ -406,6 +419,7 @@ Then, for Jacob standing at 1.5, 0, -2:
 00 00 C0 3F                                   x 1.5
 00 00 00 00                                   y 0
 00 00 00 C0                                   z -2
+07 00 00 00                                   object 7: Jacob, among the world's objects
 ```
 
 ## The chunks around the player
@@ -533,7 +547,8 @@ static ushort[] Unsqueeze(byte[] bytes)
 
 ## In the world, over UDP
 
-Once a CharacterEnteredWorld has come, the player is in the world.  For now what they can do there is chat.
+Once a CharacterEnteredWorld has come, the player is in the world.  For now what they can do there is chat,
+and see who's around them (below, "The world's objects").
 
 **PlayerCommand** carries a line the player typed in the client's chat window, as it was typed, with an ask
 number like character select's: the same number again gets the same answer again, so a line whose answer
@@ -640,6 +655,101 @@ D0 1A 15 00                                   1,383,120 seconds online
 05 00 00 00  4A 61 63 6F 62                   "Jacob"
 01 00 00 00  00 00 00 00  FE FF FF FF         at 1, 0, -2
 5A 00 00 00                                   90 seconds online
+```
+
+## The world's objects
+
+Version 14 (2026-10-03).  Jacob: **"The server will be the authority, always on where the object actually
+is in the world.  The client is just a dumb renderer."**  So the client draws an object where the server
+last said it is, its own character included, and never decides a place of its own.
+
+**What a player sees**: every object within the offer's **view** of the column their character stands in,
+the same square as the chunks they may have (`view_chunks` each way, every row), so nothing is shown
+standing on ground the client hasn't got.  Today the objects are players' characters; NPCs join them when
+there are NPCs.  Each object has a **number**, a u32 from 1 up, handed out when it comes into the world and
+never used again while the server runs; every packet after the Hydrate names it by that, four bytes, not
+its uuid.  0 is never a number.
+
+**A motion** is 40 bytes: the object's number, then nine f32s, its **position** (x, y and z in blocks, y up;
+a character's is its feet), its **rotation** (degrees about x, y and z, the way Unity has them) and its
+**velocity** (blocks a second along x, y and z).  The client moves the object along its velocity every
+frame until it's told otherwise, so the server only speaks when something changes.  Nothing moves yet: every
+velocity is 0 for now.
+
+**Only what changed is sent**, once a game cycle (250 ms), from the GameClock's broadcast:
+
+- **Hydrate** (`0x50`) an object whole, when it comes into the player's view (and when the client asks about
+  it): its number; its **uuid**; whether it's **Living** (u8, 1 yes, 0 no: the client makes a Living one an
+  Actor, with its **short name** over its head, a string, empty for none); its motion's nine f32s; its
+  **scale** (three f32s, 1, 1, 1 as the model was made); its **model**'s uuid (a string, empty for none:
+  no object has one yet); the **shape** to draw without a model (u8: 0 cube, 1 sphere, 2 capsule, 3
+  cylinder, 4 plane, 5 quad; a character is a capsule); and what it's **doing** (a string, the model's
+  animation, "idle", empty for nothing).  One object to a packet.
+- **ObjectsMoved** (`0x51`): objects the player knows whose motion changed since the cycle before.  A u8
+  count, then each one's motion; 29 to a packet, more packets if there are more.
+- **ObjectsGone** (`0x52`): objects gone out of the player's view, or out of the world.  A u16 count, then
+  each one's number; 299 to a packet.  The client throws them away.
+
+**The roll call.**  UDP loses a packet now and then, and a lost Hydrate or ObjectsGone would leave the client
+wrong for good.  So every fourth cycle, once a second, each player in the world gets a **RollCall**
+(`0x53`): everything the server believes their client knows, and each one's motion now.  The roll call's
+number (a u32, one higher each time), which piece (u8, from 1) and how many pieces (u8), a u8 count, then
+that many motions, 29 to a piece.  A player who knows nothing still gets one piece with a count of 0.  Once
+every piece of one roll call is in (pieces of an older one still coming are given up), the client:
+
+- **drops** every object it has that isn't on it;
+- **asks about** every number on it it doesn't know, with an **ObjectAsk** (`0x54`): a u8 count (1 to 64),
+  then each number.  No ask number, like a ChunkRequest: asking twice is harmless.  The next cycle answers it,
+  a Hydrate for each one in the player's view and an ObjectsGone for any that isn't;
+- moves everything else to where the roll call says.
+
+So a lost packet is mended within about a second.  A roll call can also, now and then, overtake a Hydrate
+sent the cycle after it; the client drops the new object, and the next roll call has it asked about again.
+Only a player whose character is in the world is sent any of this, or answered.
+
+**Walked from the client's side.**  PlayerReady gets the CharacterEnteredWorld, which ends with the
+character's own number: the client knows which object is its own before any Hydrate comes.  Within a cycle
+the Hydrates come, its own character's among them, and everybody else's in view; the camera follows the one
+with its own number.  Anybody coming into view, or into the world, comes as a Hydrate; anybody leaving it, as
+an ObjectsGone.  A client that missed something finds out at the next roll call, and asks.
+
+Jacob, object 7, standing at 0.5, 1, 0.5 facing 90 degrees round, a capsule with no model, comes into view:
+
+```text
+50                                            Hydrate
+07 00 00 00                                   object 7
+03 00 00 00  75 2D 31                         uuid "u-1" (a real one is 36 characters)
+01                                            Living
+05 00 00 00  4A 61 63 6F 62                   short name "Jacob"
+00 00 00 3F  00 00 80 3F  00 00 00 3F         at 0.5, 1, 0.5
+00 00 00 00  00 00 B4 42  00 00 00 00         facing 0, 90, 0
+00 00 00 00  00 00 00 00  00 00 00 00         moving 0, 0, 0
+00 00 80 3F  00 00 80 3F  00 00 80 3F         scale 1, 1, 1
+00 00 00 00                                   no model
+02                                            drawn as a capsule
+00 00 00 00                                   doing nothing
+```
+
+Then roll call 3, with Jacob the only one known, and Jacob gone:
+
+```text
+53                                            RollCall
+03 00 00 00                                   roll call 3
+01 01                                         piece 1 of 1
+01                                            1 object
+07 00 00 00  00 00 00 3F ...                  object 7, and its nine f32s as above
+
+52                                            ObjectsGone
+01 00                                         1 object
+07 00 00 00                                   object 7
+```
+
+A client that got a roll call listing 9, which it never had, asks:
+
+```text
+54                                            ObjectAsk
+01                                            1 object
+09 00 00 00                                   object 9
 ```
 
 ## One moment

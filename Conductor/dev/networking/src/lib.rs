@@ -48,6 +48,7 @@ mod tcp;
 mod tls;
 pub mod typed;
 mod udp;
+mod view;
 
 pub use access::{Entry, List, Mode as AccessMode, Snapshot as AccessLists};
 pub use ledger::{Connection, End, Gone, Stage};
@@ -153,6 +154,10 @@ pub fn start() {
         scribe::error(Channel::Network, &format!("NOBODY CAN LOG IN.  {why}"));
         return;
     }
+
+    // What each player sees of the world goes out from the GameClock
+    // through us; it has nobody to send to until UDP is up.
+    view::wire();
 
     // Protogame before UDP, so a player's first ask has somewhere to go.
     if let Err(why) = protogame::start(settings.map_cooldown) {

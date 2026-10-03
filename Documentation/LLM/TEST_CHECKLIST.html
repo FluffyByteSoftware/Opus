@@ -197,6 +197,56 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>The world's objects, Conductor's half (2026-10-03, session 9)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The build and the tests pass, protocol version 14, with no new warnings.
+    </span></label>
+    <pre class="cmd">cargo build</pre>
+    <pre class="cmd">cargo test</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The view's timing test prints how long one cycle's view of 500 players takes, every one of them moved
+      (paste the line back).
+    </span></label>
+    <pre class="cmd">cargo test --release -p conductor-gameclock -- --ignored --nocapture view_of_five_hundred</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      One in the world: the CharacterEnteredWorld ends with "object N", and within a quarter second a Hydrate
+      for that number comes, "(Tester, yours)", an Actor (Living), at the spot the CharacterEnteredWorld gave,
+      drawn as a capsule, no model.  With <code>--show-roll-calls</code>, a roll call once a second, "all 1
+      known, nothing to mend".
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --show-roll-calls testuser123 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Two in the world: with Tester still in, Chatter comes in from a second terminal.  Tester's terminal gets
+      a Hydrate for Chatter, and Chatter's gets one for Tester and one for itself.  Ctrl-C on Chatter: Tester's
+      terminal gets an ObjectsGone naming Chatter's number.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter testuser456 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A lost Hydrate is mended: with <code>--miss-first-hydrate</code> the first one is dropped, and within
+      about a second a roll call says the number isn't known here, an ObjectAsk goes out, and the Hydrate
+      comes again.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --miss-first-hydrate testuser123 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Soundcheck builds clean at version 14 and logs in.  (Ensemble can't come into the world until its
+      half is written: its CharacterEnteredWorld is still version 13's.)
+    </span></label>
+    <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

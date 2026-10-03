@@ -554,12 +554,15 @@ fn put_in(from: SocketAddr, account: &str, ask: u32, hash: &str) -> Result<(InWo
     let Some(loading) = sessions::take_loading(from, account) else {
         return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
     };
-    if let Err(why) = conductor_gameclock::enter(loading.blueprint) {
-        scribe::warn(Channel::Game, &format!("{} couldn't be put in the world: {why}.", loading.character.name));
-        return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
-    }
+    let object = match conductor_gameclock::enter(loading.blueprint, &loading.character.uuid) {
+        Ok(object) => object,
+        Err(why) => {
+            scribe::warn(Channel::Game, &format!("{} couldn't be put in the world: {why}.", loading.character.name));
+            return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
+        }
+    };
     let entered = EnteredCharacter { uuid: loading.character.uuid.clone(), name: loading.character.name.clone(),
-                                     position: loading.position };
+                                     position: loading.position, object };
     Ok((loading.character, protocol::entered_world(ask, &entered)))
 }
 

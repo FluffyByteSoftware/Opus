@@ -652,6 +652,23 @@ pub fn in_world() -> Vec<SocketAddr> {
     in_world_in(&book())
 }
 
+/// The address of every player whose character is in the world, by the
+/// character's row id, for sending each one what they see of the world
+/// (`view.rs`).  One lock for a whole cycle's news.
+pub fn in_world_by_character() -> HashMap<i64, SocketAddr> {
+    in_world_by_character_in(&book())
+}
+
+/// The row id of the character the player at `from` has in the world, for
+/// an ObjectAsk.  `None` for a stranger, and for a player whose character
+/// isn't in the world.  It counts as hearing from them.
+pub fn character_in_world(from: SocketAddr) -> Option<i64> {
+    let mut book = book();
+    let player = book.players.get_mut(&from)?;
+    player.last_heard = Instant::now();
+    player.character.as_ref().map(|character| character.id)
+}
+
 /// Crosses out every player whose address `matches` says so for: a ban
 /// from the web admin.  Nothing is sent from here; the caller tells each
 /// one with a Kicked.  Their addresses and accounts, for that and the log.
@@ -869,6 +886,12 @@ fn in_world_in(book: &Book) -> Vec<SocketAddr> {
     book.players.iter()
         .filter(|(_, player)| player.character.is_some())
         .map(|(address, _)| *address)
+        .collect()
+}
+
+fn in_world_by_character_in(book: &Book) -> HashMap<i64, SocketAddr> {
+    book.players.iter()
+        .filter_map(|(address, player)| player.character.as_ref().map(|character| (character.id, *address)))
         .collect()
 }
 
@@ -1112,6 +1135,7 @@ mod tests {
 
         // Not in the world yet: no chat for them, nothing on the page.
         assert!(in_world_in(&book).is_empty());
+        assert!(in_world_by_character_in(&book).is_empty());
         assert_eq!(players_in(&book, now)[0].character, None);
 
         // A lost offer is sent again; a new ask is the PlayerReady's.
@@ -1125,6 +1149,7 @@ mod tests {
 
         assert!(entered_in(&mut book, home, "jacob", 2, held.character, b"in"));
         assert_eq!(in_world_in(&book), vec![home]);
+        assert_eq!(in_world_by_character_in(&book), HashMap::from([(42, home)]));
         // In the world, still standing where it was.
         assert_eq!(standing_in(&mut book, home, now), Some((0, -1)));
     }

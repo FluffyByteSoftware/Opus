@@ -27,7 +27,8 @@ networking/
 │                        conductor-tools, rustls 0.23 ("ring", "std")
 ├── test_client.py     the stand-in client: TLS, Login, Ticket, Connect, character select (--create,
 │                        --delete, --delete-word, --reset-home), --play, --type (chat), keep-alives,
-│                        Goodbye.  Python 3.
+│                        Goodbye; the world's objects it's told about, --miss-first-hydrate,
+│                        --show-roll-calls.  Python 3.
 └── src/
     ├── lib.rs         start(), wait_for_world(), stop(), status() -> Status { tcp, udp, players, tickets,
     │                    connections, in_world, access, whitelisted, blacklisted }, kick(id), terminate(account),
@@ -35,7 +36,8 @@ networking/
     │                    timed_out(), wake_address()
     ├── settings.rs    networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs         server_config(settings) -> Arc<ServerConfig>; make_pair(), the openssl command
-    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 11: PacketType, LoginAnswer, ConnectAnswer,
+    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 14; hydrate(), objects_moved(),
+    │                    objects_gone(), roll_call(), read_object_ask() for the world's objects; PacketType, LoginAnswer, ConnectAnswer,
     │                    KickReason, Choice, CreateAnswer, DeleteAnswer, ListedCharacter, EnteredCharacter;
     │                    frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                    connect_result(), keep_alive(), kicked(), command_accepted(), command_refused(),
@@ -62,13 +64,16 @@ networking/
     │                    map), take_loading(), fetching_map(), entered(), leave_world(), lock_for_loading(),
     │                    turn_away(), leave(), kick() (with the kicked character's row id),
     │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), in_world(),
-    │                    may_command(),
+    │                    may_command(), in_world_by_character(), character_in_world(),
     │                    drop_where();
     │                    with_book(), which asks the GameClock to take out whoever left
     ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
     │                    start(), clear(), arrived(), set(), ended(), linkdead(), is_done(), snapshot()
     ├── access.rs      the whitelist and the blacklist: Mode, List, Entry (an address or a range), Verdict
     │                    start(mode, paths), stop(), verdict(ip), mode(), add(), remove(), snapshot(), counts()
+    ├── view.rs        what each player sees of the world, sent: wire() fills the GameClock's view
+    │                    sender with send_out(), which makes each player's packets; asked(), an ObjectAsk
+    │                    to the GameClock's mailbox
     ├── dns.rs         reverse DNS on thread net-dns, with a cache: start(), stop(), ask(), name_of()
     ├── dns/linux.rs   reverse(ip) around getnameinfo from the C library
     ├── dns/windows.rs the same around ws2_32's
@@ -492,6 +497,26 @@ world.md` has the whole of what was settled; this is networking's half.
   and shared by every player; the UDP thread cuts them into pieces and sends them, never waiting.  A chunk
   not squeezed yet is put in GameWorld's mailbox and refused "not yet".
 
+## The world's objects (2026-10-03, session 9)
+
+Protocol version 14.  Jacob: "The server will be the authority, always on where the object actually is in
+the world.  The client is just a dumb renderer."  `design/ensemble-world.md` ("The player in the world") has
+every answer he gave in his words; `design/gameclock.md` ("The view") has how the GameClock works out who's
+told what; PROTOCOL.md ("The world's objects") has the packets.  Networking's half:
+
+- **The sending is `view.rs`**: the GameClock hands each cycle's news (one `News` a player with anything to
+  be told) to `send_out()`, through the slot `wire()` fills.  Networking fills it itself, as it starts, since
+  it already leans on the GameClock and nothing about it is a command.  One lock on the book for the whole
+  cycle (`in_world_by_character()`), then each player's packets: what's gone, what came into view whole,
+  what moved, and the roll call last.
+- **An ObjectAsk** comes in on the UDP thread, and goes to the GameClock's mailbox (`ask_about()`) by the
+  asking player's character (`character_in_world()`); the next broadcast answers it.  A stranger, or a player
+  at character select, hears nothing.
+- **CharacterEnteredWorld carries the player's own number**, from `conductor_gameclock::enter()`, which now
+  takes the character's uuid too and hands back the number before the character is even spawned.
+- **The cost**: a Hydrate is about 100 bytes, a motion 40; a cycle where nothing moved sends nothing but the
+  roll call, once a second.  The GameClock's share of the work is a guess until its timing test is run.
+
 ## What's open
 
 - **Client management** is all TODO: a player limit ("The server is full."), reconnecting with a token
@@ -501,8 +526,8 @@ world.md` has the whole of what was settled; this is networking's half.
 - **Windows**: it builds there (2026-09-30) but hasn't run networking yet (no world made, no certificate,
   no database).  The OS-specific parts are the three `dns/` files and the `ConnectionReset` line in
   `udp.rs`, Windows telling us about a bounced packet.  macOS gets no DNS names until there's a Mac.
-- **What the client is sent after CharacterEnteredWorld**: the chat (above), and the chunks it asks for.
-  Other players and movement are the game's packets, to come.
+- **What the client is sent after CharacterEnteredWorld**: the chat (above), the chunks it asks for, and
+  the world's objects (above).  The input packet for movement is to come.
 - **A faked address.**  A player is their address, so a packet with a player's address forged on it gets
   that player sent the answer: 64 chunks, or 64 of the map's pieces, for a packet of a few hundred bytes.
   The answer only ever goes to somebody in the book, but it could be used to flood them.  A session id in

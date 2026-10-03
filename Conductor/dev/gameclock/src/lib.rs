@@ -32,7 +32,8 @@
 //! (`saving.rs`).  The chat comes in through a mailbox of its own
 //! (`chat.rs`) and goes out to everybody in the world from the broadcast
 //! check, once a cycle, and so does the answer to a `/who`
-//! (`who.rs`).  Primlib's other copies aren't saved yet
+//! (`who.rs`), and what each player sees of the world around them
+//! (`view.rs`).  Primlib's other copies aren't saved yet
 //! (design/primlib.md).  The terrain starts empty, and the GameClock asks
 //! GameWorld for the chunks around 0,0,0, where every player starts for
 //! now.  They come in over the first cycles, in housekeeping.
@@ -41,6 +42,7 @@ mod chat;
 mod checks;
 mod players;
 mod saving;
+mod view;
 mod who;
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -57,11 +59,13 @@ use conductor_tools::threads;
 
 use players::Players;
 use saving::{WorldSave, Writes};
+use view::View;
 
 // Rust note: `pub use` hands these on, so networking can write
 // `conductor_gameclock::enter(...)`.
 pub use chat::{chat, set_chat_sender};
 pub use players::{enter, leave, saving, wait_until_saved};
+pub use view::{Hydrate, Motion, News, ask_about, set_view_sender};
 pub use who::{Standing, WhoAsked, set_who_sender, who};
 
 /// One check's share of a cycle, in milliseconds.
@@ -93,13 +97,15 @@ static READY: AtomicBool = AtomicBool::new(false);
 
 /// Everything the checks work on, owned by the GameClock's thread: the
 /// world, the terrain, the players' characters in the world, when the
-/// next world save is due, and the saves on their way to the database.
+/// next world save is due, the saves on their way to the database, and
+/// what each player's client has been told.
 pub(crate) struct Game {
     pub(crate) world: World,
     pub(crate) terrain: Terrain,
     pub(crate) players: Players,
     pub(crate) world_save: WorldSave,
     pub(crate) writes: Writes,
+    pub(crate) view: View,
 }
 
 /// Starts the GameClock's thread, with a fresh world.  It comes straight
@@ -116,6 +122,7 @@ pub fn start() {
     players::forget_saving();
     chat::open();
     who::open();
+    view::open();
     services::set(services::GAMECLOCK, State::Starting, "Making a fresh world.");
     let (stop, stopped) = mpsc::channel();
     let notes = players::open_mailbox();
@@ -129,6 +136,7 @@ pub fn start() {
             players::close_mailbox();
             chat::close();
             who::close();
+            view::close();
             scribe::error_with(Channel::Game, &e, "The GameClock couldn't start its thread.  \
                 Nothing in the world moves this run.");
             services::set(services::GAMECLOCK, State::Stopped, &format!("Couldn't start its thread: {e}"));
@@ -146,6 +154,7 @@ pub fn stop() {
     players::close_mailbox();
     chat::close();
     who::close();
+    view::close();
     lock(&STOP).take();
 
     let handle = lock(&GAMECLOCK).take();
@@ -179,6 +188,7 @@ fn run(stopped: Receiver<()>, notes: Receiver<players::Note>) {
         players: Players::new(notes),
         world_save: WorldSave::new(saving::world_save_every()),
         writes: Writes::new(),
+        view: View::new(),
     };
     game.terrain.ask_around(SPAWN_POINTS[0].0, SPAWN_POINTS[0].1, conductor_gameworld::view_chunks());
 
