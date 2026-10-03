@@ -75,7 +75,14 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   now.  The start screen and character select stay fixed.  "Playername" is **the character's name**
   (Jacob: "Yes"; Ensemble never learns the account's), and **the font size is the chat's contents, not its
   header** ("just the contents of the chat window not the header").  The pointers: he asked whether we
-  can bring in our own, animated or not, and in what format, before the plan's OK.
+  can bring in our own, animated or not, and in what format, before the plan's OK.  **His answers**: he has
+  fantasy pointers already, at 64 x 64 and 256 x 256; **not animated**; **the normal pointer stays**, and
+  there are two of his own, "a bronze one to indicate moving the window and one to indicate gripping the
+  edge".  What Unity's source says (UnityCsReference): a UI Toolkit `style.cursor` with a texture calls
+  `Cursor.SetCursor(texture, hotspot, CursorMode.Auto)`, the hardware pointer, and the texture is imported
+  with Read/Write on or Texture Type: Cursor.  The forums and Unity's issue tracker: Windows' hardware
+  pointer is held to about 32 x 32, Linux takes 128 x 128; `CursorMode.ForceSoftware` draws any size, a
+  frame behind the mouse.  So the 64 x 64s, Linux first; Windows untried.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
