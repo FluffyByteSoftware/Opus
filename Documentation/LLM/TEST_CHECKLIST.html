@@ -197,65 +197,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>The ground on screen (2026-10-03, session 5)</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      PLAY: the ground is drawn round the stand-in in the materials' colours, the Cinemachine camera
-      following it, the GOLD at 0,0,0 with the stand-in sunk a block into it, and the edge of the drawn
-      ground 7 chunks out (224 blocks) each way.  No warning about a missing material.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Stop Play mode while it's drawing, and Play again: no errors in the Console, and the ground comes
-      back drawn once.
-    </span></label>
-  </li>
-</ul>
-
-<h2>The map's cooldown down to 5 seconds (2026-10-03, session 1)</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      After the pull, the Settings tab shows <code>map_cooldown_seconds</code> at 5 in networking.cfg.  PLAY,
-      leave the world, and PLAY again at once: "You have 5 seconds remaining" (or fewer); wait them out and
-      PLAY goes through.
-    </span></label>
-  </li>
-</ul>
-
-<h2>Soundcheck's window fits itself (2026-10-03, session 1)</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Soundcheck builds clean, and opens in the middle of the screen fitted round the login with room at
-      every edge: a little more than the 24 it had, the same on the left and right.
-    </span></label>
-    <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The window never changes size: the check's progress bar, the status box (four lines high, a longer
-      message scrolls inside it) and a login whose words run long all fit, and PLAY stays where it was.  A
-      blank gap sits where the status box and the bar will be until they show.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      A login as an account already playing elsewhere: LOG THE OTHER OUT and LOG OFF show in their place,
-      and before that they can't be clicked or tabbed to where they're hidden.
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Admin mode fits itself the same way, and a long build folder's line stops at two lines with "...".
-    </span></label>
-    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --admin</pre>
-  </li>
-</ul>
-
 <h2>PlayerReady once the ground is drawn (2026-10-03, session 1)</h2>
 <ul class="checks">
   <li class="check">
