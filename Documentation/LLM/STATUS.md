@@ -84,9 +84,9 @@ view, the refusal past the edge, the Services tab's line, Soundcheck and the edi
 the internet at a 50 ms ping; **a whole view of chunks at `view_chunks` 8 is 3,179 chunks, 88,746 bytes
 squeezed, 0.04 s on the LAN**, the biggest chunk 693 bytes, every chunk one packet; squeezing is 13 to 14 us a
 chunk; hashing the 655 MB build takes 1.3 s at Soundcheck's start.  **Session 5's meshing**: 437 chunks in
-0.46 to 0.51 s, all on the worker, 302 drawn.  TEST_CHECKLIST.html has no open checks, only three
-Parked: seeing a character stand on the GOLD (no player model yet), the launcher's own restart after a patch,
-and Spans for real.  **On Windows**: Conductor builds and runs, START SERVER included, without a database;
+0.46 to 0.51 s, all on the worker, 302 drawn.  TEST_CHECKLIST.html has no open checks, only one
+Parked: the launcher's own restart after a patch (a character on the GOLD passed in session 9, Spans for
+real came off on Jacob's say).  **On Windows**: Conductor builds and runs, START SERVER included, without a database;
 nothing since the world has been tried there (GitHub issue #10), and neither Soundcheck nor the new Ensemble
 has been built there at all.
 
