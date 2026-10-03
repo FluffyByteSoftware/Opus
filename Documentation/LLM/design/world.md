@@ -336,6 +336,16 @@ highest voxel."
 - **The limit**: once blocks change, GameWorld knows a chunk as of the last world save, so a column dug or
   built on since then gives the height it had then (TODO.md).
 
+### A saved character inside the ground (session 9, 2026-10-03; being talked through)
+
+Found when Asdf, saved at 0, 0, 0 before spawn points and never sent home, came in half inside the GOLD and
+its feet a block into the ground.  RESET HOME fixed Asdf by hand; Jacob wants it automatic: **"whenever a
+player is spawned into the world if the space they were in is now occupied with impassable voxel (IE: not
+air) it should move them on top of it instead of trying to spawn them inside it... so basically my proposal
+is we search for the top most voxel on the Y and put them on top of it.  If for some reason it reaches max
+height, then it puts them at reset position or a spawn point again".**  Being talked through: which blocks
+count as "the space they were in", the middle of the block or where they were, and what the player is told.
+
 ## Still open
 
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
