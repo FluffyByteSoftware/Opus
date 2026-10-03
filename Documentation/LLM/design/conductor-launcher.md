@@ -7,7 +7,7 @@ Author:     Jacob Chacko
 # conductor-launcher
 
 A bin crate, and the program.  main() brings up the program (DiskMan, Scribe, Constellations, the web
-admin), then sits on the Control Panel's mailbox starting and stopping the server as asked, opens the door
+admin), then sits on the Server tab's mailbox starting and stopping the server as asked, opens the door
 once the world is ready, and shuts down when the web admin stops.
 
 ## Skeleton
@@ -26,7 +26,8 @@ launcher/
                                   then, if Running with the door shut and gameclock::ready(): networking::start()
                        -> stop_server() unless stopped -> wait_on_diskman() (which calls diskman::stop first)
                        start_server(): fingerprinter -> security -> archivist -> account desk -> lua -> gameworld
-                                       -> gameclock -> networking::wait_for_world() -> monitor
+                                       -> gameclock -> player_commands::wire() -> networking::wait_for_world()
+                                       -> monitor
                        stop_server():  monitor -> networking -> gameclock -> gameworld -> lua -> account desk
                                        -> security -> archivist -> fingerprinter
                                        -> constellations::server_stopped()
@@ -35,11 +36,12 @@ launcher/
 ## What we decided
 
 - The launcher is the program.  Everything else is a lib crate it starts.
-- **The server starts from the Control Panel, not at boot** (2026-09-29).  Jacob's ask: the page Conductor
-  greets you with is a control panel, and nothing but the log is up until START SERVER.  So main boots only
-  what the page needs (DiskMan, Scribe, Constellations, the web admin), and `start_server()` /
-  `stop_server()` are the list of what the server is.  A new piece goes in both.  Security's 64 MiB arena
-  comes and goes with the server, so a stopped Conductor holds none of it.
+- **The server starts from the Server tab, not at boot** (2026-09-29; the tab was "the Control Panel"
+  then).  Jacob's ask: the page Conductor greets you with is a control panel, and nothing but the log is up
+  until START SERVER.  So main boots only what the page needs (DiskMan, Scribe, Constellations, the web
+  admin), and `start_server()` / `stop_server()` are the list of what the server is, networking's start
+  apart (below).  A new piece goes in both.  Security's 64 MiB arena comes and goes with the server, so a
+  stopped Conductor holds none of it.
 - **main does the starting and stopping, not the web admin's thread.**  The routes only drop a command in
   `server.rs`'s mailbox and answer; main picks it up within `COMMAND_WAIT` (250 ms).  Archivist's stop can
   wait on a long query, and the page keeps asking for its status the whole time.  Between commands main

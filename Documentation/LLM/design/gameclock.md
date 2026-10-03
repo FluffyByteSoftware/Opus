@@ -72,7 +72,8 @@ gameclock/
   on every START SERVER; saving primlib's other copies on STOP SERVER and loading them back is in
   `design/primlib.md`.
 - **The ground comes in first.**  On START SERVER the terrain asks GameWorld for every chunk within
-  `view_chunks` (in `game.cfg`) of 0,0,0, where every player starts for now: 162 at the default of 4.
+  `view_chunks` (in `game.cfg`) of 0,0,0, where every player starts for now: 891 at the default of 4, nine
+  by nine and eleven rows.
   Housekeeping takes in whatever has arrived, never waiting.  Once every one is in, `ready()` turns true
   (an Info line says so), and the launcher opens the door on it (`design/conductor-launcher.md`).  A run
   where one of them can't be had never turns ready.
@@ -114,7 +115,7 @@ Jacob's answers, 2026-09-30 and 2026-10-01, preparing the game library for the s
   and the position), in one cycle, so it's the world at one moment.  The copies go to
   `conductor_accounts::characters::save_all()`, which turns each into Lua text and writes its row on
   Archivist's thread, one after another, in one transaction: the whole world save lands or none of it, and
-  the GameClock never waits.  The next is counted from when the last was due.
+  the GameClock never waits.  The next is counted from the save before.
 - **The saves on their way** (`Writes`): a write that fails only says so in its `Pending`, so the GameClock
   keeps them and looks at each in housekeeping, never waiting.  Written is a Debug line; fewer rows than
   characters is a Warn (a row deleted while its character was in the world); a failure is an Error.
@@ -138,10 +139,11 @@ Jacob: "we send a packet to all users including the person who sent the message 
 GameClock tick that carries chat (which should be every beat)".  So the chat goes out from the broadcast
 check, once a 250 ms cycle.  Networking reads a player's `/chat` and leaves the finished line
 (`[Chat] Jacob: Yo yo yo!`) with `chat()`, which comes straight back; the broadcast check takes every line
-left since the cycle before, in order, and hands them to the function networking gave it at its start
-(`set_chat_sender()`), which sends them to everybody in the world.  The GameClock knows nobody's address,
-and can't call networking itself: networking depends on the GameClock, and Rust won't build two crates
-that each need the other.  A plain function handed over solves it; the positions will go out the same way.
+left since the cycle before, in order, and hands them to the function in its slot (`set_chat_sender()`,
+filled by `conductor_player_commands::wire()` from the launcher, after the GameClock starts), which sends
+them to everybody in the world.  The GameClock knows nobody's address, and can't call networking itself:
+networking depends on the GameClock, and Rust won't build two crates that each need the other.  A plain
+function handed over solves it; the positions will go out the same way.
 The mailbox is open only while the GameClock runs, and STOP SERVER drops what's in it.  A cycle with no
 chat costs a lock.  The sending is one UDP send per player in the world per cycle that has chat, on the
 GameClock's thread; a guess, not measured.  `design/conductor-networking.md` has the rest.
@@ -151,8 +153,8 @@ GameClock's thread; a guess, not measured.  `design/conductor-networking.md` has
 The broadcast check answers `/who list` too: networking leaves each ask (who asked, from where, its ask
 number) with `who_list()`, and the check reads every player's character's `ShortName` and the block its
 `Transform` stands in (`standing()`, each axis rounded down) once, however many asked that cycle, and hands
-them with each ask to networking's `send_list()`, handed over with `set_who_sender()`.  Same shape as the
-chat, same reason.  `design/conductor-networking.md` has the rest.
+them with each ask to the commands crate's `send_list()`, in the slot `wire()` fills (`set_who_sender()`).
+Same shape as the chat, same reason.  `design/conductor-networking.md` has the rest.
 
 ## Open
 

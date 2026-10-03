@@ -16,13 +16,15 @@ components that make them what they are, and the templates and blueprints they'r
 **Part one is Rust only**: the entities, the first components, the world that holds them, templates and
 blueprints, and tests (`cargo test -p conductor-primlib`).  Built and tested on Linux, no warnings.  It
 isn't a server piece itself: the GameClock (`design/gameclock.md`) owns a `World`, made fresh on every
-START SERVER, and hands it to its five checks.  Nothing spawns anything into it yet.
+START SERVER, and hands it to its five checks.  Players' characters are spawned into it through the
+GameClock's mailbox (`design/gameclock.md`); nothing else is, yet.
 
 **The character, Part A** (2026-09-30, built and tested, no warnings): the first step of Jacob's map, "finishing
 out character as a template for hydrating from an account".  Templates that take in other templates, the
 `Living` and `Character` templates, `PlayerCharacter`, a GameObject remembering its templates, and saving
 a GameObject as Lua text and making a character back from it.  See "The character and saving" below.
-Part B, the `player_characters` table the text goes in, is in TODO.md under Protogame.
+Part B, the `player_characters` table the text goes in, is built (`design/conductor-accounts.md`,
+"Characters").
 
 **Part two is the Lua**: templates and blueprints written as scripts under `Content/scripts/`, calling into
 this crate.  See "Lua, part two" below.
@@ -101,8 +103,8 @@ primlib/
   memory is what the game reads and writes while the server runs (not a row kept live, since the game loop
   never waits on the database), and on STOP SERVER every copy is written to the database as a row of its
   own, through Archivist.  START SERVER loads them back: "when the world is respawned the goblins will come
-  back as if they never left".  Players' characters are saved too (`player_characters`, in TODO.md).  Not
-  built yet.
+  back as if they never left".  Players' characters are (`player_characters`, built); primlib's other
+  copies aren't yet.
 - **Every copy has a UUID**: "you will be able to search NPCs by their UUIDs (which is unique to every
   instantiated one)".  From Fingerprinter (`new_uuid()`), like every row's.  The entity number is only
   good while the server runs; the UUID is the copy's name for good.  Built together with saving, not

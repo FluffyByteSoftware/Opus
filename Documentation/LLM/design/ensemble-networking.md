@@ -146,7 +146,7 @@ loop worked!"): log in, pick, make, delete, reset home, play, log out, and in ag
   which card is open, and fills it all in.  The layout puts the list, the line, the four buttons in a row
   and LOG OUT down the middle.
 
-## One moment: PleaseWait (2026-10-02, written, waiting on Unity)
+## One moment: PleaseWait (2026-10-02, built and tested)
 
 Jacob found it testing the double login: the second client logs the first out, presses PLAY inside the
 character's one-second lock, and gets Kicked, reason 6, back to the login.  His call: "the client is told to
@@ -158,7 +158,7 @@ line (not as trouble) and leaves the ask out, so the buttons stay grey.  Charact
 usual and clears the line; a refusal shows as before.  For a typed line it goes in the chat box, in case a
 command ever sends one.  `Protocol.Version` is 10.
 
-## In the world: chat and /who (2026-10-02, written, waiting on Unity)
+## In the world: chat and /who (2026-10-02, built and tested)
 
 The server's side is PROTOCOL.md's "In the world"; the chat window is `design/ensemble-hud.md`.
 
@@ -172,8 +172,3 @@ The server's side is PROTOCOL.md's "In the world"; the chat window is `design/en
   resend bringing the missing ones, the whole read as if it had come in one packet, and given up 2 seconds
   after the first piece ("The server didn't answer.").
 - **`Session.ReachedWorld`**: PLAY's answer, which ScreenRoot turns into the HUD.
-
-## Later
-
-- The key taking longer than the server's 10-second login deadline on a slow machine: the server hangs up, and
-  the player sees "The server hung up."  2852 ms in the Unity editor, so not today's problem.
