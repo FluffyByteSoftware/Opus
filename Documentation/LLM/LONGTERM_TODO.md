@@ -79,8 +79,8 @@ create NPC goblin_a{
 ## The world
 
 `conductor-gameworld` is part one: a seamless world `world_size` times 1024 blocks a side (16 to start), in
-1 m blocks and chunks of 32 a side, eleven chunks tall (-32 to +319), cut into regions (a region is a zone
-is a biome).  The first world is Alpha (flat) and Omega (hills).  `design/world.md` has it.  What's left, a session or more each:
+1 m blocks and chunks of 32 a side, eleven chunks tall (-32 to +319), cut into regions (a region was a zone
+was a biome; Jacob split the three in session 11, below in "The world asleep and awake", not yet in code).  The first world is Alpha (flat) and Omega (hills).  `design/world.md` has it.  What's left, a session or more each:
 
 - **Saving changed chunks** (part two): on STOP SERVER and with the one world save, every `world_save_seconds`
   (Jacob, 2026-10-03: one save for the characters and the ground; `save_minutes` dropped).
@@ -126,8 +126,36 @@ watching.
   dragon is an existential threat!"  So the ground it burns is saved, which is why this waits on saving
   changed chunks.
 
-Still open: what "heats the voxels up" means (below, in the session's reply), what a zone is when it
-catches up, what catching up changes, and whether a goblin party out for resources wakes the world.
+**His answers** (session 11, the second round):
+- **Cold, warm and hot, a chunk at a time**: "When a unique actor gets near a voxel chunk it warms and then
+  gets hot based on the actors proximity to it.  The hot state means the actor is in the chunk, the warm is
+  that the actor is nearby.  IN a warm state we'll have the system do "catch up" ticks calculating the
+  position of everything where it should be as if things had never gone to sleep.  Then when its hot this
+  should be ready to go for the player."  So a cold chunk is asleep; warm is the catching up, done ahead of
+  the actor; hot is live.
+- **A region, a biome and a zone are three things** (until now they were one, `design/world.md`,
+  "Regions"; the code and `region.map` still have them as one):
+  - **A region** "is a chunk of the map -- mostly used for cartography."
+  - **A biome** "is going to be a distinct area marked by what type of terrain appears there, and affects
+    the "animal" creatures that spawn there.  An example is an ElfForest biome.  It will effect what types
+    of trees or vegetation grow there as well.  The buildings are all separate and based on which species
+    constructed them."
+  - **A zone** "is like a region but for the server to use to break the world up into its own management
+    areas.  Zones will be groupings of chunks within squared areas of the overall world.  They're also going
+    to be given dynamic names based on thec ontents, an area that contains mostly elven forest might be
+    called "the Elven Forest of Gilai"".  "A zone is just how we group a set of chunks together to say:
+    "This region of space has this NPC manager on it".  NPCs can leave their zones but will be treated as
+    "guests" by other zone managers."
+  - "most of this is going to be proceedurally generated at the start."
+- **The ground isn't mined**: "we're only going to have voxels being destroyed by combat and effects.  You
+  won't mine the chunks of the world awway."  So catching up changes the NPCs and their stores, not the
+  ground.  And: "In fact we're gonna change this section to be about smoothing out our voxel world" (TODO.md,
+  "Fewer voxels a column, EQ Next's style").
+
+Still open: how far warm reaches and how far hot reaches, and whether a player's view has to be hot; what
+catches up when a chunk warms (the NPCs in it, or its whole zone's manager); a zone's size; whether the
+zone manager is the goblins' controller or above it; whether a goblin party out for resources wakes the
+world; whether a dragon dealt with stops waking it.
 
 ## Soundcheck, the patcher, and a certificate for every client
 

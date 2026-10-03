@@ -71,7 +71,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   says it once).  `design/ensemble-world.md`, "Movement".
 - **Fewer voxels a column, EQ Next's style** (Jacob, 2026-10-03, session 10: "about possibly trimming down
   the number of voxels per column because we want the EQ Next style voxels not Minecraft really but that's
-  for next iteration").  His to bring up; nothing settled.  It touches GameWorld's chunks, the squeezed
+  for next iteration").  His to bring up; nothing settled.  Session 11: "we're only going to have voxels
+  being destroyed by combat and effects.  You won't mine the chunks of the world awway.  In fact we're gonna
+  change this section to be about smoothing out our voxel world."  It touches GameWorld's chunks, the squeezed
   chunks, Ensemble's mesher and `design/world.md`.
 - **Jumping** (Jacob, 2026-10-03, session 10, on movement: "we can do jumping later").  Movement steps up
   one block on its own and falls off edges; a jump is its own feature.  `design/ensemble-world.md`,

@@ -180,6 +180,9 @@ out there.
 
 ### Regions
 
+- **Overturned in session 11 (2026-10-03), not yet in code**: a region, a biome and a zone are three things
+  now, a region for the map, a biome for the ground and what grows and spawns, a zone for the server's NPC
+  managers (LONGTERM_TODO.md, "The world asleep and awake").  What follows is how it was built.
 - **A region, a zone and a biome are one thing**: "a biome name / zone or collection of chunks".  It's a
   label we mark, not a clock.  **Each chunk is flagged with the zone it's in**, not each voxel, so a biome's
   edge runs in steps a chunk wide.  **A chunk is in one zone only**, never across two, and `region.map`

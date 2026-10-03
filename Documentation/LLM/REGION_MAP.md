@@ -18,7 +18,8 @@ front of the file, so a reader built for another version can stop right there in
 
 The world (`world_size` in `game.cfg` times 1024 blocks a side, 16 to start, 0,0,0 in the middle) is cut
 into **regions**.  A region is a zone is a biome, "a biome name / zone or collection of chunks" (Jacob,
-2026-09-30).  The world is also cut into **chunks**, cubes of 32 blocks a side (32 m), and every chunk is
+2026-09-30).  (Jacob split the three in session 11, 2026-10-03, LONGTERM_TODO.md's "The world asleep and
+awake"; this file's regions are still the one thing until the layout changes.)  The world is also cut into **chunks**, cubes of 32 blocks a side (32 m), and every chunk is
 in exactly one region, never across two.
 
 `region.map` is the list of regions, and then one byte for every chunk in the world saying which region
