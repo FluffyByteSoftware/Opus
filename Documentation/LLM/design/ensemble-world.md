@@ -153,5 +153,18 @@ an Actor is on the client; how a model's name finds a model.
   path is either a name in a list in the Inspector, a path under a `Resources` folder (both inside the
   build), or an asset bundle beside the executable (patchable by Soundcheck, needs bundles built).  **His
   answer: "okay then its going to be UUID matched."**  So the server's `Model` carries a model's UUID, and
-  the client finds the model by it; the viewer he asked for shows which UUID is which model.  Being talked
-  through: where a model's UUID comes from, where the viewer lives, and whether it's this session.
+  the client finds the model by it; the viewer he asked for shows which UUID is which model.
+- **Then, the other way round** (put to him: Unity's own ID or one we make; a window in Unity or a tab on
+  the web admin; this session or its own): "we're gonna have to do this in a backwards way... I will build
+  an actor in the client and then we'll make a plug in to dump it into some sort of data that the server
+  can take in and use?  That way it doesn't assign a UUID but the client does and we'll just start with
+  0000001 and work up from there type deal?"  So **a model is a number**, handed out by the plugin from 1
+  up as Jacob makes each prefab in Unity, and the plugin writes what the server needs into a file it
+  reads.  0 is no model: the fallback shape.  (A number in a catalogue, not a row; if models ever go in
+  the database, the table gets its `id` and `uuid` like any other.)
+- **Keeping track** ("Two ways"): "help me keep track with a living document", a file in the docs listing
+  every model's number and what it is, kept up to date by the session; "and by clicking the prefab in
+  Unity and looking at its script for "FluffyGameObject" :)", a script on every prefab that shows its
+  number in the Inspector.
+- **When**: "we'll do the model draw next session".  This one draws every object as its fallback shape,
+  with the packets as they'll stay: the Hydrate carries the model's number (0 for now).

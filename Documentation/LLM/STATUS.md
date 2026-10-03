@@ -127,6 +127,10 @@ this one still stands.
 
 At session 8's hand-off (2026-10-03): **"next session gonna be hard I think"**, no pick named.
 
+In session 9 (2026-10-03), on the player in the world: **"we'll do the model draw next session"**: the
+plugin that numbers the prefabs he builds in Unity (FluffyGameObject), the file the server reads, and the
+models drawn in place of the fallback shapes.  His to change.
+
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
 ## The last day
