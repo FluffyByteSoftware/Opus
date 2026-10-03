@@ -23,8 +23,9 @@ unless I explicitly ask. Their *workflow* carried over; their code did not.
 
 Project root: `/opt/storage/Coding/Opus`
 
-**The 0.0.1 goal is a player spawned in the world and able to chat**
-(Jacob, 2026-09-30).
+**0.0.1 is released** (2026-10-02): a player logs in, picks a character and
+chats.  The next milestone is movement, 0.0.0.12 (Jacob's number).  His map
+is in STATUS.md.
 
 ---
 
@@ -42,11 +43,11 @@ Project root: `/opt/storage/Coding/Opus`
     four folders under `Assets/` are committed; the rest is on Jacob's
     machine.
   - Folder: `Ensemble/`
-- **Soundcheck** (`Opus.Soundcheck`) -- the launcher players open, started
-  2026-10-02.  It owns the login (TLS 1.3 to the Ticket) and the manifest
-  check of the installed client, and starts Ensemble with a ticket; one day
-  it hands each client a certificate of its own (mutual TLS,
-  LONGTERM_TODO.md).  `design/soundcheck.md` has it.
+- **Soundcheck** (`Opus.Soundcheck`) -- the launcher players open (2026-10-02).
+  It checks the installed client against its manifest, does the login (TLS
+  1.3 to the Ticket) and starts Ensemble with the ticket.  One day it hands
+  each client a certificate of its own (mutual TLS, LONGTERM_TODO.md).
+  `design/soundcheck.md` has it.
   - Language: C#, .NET 10, Avalonia 11.  Not Unity.
   - Folder: `Soundcheck/`
   - Runs on: Linux and Windows, like Ensemble.
@@ -94,8 +95,7 @@ Opus/
 │   │           ├── Editor/    # editor plugins, under Tools > Opus
 │   │           ├── Code/      # the plain C#: the networking, say
 │   │           ├── Scripts/   # the scripts
-│   │           └── Data/      # our own data files: layouts in Data/Layouts/, styles in Data/Styles/,
-│   │                          #   the server's certificate in Data/Certs/
+│   │           └── Data/      # our own data files: layouts in Data/Layouts/, styles in Data/Styles/
 │   └── build/             # compiled output -- never committed
 ├── Soundcheck/            # launcher
 │   ├── dev/               # the .NET project: Opus.Soundcheck.csproj at its root, bin/ and obj/ gitignored
@@ -171,28 +171,22 @@ by creating `./Content` when neither works.
   leaving, and I meant a lock on loading.  Say back where a thing sits and
   what it does to whom before writing it.)
 - **The test checklist.** `Documentation/LLM/TEST_CHECKLIST.html` is the rolling
-  list of what to check on `testing`, so that once game features come there's a
-  reminder of what changed and what to look at in game.  Every session that
-  changes what Conductor does adds its checks there, and the reply that pushes
-  to `testing` points at them.  Once I say a check passed, it comes out of the
-  file.  It's a page I open from the disk: a check is an `<li class="check">`,
-  a command a one-line `<pre class="cmd">` that gets a COPY button.  My ticks
-  live in my browser only; I say which passed (each tick writes it into the
-  page's message, and COPY MESSAGE copies it).  A tick is keyed by the check's
-  words, so rewording a check drops its tick.  A tab left open from an earlier
+  list of what to check on `testing`.  Every session that changes what a
+  program does adds its checks there, and the reply that pushes to `testing`
+  points at them.  Once I say a check passed, it comes out of the file.  It's
+  a page I open from the disk: a check is an `<li class="check">`, a command a
+  one-line `<pre class="cmd">` that gets a COPY button.  My ticks live in my
+  browser only; I say which passed (each tick writes it into the page's
+  message, and COPY MESSAGE copies it).  A tick is keyed by the check's words,
+  so rewording a check drops its tick.  A tab left open from an earlier
   session shows that session's checks until it's reloaded: if a message names
   checks the file no longer has, say so and ask for a reload before touching
-  anything.  A check there's nothing to run on yet still goes in the
-  file, under Parked, and the page's count includes it.  Whether one
-  becomes a GitHub issue instead is my call, not the session's (the
-  Windows-with-a-database check became issue #10 on 2026-10-01).
-  A Parked check in a "passed" message is asked about, not taken out:
-  on 2026-10-02 both Parked checks came back ticked with the rest, and
-  neither could have run ("do not mark those off").
-  A number the session needs back (a timing, say) is asked for under
-  the QUESTIONS header too, not only inside a check: on 2026-10-01 the
-  key's "N ms" was in a check, the check was ticked, and the number
-  never came back.
+  anything.  A check there's nothing to run on yet goes under Parked, counted
+  with the rest, and a Parked check in a "passed" message is asked about, not
+  taken out (both came back ticked once, and neither could have run).  Whether
+  a check becomes a GitHub issue instead is my call (issue #10 is one).  A
+  number the session needs back (a timing, say) is asked for under the
+  QUESTIONS header too, not only inside a check, or it never comes back.
 - **Small increments.** Each conversation takes one small step, so the branch,
   the commits and STATUS.md read as a running history of what happened and why.
   If a step grows, stop at a sensible point and leave the rest for another
@@ -235,12 +229,10 @@ by creating `./Content` when neither works.
   client. Stick to writing the code. When it's written, tell me exactly
   which commands to run, with your questions at the bottom of the reply (see
   "How to talk to me"). I paste back what happens and we go from there.
-  Conductor is run from a terminal, not from inside RustRover: on
-  2026-10-01 RustRover's code analysis running beside the server locked
-  the whole machine up, and from a terminal it ran clean.  When a key
-  does nothing in my terminal, ask me to try it on something plain
-  (`sleep 30`, Ctrl-C) before changing code: on 2026-10-02 Ctrl-C "doing
-  nothing" in the test client was my terminal, and a fix went in for a
+  Conductor is run from a terminal, not from inside RustRover: RustRover's
+  code analysis running beside the server once locked the whole machine up.
+  When a key does nothing in my terminal, ask me to try it on something
+  plain (`sleep 30`, Ctrl-C) before changing code: a fix once went in for a
   problem the script didn't have.
 - Do not predict or number future sessions ("next session is X, then Y").
   I pick what to open next and I'm free to change my mind.  When I lay
@@ -526,11 +518,6 @@ When I say we're wrapping up:
   the world on disk and makes a new one at the next START SERVER.  The
   code counts in blocks only and never in metres, so a change of size is
   the numbers and what the docs say they mean.
-- **Memory has room; CPU is the tight side** (Jacob, 2026-10-01, after
-  measuring about 800 MB for all of Conductor at `world_size` 32: "I
-  have so much room to work with.  I think I'm really just CPU
-  limited").  When a design trades one for the other, say so, and lean
-  toward spending RAM to save CPU, the same steer as networking's.
   GameWorld's thread does the slow part (making the world, reading
   `region.map`, the heights and chunk files through DiskMan, building a chunk
   nobody changed); the chunks in memory are the GameClock's `Terrain`,
@@ -538,6 +525,11 @@ When I say we're wrapping up:
   there (AIR 0 to BEDROCK 5).  A chunk's own file always wins over its
   region's ground, and a bad file is never built over: it may be the only
   copy of somebody's digging.
+- **Memory has room; CPU is the tight side** (Jacob, 2026-10-01, after
+  measuring about 800 MB for all of Conductor at `world_size` 32: "I
+  have so much room to work with.  I think I'm really just CPU
+  limited").  When a design trades one for the other, say so, and lean
+  toward spending RAM to save CPU, the same steer as networking's.
 - **`REGION_MAP.md` is `region.map`'s contract**, byte for byte, the same way
   PROTOCOL.md is the packets'.  `gameworld/src/regionmap.rs` is written from
   it; a change to the layout bumps the file's version, and the code and the
@@ -591,21 +583,32 @@ When I say we're wrapping up:
   `Assets/Code/Net/Protocol.cs` all change together, and the document gets
   a line saying what the version added.  It's at 10
   (PleaseWait, 2026-10-02).
-- **What a player types is `conductor-player-commands`** (2026-10-02, Jacob: "rip the
-  commands out of networking and put them into their own crate... before we get too
-  deep in commands").  A command is a file of its own in `player-commands/src/` and a
-  line in `COMMANDS` in its `lib.rs` (name, wait, `run()`); the anti-flood is there
-  too.  It leans on networking (the book, the packets, sending) and the GameClock,
-  and **networking never names it**: the launcher calls
-  `conductor_player_commands::wire()` in `start_server()`, which puts the dispatcher
-  in networking's slot (`typed.rs`: `Asker`, `Outcome`, `set_runner()`) and the two
-  senders in the GameClock's, the way networking used to.  No thread, no service,
-  nothing to stop.  Admin commands, when they come, are "a permissions difference but
-  the commands will otherwise be the same" (Jacob).  **A crate that leans on one that
-  calls it gets a slot**: Rust won't build two crates that name each other, so the
-  lower one keeps the types both need and a `set_*()` for a plain function, and the
-  launcher fills it (the GameClock's senders, networking's runner).  Built and tested
-  2026-10-02.
+- **What a player types is `conductor-player-commands`** (protocol version 8;
+  2026-10-02, Jacob: "rip the commands out of networking and put them into
+  their own crate... before we get too deep in commands").  The client sends
+  the line as typed in a PlayerCommand, and the server finds the word after
+  the `/` in `COMMANDS` in the crate's `lib.rs`: a table of name, wait and
+  `run()`, each command a file of its own in `player-commands/src/`, so a new
+  command is a new file and a new line ("make a command interface and then
+  make it so we could easily stuff new commands in").  **The anti-flood is
+  in that one lookup**: after a command the player waits its wait before the
+  next, `DEFAULT_WAIT` 500 ms ("two full game ticks"), longer for one that
+  costs more ("if we make a command that hits the database a bunch maybe
+  that needs longer"; `/who` is 1 second).  Too soon is a CommandRefused and
+  doesn't push the wait back.  A line without a `/` is refused until saying
+  things nearby exists.  Admin commands, when they come, are "a permissions
+  difference but the commands will otherwise be the same".
+- **A crate that leans on one that calls it gets a slot.**  Rust won't build
+  two crates that name each other, so the lower one keeps the types both
+  need and a `set_*()` for a plain function, and the launcher fills it.  The
+  commands crate leans on networking (the book, the packets, sending) and the
+  GameClock, and neither names it back: `conductor_player_commands::wire()`,
+  called from `start_server()` after the GameClock starts, puts the
+  dispatcher in networking's slot (`typed.rs`: `Asker`, `Outcome`,
+  `set_runner()`) and the chat and `/who list` senders in the GameClock's
+  (`set_chat_sender()`, `set_who_sender()`), which its broadcast check calls.
+  The positions will go out the same way.  No thread, no service, nothing to
+  stop.
 - **Character select is Protogame's** (`protogame.rs` in networking, its own
   thread and Services line): "the character selection and character
   construction are proto game then become game objects after load".  The
@@ -636,47 +639,26 @@ When I say we're wrapping up:
   says it's missing and the log says the command.  **A new certificate is
   copied to Soundcheck too** (`Soundcheck/dev/Certs/conductor.crt`, copied
   beside the program at build), or the launcher refuses the server.
-  Ensemble has no copy any more (2026-10-02): it never speaks TLS.  (It
-  had one as `Assets/Data/Certs/conductor_crt.txt`, `.txt` because Unity
-  only takes a text asset from a name it knows.)  **No `.key` file goes in
-  git, anywhere** (the `.gitignore` says `*.key`): on 2026-10-02 the
-  server's key went in under `Data/Certs/` with a `.meta` commit, and a
-  new pair was made.  A reply giving the `git add` says to check `git
-  status` for a `.key`.
-- **TLS 1.3 and 1.2** (2026-10-02): rustls's `tls12` feature is on, since
-  Unity's .NET has no TLS 1.3 (`SslProtocols.Tls13` doesn't exist there).
-  Nothing speaks 1.2 any more now the login is Soundcheck's (its .NET and
-  `test_client.py` both insist on 1.3), so the feature can go (TODO.md).
-- **What a player types is a command** (`conductor-player-commands`,
-  protocol version 8): the client sends the line as typed in a
-  PlayerCommand, and the server finds the word after the `/` in
-  `COMMANDS`, a table of name, wait and `run()`, each command in a file of
-  its own in `player-commands/src/` ("make a command interface and then
-  make it so we could easily stuff new commands in").  A new command is a new file and a new line.  **The
-  anti-flood is in that one lookup**: after a command, the player waits
-  its wait before the next, `DEFAULT_WAIT` 500 ms ("two full game
-  ticks"), longer for a command that costs more ("if we make a command
-  that hits the database a bunch maybe that needs longer"; `/who` is 1
-  second).  Too soon is a CommandRefused and doesn't push the wait back.
-  A line without a `/` is refused until saying things nearby exists.
+  Ensemble has no copy: it never speaks TLS.  **No `.key` file goes in git,
+  anywhere** (the `.gitignore` says `*.key`): the server's key once went in
+  with a `.meta` commit, and a new pair was made.  A reply giving the `git
+  add` says to check `git status` for a `.key`.
+- **TLS 1.3 and 1.2** (2026-10-02): rustls's `tls12` feature is on from when
+  Ensemble logged in itself (Unity's .NET has no TLS 1.3).  Nothing speaks
+  1.2 now the login is Soundcheck's, so the feature can go (TODO.md).
 - **Chat is one fixed channel** ("like the way the old shit muds did
   it"): `/chat` sends `[Chat] Jacob: Yo yo yo!` to everybody in the world,
   the speaker too, plain ASCII, anything past 300 characters dropped.
   **`/who`** sends the names (and, with `/who list`, the blocks) and the
   client draws the box.
-- **What goes out on the GameClock's beat goes through networking's
-  functions**: the GameClock can't depend on networking (networking
-  depends on it, and Rust won't build two crates that need each other),
-  so networking hands it plain functions as it starts
-  (`set_chat_sender()`, `set_who_sender()`), and the broadcast check calls
-  them.  The positions will go out the same way.
 - **An answer too big for one packet goes in Spans** (version 9):
   `udp.rs`'s `send_answer()` splits anything over 1200 bytes into pieces,
   each "X of Y" with the ask number, and the client waits 2 seconds for
   them all.
-- **`test_client.py`** beside the crate is how networking is tested where
-  Ensemble doesn't reach yet (it logs in and lists characters, 2026-10-02).  Python 3, standard library only.  I run it and paste
-  back what it prints, the same as the server.  Once in the world, a line
+- **`test_client.py`** beside the crate stands in for Soundcheck and Ensemble
+  both, the whole way from the login to the chat.  Python 3, standard
+  library only.  I run it and paste back what it prints, the same as the
+  server.  Once in the world, a line
   typed in its terminal and sent with Enter goes out as the chat window
   would send it; `--type` sends lines from the command line,
   `--type-gap` (1.1 s) apart so the anti-flood lets them through.
@@ -742,40 +724,31 @@ When I say we're wrapping up:
   opens Notifications History.  (If I say "the Control Panel" I may mean the
   Server tab; it had that name before the sections.)
 - **The Accounts tab** is the game's accounts, `admin` only (`user` can't see
-  the list).  The list, and a card per account opened by clicking its name:
-  the owner's names and email (SAVE), a new password typed twice (CHANGE
-  PASSWORD; every password is typed twice), and DELETE ACCOUNT, which takes a
-  player in the world out with Kicked, reason 5, and the client says ACCOUNT
-  TERMINATED.  NEW ACCOUNT opens a card for a new one.  The username never
-  changes.  Locked unless the server is running and the database connected.
-- **The Connections tab** is the door and the world, TCP first then UDP:
-  every connection that reached the TCP listener since START SERVER, by
-  address and DNS name, never by account, with where each one is (the queue,
-  TLS, Security's line with its place, finished and how; a login whose player
-  has left the world, or never came, reads LINKDEAD and why) and a three-dot
-  menu for `admin` (KICK, add the address to the whitelist, add it to the
-  blacklist), in two views, Recent (the newest five) and Historical (the
-  whole run); then every player over UDP, by account, with the character
-  they're playing ("character select", greyed, until they pick one), when
-  they connected and how quiet they are.
+  the list), locked unless the server is running and the database connected.
+  Every password is typed twice, the username never changes, and DELETE
+  ACCOUNT takes a player in the world out with Kicked, reason 5 (the client
+  says ACCOUNT TERMINATED).
+- **The Connections tab** is the door and the world: every connection that
+  reached the TCP listener since START SERVER, by address and DNS name, never
+  by account (where each one is, LINKDEAD and why once its player has gone,
+  Recent and Historical views, and a three-dot menu for `admin`: KICK, add to
+  the whitelist, add to the blacklist); then every player over UDP, by
+  account, with the character they're playing.
 - **The Characters tab** (2026-09-30) is every player's character, look
-  only, for `admin` and `user` both: name, UUID, x, y, z (as of its last
-  save) and account.  Asked for when the tab opens and on REFRESH, never
-  once a second.  Editing characters and NPCs from GAME MANAGEMENT is to
-  come (TODO.md).
-- **The Whitelist and Blacklist tabs** are the two access lists: the entries,
-  REMOVE on each, an ADD field.  A change takes at once and writes the file.
-  Which list the door checks is `access_list` in `networking.cfg` (off,
-  whitelist or blacklist), on the Settings tab, and takes on the next START
-  SERVER.  A blacklisting while the blacklist is on is a ban, and so is taking
-  an entry off the whitelist while the whitelist is on: every connection and
-  player the door would now turn away is dropped at once, the player with a
-  Kicked (reason 3, banned).  KICK in a TCP row's three-dot menu kicks an open
-  connection, or the player its login became (reason 4, kicked by the admin),
-  greyed when nothing is left to kick.  Connections, Whitelist and Blacklist
-  are locked until both of networking's listeners are up; the lists can't be
+  only, for `admin` and `user` both, asked for when the tab opens and on
+  REFRESH, never once a second.  Editing characters and NPCs from GAME
+  MANAGEMENT is to come (TODO.md).
+- **The Whitelist and Blacklist tabs** are the two access lists; a change
+  takes at once and writes the file.  Which list the door checks is
+  `access_list` in `networking.cfg`, on the Settings tab, and takes on the
+  next START SERVER.  A blacklisting while the blacklist is on is a ban, and
+  so is taking an entry off the whitelist while the whitelist is on: everyone
+  the door would now turn away is dropped at once, a player with Kicked,
+  reason 3.  KICK in a TCP row's menu kicks an open connection, or the player
+  its login became (reason 4).  Connections, Whitelist and Blacklist are
+  locked until both of networking's listeners are up, so the lists can't be
   changed from the page while the server is stopped (edit the files by hand
-  then).
+  then).  `design/conductor-wgui.md` has every tab in full.
 - The Server tab, the Log and the Settings are always clickable. Until
   the server is running they're the only tabs that are, and the bell is
   hidden. The Server tab is the only place the server is started,
@@ -797,8 +770,7 @@ When I say we're wrapping up:
   `only_admin()` in `lib.rs`, and the page greys its button for `user` in
   `lockChanges()`. `login.rs` holds it.  **No idle timeout, ever**: the login
   is about roles (who may change the server), not security; the page only
-  listens on this machine.  `wgui_port` is moving from
-  `conductor_globals.cfg` into `wgui.cfg` (in TODO.md until it's done).
+  listens on this machine.
 - **The Settings tab is the config editor**, drawn from Constellations'
   table through `/Opus/settings`. A new config file or setting shows up there
   with no page work. A save goes to `.wait4server` and takes at the file's
@@ -876,44 +848,34 @@ When I say we're wrapping up:
   `Assets/` goes past Jacob first, and into the `.gitignore` with its
   `.meta`.
 - Unity makes a `.meta` beside every file and folder.  A session can't run
-  Unity, so a new file's `.meta` comes from Jacob's machine: the reply gives
-  him the `git add` (never skipped: a commit without it commits nothing),
-  `git status --short` to look at before committing, `git commit`,
-  `git pull --no-rebase --no-edit` and
-  `git push origin HEAD:testing HEAD:unstable`, once Unity has compiled
-  (it imports, and makes the `.meta`s, when its window gets focus).  The
-  add is always the two folders, never a list of files:
+  Unity, so a new file's `.meta` comes from Jacob's machine, and the pushed
+  tree doesn't compile until it has.  **Until `git meta` lands, every reply
+  says so again** (three rounds of testing once passed with the old login's
+  files still in the repo and the new `.meta`s not), and the next session's
+  first check is `git ls-files` on `Assets/`.  **The steps go in the order
+  they're run, numbered**: the pull first (the new files have to be on the
+  disk), then Unity's focus (it imports, and makes the `.meta`s, when its
+  window gets focus) and its Console, then **`git meta`** last, Jacob's
+  alias (2026-10-02): the add of the two folders and `Cargo.lock`, `git
+  status --short` (new `.meta`s show with an `A`, so an empty one is
+  noticed), a commit ("Unity .meta files and Cargo.lock"), `git pull
+  --no-rebase --no-edit` and `git push origin HEAD:testing HEAD:unstable`,
+  stopping at the first step that fails.  A reply says `git meta`, for a
+  `.meta` round and a changed lock file alike.  The add is always the two
+  folders, never a list of files (one not there yet fails the whole add)
+  and never `-A` on the whole project (it swept in what Unity makes beside
+  `Assets/`):
   `git add -A /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/Assets /opt/storage/Coding/Opus/Ensemble/dev/Opus.Ensemble/ProjectSettings`.
-  The `.gitignore` keeps out all of `Assets/` but our four folders, so
-  that's exactly ours.  A list of files fails whole when one isn't there
-  yet (2026-10-01), and `-A` on the whole project swept in what Unity
-  makes beside `Assets/` (`UIElementsSchema/`, the `.sln`).  Unity
-  rewrites `ProjectSettings.asset` now and then, and writes it only on
-  File > Save Project or on closing, which is why a setting changed in
-  Player Settings can be missing from a commit.  The `.csproj` and
-  solution files beside `Assets/` are Unity's too, and gitignored
-  (2026-10-02): its rewrite of them on every compile stopped a checkout.
-  **The steps go in the order they're run, numbered**: the pull first,
-  then Unity's focus and its Console, then the `.meta` commit last.  On
-  2026-10-01 the add and the commit were run before the pull, so they
-  had nothing to commit (the new files weren't on the disk yet); the
-  `git status --short` before the commit says what to expect (new
-  `.meta`s with an `A`), so an empty one is noticed.  **Jacob has the
-  round as one word, `git meta`** (2026-10-02, an alias in his
-  `~/.gitconfig`): the add of the two folders and `Cargo.lock`, the
-  status, a commit ("Unity .meta files and Cargo.lock"), the pull and the
-  push to both branches, stopping at the first step that fails.  A reply
-  says `git meta` instead of the five lines, for a `.meta` round and a
-  changed lock file alike.  **A deletion round is Jacob's too** (2026-10-02):
-  the session's harness refuses a `git rm` of many files as destructive, so
-  the files that go are one `git rm -r -q` line with absolute paths and
-  globs (`.../Widgets/Login*` takes the `.meta`s with them), run by Jacob
-  right after the pull and before Unity gets focus, and `git meta` commits
-  the deletions with the `.meta`s.  The pushed tree doesn't compile until
-  he's run it, and the reply says so.  **Until `git meta` lands, every
-  reply says so again**: on 2026-10-02 three rounds of testing passed with
-  the old login's files still in the repo and the new `.meta`s not, and the
-  next session's first check is `git ls-files` on `Assets/`.
+  The `.gitignore` keeps out all of `Assets/` but our four folders, and
+  Unity's `.csproj` and solution files (its rewrite of them on every
+  compile stopped a checkout), so that's exactly ours.  Unity writes
+  `ProjectSettings.asset` only on File > Save Project or on closing, which
+  is why a setting changed in Player Settings can be missing from a commit.
+  **A deletion round is Jacob's too**: the session's harness refuses a `git
+  rm` of many files as destructive, so the files that go are one `git rm -r
+  -q` line with absolute paths and globs (`.../Widgets/Login*` takes the
+  `.meta`s with them), run right after the pull and before Unity gets focus,
+  and `git meta` commits the deletions with the `.meta`s.
 - **Ensemble never logs in and never sees a password** (2026-10-02, the
   login moved to Soundcheck; it was Ensemble's from 2026-10-01).  The
   password's key, Remember Me and the server's certificate are
@@ -956,10 +918,9 @@ When I say we're wrapping up:
   through its events.  The keep-alives are sent from a thread, not
   `Update()`, so they go on with the window in the background.
 - **A slot filled in the Inspector lives in the scene**, which isn't
-  committed: the reply that asks for one says File > Save after.  On
-  2026-10-02 the Server Certificate slot was found empty after a check had
-  edited the certificate's file, and a stray `.meta` for an editor's
-  backup of it was left in `Data/Certs/`.
+  committed: the reply that asks for one says File > Save after.  (A slot
+  was once found empty after a check had edited its file, with a stray
+  `.meta` for an editor's backup left beside it.)
 - **A purchased font is a slot too** (2026-10-02): Jacob's Font Nation
   pack lives in `Assets/Purchased/`, out of git, so a font from it reaches
   the code through a slot on ScreenRoot (Chat Font is Retro), never a copy
@@ -1027,7 +988,6 @@ When I say we're wrapping up:
   Toolkit > UI Document) and the component on a GameObject.  We use only the
   component, with no Source Asset.  A reply that sends Jacob into the editor
   says which window (Hierarchy, Project, Inspector) and which of the two.
-- [More conventions as Ensemble grows]
 
 ## Launcher rules (Soundcheck)
 
@@ -1041,9 +1001,9 @@ When I say we're wrapping up:
   other-session choice, the Ticket.  Ensemble starts on character select
   with the ticket from its environment and never speaks TCP (its half,
   2026-10-02: "Client rules" has the four variables).  **PLAY is a second
-  login** (written 2026-10-02): SUBMIT's Ticket turns PLAY on and is
-  dropped unlogged (the manifest check goes in between one day); PLAY
-  finds the game, logs in again with the key in memory, and its Ticket
+  login** (built and tested 2026-10-02): SUBMIT's Ticket turns PLAY on and
+  is dropped unlogged; PLAY finds the game, logs in again with the key in
+  memory, and its Ticket
   starts the game with the four variables in its environment
   (`GameLauncher.cs`), then the window closes and Soundcheck ends.  In
   `--debug` SUBMIT's ticket also goes to the file the editor's game
