@@ -73,7 +73,12 @@ Put to him at the start of building, the four questions the hand-off left open.
 - **The simple overworld map is dropped**: "we are dropping it... we don't need it anymore."  The offer at
   PLAY, the pieces, the red map bar, `map_cooldown_seconds`, `overworld.rs` on both sides and
   SIMPLE_OVERWORLD_MAP.md all go, and PlayerReady stops carrying the map's hash: a protocol bump, all four
-  programs, a step of its own.
+  programs, a step of its own.  **Its shape** (Jacob's OK, session 12): PLAY's answer keeps only where the
+  character will stand and how far it sees, as **GroundOffer** (`0x40`, "your pick here"); the two map
+  packets (`0x41`, `0x42`) are retired; PlayerReady carries its ask number only; protocol version 17.
+  **`map_cooldown_seconds` goes with it** ("yes because its no longer a risk"): it was there so PLAY
+  couldn't be spammed for 16 MB at a time.  **The leftover map files are deleted by hand** ("delete by
+  hand you give me a copy paste line"), the server's and the player's, not by code.
 - **A density is one byte, 0 empty to 255 full, and 128 and over is solid** ("your proposal seems fine").
   **Every voxel holds one, air included**: the surface sits between a solid voxel and the air beside it,
   and the air's density is what says where.  (The summary's "a structure voxel has none" is taken as:
