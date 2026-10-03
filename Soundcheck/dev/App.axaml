@@ -87,6 +87,8 @@ behind, boxes in a dark grey, the blue buttons, the red status box.
     <Style Selector="Border.status TextBlock">
       <Setter Property="Foreground" Value="White" />
       <Setter Property="TextWrapping" Value="Wrap" />
+      <!-- 20 a line, so the screens' 80-high boxes hold four. -->
+      <Setter Property="LineHeight" Value="20" />
     </Style>
 
     <Style Selector="ProgressBar">

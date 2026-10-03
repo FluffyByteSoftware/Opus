@@ -37,14 +37,21 @@ have passed the check, and starts the game.
     <Button x:Name="SubmitButton" Classes="primary" Content="SUBMIT" HorizontalAlignment="Stretch"
             Margin="0,12,0,0" Click="SubmitClicked" />
 
-    <Border x:Name="StatusBox" Classes="status" Margin="0,12,0,0" IsVisible="False">
-      <TextBlock x:Name="StatusLine" />
+    <!-- Four lines high whatever it says, and a longer message scrolls,
+         so the window never has to grow for it. -->
+    <Border x:Name="StatusBox" Classes="status" Margin="0,12,0,0"
+            Opacity="0" IsHitTestVisible="False" IsEnabled="False">
+      <ScrollViewer Height="80" VerticalScrollBarVisibility="Auto">
+        <TextBlock x:Name="StatusLine" />
+      </ScrollViewer>
     </Border>
 
     <!-- Follows the file check after SUBMIT's login. -->
-    <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Height="6" Margin="0,8,0,0" IsVisible="False" />
+    <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Height="6" Margin="0,8,0,0"
+                 Opacity="0" IsHitTestVisible="False" IsEnabled="False" />
 
-    <Grid x:Name="ChoiceRow" ColumnDefinitions="*,8,*" Margin="0,8,0,0" IsVisible="False">
+    <Grid x:Name="ChoiceRow" ColumnDefinitions="*,8,*" Margin="0,8,0,0"
+          Opacity="0" IsHitTestVisible="False" IsEnabled="False">
       <Button Grid.Column="0" Classes="primary" Content="LOG THE OTHER OUT" HorizontalAlignment="Stretch"
               Click="LogOtherOutClicked" />
       <Button Grid.Column="2" Classes="primary" Content="LOG OFF" HorizontalAlignment="Stretch"

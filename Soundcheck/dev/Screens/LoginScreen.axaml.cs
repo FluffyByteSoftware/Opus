@@ -391,7 +391,7 @@ namespace Opus.Soundcheck.Screens
                     ShowStatus("Updating the game: " + paths.Count + (paths.Count == 1 ? " file, " : " files, ")
                                + Megabytes(bytes) + " MB to fetch...", false);
                     Progress.Value = 0;
-                    Progress.IsVisible = true;
+                    Reserved.Show(Progress, true);
                     int fetching = ++phase;
                     PatchResult patch = await Patcher.MendAsync(install, here, www, stamp, paths,
                         (done, total, path, bytes, size) => ReportFetch(fetching, done, total, path, bytes, size),
@@ -451,7 +451,7 @@ namespace Opus.Soundcheck.Screens
                 phase++;
                 checking = false;
                 checkCancel = null;
-                Progress.IsVisible = false;
+                Reserved.Show(Progress, false);
             }
         }
 
@@ -461,7 +461,7 @@ namespace Opus.Soundcheck.Screens
         {
             ShowStatus("Checking the game's files in " + install + "...", false);
             Progress.Value = 0;
-            Progress.IsVisible = true;
+            Reserved.Show(Progress, true);
             int hashing = ++phase;
             ManifestCheck result = await Task.Run(
                 () => ManifestCheck.Run(install, stamp,
@@ -620,7 +620,7 @@ namespace Opus.Soundcheck.Screens
 
         void ShowChoice(bool shown)
         {
-            ChoiceRow.IsVisible = shown;
+            Reserved.Show(ChoiceRow, shown);
         }
 
         void Countdown(object sender, EventArgs e)
@@ -647,7 +647,7 @@ namespace Opus.Soundcheck.Screens
         void ShowStatus(string words, bool trouble)
         {
             StatusLine.Text = words ?? "";
-            StatusBox.IsVisible = StatusLine.Text != "";
+            Reserved.Show(StatusBox, StatusLine.Text != "");
             if (trouble)
                 StatusBox.Classes.Add("trouble");
             else

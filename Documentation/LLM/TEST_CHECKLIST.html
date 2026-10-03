@@ -248,6 +248,37 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>Soundcheck's window fits itself (2026-10-03, session 1)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Soundcheck builds clean, and opens in the middle of the screen fitted round the login with room at
+      every edge: a little more than the 24 it had, the same on the left and right.
+    </span></label>
+    <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The window never changes size: the check's progress bar, the status box (four lines high, a longer
+      message scrolls inside it) and a login whose words run long all fit, and PLAY stays where it was.  A
+      blank gap sits where the status box and the bar will be until they show.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A login as an account already playing elsewhere: LOG THE OTHER OUT and LOG OFF show in their place,
+      and before that they can't be clicked or tabbed to where they're hidden.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Admin mode fits itself the same way, and a long build folder's line stops at two lines with "...".
+    </span></label>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --admin</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

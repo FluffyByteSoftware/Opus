@@ -194,6 +194,24 @@ other-session choice against the test client, admin mode's manifest, debug mode'
   Soundcheck ends the process itself and skips Avalonia's tidy-up.  A launcher that has just started the game
   has nothing left to tidy.
 
+## The window's size (2026-10-03, session 1, written, not built yet)
+
+Jacob: "is there any way to rely on avalonia to make the window the right size?  Like scaled?", then
+"padding on the edges thats equivalent to 5% of the total size of the window (so there's plenty of space
+between the text and the edge of the window)", and "if the window is 1000 pixels wide by the time its
+'scaled' to fit its content we want to add 5% of the 1000 as padding".  It was a fixed 840 by 1040.
+
+- **Avalonia fits it**: `SizeToContent="WidthAndHeight"`, at the screen's own scaling, which Avalonia
+  already does for every size it's given.  Then `MainWindow`'s `FitOnce()`, when the window opens, adds 5 %
+  of the fitted width and height, half on each edge, on top of the 24 round the edge it had, and fixes the
+  size there.  Admin mode the same (his "yes").
+- **It stays that size** ("Stay the same fixed size"), so nothing on a screen may change its height: what
+  comes and goes (the status box, the progress bar, the two buttons for an account playing elsewhere) keeps
+  its room while hidden (`Screens/Reserved.cs`: see-through, not clickable, not tabbable), and **the status
+  box is four lines high**, scrolling past that ("Status should hold 4").  Admin mode's line under the web
+  folder is two lines at most.  The other shapes were fitting the width only, and growing but never
+  shrinking.
+
 ## The flow, user mode
 
 1. The player opens Soundcheck.  The boxes are locked while the check runs (`Patch/ManifestCheck.cs`,

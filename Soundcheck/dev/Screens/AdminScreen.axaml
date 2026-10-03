@@ -36,15 +36,23 @@ version it is, the web folder, PUBLISH, and how it went.
       <Button Grid.Column="2" x:Name="BrowseWebFolderButton" Classes="primary" Content="BROWSE"
               Click="BrowseWebFolderClicked" />
     </Grid>
-    <TextBlock Classes="small" x:Name="WhereLine" Margin="0,4,0,0" TextWrapping="Wrap" />
+    <!-- Two lines at most, so a long path can't make the screen taller. -->
+    <TextBlock Classes="small" x:Name="WhereLine" Margin="0,4,0,0" TextWrapping="Wrap" LineHeight="16"
+               Height="32" MaxLines="2" TextTrimming="CharacterEllipsis" />
 
     <Button x:Name="PublishButton" Classes="primary" Content="PUBLISH" HorizontalAlignment="Stretch"
             Margin="0,16,0,0" Click="PublishClicked" />
 
-    <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Height="6" Margin="0,12,0,0" IsVisible="False" />
+    <ProgressBar x:Name="Progress" Minimum="0" Maximum="1" Height="6" Margin="0,12,0,0"
+                 Opacity="0" IsHitTestVisible="False" IsEnabled="False" />
 
-    <Border x:Name="StatusBox" Classes="status" Margin="0,12,0,0" IsVisible="False">
-      <TextBlock x:Name="StatusLine" />
+    <!-- Four lines high whatever it says, and a longer message scrolls,
+         so the window never has to grow for it. -->
+    <Border x:Name="StatusBox" Classes="status" Margin="0,12,0,0"
+            Opacity="0" IsHitTestVisible="False" IsEnabled="False">
+      <ScrollViewer Height="80" VerticalScrollBarVisibility="Auto">
+        <TextBlock x:Name="StatusLine" />
+      </ScrollViewer>
     </Border>
 
   </StackPanel>

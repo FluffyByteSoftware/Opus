@@ -4,17 +4,19 @@ Component:  Soundcheck
 Author:     Jacob Chacko
 
 The one window: the game's name across the top, the version in the corner,
-and whichever screen is showing under it (the login, or admin mode).
+and whichever screen is showing under it (the login, or admin mode).  It
+fits itself to what's in it when it opens, 5 % bigger, and stays that size
+(MainWindow.axaml.cs).
 -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="Opus.Soundcheck.MainWindow"
         Title="Forgotten Legends"
-        Width="840" Height="1040"
+        SizeToContent="WidthAndHeight"
         CanResize="False"
         WindowStartupLocation="CenterScreen">
 
-  <Grid RowDefinitions="Auto,*,Auto" Margin="24">
+  <Grid x:Name="Frame" RowDefinitions="Auto,*,Auto" Margin="24">
     <TextBlock Grid.Row="0" Classes="title" Text="FORGOTTEN LEGENDS" Margin="0,8,0,16" />
 
     <ContentControl Grid.Row="1" x:Name="ScreenHost" />

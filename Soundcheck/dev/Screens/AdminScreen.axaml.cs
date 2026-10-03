@@ -183,7 +183,7 @@ namespace Opus.Soundcheck.Screens
             publishing = true;
             SetEnabled(false);
             Progress.Value = 0;
-            Progress.IsVisible = true;
+            Reserved.Show(Progress, true);
             ShowStatus("Copying " + folder + " to " + mirror + "...", false);
             Log.Say("Admin: publishing the " + platform + " build at " + folder + " (version " + version + ") into "
                     + www + ".");
@@ -219,7 +219,7 @@ namespace Opus.Soundcheck.Screens
             {
                 Log.Error("Admin: the publish failed (" + ex.Message + ").");
                 ShowStatus("Couldn't publish: " + ex.Message, true);
-                Progress.IsVisible = false;
+                Reserved.Show(Progress, false);
             }
             finally
             {
@@ -269,7 +269,7 @@ namespace Opus.Soundcheck.Screens
         void ShowStatus(string words, bool trouble)
         {
             StatusLine.Text = words ?? "";
-            StatusBox.IsVisible = StatusLine.Text != "";
+            Reserved.Show(StatusBox, StatusLine.Text != "");
             if (trouble)
                 StatusBox.Classes.Add("trouble");
             else
