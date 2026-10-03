@@ -175,7 +175,8 @@ out there.
   it might need to be 8").  With the world eleven chunks tall, that's a 9 by 9 square, every row, 891 chunks
   a player, about 57 MB (it was 162).  An all-air chunk is still kept whole; most of those 891 are air.
   **The 4 is `view_chunks` in `game.cfg`** (1 to 16), so trying another is the Settings tab and a STOP
-  SERVER and START SERVER.
+  SERVER and START SERVER.  **Jacob runs 8** ("keeping as 8", 2026-10-03, session 3): a 17 by 17 square,
+  3,179 chunks, 256 to 287 blocks ahead; the code's default stays 4.
 
 ### Regions
 

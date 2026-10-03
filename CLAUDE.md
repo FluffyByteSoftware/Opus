@@ -181,6 +181,14 @@ every folder and file.
   list so nothing is re-investigated, and a line on each finding saying when
   it was fixed (`CODE_REVIEW_0.0.1.md` is the shape; one of its claims was
   wrong and the build caught it).  I pick what's fixed and when.
+- **A setting's value is read from the committed file in `Content/cfg/`**,
+  not only from the table's default, before a plan or a reply quotes it
+  (session 3 said `view_chunks` was 4; Jacob's `game.cfg` had 8).
+- **A packet plan is walked step by step from the client's side**: at each
+  step, what does the client know, and is it enough to send the next
+  packet?  (Session 3's pull plan had the client asking for chunks around
+  a position it wasn't told until after PlayerReady; the offer grew where
+  and how far, found only while writing.)
 - **A guess at a cause is written as a guess** until the build says so; a
   comment that guessed wrong gets corrected.  A library's tracker and source
   (raw.githubusercontent.com reaches the session) are read before a third

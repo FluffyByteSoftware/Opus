@@ -285,7 +285,10 @@ Windows.  What's left, a step each:
   change, so two versions' pieces never mix; forgetting squeezed chunks nobody's near once players move;
   the GameClock loading around a player who isn't at 0,0,0; zipping, if busier ground ever calls for it
   (it has nothing to win today); a faked player's address getting that player flooded with chunks or the map's pieces
-  (`design/conductor-networking.md`, "What's open").
+  (`design/conductor-networking.md`, "What's open").  `view_chunks`: Jacob keeps 8 in his `game.cfg`
+  ("keeping as 8"); the default stays 4.  At the hand-off: "prepare next conversation for wiring up
+  ensemble to receive the streams and the map and the hardest part - rendering it" (STATUS.md has what's
+  to settle).
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships

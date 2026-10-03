@@ -174,7 +174,7 @@ The server's side is PROTOCOL.md's "In the world"; the chat window is `design/en
 - **`Session.ReachedWorld`**: PLAY's answer, which ScreenRoot turns into the HUD (since version 11,
   PlayerReady's).
 
-## The map at PLAY (2026-10-03, session 2, written, not built by Jacob yet)
+## The map at PLAY (2026-10-03, session 2, built and tested)
 
 Protocol version 11, PROTOCOL.md's "The map at PLAY".  Jacob: "A packets first in the server and then we'll in
 this conversation also integrate Ensemble with receipt of those packets"; a fresh download every PLAY ("we're
@@ -198,3 +198,13 @@ the launcher with the message.
   back to the launcher with "Couldn't get the world's map. Delete <the file> (or reinstall the game) and try
   again."  The why is in the log.
 - **The loading bar** is `design/ensemble-hud.md`'s.
+
+## The chunks around the player (2026-10-03, session 3: only the version)
+
+Protocol version 12, PROTOCOL.md's "The chunks around the player"; Conductor's half is built and tested
+(`design/world.md`, "The chunks streamed").  Ensemble's only change so far: `Protocol.Version` is 12, the
+three chunk packets have names in `Protocol.cs`, and `GameConnection` reads the OverworldMapOffer's new end
+(`f32 x, y, z`, where the character will stand, and `u8` view, how many chunks each way it sees) and skips
+it, just after the hash.  Asking for the chunks, holding them and drawing them are Ensemble's own sessions
+(Jacob: "to bring it in line with these server changes"); STATUS.md lists what's to settle first.  The test
+client's `fetch_chunks()` is a working pull to copy.
