@@ -7,7 +7,8 @@ Author:     Jacob Chacko
 # Smooth voxels
 
 **Stage 1 is settled** (the discussion chat's summary, brought back by Jacob in session 11, 2026-10-03,
-below under "Stage 1, as settled").  **Nothing is built.**  Jacob: "Prepare a hand off to a new conversation
+below under "Stage 1, as settled"; the mesher, the map, the density and the kinds in session 12).
+**Nothing is built.**  Jacob: "Prepare a hand off to a new conversation
 with yourself that we will begin implementation of this system."  The brief the discussion chat was given
 is kept after it, as it was, so what it knew is on record.
 
@@ -63,23 +64,38 @@ is kept after it, as it was, so what it knew is on record.
 - **No distance drawn**: "its a fixed camera so not far 8 chunks is probably far enough and the skybox will
   take care of the rest of that."  Nothing past the chunks in view: no far mesh, no levels of detail.
 
+### Settled in session 12 (Jacob, 2026-10-03)
+
+Put to him at the start of building, the four questions the hand-off left open.
+
+- **Surface nets** for the smooth mesher, not marching cubes.  Ensemble's only: the server reads the
+  density itself.
+- **The simple overworld map is dropped**: "we are dropping it... we don't need it anymore."  The offer at
+  PLAY, the pieces, the red map bar, `map_cooldown_seconds`, `overworld.rs` on both sides and
+  SIMPLE_OVERWORLD_MAP.md all go, and PlayerReady stops carrying the map's hash: a protocol bump, all four
+  programs, a step of its own.
+- **A density is one byte, 0 empty to 255 full, and 128 and over is solid** ("your proposal seems fine").
+  **Every voxel holds one, air included**: the surface sits between a solid voxel and the air beside it,
+  and the air's density is what says where.  (The summary's "a structure voxel has none" is taken as:
+  it's always full, and nothing reads it.)  **A voxel's kind is AIR exactly when its density is under
+  128**, so everything that asks "is this solid?" of a kind today (movement, spawn points, the cube
+  mesher) stays right.
+- **The kinds**: **DIRT and STONE are terrain** (smooth).  **WOOD is structure** (cubes; "i'll make it look
+  like planks").  **GOLD is dropped**: the origin is no longer marked, and its number, 4, is never used
+  again.  **MASONED_STONE is new**, number 6.  **AIR is neither** ("AIR: NOTHING").
+
 ### Leaning
 
-- **Surface nets over marching cubes**: simpler, fewer triangles, no lookup table.  Both read the same
-  data, so one can be swapped for the other.
-- **Dropping the simple overworld map** sent at PLAY: with no distance drawn, its one use left would be
-  skipping all-air chunks, and an all-air chunk squeezes to a few bytes already.  Not ruled on.
 - **Sending the edit for damage**, later, with "send the chunk again if in doubt" behind it.
 
 ### Open
 
-- Marching cubes or surface nets.
-- The simple overworld map: dropped, or kept for skipping the sky.
 - **The `.fbm` format**: as plain as can be (its size, the voxel kinds, a ground-level mark, maybe spawn
   points), read by Rust and by C#.  A contract of its own when it comes.
 - **Block shapes for structures** (ramps, half blocks, arches, 7DTD's): not for stage 1.
-- **How a density is held**: a byte a terrain voxel is the natural guess; a chunk goes from 64 KB to 96 KB
-  before squeezing.  A guess until measured.
+- **How a density is held**: a byte a voxel (settled in session 12, above); a chunk goes from 64 KB to
+  96 KB before squeezing.  What it costs squeezed is a guess until measured.
+- **BEDROCK and MASONED_STONE**: terrain or structure (put to Jacob in session 12).
 - **The generator's 3D rule** for caves, overhangs, the catacombs' hollows and their one way in; how a
   building flattens or fills the ground under it (7DTD's ground-level mark).
 - Whether a blast changes the kind at its rim too (scorched dirt).
