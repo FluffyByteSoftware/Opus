@@ -171,8 +171,8 @@ that's for next iteration"**.  The model draw is still waiting.  His to change.
 
 Session 11 (2026-10-03) opened on (b), planned it, then turned to the world asleep and awake
 (LONGTERM_TODO.md) and from there: **"we are not going to implement movement yet that will be next session.
-instead we are going to redesign our voxel world."**  (b)'s plan and its four questions are in the session's
-chat, unanswered.  His to change.
+instead we are going to redesign our voxel world."**  (b)'s plan and its four questions are written down at
+the end of `design/ensemble-world.md`, unanswered.  His to change.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 

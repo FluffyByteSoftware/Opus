@@ -392,3 +392,22 @@ What (b) leaves to work out, before building:
   move for a number it doesn't know is what the roll call already mends.
 - **The cost**: one send per watcher per move, on the UDP thread, at up to ten moves a second a player while
   turning.  A guess until measured.
+
+**(b), planned in session 11 (2026-10-03), not OKed or built** (Jacob turned the session to the voxel world;
+movement is next session's):
+- **Who sees whom**: networking notes, from the news it already sends (each Hydrate, ObjectsGone and roll
+  call), which objects each player's client has; a move goes at once, as an ObjectsMoved of one, to every
+  player whose client has the mover's character.  `InWorld` carries the character's object number.
+- **What networking passes on**: only a move with real numbers, a higher number than the last passed on, and
+  the last MoveCorrection networking sent; the velocity held to walking with the GameClock's own clamp.
+  Where it stands isn't judged first (EQ's way: a warp shows on other screens for up to a cycle).
+- **Never told twice**: a repeat a cycle later would snap a watcher's copy back about a block every move.
+  The view's "last" becomes what the watchers were last told, set from each move passed on; a taken move
+  changes nothing more, a pull-back or a stopped walker differs and goes out in that cycle's broadcast.
+- **The cost**: one send per watcher per move on the UDP thread, a guess until a timing test
+  (`relay_to_five_hundred`) measures it; 500 in sight of each other all walking may be more than the one
+  thread can send.  Gathering moves for 50 ms is the fallback.
+- **Put to him, unanswered**: whether the version stays 15 (no bytes change, only when an ObjectsMoved can
+  come); whether a roll call and a Hydrate carry a walker along its velocity since its last move (without it
+  a watcher sees a walker snap back up to 2 blocks once a second, round one too); OK to go by "whose client
+  has it"; whether the broadcast's 100 ms is soon enough for a pull-back to reach the watchers.
