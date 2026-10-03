@@ -301,7 +301,11 @@ Windows.  What's left, a step each:
   highest voxel."  So a spawn point is a column (0, 0 today, more later), and the character stands on the
   highest block in it that isn't AIR, worked out from the ground as it is.  Open: when (new characters and
   RESET HOME only, or every PLAY), where it's worked out (the GameClock holds the chunks), and whether the
-  character stands in the middle of the block (0.5, 0.5) or on its corner.
+  character stands in the middle of the block (0.5, 0.5) or on its corner.  **His answers**: only **new
+  characters and RESET HOME**; **the middle of the block**; and on where it's worked out, "Is this good
+  though when they're not spawning at 0,0,0?  When we get to where the map is generating we're gonna fill
+  it with spawn points so we want to be ready for that", so **GameWorld** works it out (any column in the
+  world, its files or its region's ground), not the GameClock (only what's loaded).  Plan OKed ("Yes").
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
