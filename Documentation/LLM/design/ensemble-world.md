@@ -311,3 +311,39 @@ characters block each other on the server; the character's capsule's size.
 - **The capsule**: "no, our current shape", 1 block wide and 2 tall.  (Put to him: Minecraft's 0.6 by
   1.8, since 1 wide fills a one-block doorway and 2 tall only just fits a two-block gap.)
 - **The plan for round one**: "Let me know if you need more help".
+
+### The input check, answered (session 10)
+
+Jacob asked what professional games do for input, "maybe every second 50 ms check?".  Put to him: shooters
+run their whole simulation 64 or 128 times a second, and MMOs a lot slower, with what others see of a player
+sent a handful of times a second and smoothed between (a guess from what's generally known, not measured or
+looked up); and here the player walking sees their own move at once on their own screen, so the check only
+decides how soon everybody else hears of it.  Taking moves in every 50 ms only helps if they also go out
+every 50 ms, five times the packets.  So **once a cycle**, in the input check, as built; one line to change
+if he says otherwise.
+
+### As written, round one: Conductor and the test client (session 10; not yet built)
+
+Protocol version 15.  PROTOCOL.md ("Movement") has the packets; `design/gameclock.md` ("Movement") the
+judging and the ground following the players; `design/conductor-networking.md` ("Movement") networking's
+half; `design/primlib.md` the `Collider` and the `Transform`'s velocity.  In short:
+
+- **PlayerMoved** (client to server): the move's number, the last pull-back had, position, rotation and
+  velocity.  **MoveCorrection** (server to client): the pull-back's number, position and rotation.
+- **The check**, against the time since the last good spot: 4 blocks a second along the ground, a block of
+  slack silent, up to 16 more taken with a Warn, past that pulled back with a Warn; a turn more than 90
+  degrees past `player.cfg`'s 450 a second pulled back with a Warn; inside a block, on ground the server
+  hasn't got, into a character standing still, or hanging in the air, pulled back quietly.
+- **The player's own character** isn't in their ObjectsMoved; only a MoveCorrection moves it.
+- **The collider** goes in the Hydrate; the Character's is a capsule 0.5 round and 2 tall.
+- **CharacterEnteredWorld** ends with the walk (4) and the turn (450).
+- **The server's ground follows the players**, 2 chunks each way of each; the chunks a player may ask for
+  follow their character, one more each way than the view.
+- **Ensemble and Soundcheck** read version 15 (the Hydrate's collider and the walk and turn are read and
+  kept; nothing walks yet), so the game goes on working against the new server until round two.
+- **The test client**: `--walk SECONDS` walks west over Alpha's flat ground, a move when it sets off, every
+  half second and when it stops; `--jump BLOCKS` and `--spin` are pulled back on purpose.
+
+Round two is Ensemble: the player anchor and its controller (Zomboid's turning, a CharacterController, 4
+blocks a second, falling), the chunks' mesh colliders, capsules from the Hydrate, sending moves and taking
+pull-backs, everybody else gliding.  Round three is Ensemble pulling the ground as it walks.

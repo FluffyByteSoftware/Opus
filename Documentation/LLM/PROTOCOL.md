@@ -13,8 +13,13 @@ launcher (`Soundcheck/dev/Net/`), speaks the login over TCP, and Ensemble (`Asse
 UDP, from the Connect the launcher's ticket earns it (2026-10-02); when any of them disagrees with this
 document, it is the code that gets fixed.
 
-Protocol version **14**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 14 (2026-10-03)
+Protocol version **15**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 15 (2026-10-03)
+added movement, EverQuest's way: the client walks its own character and says where it went with a
+**PlayerMoved** (`0x55`), and the server takes each move or pulls the character back to its last good spot
+with a **MoveCorrection** (`0x56`) (below, "Movement").  CharacterEnteredWorld now ends with how fast a
+character walks and turns, the Hydrate carries the room an object takes up (its collider) after its shape,
+and a player is no longer sent their own character's moves.  Version 14 (2026-10-03)
 added the world's objects, the group `0x5_`: what a player sees of the world around them, the server
 deciding where everything is and the client only drawing it.  Hydrate (`0x50`) sends an object whole as it
 comes into view, ObjectsMoved (`0x51`) where known ones are now, ObjectsGone (`0x52`) the ones that left, and
@@ -114,7 +119,8 @@ The largest UDP packet the server takes is 1200 bytes.  A larger one is dropped 
 The high four bits are the group, the low four which one in it.  `0x1_` is the login, over TCP.  `0x2_` is
 character select, between the login and the world, over UDP.  `0x3_` is the game, over UDP.  `0x4_` is the
 ground, over UDP: the simple overworld map at PLAY, and the chunks around the player.  `0x5_` is the world's
-objects, over UDP: what the player sees standing in the world around them.
+objects, over UDP: what the player sees standing in the world around them, and since version 15 the player
+walking their own.
 
 | Type   | Name           | Way              | Payload                                                  |
 |--------|----------------|------------------|----------------------------------------------------------|
@@ -132,7 +138,7 @@ objects, over UDP: what the player sees standing in the world around them.
 | `0x25` | CharacterDeleteResult | server to client | u32 ask, u8 answer, string message              |
 | `0x26` | CharacterRequestResetHome | client to server | u32 ask, string uuid                          |
 | `0x27` | UserPressPlay  | client to server | u32 ask, string uuid                                     |
-| `0x28` | CharacterEnteredWorld | server to client | u32 ask, string uuid, string name, f32 x, y, z, u32 object |
+| `0x28` | CharacterEnteredWorld | server to client | u32 ask, string uuid, string name, f32 x, y, z, u32 object, f32 walk, f32 turn |
 | `0x29` | PlayerReady    | client to server | u32 ask, string the map's SHA-256 as the client has it   |
 | `0x30` | Connect        | client to server | string token                                             |
 | `0x31` | ConnectResult  | server to client | u8 answer, string message                                |
@@ -152,11 +158,13 @@ objects, over UDP: what the player sees standing in the world around them.
 | `0x43` | ChunkRequest   | client to server | u8 how many (1 to 64), then each: i16 x, i16 z, u8 row   |
 | `0x44` | ChunkPiece     | server to client | i16 x, i16 z, u8 row, u8 piece, u8 pieces, then the piece's bytes |
 | `0x45` | ChunkRefused   | server to client | i16 x, i16 z, u8 row, u8 why                             |
-| `0x50` | Hydrate        | server to client | u32 object, string uuid, u8 living, string short name, 9 f32 motion, 3 f32 scale, string model, u8 shape, string doing |
+| `0x50` | Hydrate        | server to client | u32 object, string uuid, u8 living, string short name, 9 f32 motion, 3 f32 scale, string model, u8 shape, u8 collider, 3 f32 collider size, string doing |
 | `0x51` | ObjectsMoved   | server to client | u8 count, then each: u32 object, 9 f32 motion            |
 | `0x52` | ObjectsGone    | server to client | u16 count, then each: u32 object                         |
 | `0x53` | RollCall       | server to client | u32 roll, u8 piece, u8 pieces, u8 count, then each: u32 object, 9 f32 motion |
 | `0x54` | ObjectAsk      | client to server | u8 how many (1 to 64), then each: u32 object             |
+| `0x55` | PlayerMoved    | client to server | u32 move, u32 last pull-back had, 9 f32 motion (no object number) |
+| `0x56` | MoveCorrection | server to client | u32 pull-back, f32 x, y, z, f32 rotation x, y, z         |
 
 ## The login, over TCP
 
@@ -420,6 +428,8 @@ Then, for Jacob standing at 1.5, 0, -2:
 00 00 00 00                                   y 0
 00 00 00 C0                                   z -2
 07 00 00 00                                   object 7: Jacob, among the world's objects
+00 00 80 40                                   walks 4 blocks a second
+00 00 E1 43                                   turns 450 degrees a second
 ```
 
 ## The chunks around the player
@@ -548,7 +558,10 @@ static ushort[] Unsqueeze(byte[] bytes)
 ## In the world, over UDP
 
 Once a CharacterEnteredWorld has come, the player is in the world.  For now what they can do there is chat,
-and see who's around them (below, "The world's objects").
+see who's around them (below, "The world's objects") and walk (below, "Movement").  The CharacterEnteredWorld
+ends with two f32s (version 15): how fast the character **walks**, in blocks a second (4), and how fast it
+**turns**, in degrees a second (`turn_degrees_per_second` in the server's `player.cfg`, 450 by default).
+They're the server's numbers, and the moves the client sends are held to them.
 
 **PlayerCommand** carries a line the player typed in the client's chat window, as it was typed, with an ask
 number like character select's: the same number again gets the same answer again, so a line whose answer
@@ -673,8 +686,9 @@ its uuid.  0 is never a number.
 **A motion** is 40 bytes: the object's number, then nine f32s, its **position** (x, y and z in blocks, y up;
 a character's is its feet), its **rotation** (degrees about x, y and z, the way Unity has them) and its
 **velocity** (blocks a second along x, y and z).  The client moves the object along its velocity every
-frame until it's told otherwise, so the server only speaks when something changes.  Nothing moves yet: every
-velocity is 0 for now.
+frame until it's told otherwise, so the server only speaks when something changes.  The player's own
+character is the one exception (version 15): the client walks it itself, and takes its place from a
+MoveCorrection only, never from an ObjectsMoved or the roll call (below, "Movement").
 
 **Only what changed is sent**, once a game cycle (250 ms), from the GameClock's broadcast:
 
@@ -683,10 +697,15 @@ velocity is 0 for now.
   Actor, with its **short name** over its head, a string, empty for none); its motion's nine f32s; its
   **scale** (three f32s, 1, 1, 1 as the model was made); its **model**'s uuid (a string, empty for none:
   no object has one yet); the **shape** to draw without a model (u8: 0 cube, 1 sphere, 2 capsule, 3
-  cylinder, 4 plane, 5 quad; a character is a capsule); and what it's **doing** (a string, the model's
-  animation, "idle", empty for nothing).  One object to a packet.
-- **ObjectsMoved** (`0x51`): objects the player knows whose motion changed since the cycle before.  A u8
-  count, then each one's motion; 29 to a packet, more packets if there are more.
+  cylinder, 4 plane, 5 quad; a character is a capsule); the **collider**, the room it takes up in the
+  world for bumping into things (u8: 0 none, 1 capsule, 2 cylinder, 3 box; version 15), and its size, three
+  f32s: for a capsule or a cylinder its radius, its height and 0, for a box its size along x, y and z, for
+  none 0s, standing with its bottom at the position like the shape (a character is a capsule 0.5 round and
+  2 tall); and what it's **doing** (a string, the model's animation, "idle", empty for nothing).  One object
+  to a packet.
+- **ObjectsMoved** (`0x51`): objects the player knows whose motion changed since the cycle before, but
+  their own character (version 15: they walked it there themselves).  A u8 count, then each one's motion;
+  29 to a packet, more packets if there are more.
 - **ObjectsGone** (`0x52`): objects gone out of the player's view, or out of the world.  A u16 count, then
   each one's number; 299 to a packet.  The client throws them away.
 
@@ -701,7 +720,7 @@ every piece of one roll call is in (pieces of an older one still coming are give
 - **asks about** every number on it it doesn't know, with an **ObjectAsk** (`0x54`): a u8 count (1 to 64),
   then each number.  No ask number, like a ChunkRequest: asking twice is harmless.  The next cycle answers it,
   a Hydrate for each one in the player's view and an ObjectsGone for any that isn't;
-- moves everything else to where the roll call says.
+- moves everything else to where the roll call says, but its own character (version 15).
 
 So a lost packet is mended within about a second.  A roll call can also, now and then, overtake a Hydrate
 sent the cycle after it; the client drops the new object, and the next roll call has it asked about again.
@@ -727,6 +746,8 @@ Jacob, object 7, standing at 0.5, 1, 0.5 facing 90 degrees round, a capsule with
 00 00 80 3F  00 00 80 3F  00 00 80 3F         scale 1, 1, 1
 00 00 00 00                                   no model
 02                                            drawn as a capsule
+01                                            takes up a capsule
+00 00 00 3F  00 00 00 40  00 00 00 00         0.5 round, 2 tall
 00 00 00 00                                   doing nothing
 ```
 
@@ -751,6 +772,76 @@ A client that got a roll call listing 9, which it never had, asks:
 01                                            1 object
 09 00 00 00                                   object 9
 ```
+
+## Movement
+
+Version 15 (2026-10-03), EverQuest's way.  Jacob: "the client like has local authority and the server kinda
+just periodically validates the client movement and pulls it backward if it doesn't match to the last known
+good spots."  So the client walks the player's own character on its own screen the moment a key goes down,
+and tells the server where it went; the server takes each move or pulls the character back.  Everybody else
+sees it walk through ObjectsMoved, the way they see anything move.
+
+**PlayerMoved** (`0x55`, client to server): the move's **number** (a u32, one higher every move, from 1), the
+number of the **last MoveCorrection** the client had (a u32, 0 for none), then the character's position,
+rotation and velocity, nine f32s as in a motion, without the object's number (it can only be the player's
+own).  44 bytes after the type.  The client sends one **whenever which way the character walks or faces
+changes** (setting off, stopping, turning), and **every half second** while it walks and nothing changes.
+Standing still, it sends nothing.  No answer: a move that's taken is quiet.
+
+The server takes the moves in the order they come, once a game cycle, and:
+
+- **drops** a move whose number is no higher than the last one it took (UDP can hand them over out of
+  order);
+- **drops** every move that says a lower pull-back than the last one it sent, sending that MoveCorrection
+  again: those were made before the client heard of it;
+- **pulls the character back** if the move puts it further than walking could have taken it since its last
+  good spot by more than `movement_tolerance_blocks` (the server's `game.cfg`, 16), turned more than 90
+  degrees further than turning allows, inside a block, on ground the server hasn't loaded, into a character
+  standing still (getting closer, more than a quarter block into its collider), or in the air for 2 seconds
+  without falling a block (back to the last spot it stood on).  A step up of one block is free; falling is
+  as fast as it is.  How far walking could have taken it counts the time since its last good spot, two
+  seconds at most;
+- **takes** anything else: it's the character's place now, and goes to everybody who can see it.  More than
+  a block too far, but within the tolerance, it stands, and the server's admin hears of it.
+
+The velocity a move carries is only what everybody else's screens carry the character along by between moves,
+held to walking along the ground.  A character walking with nothing heard from its client for 2 seconds is
+stopped where it was last good.
+
+**MoveCorrection** (`0x56`, server to client): the pull-back's **number** (a u32, from 1, one higher each
+time for this character), then where the character is put, standing still: its position and rotation, six
+f32s.  The client puts it there, at once, standing still, and **every move after says this number**.  One
+with a number it has already had is old, and changes nothing.  It goes out in the game cycle after the move
+it answers, before anything else that cycle says to that player.
+
+A player's own character isn't in the ObjectsMoved they're sent: they walked it there.  It's on the roll
+call like everything they know, and the client doesn't take its place from there either.
+
+The chunks a player may ask for follow where the server last took their character, and one chunk more each
+way than the view, for a client a column ahead of the server while it walks.
+
+Jacob, object 7, at 0.5, 1, 0.5 facing west (270), sets off west at 4 blocks a second, the 12th move of
+the session, no pull-back had:
+
+```text
+55                                            PlayerMoved
+0C 00 00 00                                   move 12
+00 00 00 00                                   no pull-back had
+00 00 00 3F  00 00 80 3F  00 00 00 3F         at 0.5, 1, 0.5
+00 00 00 00  00 00 87 43  00 00 00 00         facing 0, 270, 0
+00 00 80 C0  00 00 00 00  00 00 00 00         moving -4, 0, 0
+```
+
+His client then says he went 30 blocks west in no time, and he's put back, pull-back 1:
+
+```text
+56                                            MoveCorrection
+01 00 00 00                                   pull-back 1
+00 00 00 3F  00 00 80 3F  00 00 00 3F         at 0.5, 1, 0.5
+00 00 00 00  00 00 87 43  00 00 00 00         facing 0, 270, 0
+```
+
+Every move after it says `01 00 00 00` where the first said none.
 
 ## One moment
 

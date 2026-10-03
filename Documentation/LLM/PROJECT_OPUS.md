@@ -163,6 +163,9 @@ Opus/
 │       │       │                      #   each with its object number and uuid
 │       │       ├── view.rs            # what each player sees (protocol 14): object numbers, the Hydrates, the
 │       │       │                      #   moves, the gone, the roll call; ask_about(); set_view_sender()
+│       │       ├── movement.rs        # players walking (protocol 15): moved(), each move judged, pull-backs,
+│       │       │                      #   the Warns; WALK_BLOCKS_PER_SECOND, turn_degrees_per_second()
+│       │       ├── ground.rs          # the server's ground following the players: asked for, let go of
 │       │       └── saving.rs          # the world save every world_save_seconds; the saves on their way
 │       ├── player-commands/           # lib, conductor-player-commands -- what a player types in the world
 │       │   ├── Cargo.toml             # depends on conductor-tools, -networking and -gameclock; networking never
@@ -309,7 +312,9 @@ Opus/
 │   ├── cfg/wgui.cfg                   # the web admin's two accounts: user's and admin's passwords (hard)
 │   ├── cfg/postgres.cfg               # where Postgres is, the login, the time limit, the slow-job limit (soft)
 │   ├── cfg/networking.cfg             # the address and ports, the TLS files, the deadlines, the access switch (soft)
-│   ├── cfg/game.cfg                   # the game world: world_size, view_chunks, world_save_seconds (soft)
+│   ├── cfg/game.cfg                   # the game world: world_size, view_chunks, world_save_seconds,
+│   │                                  #   movement_tolerance_blocks (soft)
+│   ├── cfg/player.cfg                 # how a character handles: turn_degrees_per_second (soft)
 │   ├── cfg/whitelist.cfg              # one address or range a line; read on START SERVER, written by the page
 │   ├── cfg/blacklist.cfg              # the blacklist, the same way
 │   ├── certs/conductor.crt            # the TLS certificate, made by hand with openssl -- committed

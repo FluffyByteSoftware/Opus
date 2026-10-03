@@ -442,7 +442,11 @@ When I say we're wrapping up:
   everything is** (Jacob, 2026-10-03: "The server will be the authority,
   always on where the object actually is in the world.  The client is
   just a dumb renderer."): the client draws an object where it was last
-  told, its own character included, and never decides a place of its own.  **A player's
+  told and never decides a place of its own, **with one exception, the
+  player's own character** (2026-10-03, session 10, movement, EverQuest's
+  way): the client walks it and says where it went, and the server takes
+  each move or pulls it back to its last good spot.  The server still has
+  the last word; `design/gameclock.md` ("Movement") has how.  **A player's
   character comes into the world through the GameClock's mailbox** and
   every way a player leaves the book takes it out and saves it.
 - **A crate that leans on one that calls it gets a slot.**  Rust won't

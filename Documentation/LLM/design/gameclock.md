@@ -21,7 +21,8 @@ Services tab at about 240 cycles a minute, its thread near nothing on the CPU, a
 count at 0, and a clean STOP SERVER and START SERVER).  Housekeeping takes in the chunks GameWorld sends and
 saves the world; input brings players' characters in and out of the world through the mailbox; broadcast
 sends out the chat (2026-10-02, "Chat" below), answers `/who` and, since session 9, tells each player what
-they see of the world ("The view" below); AI and movement are empty, since nothing in the world moves.
+they see of the world ("The view" below); since session 10 input judges every move a player's client sends
+and movement stops a walker gone quiet ("Movement" below, written, not yet built); AI is empty.
 
 **Ready for the spawn** (2026-10-01, built and tested, every check passed): the mailbox, the players' list,
 and the world save.  See "Players and the world save" below.
@@ -33,6 +34,10 @@ gameclock/
 ├── Cargo.toml     depends on conductor-tools, conductor-primlib, conductor-gameworld and conductor-accounts
 └── src/
     ├── chat.rs    the chat's mailbox: chat(line), set_chat_sender(send); broadcast(), for the broadcast check
+    ├── movement.rs players walking their characters (protocol version 15): moved(), the mailbox;
+    │                WALK_BLOCKS_PER_SECOND, turn_degrees_per_second(); Moved, PullBack; Movement (each
+    │                character's track), take_moves() for input, stop_the_quiet() for movement
+    ├── ground.rs  the ground following the players: follow(), for housekeeping; Ground
     ├── view.rs    what each player sees of the world (protocol version 14): next_object_number(),
     │                ask_about(), set_view_sender(); Motion, Hydrate, News; View (what each player's client
     │                knows), its news() for the broadcast check
@@ -184,7 +189,10 @@ PROTOCOL.md ("The world's objects") the packets.  The GameClock's half, `view.rs
   broadcast, so it's sent whole again if it's in view, or sent gone if it isn't.
 - **It's sent through a slot**, `set_view_sender()`, filled by networking as it starts; the GameClock only
   hands over plain data (`News`).
-- **Velocity is 0** until movement: nothing gives it a place to live yet.
+- **Velocity is the `Transform`'s** since movement (session 10): a walking character's goes out with it.
+  A player isn't sent their own character's moves, and each player's news carries their pull-back and,
+  when it changes, the column of chunks their character is in (for which chunks networking lets them
+  have).
 - **The cost**: every player against every object, every cycle, O(players x objects).  **Measured
   2026-10-03 on Jacob's machine: 24.28 ms for 500 players in sight of each other, every one moved**
   (`view_of_five_hundred`, `#[ignore]`, `--release`), about half the broadcast's 50 ms.  That's the worst
@@ -192,11 +200,51 @@ PROTOCOL.md ("The world's objects") the packets.  The GameClock's half, `view.rs
   place would fill the check.  If it ever matters, the first thing to try is keeping the objects by their
   column of chunks, so each player only looks at the squares near them instead of at everybody (TODO.md).
 
+## Movement (2026-10-03, session 10; written, not yet built)
+
+Jacob's answers are in `design/ensemble-world.md` ("Movement"), in his words; PROTOCOL.md ("Movement") has
+the packets.  EverQuest's way: a player's client walks its own character and says where it went, and the
+server takes each move or pulls it back to its last good spot.  His earlier server "kept rubber banding",
+so `movement.rs` is built against the four usual reasons for it (its header has them).  The GameClock's
+half:
+
+- **The mailbox.**  Networking hands each PlayerMoved to `moved()`, stamped with the `Instant` it came in,
+  and the input check takes them all once a cycle, in the order they came (`take_moves()`).  Once a cycle
+  and not every 50 ms (Jacob asked; the reply in session 10): what's taken only goes out in the broadcast,
+  and the player walking sees their own move at once on their own screen.
+- **The last good spot is the `Transform`.**  `Movement` keeps the rest for each character (its track):
+  the last move number taken, when the last good spot was, the last pull-back's number and whether moves
+  wait for it, the last spot it stood on something, when it left the ground, its Warns.
+- **The check** (`verdict()`), against the time since the last good spot (2 seconds at most):
+  `WALK_BLOCKS_PER_SECOND` (4, fixed in code) along the ground plus anything up past a free step of one
+  block, with a block let go silently; up to `movement_tolerance_blocks` (`game.cfg`, 16) more is taken
+  with a Warn, past it pulled back with a Warn (Jacob: "the being 1-16 blocks past a point expected to be
+  at"); a turn more than 90 degrees past `turn_degrees_per_second` (`player.cfg`, 450) is pulled back with
+  a Warn ("if your rotation is more than 90 deg off that should flag a warning"); a place that isn't a
+  number, ground the server hasn't loaded, the middle of the collider inside a block, or walking further
+  into a character standing still is pulled back with a Debug line; and 2 seconds in the air without
+  falling a block goes back to the last spot it stood on.  Down is free.
+- **The Warns** ring the bell, so they're at most one a minute a character, the next one counting the ones
+  held back.
+- **A pull-back** puts the `Transform` back on the spot, standing still, numbers it, and leaves it for the
+  broadcast (`take_pull_backs()`), which puts it in that player's news; networking sends a
+  MoveCorrection.  Moves that say an older pull-back are dropped and the pull-back sent again.
+- **A taken move's velocity** is held to walking along the ground (and 60 blocks a second falling): it's
+  only what everybody else's screens carry the character along by.
+- **The movement check** stops a walker whose client has said nothing for 2 seconds (`stop_the_quiet()`).
+- **The ground follows the players** (`ground.rs`, in housekeeping once `ready()`): a character coming in
+  or walking into another column has the chunks `FOLLOW_CHUNKS` (2) each way asked for; every 16 cycles,
+  if anybody moved column, the chunks more than `KEEP_CHUNKS` (3) from every player, and outside the spawn
+  point's `view_chunks`, are let go.  The server only needs the ground near a character to check its moves
+  (what a client sees comes from GameWorld's squeezed copies), so about 18 MB a player alone instead of
+  200 MB for a whole view.  `Terrain` remembers what's on its way and what couldn't be had.
+- **Its cost**: a guess, not measured.  Every move is checked against every player standing still, so a
+  cycle's checks grow with players times moves.  If it shows up in a late cycle, a timing test comes first.
+
 ## Open
 
-- What each check does, as the pieces come: the input mailbox and the input packet (a protocol version
-  bump), a brain component for the AI, movement into `Transform` (and a velocity for the view to send), the
-  spawn system in housekeeping.  The positions go out in the broadcast since session 9 (above).
+- What each check does, as the pieces come: a brain component for the AI, NPCs walking in movement, the
+  spawn system in housekeeping.  Players' moves go into `Transform` in input since session 10 (above).
 - Whether a check's group of objects is picked by its components (the AI check runs over everything with a
   brain), which is how an ECS usually does it.
 - The Tick evaluator tab under GAME MANAGEMENT: what it shows, and the numbers the GameClock keeps for it

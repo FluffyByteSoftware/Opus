@@ -73,7 +73,7 @@ tools/
     │   ├── files.rs       the table: enum Reboot { Soft, Hard }, enum Kind, struct Setting, struct ConfigFile
     │   │                    GLOBALS (conductor_globals.cfg, hard), WGUI (wgui.cfg, hard),
     │   │                    POSTGRES (postgres.cfg, soft), NETWORKING (networking.cfg, soft),
-    │   │                    GAME (game.cfg, soft), FILES
+    │   │                    GAME (game.cfg, soft), PLAYER (player.cfg, soft), FILES
     │   └── text.rs        the one reader and writer: parse(file, text) -> Parsed, check(setting, value)
     │                        file_text(file, values), missing_text(file, seen), defaults(file); type Values
     ├── server.rs          enum State { Stopped, Starting, Running, Stopping }, enum Command { Start, Stop, Restart }
@@ -346,8 +346,14 @@ The files today, with their defaults:
   `whitelist` or `blacklist`), `whitelist_file` (`cfg/whitelist.cfg`), `blacklist_file`
   (`cfg/blacklist.cfg`).
 - **`game.cfg`**, soft, loaded by GameWorld's start: `world_size` (2 to 32, 16), `view_chunks` (1 to 16,
-  4), `world_save_seconds` (30 to 1800, 150).  Soft because "the world should need a reboot so the voxel
-  engine or service restarts and rebuilds" (Jacob, 2026-09-30).
+  4), `world_save_seconds` (30 to 1800, 150), `movement_tolerance_blocks` (1 to 256, 16; session 10: how
+  far past walking a client may put its character before it's pulled back, Jacob's "1-16 blocks").  Soft
+  because "the world should need a reboot so the voxel engine or service restarts and rebuilds" (Jacob,
+  2026-09-30).
+- **`player.cfg`**, soft, loaded by the GameClock's start (session 10, movement): `turn_degrees_per_second`
+  (90 to 3600, 450).  How a player's character handles: each client is told at PLAY, and the server holds
+  a character to it.  Jacob: "server player.cfg file that holds the turn speed in it.  Clients should never
+  determine this."  The walk, 4 blocks a second, is fixed in code for now.
 
 ## Archivist
 

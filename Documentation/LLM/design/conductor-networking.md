@@ -489,7 +489,9 @@ world.md` has the whole of what was settled; this is networking's half.
 - **Where the character stands** is on the player in the book from PLAY on (`standing()`, the column of
   chunks, set in `parked()` from the save's position).  Only a player whose character is waiting on the map
   or in the world gets chunks; anybody else hears nothing, for the map's reason (a big answer to a small
-  ask from a stranger is a flood).  Nobody moves yet, so it's set once; movement keeps it up to date.
+  ask from a stranger is a flood).  Since movement (session 10) the GameClock's broadcast says when it
+  changes (`stands_in()`), and a player may have one chunk more each way than the view, for a client a
+  column ahead of the server while it walks.
 - **The offer says where and how far**: the OverworldMapOffer ends with the character's x, y, z and the
   view, so the client can ask for the chunks around it before PlayerReady.  When it sends PlayerReady is
   its own call (Jacob: "I think we are gonna want to wait till most of the scene is filled").
@@ -518,6 +520,20 @@ told what; PROTOCOL.md ("The world's objects") has the packets.  Networking's ha
   roll call, once a second.  The GameClock's share: 24.28 ms for 500 players all in sight of each other,
   every one moved (`design/gameclock.md`, "The view").
 
+## Movement (2026-10-03, session 10; written, not yet built)
+
+Protocol version 15.  EverQuest's way: the client walks its own character and the server takes each move
+or pulls it back.  `design/ensemble-world.md` ("Movement") has Jacob's answers, `design/gameclock.md`
+("Movement") the judging, PROTOCOL.md ("Movement") the packets.  Networking's half is small:
+
+- **A PlayerMoved** comes in on the UDP thread (`view::moved()`), is stamped with the moment it came, and
+  goes to the GameClock's mailbox (`conductor_gameclock::moved()`) by the player's character.  A stranger, or
+  a player at character select, hears nothing.
+- **A MoveCorrection** goes out with the player's news, first, before anything else that cycle says to them.
+- **CharacterEnteredWorld** ends with the walk (`WALK_BLOCKS_PER_SECOND`, 4) and the turn
+  (`turn_degrees_per_second()`, `player.cfg`).
+- **A player's column** goes into the book from the GameClock's news when it changes, for the chunks.
+
 ## What's open
 
 - **Client management** is all TODO: a player limit ("The server is full."), reconnecting with a token
@@ -528,7 +544,7 @@ told what; PROTOCOL.md ("The world's objects") has the packets.  Networking's ha
   no database).  The OS-specific parts are the three `dns/` files and the `ConnectionReset` line in
   `udp.rs`, Windows telling us about a bounced packet.  macOS gets no DNS names until there's a Mac.
 - **What the client is sent after CharacterEnteredWorld**: the chat (above), the chunks it asks for, and
-  the world's objects (above).  The input packet for movement is to come.
+  the world's objects (above), and since session 10 the pull-backs (above).
 - **A faked address.**  A player is their address, so a packet with a player's address forged on it gets
   that player sent the answer: 64 chunks, or 64 of the map's pieces, for a packet of a few hundred bytes.
   The answer only ever goes to somebody in the book, but it could be used to flood them.  A session id in

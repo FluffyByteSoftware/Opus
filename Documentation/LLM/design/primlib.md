@@ -56,13 +56,15 @@ primlib/
 - **An entity is a number and a generation.**  The number is its slot.  When an entity is despawned its
   slot is reused, and the generation goes up by one, so an old handle to a dead goblin can't read the
   new goblin that took its slot.  Every call checks it.
-- **A component is plain data**, one struct per kind.  There are eleven: Jacob's sample NPC, with Position,
+- **A component is plain data**, one struct per kind.  There are twelve: Jacob's sample NPC, with Position,
   Rotation and Scale made one `Transform`, and what the client draws (a `Model`, a `PrimitiveShape` and an
   `Animator`; Jacob: "may need to divide our current components up more"):
   - `Transform`: a position, a rotation and a scale, each a `Vector3` (x, y, z as `f32`, what Unity uses).
     The scale starts at 1, 1, 1.  Jacob said it "holds the rotation and position of its parent", and the
     parent there is the object the component is on, not another object.  So no hierarchy: a transform is
-    in the world's terms.
+    in the world's terms.  Since movement (session 10) it has a **velocity** too, blocks a second, which
+    isn't Unity's: where the object is going, sent to every client that sees it.  Never saved: a
+    character comes back standing still.
   - `Model`: a string, the path the client loads the model from ("in a previous iteration I tried using
     an enum but that got messy").  The server never opens it; it's the client's to make sense of.
   - `PrimitiveShape`: the shape the client draws if it can't draw the model ("cube, capsule, etc.").
@@ -77,6 +79,11 @@ primlib/
     0 and healing at the max.
   - `PlayerCharacter`: the account's `id` and the `player_characters` row's `id`.  It says a player steers
     this GameObject, and it's how the game gets back to the account ("their account is what we track").
+  - `Collider` (session 10, movement): the room the object takes up, a capsule or a cylinder (a radius
+    and a height) or a box (a size), standing with its bottom at the position.  Jacob: "we're gonna design
+    in our game library collider primitives capsule/cylinder, and cube that should cover our needs for
+    this.  This will have to be our representative of the player in the servers memory."  Nothing saved:
+    it's the template's.  The Hydrate carries it, so the client's collider is the server's size.
 - **The world holds a `Store` per kind.**  Adding a new kind of component: in `components.rs`, the struct
   with its `saved()` and `load()`, a line in `Kind`, `Kind::ALL` and `name()`, a line in `Component`,
   `kind()`, `default_of()`, `saved()` and `load()`; in `world.rs`, its store, a line in each of the four
@@ -130,7 +137,8 @@ Jacob's answers, 2026-09-30, for the first step of his map.  Built and tested.
   requirement."  `check_living()` holds a Living blueprint to that: all five, and a short name that isn't
   blank.
 - **A Character is `Transform`, Living, `PrimitiveShape` (capsule) and `PlayerCharacter`.**  "Nothing else for
-  now."  **A new one starts with 10 health, 10 endurance and 10 mana** (Jacob: "10 hp, 10 endurance, 10
+  now."  Since session 10 it has a `Collider` too: a capsule 1 block wide and 2 tall, the shape it's drawn
+  as (Jacob: "our current shape"; Minecraft's 0.6 by 1.8 was put to him).  **A new one starts with 10 health, 10 endurance and 10 mana** (Jacob: "10 hp, 10 endurance, 10
   mana"), set in the Character template (`STARTING_POOLS`), not in Living."
 - **A GameObject remembers the templates it came from**, its own first (`Character`, `Living`), so the game
   can ask `world.is(entity, "Living")`, the way Discworld's `living(ob)` did.  Blueprints carry the list, and

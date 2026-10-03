@@ -197,6 +197,76 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>Movement, round one: Conductor and the test client (2026-10-03, session 10)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      It builds with no warnings, and every test passes (the new ones are in <code>movement.rs</code>,
+      <code>ground.rs</code>, <code>view.rs</code>, <code>protocol.rs</code> and <code>components.rs</code>).
+    </span></label>
+    <pre class="cmd">cargo build</pre>
+    <pre class="cmd">cargo test</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Settings tab shows <code>player.cfg</code> with <code>turn_degrees_per_second = 450</code>, and
+      <code>game.cfg</code> with <code>movement_tolerance_blocks = 16</code>; neither file has
+      "Conductor added the settings below" at the end after START SERVER.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Tester walks west for 3 seconds: the CharacterEnteredWorld line says it walks 4 blocks a second and
+      turns 450, the client sends a PlayerMoved setting off, one every half second and one when it stops,
+      and no MoveCorrection comes back.  The log has no Warn about Tester.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --walk 3 --leave-after 6 testuser123 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Watched by another player: with Asdf in the world in a second terminal (it waits for Ctrl-C), walk
+      Tester again.  Asdf's client prints ObjectsMoved for Tester, moving -4, 0, 0 as it sets off, and moving
+      0, 0, 0 where it stops; Tester's own client gets no ObjectsMoved for itself.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Asdf testuser 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Pulled back on purpose: Tester says it went 30 blocks west in no time, then turned right round in no
+      time.  Both get a MoveCorrection (pull-back 1, then 2), each back to where it was, and the moves after
+      each one say they had it.  The bell gets one Warn, "... was pulled back: its client put it 29.x blocks
+      further than it could have walked"; the turn, in the same minute, is a Debug line in the log (a Warn
+      about one character goes out at most once a minute).
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --jump 30 --spin --leave-after 5 testuser123 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The ground follows: Tester walks west for 70 seconds, 280 blocks, past the 256 the server holds
+      around the spawn point, with no MoveCorrection on the way.  A <code>/who</code> typed in the terminal
+      once it's stopped says Tester is about 280 blocks west of where it set off.  The Services tab's GameClock line says how many chunks are in memory and on
+      their way, and a little later the log has a Debug line "Let go of ... chunks nobody is near."
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --walk 70 --leave-after 80 testuser123 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Where it stopped is saved: play Tester again after the walk, and the CharacterEnteredWorld says where
+      it stopped, not 0.5, 1, 0.5.  (RESET HOME puts it back.)
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Ensemble and Soundcheck at version 15: Soundcheck builds, and the editor's game with
+      <code>--debug</code> gets into the world as before, its Console line saying "It walks 4 blocks a
+      second and turns 450 degrees a second.", every character still a capsule with its name.  Nothing walks
+      in Ensemble yet.
+    </span></label>
+    <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">
