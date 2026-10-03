@@ -271,6 +271,16 @@ session before (`design/gameclock.md`).
   the world.  While loading, character select's asks are refused ("Your character is on its way into the
   world.").  If the map can't be had, the door stays shut: `overworld::load()` fails `start()` the same way
   a missing certificate does.  `sha2` makes the hash (Jacob: "ok"; it was in the build through the tools).
+- **The map's cooldown** (2026-10-03, Jacob's DDOS protection: "server puts a cooldown ... must wait 5
+  minutes before it can attempt a download again", then "By Account I guess", "its more for DDOS protection
+  I think").  The book keeps when each account was last sent the offer (`offered`, set in `parked()`), and
+  Protogame refuses a PLAY inside `map_cooldown_seconds` (`networking.cfg`, 300, 0 to 3600, 0 is off)
+  before it locks or reads anything, with his words: "You are temporarily cooling down from download for
+  DDOS protection. You have <X> seconds remaining."  By account, so two players at one address don't share
+  it; kept past the player's leaving, gone at STOP SERVER.  So a log out and back in inside the five
+  minutes can't PLAY until they're up: every PLAY is the whole map.  The stuck PLAY (a new PLAY while the
+  character waits on the map is refused until the session ends) was left as it is: re-offering would be a
+  second download, which is what the cooldown is for (Jacob: "leave it out").
 - **The character goes on the player in the book only after `enter()`** (`sessions::entered()`, with the
   answer kept for a repeat, like any ask).  If the player left while it was being brought in, `entered()`
   says so and Protogame takes it straight back out (`leave_world()`): the GameClock's mailbox is in order,

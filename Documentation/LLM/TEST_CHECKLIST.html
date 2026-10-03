@@ -197,6 +197,46 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>The map's cooldown (2026-10-03)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The build and the tests pass with <code>map_cooldown_seconds</code> in <code>networking.cfg</code>, the
+      book's <code>cooling_down()</code> and Protogame's refusal.
+    </span></label>
+    <pre class="cmd">cargo build</pre>
+    <pre class="cmd">cargo test</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Settings tab shows <code>map_cooldown_seconds</code> under networking.cfg, 300.
+    </span></label>
+    <pre class="cmd">cargo run -p conductor-launcher</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      PLAY with the test client, Ctrl-C, then PLAY again at once: the second gets a CommandRefused, "You are
+      temporarily cooling down from download for DDOS protection. You have ... seconds remaining.", and no
+      map comes.  Another account (testuser456, Chatter) plays at the same moment as usual.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester testuser123 'Testpass1!'</pre>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter testuser456 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      In the editor, PLAY inside the cooldown: the words show on character select's status line in the red
+      band, and the buttons come back.
+    </span></label>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      <code>map_cooldown_seconds = 0</code> on the Settings tab, STOP SERVER, START SERVER: PLAY twice in a row
+      both fetch the map.  Put it back to 300 after.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

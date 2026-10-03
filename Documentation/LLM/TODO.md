@@ -249,7 +249,9 @@ Windows.  What's left, a step each:
   temporarily cooling down from download for DDOS protection. You have <X> seconds remaining."; it starts
   **when the server sends the offer**; **by account** ("By Account I guess"), not by address; **a setting in
   `networking.cfg`**.  What it's for: "its more for DDOS protection I think".  On the stuck PLAY: "yes and
-  no".  Plan next, for his OK.  Left after it: drawing
+  no".  The plan OKed ("yes"), `map_cooldown_seconds` (0 to 3600, 0 off, 300), and the stuck-PLAY fix left
+  out ("leave it out"): a second offer is a second download.  Written, not built yet
+  (`design/conductor-networking.md`).  Left after it: drawing
   the distance from `SimpleOverworldMap.Current`, and writing the map again at the world save once blocks
   change.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a

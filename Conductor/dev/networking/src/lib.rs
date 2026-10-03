@@ -154,7 +154,7 @@ pub fn start() {
     }
 
     // Protogame before UDP, so a player's first ask has somewhere to go.
-    if let Err(why) = protogame::start() {
+    if let Err(why) = protogame::start(settings.map_cooldown) {
         tcp::stop();
         access::stop();
         services::set(services::NETWORK_TCP, State::Stopped, "Stopped again: Protogame couldn't start.");
