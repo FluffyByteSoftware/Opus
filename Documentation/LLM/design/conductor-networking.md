@@ -515,7 +515,8 @@ told what; PROTOCOL.md ("The world's objects") has the packets.  Networking's ha
 - **CharacterEnteredWorld carries the player's own number**, from `conductor_gameclock::enter()`, which now
   takes the character's uuid too and hands back the number before the character is even spawned.
 - **The cost**: a Hydrate is about 100 bytes, a motion 40; a cycle where nothing moved sends nothing but the
-  roll call, once a second.  The GameClock's share of the work is a guess until its timing test is run.
+  roll call, once a second.  The GameClock's share: 24.28 ms for 500 players all in sight of each other,
+  every one moved (`design/gameclock.md`, "The view").
 
 ## What's open
 

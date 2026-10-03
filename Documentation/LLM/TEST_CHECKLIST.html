@@ -201,20 +201,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      The build and the tests pass, protocol version 14, with no new warnings.
-    </span></label>
-    <pre class="cmd">cargo build</pre>
-    <pre class="cmd">cargo test</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The view's timing test prints how long one cycle's view of 500 players takes, every one of them moved
-      (paste the line back).
-    </span></label>
-    <pre class="cmd">cargo test --release -p conductor-gameclock -- --ignored --nocapture view_of_five_hundred</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       One in the world: the CharacterEnteredWorld ends with "object N", and within a quarter second a Hydrate
       for that number comes, "(Tester, yours)", an Actor (Living), at the spot the CharacterEnteredWorld gave,
       drawn as a capsule, no model.  With <code>--show-roll-calls</code>, a roll call once a second, "all 1

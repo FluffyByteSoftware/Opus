@@ -184,9 +184,12 @@ PROTOCOL.md ("The world's objects") the packets.  The GameClock's half, `view.rs
 - **It's sent through a slot**, `set_view_sender()`, filled by networking as it starts; the GameClock only
   hands over plain data (`News`).
 - **Velocity is 0** until movement: nothing gives it a place to live yet.
-- **The cost**: every player against every object, every cycle, O(players x objects).  A guess, until the
-  timing test is run: `view_of_five_hundred` (`#[ignore]`, `--release`), 500 players in sight of each
-  other, every one moved.
+- **The cost**: every player against every object, every cycle, O(players x objects).  **Measured
+  2026-10-03 on Jacob's machine: 24.28 ms for 500 players in sight of each other, every one moved**
+  (`view_of_five_hundred`, `#[ignore]`, `--release`), about half the broadcast's 50 ms.  That's the worst
+  case (250,000 pairs, every one sending a move); it grows with the square, so about 700 players all in one
+  place would fill the check.  If it ever matters, the first thing to try is keeping the objects by their
+  column of chunks, so each player only looks at the squares near them instead of at everybody (TODO.md).
 
 ## Open
 
