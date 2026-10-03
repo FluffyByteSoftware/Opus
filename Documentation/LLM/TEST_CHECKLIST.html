@@ -201,11 +201,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      Unity compiles clean (no new files, so no <code>.meta</code> round).
-    </span></label>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       PLAY: the bar says "Loading the ground... N of 99", then "Drawing the ground... N of 99", then "The
       ground is drawn.  Entering the world..."; the Console has "the nearest 99 chunks are in.  Drawing
       them." and then "...are drawn.  PlayerReady."; the stand-in appears on ground that's already there.
@@ -225,28 +220,26 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <ul class="checks">
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      The build and the tests pass with <code>gameworld/src/spawn.rs</code>, and Protogame and accounts
-      changed.
-    </span></label>
-    <pre class="cmd">cargo build</pre>
-    <pre class="cmd">cargo test</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      RESET HOME on Tester at character select: the log says "reset Tester home to 0.5, 1, 0.5", the
-      Characters tab shows it there, and PLAY puts the stand-in standing on top of the GOLD, not sunk in it
-      (Ensemble's Console: "is in the world at 0.5, 1, 0.5").
+      RESET HOME on Tester at character select: Conductor's log says "reset Tester home to 0.5, 1, 0.5",
+      the Characters tab shows y 1, and after PLAY Ensemble's Console says "Tester (...) is in the world at
+      0.5, 1, 0.5".
     </span></label>
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      A new character starts at 0.5, 1, 0.5 too (the Characters tab), on top of the GOLD once in the world.
+      A new character starts at 0.5, 1, 0.5 too: the Characters tab, and the Console's line after PLAY.
     </span></label>
   </li>
 </ul>
 
 <h2>Parked</h2>
 <ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A character at its spawn point is seen standing on top of the GOLD, not sunk in it: waits on a player
+      to see in Ensemble (or the stand-in Cube with CharacterStandIn on it, if it's set up).
+    </span></label>
+  </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
       Soundcheck shipped beside the game (no <code>--game</code>): a changed launcher file in the
