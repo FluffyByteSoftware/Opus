@@ -209,6 +209,14 @@ Windows.  What's left, a step each:
   made before it gets one.  **The terrain save more often**, "at like 2.5 minutes maybe I don't know... i dont
   know what numbers are gonna make this feel not like shit lol" (it was 15 minutes).  **No squeezing**: "no
   squeezing concern".
+  **And** (Jacob, same session): the plan for Conductor's half is OKed ("yes build it").  **If the file can't
+  be written, the door stays shut**, with a notice to "wipe their local copy and try again".  **The client
+  keeps it in Unity's `Application.persistentDataPath`** (his "userprefs folder"), not
+  `StreamingAssets/World/`.  **The download starts at PLAY**, by the same means the chunks will stream ("its
+  going to have to be able to stream the chunk data anyways so we may as well use the same tool set").  **The
+  character isn't spawned until PlayerReady**: "it doesn't show them or spawn them in the physical world until
+  they're ready".  **The terrain save and the character save become one save**, every `world_save_seconds`, so
+  the database and the chunk files hold the same moment; `save_minutes` goes.
 - **The world's files on the client** go in `Assets/StreamingAssets/World/`, a fifth folder of ours under
   `Assets/`, into the `.gitignore` with its `.meta` (Jacob, 2026-10-02: out of that pass).  A Unity build
   packs everything under `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as
