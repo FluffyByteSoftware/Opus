@@ -1,8 +1,8 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Hud/Widgets/CharacterSelectLoadingWidget.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// The loading bar over character select's list, while the world's map
-// comes in after PLAY, and then the nearest chunks of the ground: an
+// The loading bar over character select's list, while the nearest chunks
+// of the ground come in after PLAY and are drawn: an
 // enemy's health bar going backwards, red, filling from empty as the
 // pieces arrive (Jacob, 2026-10-03: "look like an enemy healthbar going
 // backwards lol"; "we'll make it sexy later and look like you're fighting
@@ -19,7 +19,7 @@ namespace Opus.Hud
         {
             Id = "character_select_loading",
             DisplayName = "Loading Bar",
-            Description = "The world's map and the ground coming in after PLAY, as a bar filling up.",
+            Description = "The ground coming in after PLAY, as a bar filling up.",
             Color = "#8C2020",
             Screens = new[] { "character_select" },
             DefaultSize = new Vector2(853f, 213f),

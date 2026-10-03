@@ -42,8 +42,8 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 | The character: its template, its save, its table | Built and tested                                       |
 | Character select: list, make, delete, reset home | Built and tested with the test client                  |
 | Spawning in the world, and leaving it, saved     | Built and tested with the test client                  |
-| The world (GameWorld)                            | Made and loaded, with its simple overworld map for the |
-|                                                  | client's distance; nothing changes a block yet         |
+| The world (GameWorld)                            | Made and loaded, a density in every voxel (step 1 of   |
+|                                                  | smooth voxels); nothing changes a block yet            |
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Chat: `/chat` to everybody in the world          | Built and tested with the test client                  |
 | `/who`, the anti-flood                           | Built and tested                                       |

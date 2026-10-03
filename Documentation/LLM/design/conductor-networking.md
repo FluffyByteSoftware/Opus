@@ -42,21 +42,19 @@ networking/
     │                    frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                    connect_result(), keep_alive(), kicked(), command_accepted(), command_refused(),
     │                    please_wait(), character_list(), create_result(), delete_result(),
-    │                    overworld_map_offer(), overworld_map_piece(), entered_world(),
+    │                    ground_offer(), entered_world(),
     │                    chat_deliveries(), who_delivery(), spans(); WhoEntry; read_login(),
     │                    read_session_choice(), read_connect(),
     │                    read_list_request(), read_create(), read_delete(), read_reset_home(),
-    │                    read_user_press_play(), read_player_ready(), read_overworld_map_request(),
-    │                    read_player_command(); MAP_PIECE_BYTES, MAP_PIECES_AT_ONCE
+    │                    read_user_press_play(), read_player_ready(),
+    │                    read_player_command()
     ├── typed.rs       a line a player typed: Asker, Outcome (Answer, or Later for the GameClock to
     │                    answer), set_runner() (the slot conductor-player-commands' wire() fills), run()
     ├── protogame.rs   Protogame, thread protogame: start(), stop(), hand_in(from, account, ask, Work) -> the
     │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome,
     │                    Play, Ready }; play() and load(), the spawn's slow part, which holds the character
-    │                    and offers the map; ready() and put_in(), which put it in the world on PlayerReady
-    ├── overworld.rs   the simple overworld map as players are sent it: load() at start from GameWorld,
-    │                    unload(), current() -> Map (its SHA-256, offer(ask), pieces(first, count), every
-    │                    piece built once as its packet)
+    │                    and sends the GroundOffer; ready() and put_in(), which put it in the world on
+    │                    PlayerReady
     ├── sessions.rs    the book: tickets by token, players by address, each account's whereabouts
     │                    and each player's character in the world (InWorld), the one-second lockout
     │                    and each character's lock (Lock, LOCK_FOR); playing(), issue(), connect(), heard(),
@@ -265,7 +263,13 @@ session before (`design/gameclock.md`).
   conductor-accounts, an unplayable character turned away, the save read back through lua-parser and laid
   over the Character template (a save that won't load marks it unplayable, the Error on the bell, the same
   as a reset home).  The answer says where the character stands, from its save's Transform.
-- **The map comes first** (protocol version 11, 2026-10-03, Jacob: "it doesn't show them or spawn them in
+- **The ground comes first** (protocol version 17, 2026-10-03, session 12): the answer to UserPressPlay
+  is a GroundOffer, where the character will stand and how far it sees; the client pulls the chunks
+  around it, and its PlayerReady (its ask number only) goes to Protogame (`ready()`, `put_in()`), which
+  takes the character off the player (`take_loading()`) and hands it to `conductor_gameclock::enter()`.
+  The simple overworld map that came first from version 11, and its cooldown, were dropped (Jacob: "we are
+  dropping it... we don't need it anymore"; the cooldown "because its no longer a risk").  As it was:
+- **The map came first** (protocol version 11, 2026-10-03, Jacob: "it doesn't show them or spawn them in
   the physical world until they're ready").  The loaded character isn't handed to the GameClock at once:
   it's held on the player in the book (`sessions::parked()`, a `Loading`), and the answer to UserPressPlay
   is the OverworldMapOffer.  The client asks for the map's pieces, 64 at a time, and the UDP thread sends
@@ -277,7 +281,7 @@ session before (`design/gameclock.md`).
   the world.  While loading, character select's asks are refused ("Your character is on its way into the
   world.").  If the map can't be had, the door stays shut: `overworld::load()` fails `start()` the same way
   a missing certificate does.  `sha2` makes the hash (Jacob: "ok"; it was in the build through the tools).
-- **The map's cooldown** (2026-10-03, Jacob's DDOS protection: "server puts a cooldown ... must wait 5
+- **The map's cooldown**, dropped with the map in version 17 (2026-10-03, Jacob's DDOS protection: "server puts a cooldown ... must wait 5
   minutes before it can attempt a download again", then "By Account I guess", "its more for DDOS protection
   I think").  The book keeps when each account was last sent the offer (`offered`, set in `parked()`), and
   Protogame refuses a PLAY inside `map_cooldown_seconds` (`networking.cfg`, 5, 0 to 3600, 0 is off)
@@ -492,8 +496,8 @@ world.md` has the whole of what was settled; this is networking's half.
   ask from a stranger is a flood).  Since movement (session 10) the GameClock's broadcast says when it
   changes (`stands_in()`), and a player may have one chunk more each way than the view, for a client a
   column ahead of the server while it walks.
-- **The offer says where and how far**: the OverworldMapOffer ends with the character's x, y, z and the
-  view, so the client can ask for the chunks around it before PlayerReady.  When it sends PlayerReady is
+- **The offer says where and how far**: the GroundOffer (the OverworldMapOffer until version 17) is the
+  character's x, y, z and the view, so the client can ask for the chunks around it before PlayerReady.  When it sends PlayerReady is
   its own call (Jacob: "I think we are gonna want to wait till most of the scene is filled").
 - **The bytes come from GameWorld** (`conductor_gameworld::squeezed()`), squeezed once a run on its thread
   and shared by every player; the UDP thread cuts them into pieces and sends them, never waiting.  A chunk

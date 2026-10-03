@@ -6,8 +6,8 @@
 // two cards), and this fills them from Session, now and every time
 // something there changes.  A click on a row picks that character; PLAY,
 // DELETE and RESET HOME act on the one picked, CREATE and DELETE through a
-// card.  After PLAY the loading bar shows over the list while the world's
-// map comes in, and the buttons go.  Once the character is in the world
+// card.  After PLAY the loading bar shows over the list while the ground
+// comes in and is drawn, and the buttons go.  Once the character is in the world
 // the list says so, and LOG OUT is the only way on.
 
 using System;
@@ -391,9 +391,9 @@ namespace Opus.Hud
         }
 
         // The loading bar shows only while the world loads after PLAY:
-        // filled as far as the map is, then from empty again as far as the
-        // nearest chunks are, then again as far as they're drawn (and while
-        // PlayerReady waits on its answer).
+        // filled as far as the nearest chunks are in, then from empty again
+        // as far as they're drawn (and while PlayerReady waits on its
+        // answer).
         static void FillLoading()
         {
             if (loading == null)
@@ -404,39 +404,20 @@ namespace Opus.Hud
                 return;
 
             int need = Session.GroundNeed;
-            if (need > 0)
+            int have = Session.GroundHave;
+            if (have < need || need == 0)
             {
-                int have = Session.GroundHave;
-                if (have < need)
-                {
-                    loadingFill.style.width = Length.Percent(100f * have / need);
-                    loadingLine.text = "Loading the ground...  " + have + " of " + need + " chunks";
-                    return;
-                }
-                // In: then drawn, before the player goes in.
-                int drawn = Session.GroundDrawn;
-                loadingFill.style.width = Length.Percent(100f * drawn / need);
-                if (drawn >= need)
-                    loadingLine.text = "The ground is drawn.  Entering the world...";
-                else
-                    loadingLine.text = "Drawing the ground...  " + drawn + " of " + need + " chunks";
+                loadingFill.style.width = Length.Percent(need > 0 ? 100f * have / need : 0f);
+                loadingLine.text = "Loading the ground...  " + have + " of " + need + " chunks";
                 return;
             }
-
-            long size = Session.MapSize;
-            long received = Session.MapReceived;
-            float part = size > 0 ? (float)received / size : 0f;
-            loadingFill.style.width = Length.Percent(part * 100f);
-            if (size > 0 && received >= size)
-                loadingLine.text = "The world's map is in.";
+            // In: then drawn, before the player goes in.
+            int drawn = Session.GroundDrawn;
+            loadingFill.style.width = Length.Percent(100f * drawn / need);
+            if (drawn >= need)
+                loadingLine.text = "The ground is drawn.  Entering the world...";
             else
-                loadingLine.text = "Loading the world's map...  " + Megabytes(received) + " of " + Megabytes(size)
-                                   + " MB";
-        }
-
-        static string Megabytes(long bytes)
-        {
-            return (bytes / (1024.0 * 1024.0)).ToString("0.0");
+                loadingLine.text = "Drawing the ground...  " + drawn + " of " + need + " chunks";
         }
 
         static void FillCards()

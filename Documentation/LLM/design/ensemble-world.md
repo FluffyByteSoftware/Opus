@@ -12,7 +12,8 @@ come in as `design/ensemble-networking.md` says ("The chunks, Ensemble's half") 
 
 ## Settled (Jacob, 2026-10-03, session 5)
 
-- **The chunks only**: the distance from the simple overworld map is a session of its own.
+- **The chunks only**: the distance from the simple overworld map is a session of its own.  (Closed in
+  session 12: nothing is drawn past the view, and the map is dropped; `design/smooth-voxels.md`.)
 - **Minecraft's and 7 Days to Die's way at the edges**: a chunk is drawn only once all six chunks round it
   are in (above row 10 counts as air, below row 0 as nothing), so the outermost ring of the view is never
   drawn: at `view_chunks` 8 the player sees 7 out.  The other shape was the edge drawn as walls, a cut-out

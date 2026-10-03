@@ -27,11 +27,10 @@
 //!   its hills (`heights.rs`), and a chunk somebody changed gets its own
 //!   file in its region's folder (`chunk.rs`), which always wins over the
 //!   ground it was built from.
-//! - `simple_overworld.map`: the world's rough shape, for the client to
-//!   draw the distance with (`overworld.rs`).  Written before the first
-//!   chunk goes out, so the door doesn't open without it.  Its bytes are
-//!   kept in memory until STOP SERVER (`overworld_map()`), for networking
-//!   to send each player at PLAY.
+//!
+//! (`simple_overworld.map`, the world's rough shape for drawing the
+//! distance, was written here too, from protocol version 11 until it was
+//! dropped in version 17: nothing is drawn past the view.)
 //!
 //! The thread also squeezes every chunk it hands over (`squeeze.rs`) and
 //! keeps it, squeezed, for networking to send players (protocol version
@@ -52,7 +51,6 @@ pub mod chunk;
 pub mod heights;
 mod make;
 pub mod noise;
-pub mod overworld;
 pub mod regionmap;
 pub mod spawn;
 pub mod squeeze;
@@ -133,11 +131,6 @@ static GAMEWORLD: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 /// stop wait for the rest of it.
 static STOPPING: AtomicBool = AtomicBool::new(false);
 
-/// The simple overworld map's bytes, as they are on the disk, once the
-/// thread has made sure of it, until STOP SERVER.  `None` before then.
-/// Networking sends it to every player at PLAY (protocol version 11).
-static OVERWORLD_MAP: Mutex<Option<Arc<Vec<u8>>>> = Mutex::new(None);
-
 /// The squeezed chunks, from START SERVER to STOP SERVER.  `None` while
 /// GameWorld is stopped.
 // Rust note: a HashMap can't be made before the program starts, so the
@@ -157,8 +150,6 @@ pub fn start() {
 
     constellations::load(&GAME);
     STOPPING.store(false, Ordering::SeqCst);
-    // Last run's map may be another world's.
-    lock(&OVERWORLD_MAP).take();
     *lock(&SQUEEZED) = Some(Squeezed { ready: HashMap::new(), coming: HashSet::new(), missing: HashSet::new() });
     services::set(services::GAMEWORLD, State::Starting, "Reading the world.");
 
@@ -189,19 +180,7 @@ pub fn stop() {
             scribe::error(Channel::Game, "GameWorld's thread had already died.");
         }
     }
-    lock(&OVERWORLD_MAP).take();
     lock(&SQUEEZED).take();
-}
-
-/// The simple overworld map's bytes, the whole file, once GameWorld has
-/// made sure of it on START SERVER.  `None` until then, and after STOP
-/// SERVER.  It's always there by the time the door opens: the GameClock is
-/// never ready without GameWorld's chunks, and GameWorld hands out none
-/// before the map is in.
-// Rust note: an `Arc` is shared, not copied: every caller gets a pointer
-// to the same 16 MB, and it's let go when the last one is done with it.
-pub fn overworld_map() -> Option<Arc<Vec<u8>>> {
-    lock(&OVERWORLD_MAP).clone()
 }
 
 /// The chunk at `pos`, squeezed for sending to a player, if it's ready.
@@ -346,11 +325,6 @@ fn region_map_path() -> PathBuf {
     world_dir().join("region.map")
 }
 
-/// `Content/world/simple_overworld.map`.
-fn overworld_path() -> PathBuf {
-    world_dir().join("simple_overworld.map")
-}
-
 /// `Content/world/Regions/<Region>/`.
 fn region_dir(region: &str) -> PathBuf {
     world_dir().join("Regions").join(region)
@@ -378,7 +352,7 @@ fn run(jobs: Receiver<Job>) {
     // If the world can't be read, the thread stays up anyway and turns
     // every ask away, so the Services tab keeps saying why.  The GameClock
     // is never ready without its chunks, so the door stays shut.
-    let shape = match read_world().and_then(with_overworld) {
+    let shape = match read_world() {
         Ok(shape) => {
             services::set(services::GAMEWORLD, State::Running, "The world is read.  No chunks asked for yet.");
             scribe::info(Channel::Game, "GameWorld is up.");
@@ -471,26 +445,6 @@ fn run(jobs: Receiver<Job>) {
 fn say_how_many(handed: u64, from_files: u64) {
     services::set(services::GAMEWORLD, State::Running, &format!("{handed} chunks handed over since START SERVER, \
         {from_files} read from their own files; {} squeezed for players.", how_many_squeezed()));
-}
-
-/// Makes sure the simple overworld map is there before the first chunk
-/// goes out, keeps its bytes for `overworld_map()`, and hands the world
-/// back.  Without it there's nothing to send a player at PLAY, so it's the
-/// same as no world: every ask is turned away and the door stays shut
-/// (Jacob, 2026-10-03: "keep the door shut").  The Error tells the admin
-/// which file to delete.  Telling a player whose client can't get the map
-/// to start over is Ensemble's half.
-fn with_overworld(shape: Shape) -> Result<Shape, String> {
-    let bytes = overworld::ensure(&shape.map, &shape.heights).map_err(|why| {
-        // A stop part way is no fault: the next START SERVER makes it.
-        if stopping() {
-            return why;
-        }
-        format!("the simple overworld map isn't ready ({why}).  The door stays shut this run.  Delete {} if it's \
-            there, then STOP SERVER and START SERVER", overworld_path().display())
-    })?;
-    *lock(&OVERWORLD_MAP) = Some(bytes);
-    Ok(shape)
 }
 
 /// Reads `region.map` and the heights files, or makes the world if there's

@@ -51,17 +51,13 @@
 //! An answer too big for one packet goes out in Spans (protocol version
 //! 9).
 //!
-//! PLAY (protocol version 11) is answered with the offer of the simple
-//! overworld map, and the player's client asks for its pieces 64 at a
-//! time.  Those are answered from here, straight out of the packets
-//! `overworld.rs` built once, to a player who's been offered the map and
-//! nobody else.  Their PlayerReady goes to Protogame, which puts the
-//! character in the world.
-//!
-//! The chunks around a player (protocol version 12) are answered from
-//! here too, out of GameWorld's squeezed chunks, to a player whose
-//! character is waiting on the map or in the world, for the chunks
-//! `chunks.rs` says they may see.
+//! PLAY is answered by Protogame with a GroundOffer (protocol version
+//! 17): where the character will stand and how far it sees.  The chunks
+//! around a player (version 12) are answered from here, out of
+//! GameWorld's squeezed chunks, to a player whose character is waiting to
+//! come in or in the world, for the chunks `chunks.rs` says they may see.
+//! Their PlayerReady goes to Protogame, which puts the character in the
+//! world.
 //!
 //! What a player sees of the world (protocol version 14) goes out from
 //! the GameClock's broadcast check (`view.rs`).  An ObjectAsk, the client
@@ -82,7 +78,6 @@ use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
 use crate::chunks;
-use crate::overworld;
 use crate::typed::{self, Asker, Outcome};
 use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
 use crate::protogame::{self, Work};
@@ -101,7 +96,7 @@ const CHARACTER_SELECT_IS_BEHIND: &str = "Your character is in the world.  Log o
 /// What a player at character select hears for a command.
 const NOT_IN_THE_WORLD: &str = "Commands work once your character is in the world.";
 
-/// What a player whose character is loaded and waiting on the map hears
+/// What a player whose character is loaded and waiting on the ground hears
 /// for an ask from character select.
 const ON_ITS_WAY: &str = "Your character is on its way into the world.";
 
@@ -385,14 +380,6 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 sessions::heard(from);
             }
         },
-        // The map at PLAY (version 11): pieces of it, and the client
-        // saying it has it all.
-        Some(PacketType::OverworldMapRequest) => match protocol::read_overworld_map_request(payload) {
-            Ok((first, count)) => map_pieces(socket, from, first, count),
-            Err(_) => {
-                sessions::heard(from);
-            }
-        },
         // The chunks around the player (version 12).
         Some(PacketType::ChunkRequest) => match protocol::read_chunk_request(payload) {
             Ok(places) => chunk_request(socket, from, &places),
@@ -400,8 +387,9 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 sessions::heard(from);
             }
         },
+        // The client has the ground around its character drawn.
         Some(PacketType::PlayerReady) => match protocol::read_player_ready(payload) {
-            Ok((ask, hash)) => player_ready(socket, from, ask, hash),
+            Ok(ask) => player_ready(socket, from, ask),
             Err(_) => {
                 sessions::heard(from);
             }
@@ -498,26 +486,9 @@ fn player_command(socket: &UdpSocket, from: SocketAddr, ask: u32, line: &str) {
     }
 }
 
-/// Pieces of the map, for a player who's been offered it.  Anybody else
-/// hears nothing: the map goes only to somebody about to play, and a big
-/// answer to a small ask from a stranger is how a server gets used to
-/// flood somebody.
-fn map_pieces(socket: &UdpSocket, from: SocketAddr, first: u32, count: u8) {
-    if !sessions::fetching_map(from) {
-        return;
-    }
-    let Some(map) = overworld::current() else {
-        return;
-    };
-    for piece in map.pieces(first, count) {
-        send(socket, from, piece);
-    }
-}
-
-/// Chunks, for a player whose character is waiting on the map or in the
-/// world.  Anybody else hears nothing, for the same reason as the map: a
-/// big answer to a small ask from a stranger is how a server gets used to
-/// flood somebody.
+/// Chunks, for a player whose character is waiting to come in or in the
+/// world.  Anybody else hears nothing: a big answer to a small ask from a
+/// stranger is how a server gets used to flood somebody.
 fn chunk_request(socket: &UdpSocket, from: SocketAddr, places: &[conductor_gameworld::ChunkPos]) {
     let Some(standing) = sessions::standing(from) else {
         return;
@@ -527,19 +498,19 @@ fn chunk_request(socket: &UdpSocket, from: SocketAddr, places: &[conductor_gamew
     }
 }
 
-/// The client has the map.  Only a player whose character is loaded and
-/// waiting has anything to put in the world: theirs goes to Protogame,
-/// which answers it.  Anybody else is refused here, a stranger or a
+/// The client has the ground drawn.  Only a player whose character is
+/// loaded and waiting has anything to put in the world: theirs goes to
+/// Protogame, which answers it.  Anybody else is refused here, a stranger or a
 /// player whose last ask is still being worked on hears nothing, and one
 /// asked again gets the answer it missed.
-fn player_ready(socket: &UdpSocket, from: SocketAddr, ask: u32, hash: String) {
+fn player_ready(socket: &UdpSocket, from: SocketAddr, ask: u32) {
     let (account, answer) = match sessions::begin_ask(from, ask) {
         Ask::Stranger | Ask::Busy => return,
         Ask::Again(answer) => {
             send_answer(socket, from, ask, &answer);
             return;
         }
-        Ask::Loading(account) => match protogame::hand_in(from, account.clone(), ask, Work::Ready { hash }) {
+        Ask::Loading(account) => match protogame::hand_in(from, account.clone(), ask, Work::Ready) {
             Ok(()) => return,
             Err(answer) => (account, answer),
         },
@@ -640,11 +611,8 @@ mod tests {
         heard(&ours, &said, from);
         assert!(stranger.recv_from(&mut buffer).is_err());
 
-        // The map's pieces and PlayerReady from a stranger: silence too.
-        heard(&ours, &[PacketType::OverworldMapRequest as u8, 0, 0, 0, 0, 64], from);
-        let mut ready = vec![PacketType::PlayerReady as u8, 4, 0, 0, 0, 64, 0, 0, 0];
-        ready.extend_from_slice("ab".repeat(32).as_bytes());
-        heard(&ours, &ready, from);
+        // PlayerReady from a stranger: silence too.
+        heard(&ours, &[PacketType::PlayerReady as u8, 4, 0, 0, 0], from);
         assert!(stranger.recv_from(&mut buffer).is_err());
 
         // Chunks from a stranger: silence too.

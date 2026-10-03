@@ -105,13 +105,20 @@
 //! Version 16 (2026-10-03) changes the block kinds a squeezed chunk can
 //! carry, no packet's shape: GOLD (4) is gone, never to be used again,
 //! and MASONED_STONE (6), grey bricks, is new.
+//!
+//! Version 17 (2026-10-03) drops the simple overworld map (Jacob: "we are
+//! dropping it... we don't need it anymore").  UserPressPlay is answered
+//! with a GroundOffer (0x40): only where the character will stand and how
+//! many chunks it sees.  OverworldMapRequest (0x41) and OverworldMapPiece
+//! (0x42) are gone, their numbers never used again, and PlayerReady
+//! carries its ask number and nothing else.
 
 use conductor_gameclock::{Hydrate, Motion, PullBack};
 use conductor_gameworld::ChunkPos;
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 16;
+pub const PROTOCOL_VERSION: u8 = 17;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -126,17 +133,6 @@ pub const MAX_UDP_BYTES: usize = 1200;
 /// How long a ticket's token is: 32 random bytes as 64 hex characters,
 /// from Fingerprinter.  A Connect whose token isn't this long is junk.
 pub const TOKEN_LENGTH: usize = 64;
-
-/// How much of the simple overworld map one OverworldMapPiece carries,
-/// the last piece less (version 11).  With the piece's type and number in
-/// front it's 1,029 bytes, under MAX_UDP_BYTES.  4,097 pieces at
-/// `world_size` 16, 16,385 at 32.
-pub const MAP_PIECE_BYTES: usize = 1024;
-
-/// The most pieces one OverworldMapRequest may ask for.  One more than
-/// this is a request we can't read.  64 pieces is 64 KB, which a client's
-/// receive buffer holds with room to spare.
-pub const MAP_PIECES_AT_ONCE: u8 = 64;
 
 /// The most chunks one ChunkRequest may ask for (version 12).  Five bytes
 /// a chunk, so a full one is 322 bytes.
@@ -181,7 +177,7 @@ const PLAYER_MOVED_BYTES: usize = 4 + 4 + 9 * 4;
 /// low four which one in it: 0x1_ is the login, over TCP; 0x2_ is
 /// character select, between the login and the world, over UDP (version
 /// 5, 2026-09-30); 0x3_ is the game, over UDP; and 0x4_ is the ground,
-/// over UDP (version 11, 2026-10-03), the simple overworld map and, since
+/// over UDP (version 11, 2026-10-03): PLAY's GroundOffer and, since
 /// version 12, the chunks; and 0x5_ is the world's objects, over UDP
 /// (version 14, 2026-10-03), and movement since version 15.
 // Rust note: `repr(u8)` stores the enum as one byte, and `as u8` turns a
@@ -244,12 +240,12 @@ pub enum PacketType {
     /// world's objects know it by (u32, version 14).  Version 6.  Since
     /// version 11 it answers PlayerReady, not UserPressPlay.
     CharacterEnteredWorld = 0x28,
-    /// Client to server: the simple overworld map is in and good to
-    /// draw.  The ask number, then the map's SHA-256 as the client has it
-    /// (a string, 64 lowercase hex).  Answered with a
-    /// CharacterEnteredWorld, or a CommandRefused saying why not.  Version
-    /// 11, Jacob's name: "verification from client it streamed the
-    /// terrain and is good to display".
+    /// Client to server: the ground around the character is in and good
+    /// to draw.  The ask number, and since version 17 nothing else (it
+    /// carried the map's SHA-256).  Answered with a CharacterEnteredWorld,
+    /// or a CommandRefused saying why not.  Version 11, Jacob's name:
+    /// "verification from client it streamed the terrain and is good to
+    /// display".
     PlayerReady = 0x29,
     /// Client to server, over UDP.  One string: the token from the
     /// Ticket.  The first UDP packet a client sends, and it sends it again
@@ -302,28 +298,20 @@ pub enum PacketType {
     /// the words to show while it is.  Not the answer: that follows under
     /// the same ask number.
     PleaseWait = 0x3B,
-    /// Server to client, the answer to a UserPressPlay (version 11): the
-    /// character is loaded and waiting, and here's the map to fetch
-    /// first.  The ask number, the map's size in bytes (u32), how much a
-    /// piece carries (u16, MAP_PIECE_BYTES), how many pieces (u32), its
-    /// SHA-256 (a string, 64 lowercase hex), then where the character will
-    /// stand, x, y and z (f32 each), and how many chunks it sees each way
-    /// (u8, `view_chunks`; both version 12).
-    OverworldMapOffer = 0x40,
-    /// Client to server: send me these pieces of the map.  The first
-    /// piece's number (u32, from 0), then how many (u8, 1 to
-    /// MAP_PIECES_AT_ONCE).  No ask number: asking twice is harmless, so
-    /// it doesn't take the player's one ask.  Only a player who's been
-    /// offered the map gets an answer.  Version 11.
-    OverworldMapRequest = 0x41,
-    /// Server to client: one piece of the map.  Its number (u32), then its
-    /// bytes, MAP_PIECE_BYTES of them but for the last.  Version 11.
-    OverworldMapPiece = 0x42,
+    /// Server to client, the answer to a UserPressPlay (version 17): the
+    /// character is loaded and waiting.  The ask number, then where the
+    /// character will stand, x, y and z (f32 each), and how many chunks it
+    /// sees each way (u8, `view_chunks`), so the client can ask for the
+    /// ground around it before PlayerReady.  It was the OverworldMapOffer
+    /// from version 11 to 16, with the map's size, pieces and SHA-256 in
+    /// front.  0x41 and 0x42 were the map's request and piece, and are
+    /// never used again.
+    GroundOffer = 0x40,
     /// Client to server: send me these chunks.  How many (u8, 1 to
     /// CHUNKS_AT_ONCE), then each one's place: x and z (i16, counted in
-    /// chunks), and its row (u8, 0 to 10).  No ask number, like the
-    /// map's: asking twice is harmless.  Only a player whose character is
-    /// waiting on the map or in the world gets an answer.  Version 12.
+    /// chunks), and its row (u8, 0 to 10).  No ask number: asking twice
+    /// is harmless.  Only a player whose character is waiting to come in
+    /// or in the world gets an answer.  Version 12.
     ChunkRequest = 0x43,
     /// Server to client: a piece of a squeezed chunk.  Its x, z and row,
     /// which piece (u8, from 1) and how many (u8), then the bytes,
@@ -412,9 +400,7 @@ impl PacketType {
             0x39 => Some(PacketType::WhoDelivery),
             0x3A => Some(PacketType::Span),
             0x3B => Some(PacketType::PleaseWait),
-            0x40 => Some(PacketType::OverworldMapOffer),
-            0x41 => Some(PacketType::OverworldMapRequest),
-            0x42 => Some(PacketType::OverworldMapPiece),
+            0x40 => Some(PacketType::GroundOffer),
             0x43 => Some(PacketType::ChunkRequest),
             0x44 => Some(PacketType::ChunkPiece),
             0x45 => Some(PacketType::ChunkRefused),
@@ -863,33 +849,16 @@ pub fn delete_result(ask: u32, answer: DeleteAnswer, message: &str) -> Vec<u8> {
     bytes
 }
 
-/// The answer to a UserPressPlay: the character is loaded, and this is
-/// the map to fetch before it comes in, where it will stand, and how many
-/// chunks each way it sees.  The map's numbers are worked out once a
-/// START SERVER (`overworld.rs`).
-pub fn overworld_map_offer(ask: u32, size: u32, pieces: u32, hash: &str, position: [f32; 3], view: u8)
-    -> Vec<u8> {
-    let mut bytes = vec![PacketType::OverworldMapOffer as u8];
+/// The answer to a UserPressPlay: the character is loaded and waiting,
+/// and this is where it will stand and how many chunks each way it sees.
+pub fn ground_offer(ask: u32, position: [f32; 3], view: u8) -> Vec<u8> {
+    let mut bytes = vec![PacketType::GroundOffer as u8];
     bytes.extend_from_slice(&ask.to_le_bytes());
-    bytes.extend_from_slice(&size.to_le_bytes());
-    bytes.extend_from_slice(&(MAP_PIECE_BYTES as u16).to_le_bytes());
-    bytes.extend_from_slice(&pieces.to_le_bytes());
-    put_string(&mut bytes, hash);
     for axis in position {
         bytes.extend_from_slice(&axis.to_le_bytes());
     }
     bytes.push(view);
     bytes
-}
-
-/// One piece of the map, numbered from 0.  `bytes` is MAP_PIECE_BYTES or
-/// fewer; the caller cuts them.
-pub fn overworld_map_piece(index: u32, bytes: &[u8]) -> Vec<u8> {
-    let mut packet = Vec::with_capacity(1 + 4 + bytes.len());
-    packet.push(PacketType::OverworldMapPiece as u8);
-    packet.extend_from_slice(&index.to_le_bytes());
-    packet.extend_from_slice(bytes);
-    packet
 }
 
 /// A chunk's place as it goes on the wire: x and z as i16, then the row.
@@ -1205,32 +1174,12 @@ pub fn read_user_press_play(payload: &[u8]) -> Result<(u32, String), String> {
     Ok((ask, uuid))
 }
 
-/// The payload of a PlayerReady: the ask number and the map's SHA-256 as
-/// the client has it.  Whether that's the right hash is the caller's to
-/// say.
-pub fn read_player_ready(payload: &[u8]) -> Result<(u32, String), String> {
+/// The payload of a PlayerReady: the ask number.
+pub fn read_player_ready(payload: &[u8]) -> Result<u32, String> {
     let mut at = 0;
     let ask = take_u32(payload, &mut at)?;
-    let hash = take_string(payload, &mut at)?;
     finished(payload, at)?;
-    Ok((ask, hash))
-}
-
-/// The payload of an OverworldMapRequest: the first piece's number and how
-/// many, 1 to MAP_PIECES_AT_ONCE.  Pieces past the end of the map are the
-/// caller's to leave out.
-pub fn read_overworld_map_request(payload: &[u8]) -> Result<(u32, u8), String> {
-    let mut at = 0;
-    let first = take_u32(payload, &mut at)?;
-    let Some(&count) = payload.get(at) else {
-        return Err("a map request cut off before its count".to_string());
-    };
-    at += 1;
-    finished(payload, at)?;
-    if count == 0 || count > MAP_PIECES_AT_ONCE {
-        return Err(format!("a map request for {count} pieces, and it's 1 to {MAP_PIECES_AT_ONCE}"));
-    }
-    Ok((first, count))
+    Ok(ask)
 }
 
 /// The payload of a ChunkRequest: the chunks asked for, 1 to
@@ -1509,8 +1458,7 @@ mod tests {
                      PacketType::CharacterDeleteResult, PacketType::CharacterRequestResetHome,
                      PacketType::UserPressPlay, PacketType::CharacterEnteredWorld, PacketType::PlayerCommand,
                      PacketType::ChatDelivery, PacketType::WhoDelivery, PacketType::Span, PacketType::PleaseWait,
-                     PacketType::PlayerReady, PacketType::OverworldMapOffer, PacketType::OverworldMapRequest,
-                     PacketType::OverworldMapPiece, PacketType::ChunkRequest, PacketType::ChunkPiece,
+                     PacketType::PlayerReady, PacketType::GroundOffer, PacketType::ChunkRequest, PacketType::ChunkPiece,
                      PacketType::ChunkRefused, PacketType::Hydrate, PacketType::ObjectsMoved,
                      PacketType::ObjectsGone, PacketType::RollCall, PacketType::ObjectAsk,
                      PacketType::PlayerMoved, PacketType::MoveCorrection];
@@ -1521,43 +1469,24 @@ mod tests {
         assert_eq!(PacketType::from_byte(0x16), None);
         assert_eq!(PacketType::from_byte(0x2A), None);
         assert_eq!(PacketType::from_byte(0x3C), None);
+        // The map's request and piece, never used again.
+        assert_eq!(PacketType::from_byte(0x41), None);
+        assert_eq!(PacketType::from_byte(0x42), None);
         assert_eq!(PacketType::from_byte(0x46), None);
         assert_eq!(PacketType::from_byte(0x57), None);
     }
 
     #[test]
-    fn the_map_at_play_in_bytes() {
-        // PROTOCOL.md's example: a map of 4,194,332 bytes (world_size 16),
-        // 0x0040001C, in 4,097 pieces, 0x1001, of 1,024, 0x0400, for a
-        // character at 1.5, 0, -2 that sees 4 chunks each way.
-        let hash = "ab".repeat(32);
-        let mut expected = vec![0x40, 3, 0, 0, 0, 0x1C, 0x00, 0x40, 0x00, 0x00, 0x04, 0x01, 0x10, 0, 0, 64, 0, 0, 0];
-        expected.extend_from_slice(hash.as_bytes());
-        expected.extend_from_slice(&[0x00, 0x00, 0xC0, 0x3F, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0xC0, 4]);
-        assert_eq!(overworld_map_offer(3, 4_194_332, 4_097, &hash, [1.5, 0.0, -2.0], 4), expected);
+    fn the_way_into_the_world_in_bytes() {
+        // PROTOCOL.md's example: a character at 1.5, 0, -2 that sees 4
+        // chunks each way, offered under ask 3.
+        let expected = vec![0x40, 3, 0, 0, 0, 0x00, 0x00, 0xC0, 0x3F, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0xC0, 4];
+        assert_eq!(ground_offer(3, [1.5, 0.0, -2.0], 4), expected);
 
-        // The last piece: number 4,096, 0x1000, the 28 bytes left.
-        let mut expected = vec![0x42, 0x00, 0x10, 0, 0];
-        expected.extend_from_slice(&[7; 28]);
-        assert_eq!(overworld_map_piece(4_096, &[7; 28]), expected);
-        // A whole piece fits under the cap.
-        assert!(overworld_map_piece(0, &[0; MAP_PIECE_BYTES]).len() <= MAX_UDP_BYTES);
-
-        let mut ready = vec![4, 0, 0, 0];
-        ready.extend_from_slice(&strings(&[&hash]));
-        assert_eq!(read_player_ready(&ready), Ok((4, hash.clone())));
-        ready.push(0);
-        assert!(read_player_ready(&ready).is_err());
-    }
-
-    #[test]
-    fn a_map_request_is_one_to_sixty_four_pieces() {
-        assert_eq!(read_overworld_map_request(&[64, 0, 0, 0, 64]), Ok((64, 64)));
-        assert_eq!(read_overworld_map_request(&[0, 0x10, 0, 0, 1]), Ok((4_096, 1)));
-        assert!(read_overworld_map_request(&[0, 0, 0, 0, 0]).is_err());
-        assert!(read_overworld_map_request(&[0, 0, 0, 0, 65]).is_err());
-        assert!(read_overworld_map_request(&[0, 0, 0, 0]).is_err());
-        assert!(read_overworld_map_request(&[0, 0, 0, 0, 1, 1]).is_err());
+        // PlayerReady is its ask number and nothing more.
+        assert_eq!(read_player_ready(&[4, 0, 0, 0]), Ok(4));
+        assert!(read_player_ready(&[4, 0, 0]).is_err());
+        assert!(read_player_ready(&[4, 0, 0, 0, 0]).is_err());
     }
 
     #[test]

@@ -246,8 +246,9 @@ Windows.  What's left, a step each:
 
 - **The world's dump** (Jacob, 2026-10-02).  **Dropped in session 12** (2026-10-03, Jacob: "we are
   dropping it... we don't need it anymore"): with nothing drawn past the view, the simple overworld map
-  has no use left.  Taking it out is a step of its own, a protocol bump across all four programs
-  (`design/smooth-voxels.md`, "Settled in session 12").  What it was: Conductor dumps a portable world to `Content/`, "a general
+  has no use left.  **Taken out in session 12** (protocol version 17, the GroundOffer; written, not built;
+  `design/smooth-voxels.md`, "Settled in session 12").  What it was: Conductor dumps a portable world to
+  `Content/`, "a general
   shape of the world but 'smoothed'", for the client to carry (region.map and the heights, the ground as
   Conductor would build it, so the distance doesn't vanish; the chunks around the player stream over UDP
   and override it).  It ships as a file of its own, compressed, with its own line in the manifest beside
@@ -341,7 +342,7 @@ Windows.  What's left, a step each:
   out ("leave it out"): a second offer is a second download (`design/conductor-networking.md`).  Built
   and tested: the second PLAY got "... You have 199 seconds remaining."; four of its checks are still on
   TEST_CHECKLIST.html.
-  **Left of the map**: drawing the distance from `SimpleOverworldMap.Current`; writing the map again at the
+  **Left of the map** (all moot since session 12, the map dropped): drawing the distance from `SimpleOverworldMap.Current`; writing the map again at the
   world save once blocks change; a timing over the internet (the LAN's is 0.08 to 0.16 s for 16.8 MB; a
   guess of some 13 s at a 50 ms ping, since each 64 pieces waits a round trip), and asking for the next 64
   before the last are in if it drags; the stuck PLAY, with LOG OUT the way out.  **The chunks streamed** are

@@ -1,8 +1,8 @@
 // File:       Opus/Ensemble/dev/Opus.Ensemble/Assets/Code/Net/ChunkDownload.cs
 // Component:  Ensemble
 // Author:     Jacob Chacko
-// The chunks around the character coming in after the map (protocol
-// version 12): which ones we want, nearest first, the pieces of any that
+// The chunks around the character coming in after PLAY's GroundOffer
+// (protocol version 12): which ones we want, nearest first, the pieces of any that
 // come in more than one, and the next request, the first 64 not in yet.
 // "Not yet" from the server is asked again; "outside the view" and
 // "unavailable" are the end of that chunk.  The nearest, the 3 by 3

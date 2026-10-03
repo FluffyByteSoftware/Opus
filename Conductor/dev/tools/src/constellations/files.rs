@@ -314,15 +314,6 @@ pub static NETWORKING: ConfigFile = ConfigFile {
                     they're dropped.  Clients send a keep-alive every second.",
         },
         Setting {
-            key: "map_cooldown_seconds",
-            kind: Kind::Number { low: 0, high: 3600 },
-            default: "5",
-            about: "How long an account waits, after the server sends it the world's map\n\
-                    at PLAY, before it may be sent the map again.  A PLAY inside the\n\
-                    wait is refused, saying how many seconds are left: DDOS protection,\n\
-                    since the map is megabytes.  0 is no wait.",
-        },
-        Setting {
             key: "access_list",
             kind: Kind::Text,
             default: "off",

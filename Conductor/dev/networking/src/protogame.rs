@@ -17,10 +17,11 @@
 //! waits on it: the row and the save are read, and the save is laid over
 //! the Character template.  Since protocol version 11 the finished
 //! character isn't put in the world at once: it's held on the player in
-//! the book (`sessions::parked()`), and the answer to PLAY is the offer of
-//! the simple overworld map, which the client fetches straight from the
-//! UDP thread.  Its PlayerReady, with the map's hash, comes back here, and
-//! only then does the character go in the GameClock's mailbox
+//! the book (`sessions::parked()`), and the answer to PLAY is a
+//! GroundOffer (version 17): where the character will stand and how far
+//! it sees, so the client can fetch the ground around it.  Its
+//! PlayerReady comes back here, and only then does the character go in
+//! the GameClock's mailbox
 //! (`conductor_gameclock::enter()`) and get written on the player as in
 //! the world (Jacob: "it doesn't show them or spawn them in the physical
 //! world until they're ready").  So a player who left while it was being
@@ -43,10 +44,10 @@
 //! say in time, PLAY is refused and the character is moved to the spawn
 //! point's last known place and saved there, for the next PLAY to check.
 //!
-//! A PLAY inside the account's map cooldown (`map_cooldown_seconds`,
-//! counted from the last time it was sent the map's offer) is refused
-//! before any of that, saying how long is left: Jacob's DDOS protection,
-//! 2026-10-03, since every PLAY is the whole map again.
+//! From version 11 to 16 the offer was of the simple overworld map, 16 MB
+//! at `world_size` 32, and a PLAY inside the account's map cooldown was
+//! refused; both went with the map (Jacob, 2026-10-03: "its no longer a
+//! risk").
 //!
 //! Every one of those is a database job, and the UDP thread never waits on
 //! the database.  So the UDP thread hands each ask in here, through a
@@ -79,7 +80,6 @@ use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
-use crate::overworld;
 use crate::protocol::{self, CreateAnswer, DeleteAnswer, EnteredCharacter, KickReason, ListedCharacter};
 use crate::sessions::{self, InWorld, Loading};
 use crate::udp;
@@ -122,21 +122,6 @@ const PLAY_UNAVAILABLE: &str = "World Unavailable";
 /// fraction of this.
 const SPAWN_WAIT: Duration = Duration::from_secs(10);
 
-/// What the player hears for a PlayerReady whose hash isn't the map's
-/// (version 11).  Their client checks its copy before it sends one, so
-/// this is a client that's broken or changed.
-const MAP_DOES_NOT_MATCH: &str = "Your copy of the world's map doesn't match the server's.  Log in and try \
-    again.";
-
-/// What the player hears for a PLAY inside the account's map cooldown,
-/// with the seconds left.  Jacob's words.
-fn cooling_down_words(left: Duration) -> String {
-    // Rounded up, so the last moment says 1, never 0.
-    let seconds = left.as_secs() + u64::from(left.subsec_nanos() > 0);
-    format!("You are temporarily cooling down from download for DDOS protection. You have {seconds} seconds \
-        remaining.")
-}
-
 /// What the player hears for a character that isn't on their account,
 /// and for one whose save won't load or that's been marked unplayable.
 const NO_SUCH_CHARACTER: &str = "There's no such character on this account.";
@@ -165,11 +150,11 @@ pub enum Work {
     /// Put this character back at its spawn point: a
     /// CharacterRequestResetHome.
     ResetHome { uuid: String },
-    /// Load this character and offer the map: a UserPressPlay.
+    /// Load this character and offer the ground: a UserPressPlay.
     Play { uuid: String },
-    /// The client has the map, with this hash: put the loaded character
-    /// in the world.  A PlayerReady (version 11).
-    Ready { hash: String },
+    /// The client has the ground around it drawn: put the loaded
+    /// character in the world.  A PlayerReady (version 11).
+    Ready,
 }
 
 /// One ask in the mailbox.
@@ -185,16 +170,14 @@ struct Job {
 static MAILBOX: Mutex<Option<Sender<Job>>> = Mutex::new(None);
 static WORKER: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 
-/// Starts the thread, with `map_cooldown` (`map_cooldown_seconds` in
-/// `networking.cfg`) as how long an account waits between being sent the
-/// map.  An `Err` says what went wrong, in words.
-pub fn start(map_cooldown: Duration) -> Result<(), String> {
+/// Starts the thread.  An `Err` says what went wrong, in words.
+pub fn start() -> Result<(), String> {
     let mut mailbox = MAILBOX.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     if mailbox.is_some() {
         return Err("Protogame is already running.".to_string());
     }
     let (sender, receiver) = mpsc::channel();
-    let worker = threads::spawn("protogame", move || work(receiver, map_cooldown))
+    let worker = threads::spawn("protogame", move || work(receiver))
         .map_err(|e| format!("Couldn't start Protogame's thread: {e}."))?;
     *mailbox = Some(sender);
     *WORKER.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(worker);
@@ -237,7 +220,7 @@ fn unavailable(ask: u32, work: &Work) -> Vec<u8> {
         Work::Create { .. } => protocol::create_result(ask, CreateAnswer::Unavailable),
         Work::Delete { .. } => protocol::delete_result(ask, DeleteAnswer::Denied, DELETE_UNAVAILABLE),
         Work::ResetHome { .. } => protocol::command_refused(ask, RESET_UNAVAILABLE),
-        Work::Play { .. } | Work::Ready { .. } => protocol::command_refused(ask, PLAY_UNAVAILABLE),
+        Work::Play { .. } | Work::Ready => protocol::command_refused(ask, PLAY_UNAVAILABLE),
     }
 }
 
@@ -245,10 +228,10 @@ fn unavailable(ask: u32, work: &Work) -> Vec<u8> {
 // The thread
 // ---------------------------------------------------------------------------
 
-fn work(mailbox: Receiver<Job>, map_cooldown: Duration) {
+fn work(mailbox: Receiver<Job>) {
     loop {
         match mailbox.recv_timeout(CHECK_IN_EVERY) {
-            Ok(job) => answer(job, map_cooldown),
+            Ok(job) => answer(job),
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return,
         }
@@ -259,14 +242,14 @@ fn work(mailbox: Receiver<Job>, map_cooldown: Duration) {
 /// Works one ask out, keeps the answer in the book, and sends it, if the
 /// player who asked is still there.  Playing a character has its own way
 /// through (`play()` and `ready()`), since it changes more than the answer.
-fn answer(job: Job, map_cooldown: Duration) {
+fn answer(job: Job) {
     let answer = match &job.work {
         Work::List => list(&job.account, job.ask),
         Work::Create { name } => create(&job.account, job.ask, name),
         Work::Delete { uuid, typed } => delete(&job.account, job.ask, uuid, typed),
         Work::ResetHome { uuid } => reset_home(&job.account, job.ask, uuid),
-        Work::Play { uuid } => return play(job.from, &job.account, job.ask, uuid, map_cooldown),
-        Work::Ready { hash } => return ready(job.from, &job.account, job.ask, hash),
+        Work::Play { uuid } => return play(job.from, &job.account, job.ask, uuid),
+        Work::Ready => return ready(job.from, &job.account, job.ask),
     };
     if sessions::finish_ask(job.from, &job.account, job.ask, &answer) {
         udp::tell(job.from, &answer);
@@ -429,22 +412,10 @@ fn stand_at(blueprint: &mut Blueprint, place: [f32; 3]) {
 }
 
 /// Plays one of the account's characters: loads it, holds it on the
-/// player, and offers them the map to fetch before it comes in, or tells
-/// them why not.  An account inside its map cooldown is refused first,
-/// with nothing read or locked.  A character still locked after
-/// `LOCK_WAIT` sends the player back to the login instead, with nothing
-/// read.
-fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str, map_cooldown: Duration) {
-    if let Some(left) = sessions::cooling_down(account, map_cooldown) {
-        let refused = protocol::command_refused(ask, &cooling_down_words(left));
-        if sessions::finish_ask(from, account, ask, &refused) {
-            udp::tell(from, &refused);
-        }
-        scribe::debug(Channel::Game, &format!("{account} at {from} pressed PLAY inside its map cooldown, {} s \
-            left.  Refused.", left.as_secs()));
-        return;
-    }
-
+/// player, and offers them the ground to fetch before it comes in, or
+/// tells them why not.  A character still locked after `LOCK_WAIT` sends
+/// the player back to the login instead, with nothing read.
+fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str) {
     // Before the row is read: the point is not to read it while another
     // copy is being brought in, or before the last session's save is in it.
     // A locked one is waited out, with the player told so, since the usual
@@ -465,18 +436,8 @@ fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str, map_cooldown: Dur
         }
     }
 
-    let loaded = load(account, ask, uuid).and_then(|loading| match overworld::current() {
-        Some(map) => {
-            // `view_chunks` is 1 to 16 (game.cfg), so it fits in the byte.
-            let offer = map.offer(ask, loading.position, conductor_gameworld::view_chunks() as u8);
-            Ok((loading, offer))
-        }
-        // The door's open only with the map ready, so this is the server
-        // stopping under them.
-        None => Err(protocol::command_refused(ask, PLAY_UNAVAILABLE)),
-    });
-    let (loading, offer) = match loaded {
-        Ok(loaded) => loaded,
+    let loading = match load(account, ask, uuid) {
+        Ok(loading) => loading,
         Err(refused) => {
             if sessions::finish_ask(from, account, ask, &refused) {
                 udp::tell(from, &refused);
@@ -484,10 +445,12 @@ fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str, map_cooldown: Dur
             return;
         }
     };
+    // `view_chunks` is 1 to 16 (game.cfg), so it fits in the byte.
+    let offer = protocol::ground_offer(ask, loading.position, conductor_gameworld::view_chunks() as u8);
     let name = loading.character.name.clone();
     if sessions::parked(from, account, ask, loading, &offer) {
         udp::tell(from, &offer);
-        scribe::debug(Channel::Game, &format!("{account} at {from} is fetching the world's map before {name} comes \
+        scribe::debug(Channel::Game, &format!("{account} at {from} is fetching the ground before {name} comes \
             in."));
     } else {
         // They left while it was being loaded.  It was never in the
@@ -496,10 +459,10 @@ fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str, map_cooldown: Dur
     }
 }
 
-/// The player's client has the map: puts their loaded character in the
-/// world and tells them where it stands, or tells them why not.
-fn ready(from: SocketAddr, account: &str, ask: u32, hash: &str) {
-    let (character, answer, told) = match put_in(from, account, ask, hash) {
+/// The player's client has the ground drawn: puts their loaded character
+/// in the world and tells them where it stands, or tells them why not.
+fn ready(from: SocketAddr, account: &str, ask: u32) {
+    let (character, answer, told) = match put_in(from, account, ask) {
         Ok(entered) => entered,
         Err(refused) => {
             if sessions::finish_ask(from, account, ask, &refused) {
@@ -527,7 +490,7 @@ fn ready(from: SocketAddr, account: &str, ask: u32, hash: &str) {
 }
 
 /// The slow part of playing a character: its row and save read, and made
-/// into the character, to be held on the player while they fetch the map.
+/// into the character, to be held on the player while they fetch the ground.
 /// Or the CommandRefused saying why not.
 fn load(account: &str, ask: u32, uuid: &str) -> Result<Loading, Vec<u8>> {
     let loaded = match characters::load(account, uuid).wait_for(DATABASE_WAIT) {
@@ -621,21 +584,12 @@ fn sent_to_spawn(ask: u32, character: &CharacterSnapshot, blueprint: &mut Bluepr
     }
 }
 
-/// The quick part, on PlayerReady: the hash checked against the map's,
-/// and the character held on the player handed to the GameClock.  The
-/// character and the CharacterEnteredWorld to send, or the CommandRefused
-/// saying why not.  A character that can't go in is let go, and the player
-/// is back at character select, free to press PLAY again.
-fn put_in(from: SocketAddr, account: &str, ask: u32, hash: &str)
-    -> Result<(InWorld, Vec<u8>, Option<&'static str>), Vec<u8>> {
-    let Some(map) = overworld::current() else {
-        return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
-    };
-    if !hash.eq_ignore_ascii_case(map.hash()) {
-        scribe::debug(Channel::Game, &format!("{account} at {from} says it has the map, and its hash isn't the \
-            map's.  Not let in."));
-        return Err(protocol::command_refused(ask, MAP_DOES_NOT_MATCH));
-    }
+/// The quick part, on PlayerReady: the character held on the player
+/// handed to the GameClock.  The character and the CharacterEnteredWorld
+/// to send, or the CommandRefused saying why not.  A character that can't
+/// go in is let go, and the player is back at character select, free to
+/// press PLAY again.
+fn put_in(from: SocketAddr, account: &str, ask: u32) -> Result<(InWorld, Vec<u8>, Option<&'static str>), Vec<u8>> {
     let Some(loading) = sessions::take_loading(from, account) else {
         return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
     };
@@ -692,15 +646,6 @@ mod tests {
         assert_eq!(&answer[..6], &expected);
         let answer = hand_in(from, "jacob_01".to_string(), 5, Work::Play { uuid: "u-1".to_string() }).unwrap_err();
         assert_eq!(&answer[..5], &[PacketType::CommandRefused as u8, 5, 0, 0, 0]);
-    }
-
-    #[test]
-    fn the_cooldown_says_its_seconds_rounded_up() {
-        let words = cooling_down_words(Duration::from_millis(213_100));
-        assert_eq!(words, "You are temporarily cooling down from download for DDOS protection. You have 214 \
-            seconds remaining.");
-        assert!(cooling_down_words(Duration::from_secs(214)).contains(" 214 seconds"));
-        assert!(cooling_down_words(Duration::from_millis(1)).contains(" 1 seconds"));
     }
 
     #[test]

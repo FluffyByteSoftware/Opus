@@ -41,9 +41,6 @@ pub struct Settings {
     pub token_deadline: Duration,
     /// How long a player may go quiet over UDP.
     pub udp_timeout: Duration,
-    /// How long an account waits after being sent the map before it may
-    /// be sent it again.  Zero is no wait.
-    pub map_cooldown: Duration,
     /// Which access list the door looks at, if either.
     pub access_list: Mode,
     /// The two lists, as full paths.
@@ -101,7 +98,6 @@ pub fn load() -> Settings {
         max_waiting_logins: constellations::number(&NETWORKING, "max_waiting_logins") as usize,
         token_deadline: seconds("token_deadline_seconds"),
         udp_timeout: seconds("udp_timeout_seconds"),
-        map_cooldown: seconds("map_cooldown_seconds"),
         access_list,
         whitelist_file: constellations::content_dir().join(constellations::value(&NETWORKING, "whitelist_file")),
         blacklist_file: constellations::content_dir().join(constellations::value(&NETWORKING, "blacklist_file")),
@@ -150,7 +146,6 @@ mod tests {
         assert_eq!(settings.max_waiting_logins, 64);
         assert_eq!(settings.token_deadline, Duration::from_secs(30));
         assert_eq!(settings.udp_timeout, Duration::from_secs(40));
-        assert_eq!(settings.map_cooldown, Duration::from_secs(5));
         assert_eq!(settings.access_list, Mode::Off);
         assert!(settings.whitelist_file.ends_with("cfg/whitelist.cfg"));
         assert!(settings.blacklist_file.ends_with("cfg/blacklist.cfg"));

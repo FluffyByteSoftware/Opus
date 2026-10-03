@@ -12,11 +12,9 @@
 # a character's save back (putting one home again rewrites it).
 # conductor-gameclock is where a picked character goes into the world,
 # and is taken out of it again when its player leaves.
-# conductor-gameworld holds the simple overworld map, which every player
-# is sent at PLAY (protocol version 11), and the chunks squeezed for the
-# players who ask for them (version 12); sha2 makes the map's SHA-256,
-# the one the client checks its copy against.  sha2 was in the build
-# already, through conductor-tools (Jacob, 2026-10-03: "ok").
+# conductor-gameworld holds the chunks squeezed for the players who ask
+# for them (protocol version 12).  (sha2 hashed the simple overworld map
+# from version 11 until the map was dropped in version 17.)
 #
 # rustls is the TLS.  Nobody writes their own, and this includes us.  Its
 # default features are off: "ring" picks the crypto (pure Rust plus a bit
@@ -38,4 +36,3 @@ conductor-lua-parser = { path = "../lua-parser" }
 conductor-primlib = { path = "../primlib" }
 conductor-tools = { path = "../tools" }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
-sha2 = "0.11"

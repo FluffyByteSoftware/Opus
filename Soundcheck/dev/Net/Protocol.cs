@@ -13,7 +13,7 @@ namespace Opus.Net
     {
         // The version this client speaks.  The server says its own in the
         // Hello, and a client built against another stops right there.
-        public const byte Version = 16;
+        public const byte Version = 17;
 
         // What a client has to say with its login.  Not a secret from
         // anybody with a copy of the client; it turns port scanners away
@@ -60,9 +60,9 @@ namespace Opus.Net
         public const byte Span = 0x3A;
         public const byte PleaseWait = 0x3B;
 
-        public const byte OverworldMapOffer = 0x40;
-        public const byte OverworldMapRequest = 0x41;
-        public const byte OverworldMapPiece = 0x42;
+        public const byte GroundOffer = 0x40;
+        // 0x41 and 0x42 were the simple overworld map's request and piece,
+        // until version 17.  Never used again.
         public const byte ChunkRequest = 0x43;
         public const byte ChunkPiece = 0x44;
         public const byte ChunkRefused = 0x45;
@@ -121,9 +121,7 @@ namespace Opus.Net
                 case WhoDelivery: return "WhoDelivery";
                 case Span: return "Span";
                 case PleaseWait: return "PleaseWait";
-                case OverworldMapOffer: return "OverworldMapOffer";
-                case OverworldMapRequest: return "OverworldMapRequest";
-                case OverworldMapPiece: return "OverworldMapPiece";
+                case GroundOffer: return "GroundOffer";
                 case ChunkRequest: return "ChunkRequest";
                 case ChunkPiece: return "ChunkPiece";
                 case ChunkRefused: return "ChunkRefused";

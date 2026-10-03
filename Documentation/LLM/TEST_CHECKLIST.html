@@ -271,6 +271,41 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>The simple overworld map dropped, protocol version 17 (2026-10-03, session 12)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      It builds with no warnings, and every test passes (the new one is
+      <code>the_way_into_the_world_in_bytes</code> in networking's <code>protocol.rs</code>).
+    </span></label>
+    <pre class="cmd">cargo build --release</pre>
+    <pre class="cmd">cargo test --release</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      START SERVER: the door opens with no "simple overworld map" line in the log, and the Settings tab's
+      <code>networking.cfg</code> has no <code>map_cooldown_seconds</code>.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Tester comes in: "&lt;- GroundOffer Tester will stand at ... and see 8 chunks each way", the 3179
+      chunks pulled, then PlayerReady answered with CharacterEnteredWorld.  Run it again at once: in again,
+      no cooldown.
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --chunks --leave-after 2 testuser123 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Soundcheck, rebuilt, logs in at version 17.  In the editor with <code>--debug</code>, PLAY: the
+      loading bar starts at "Loading the ground...  N of 99 chunks", then "Drawing the ground...", and the
+      character comes in; the Console says where it will stand and has no line about a map.
+    </span></label>
+    <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

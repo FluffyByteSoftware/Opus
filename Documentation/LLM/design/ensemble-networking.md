@@ -174,9 +174,20 @@ The server's side is PROTOCOL.md's "In the world"; the chat window is `design/en
 - **`Session.ReachedWorld`**: PLAY's answer, which ScreenRoot turns into the HUD (since version 11,
   PlayerReady's).
 
-## The map at PLAY (2026-10-03, session 2, built and tested)
+## The GroundOffer at PLAY (2026-10-03, session 12, written, not built)
 
-Protocol version 11, PROTOCOL.md's "The map at PLAY".  Jacob: "A packets first in the server and then we'll in
+Protocol version 17, PROTOCOL.md's "The way into the world": the simple overworld map is dropped (Jacob:
+"we are dropping it... we don't need it anymore").  **`GameConnection`** reads PLAY's answer, the
+GroundOffer (where the character will stand and how many chunks each way it sees), keeps it, and tells
+**`Session.GroundOffered()`**, which moves to LoadingWorld and asks for the chunks around it at once
+(`FetchChunks()`, as before).  **PlayerReady** carries its ask number only.  Refused or unanswered, it ends
+the session back at the launcher with the server's words (`CouldNotEnter()`, the why in the log).
+`MapDownload.cs` and `SimpleOverworldMap.cs` are deleted; the loading bar starts at "Loading the
+ground...".  The section below is how the map came in from version 11 to 16.
+
+## The map at PLAY (2026-10-03, session 2, built and tested; dropped in session 12)
+
+Protocol version 11, PROTOCOL.md's "The map at PLAY" (since version 17, "The way into the world").  Jacob: "A packets first in the server and then we'll in
 this conversation also integrate Ensemble with receipt of those packets"; a fresh download every PLAY ("we're
 just gonna write over whatever the client already has every time"); a client that can't get it goes back to
 the launcher with the message.

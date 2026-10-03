@@ -12,14 +12,11 @@ namespace Opus.Net
     {
         // The version this client speaks.  The server says its own in the
         // Hello, and a client built against another stops right there.
-        public const byte Version = 16;
+        public const byte Version = 17;
 
         // The biggest UDP packet the server takes.  (The TCP frame's cap is
         // the launcher's business.)
         public const int LargestDatagram = 1200;
-
-        // The most pieces of the map one OverworldMapRequest may ask for.
-        public const int MapPiecesAtOnce = 64;
 
         // The most chunks one ChunkRequest may ask for.
         public const int ChunksAtOnce = 64;
@@ -30,8 +27,7 @@ namespace Opus.Net
         // ---------------------------------------------------------------
         // Packet types.  The high four bits are the group: 0x1_ the login
         // over TCP, 0x2_ character select over UDP, 0x3_ the game over UDP,
-        // 0x4_ the ground over UDP (the simple overworld map at PLAY, and
-        // the chunks), 0x5_ the world's objects over UDP (version 14), and
+        // 0x4_ the ground over UDP (PLAY's GroundOffer, and the chunks), 0x5_ the world's objects over UDP (version 14), and
         // movement (version 15).
         // The login is the launcher's (Soundcheck), and the game never
         // sends or reads a 0x1_ packet; they're listed so this file is the
@@ -69,9 +65,9 @@ namespace Opus.Net
         public const byte Span = 0x3A;
         public const byte PleaseWait = 0x3B;
 
-        public const byte OverworldMapOffer = 0x40;
-        public const byte OverworldMapRequest = 0x41;
-        public const byte OverworldMapPiece = 0x42;
+        public const byte GroundOffer = 0x40;
+        // 0x41 and 0x42 were the simple overworld map's request and piece,
+        // until version 17.  Never used again.
         public const byte ChunkRequest = 0x43;
         public const byte ChunkPiece = 0x44;
         public const byte ChunkRefused = 0x45;
@@ -103,7 +99,7 @@ namespace Opus.Net
         {
             return kind == CharacterListDelivery || kind == CharacterCreateResult || kind == CharacterDeleteResult
                 || kind == CharacterEnteredWorld || kind == CommandAccepted || kind == CommandRefused
-                || kind == WhoDelivery || kind == OverworldMapOffer;
+                || kind == WhoDelivery || kind == GroundOffer;
         }
 
         // What the player is told for each Kicked reason.  The server sends
@@ -155,9 +151,7 @@ namespace Opus.Net
                 case WhoDelivery: return "WhoDelivery";
                 case Span: return "Span";
                 case PleaseWait: return "PleaseWait";
-                case OverworldMapOffer: return "OverworldMapOffer";
-                case OverworldMapRequest: return "OverworldMapRequest";
-                case OverworldMapPiece: return "OverworldMapPiece";
+                case GroundOffer: return "GroundOffer";
                 case ChunkRequest: return "ChunkRequest";
                 case ChunkPiece: return "ChunkPiece";
                 case ChunkRefused: return "ChunkRefused";

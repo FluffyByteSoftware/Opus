@@ -13,8 +13,13 @@ launcher (`Soundcheck/dev/Net/`), speaks the login over TCP, and Ensemble (`Asse
 UDP, from the Connect the launcher's ticket earns it (2026-10-02); when any of them disagrees with this
 document, it is the code that gets fixed.
 
-Protocol version **16**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 16 (2026-10-03)
+Protocol version **17**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 17 (2026-10-03)
+dropped the simple overworld map (Jacob: "we are dropping it... we don't need it anymore"): UserPressPlay is
+answered with a **GroundOffer** (`0x40`), only where the character will stand and how many chunks it sees;
+OverworldMapRequest (`0x41`) and OverworldMapPiece (`0x42`) are gone and their numbers never used again;
+PlayerReady carries its ask number and nothing else; and the account's map cooldown went with the map
+(below, "The way into the world").  Version 16 (2026-10-03)
 changed the block kinds a squeezed chunk can carry, and no packet's shape: GOLD (4) is gone and never used
 again, and MASONED_STONE (6), grey bricks, is new (below, "A chunk, squeezed").  Version 15 (2026-10-03)
 added movement, EverQuest's way: the client walks its own character and says where it went with a
@@ -39,7 +44,7 @@ added the simple overworld map at PLAY, and the group `0x4_`, the ground: UserPr
 OverworldMapOffer (`0x40`) instead of the character going straight in, the client fetches the map with
 OverworldMapRequests (`0x41`) and OverworldMapPieces (`0x42`), and **PlayerReady** (`0x29`) puts the
 character in the world, answered with the CharacterEnteredWorld that used to answer UserPressPlay (below,
-"The map at PLAY").  Version 10 (2026-10-02)
+"The way into the world", as it is now).  Version 10 (2026-10-02)
 added PleaseWait (`0x3B`): the server is working on an ask and says it'll take a moment, with the words to
 show; the answer follows under the same ask number.  A UserPressPlay for a character locked for a moment
 gets one, and the lock is waited out, where before it got a Kicked.  Version 9 (2026-10-02)
@@ -120,7 +125,7 @@ The largest UDP packet the server takes is 1200 bytes.  A larger one is dropped 
 
 The high four bits are the group, the low four which one in it.  `0x1_` is the login, over TCP.  `0x2_` is
 character select, between the login and the world, over UDP.  `0x3_` is the game, over UDP.  `0x4_` is the
-ground, over UDP: the simple overworld map at PLAY, and the chunks around the player.  `0x5_` is the world's
+ground, over UDP: PLAY's GroundOffer, and the chunks around the player.  `0x5_` is the world's
 objects, over UDP: what the player sees standing in the world around them, and since version 15 the player
 walking their own.
 
@@ -141,7 +146,7 @@ walking their own.
 | `0x26` | CharacterRequestResetHome | client to server | u32 ask, string uuid                          |
 | `0x27` | UserPressPlay  | client to server | u32 ask, string uuid                                     |
 | `0x28` | CharacterEnteredWorld | server to client | u32 ask, string uuid, string name, f32 x, y, z, u32 object, f32 walk, f32 turn |
-| `0x29` | PlayerReady    | client to server | u32 ask, string the map's SHA-256 as the client has it   |
+| `0x29` | PlayerReady    | client to server | u32 ask                                                  |
 | `0x30` | Connect        | client to server | string token                                             |
 | `0x31` | ConnectResult  | server to client | u8 answer, string message                                |
 | `0x32` | KeepAlive      | both ways        | nothing                                                  |
@@ -154,9 +159,7 @@ walking their own.
 | `0x39` | WhoDelivery    | server to client | u32 ask, u32 seconds since midnight UTC, u16 count, then each: string name, i32 x, y, z, u32 seconds online |
 | `0x3A` | Span           | server to client | u32 ask, u8 piece, u8 pieces, then the piece's bytes     |
 | `0x3B` | PleaseWait     | server to client | u32 ask, string words                                    |
-| `0x40` | OverworldMapOffer | server to client | u32 ask, u32 size, u16 piece bytes, u32 pieces, string SHA-256, f32 x, y, z, u8 view |
-| `0x41` | OverworldMapRequest | client to server | u32 first piece, u8 how many (1 to 64)               |
-| `0x42` | OverworldMapPiece | server to client | u32 piece, then the piece's bytes                     |
+| `0x40` | GroundOffer    | server to client | u32 ask, f32 x, y, z, u8 view                            |
 | `0x43` | ChunkRequest   | client to server | u8 how many (1 to 64), then each: i16 x, i16 z, u8 row   |
 | `0x44` | ChunkPiece     | server to client | i16 x, i16 z, u8 row, u8 piece, u8 pieces, then the piece's bytes |
 | `0x45` | ChunkRefused   | server to client | i16 x, i16 z, u8 row, u8 why                             |
@@ -293,14 +296,13 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
   character is unplayable, its save won't load, or the server can't right now).  A new character starts at
   the same place.
 
-- **UserPressPlay** with a character's uuid loads it, where its last save left it, and gets an
-  **OverworldMapOffer** (version 11): the character is waiting, and this is the map to fetch before it
-  comes in (below, "The map at PLAY").  Or a **CommandRefused** saying why not: no such character on the
-  account, the character is unplayable, its save won't load (it's marked unplayable then, and the admin told),
-  the server can't right now, or the account was sent the map too recently: "You are temporarily cooling down
-  from download for DDOS protection. You have 214 seconds remaining." (the seconds rounded up;
-  `map_cooldown_seconds` in `networking.cfg`, 5 by default (300 until 2026-10-03), counted from the last offer
-  the account was sent, whichever address it came from).  Then **PlayerReady** brings it into the world and
+- **UserPressPlay** with a character's uuid loads it, where its last save left it, and gets a
+  **GroundOffer** (version 17): the character is waiting, and this is where it will stand, for the client
+  to fetch the ground around it before it comes in (below, "The way into the world").  Or a
+  **CommandRefused** saying why not: no such character on the account, the character is unplayable, its save
+  won't load (it's marked unplayable then, and the admin told), or the server can't right now.  (From version
+  11 to 16 the answer was an OverworldMapOffer, and an account sent the map too recently was refused.)  Then
+  **PlayerReady** brings it into the world and
   gets a **CharacterEnteredWorld**: its uuid and name, where it stands, x, y and z (y up), and the number
   its client knows it by among the world's objects (version 14; below, "The world's objects").  Before
   version 11 the CharacterEnteredWorld answered UserPressPlay itself.
@@ -309,11 +311,11 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
   if its save from leaving hasn't reached the database yet.  A UserPressPlay for a locked character isn't
   read until the lock clears: the client gets a **PleaseWait** (version 10) with the words to show, "Your
   character is still being saved from its last session. One moment.", the server waits the lock out, and
-  the OverworldMapOffer (or a CommandRefused) follows under the same ask number.  The client keeps
+  the GroundOffer (or a CommandRefused) follows under the same ask number.  The client keeps
   resending the ask meanwhile, as for any ask, and the server drops the resends.  If the lock is still
   held after 5 seconds the client gets a **Kicked** with reason `6` instead, and logs in again.  So one
   character is never brought in twice at once, or on the save before its last.
-- **While the character waits on the map**, any other ask from character select gets a **CommandRefused**,
+- **While the character waits to come in**, any other ask from character select gets a **CommandRefused**,
   "Your character is on its way into the world.", and a PlayerCommand gets "Commands work once your
   character is in the world."
 - **Once the character is in the world, character select is behind the player.**  Any of the asks above
@@ -342,85 +344,53 @@ and the answer, "Your character has been made." being 29 bytes:
 1D 00 00 00  59 6F 75 72 20 ...               "Your character has been made."
 ```
 
-A UserPressPlay as ask 3 is below, under "The map at PLAY", with the rest of the way into the world.
+A UserPressPlay as ask 3 is below, under "The way into the world", with the rest of it.
 
-## The map at PLAY
+## The way into the world
 
-Version 11 (2026-10-03).  Before a character comes into the world, the player's client fetches the
-**simple overworld map**, the world's rough shape for drawing the distance: `simple_overworld.map`, laid out
-byte for byte in `SIMPLE_OVERWORLD_MAP.md`, 4,194,332 bytes at `world_size` 16 and 16,777,244 at 32.  The
-character isn't in the world until the client says it has it (Jacob: "it doesn't show them or spawn them in
-the physical world until they're ready").  **Every PLAY fetches the whole map**, over whatever copy the
-client had (Jacob: "we're just gonna write over whatever the client already has every time").
+Version 17 (2026-10-03).  A character isn't in the world until the client says the ground around it is in
+and drawn (Jacob: "it doesn't show them or spawn them in the physical world until they're ready").
 
 1. The client sends **UserPressPlay** (an ask).  The server loads the character and holds it, and answers
-   with an **OverworldMapOffer** under the same ask number: the map's size in bytes, how many bytes a
-   piece carries (1,024), how many pieces there are (the size over 1,024, rounded up: 4,097 at
-   `world_size` 16), the map's **SHA-256** as 64 lowercase hex, then where the character will stand, x, y
-   and z, and how many chunks each way it sees, `view_chunks` (4 by default; version 12), so the client can
-   ask for the chunks around it (below, "The chunks around the player").  A lost offer is sent again for
-   the ask sent again, like any answer.
-2. The client asks for the pieces with **OverworldMapRequest**: the first piece's number (from 0) and how
-   many, 1 to 64.  The server sends an **OverworldMapPiece** for each one that's in the map (one past the
-   end is left out): its number, then its bytes, 1,024 of them but for the last.  A request carries no ask
-   number and doesn't take the player's one ask: asking for a piece twice is harmless, so a client asks
-   again for whatever didn't come.  Only a player whose character is waiting on the map gets pieces; a
-   request from anybody else gets no answer.  Ensemble asks for the lowest 64 pieces it doesn't have, waits
-   for them or a quarter of a second, and asks again; with no new piece in 10 seconds it gives up.
-3. The pieces' bytes, in number order, are the map.  The client checks its SHA-256 against the offer's,
-   keeps it (Ensemble: `simple_overworld.map` in the player's folder), and sends **PlayerReady** (a new ask)
-   with the SHA-256 of what it has.
-4. The server checks the hash and puts the character in the world, and answers with
-   **CharacterEnteredWorld**.  Or a **CommandRefused**: "Your copy of the world's map doesn't match the
-   server's.  Log in and try again." for a hash that isn't the map's (the character stays waiting), "World
-   Unavailable" when the server can't, "There's no character waiting to come into the world.  Press PLAY
-   first." with no UserPressPlay before it, "Your character is already in the world." after one went in.
+   with a **GroundOffer** under the same ask number: where the character will stand, x, y and z, and how
+   many chunks each way it sees, `view_chunks` (4 by default), so the client can ask for the chunks around
+   it (below, "The chunks around the player").  A lost offer is sent again for the ask sent again, like any
+   answer.
+2. The client pulls the chunks around that spot and draws them.  When it has enough is its own call.
+3. The client sends **PlayerReady** (a new ask), its ask number and nothing else.
+4. The server puts the character in the world, and answers with **CharacterEnteredWorld**.  Or a
+   **CommandRefused**: "World Unavailable" when the server can't, "There's no character waiting to come
+   into the world.  Press PLAY first." with no UserPressPlay before it, "Your character is already in the
+   world." after one went in.
 
-A client that can't get the map (no new piece in its wait, a hash that doesn't match, a file it can't
-write) tells the player so and starts over: Ensemble goes back to the launcher with "Couldn't get the
-world's map." and where the file is, to delete it, or the game, and try again.  Leaving while the character
-waits on the map leaves nothing behind: it was never in the world, so there's nothing to save.
+Ensemble goes back to the launcher with the server's words when PlayerReady is refused or not answered.
+Leaving while the character waits leaves nothing behind: it was never in the world, so there's nothing to
+save.
 
-A UserPressPlay as ask 3 at `world_size` 16, the uuid shown short (it's 36 characters), and the SHA-256
-shown short (64):
+**Before version 17** the GroundOffer was the **OverworldMapOffer** (version 11): the simple overworld map's
+size, its 1,024-byte pieces and its SHA-256 came first, the client fetched the map with OverworldMapRequests
+(`0x41`) and OverworldMapPieces (`0x42`), every PLAY, and PlayerReady carried the hash of what it got.  The
+map was the world's rough shape for drawing the distance, and was dropped with the distance (smooth voxels,
+`design/smooth-voxels.md`): nothing is drawn past the view.
+
+A UserPressPlay as ask 3, the uuid shown short (it's 36 characters):
 
 ```text
 27                                            UserPressPlay
 03 00 00 00                                   ask 3
 24 00 00 00  30 31 39 39 ...                  the uuid, 36 bytes
 
-40                                            OverworldMapOffer
+40                                            GroundOffer
 03 00 00 00                                   ask 3
-1C 00 40 00                                   4,194,332 bytes
-00 04                                         1,024 a piece
-01 10 00 00                                   4,097 pieces
-40 00 00 00  61 62 61 62 ...                  the SHA-256, 64 characters
 00 00 C0 3F  00 00 00 00  00 00 00 C0         Jacob will stand at 1.5, 0, -2
 04                                            and sees 4 chunks each way
 ```
 
-The first request, the first piece, and the last (4,096, `0x1000`, the 28 bytes left):
-
-```text
-41                                            OverworldMapRequest
-00 00 00 00                                   from piece 0
-40                                            64 of them
-
-42                                            OverworldMapPiece
-00 00 00 00                                   piece 0
-4F 50 55 53 4F 56 57 4D 01 00 ...             1,024 bytes: the map's own first bytes, "OPUSOVWM", version 1
-
-42                                            OverworldMapPiece
-00 10 00 00                                   piece 4,096
-...                                           28 bytes
-```
-
-Then, for Jacob standing at 1.5, 0, -2:
+Then, once the ground around Jacob at 1.5, 0, -2 is in and drawn:
 
 ```text
 29                                            PlayerReady
 04 00 00 00                                   ask 4
-40 00 00 00  61 62 61 62 ...                  the SHA-256 of what came
 
 28                                            CharacterEnteredWorld
 04 00 00 00                                   ask 4
@@ -436,8 +406,8 @@ Then, for Jacob standing at 1.5, 0, -2:
 
 ## The chunks around the player
 
-Version 12 (2026-10-03).  The simple overworld map is the world's rough shape for drawing the distance; the
-chunks are the real ground near the player, block by block, and win over the map wherever they reach.
+Version 12 (2026-10-03).  The chunks are the real ground near the player, block by block; nothing is drawn
+past them (since version 17; before it, the simple overworld map drew the distance).
 **The client pulls them** (Jacob: "Pull"): it works out which chunks it hasn't got around where its
 character stands, and asks for them.  The server keeps no list of who has what; it checks each chunk asked
 for and sends it, or says why not.
@@ -451,8 +421,8 @@ a position is its x and z rounded down, then divided by 32 rounded down (1.5, 0,
 column 0, -1).  Nobody moves yet, so the column is the one in the offer.
 
 1. The client sends a **ChunkRequest**: how many chunks, 1 to 64, then each one's x, z and row.  No ask
-   number, like the map's: asking for a chunk twice is harmless.  Only a player whose character is waiting
-   on the map or is in the world gets an answer; anybody else, nothing.
+   number: asking for a chunk twice is harmless.  Only a player whose character is waiting to come in or is
+   in the world gets an answer; anybody else, nothing.
 2. For each chunk asked for, the server sends its **ChunkPieces**: the chunk's x, z and row, which piece
    (from 1) and how many, then up to 1,192 bytes of the chunk, squeezed (below).  The pieces' bytes put
    together in order are the squeezed chunk.  Most chunks are one piece.  Or a **ChunkRefused** with the
@@ -464,12 +434,12 @@ column 0, -1).  Nobody moves yet, so the column is the one in the offer.
      won't help.
 3. The client asks again, after a moment, for whatever hasn't come whole and wasn't refused for good.
 
-Ensemble and the test client ask the same way, once the map is in: the nearest first (by the larger of
+Ensemble and the test client ask the same way, once the GroundOffer is in: the nearest first (by the larger of
 how far east-west and north-south, then by how far its row is from the character's), the first 64 not yet
 in, waits for them or a quarter of a second, and asks again; they give up with no new chunk in 10 seconds.
 **When the client has enough to send PlayerReady is its own call** (Jacob: "it can be the clients call but
-I think we are gonna want to wait till most of the scene is filled"): the server only checks the map's
-hash.  Ensemble sends it once the nearest 99 are in, the 3 by 3 columns round the character's, every row
+I think we are gonna want to wait till most of the scene is filled"): the server checks nothing about it.
+Ensemble sends it once the nearest 99 are in, the 3 by 3 columns round the character's, every row
 (Jacob, 2026-10-03: Minecraft's way), and drawn on screen (the same day, later), and the rest keep coming
 with the character in the world.
 

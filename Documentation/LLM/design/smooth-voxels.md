@@ -155,6 +155,17 @@ so **protocol version 16** (Jacob: "bump protocol version up"), all four program
   MASONED_STONE slot is new (empty until Jacob gives it a material; nothing makes it yet).
 - Version 16 in `protocol.rs`, `test_client.py`, Ensemble's and Soundcheck's `Protocol.cs`, PROTOCOL.md.
 
+**Step 2, the simple overworld map dropped** (session 12, 2026-10-03; Jacob's OK; **written, not built**).
+Protocol version 17, all four programs.  PLAY's answer is a **GroundOffer** (`0x40`): where the character
+will stand and how many chunks it sees; the client pulls the chunks and draws the nearest 99, and
+**PlayerReady** is its ask number only.  Gone: `overworld.rs` in `gameworld` and in `networking` (and
+`build::top()`, `RegionMap::block_bounds()`, which only the map used), `sha2` from networking's
+`Cargo.toml`, the map's two packets (`0x41`, `0x42`, never used again), the account's cooldown and
+`map_cooldown_seconds`, the test client's `--save-map` and `--wrong-map-hash`, Ensemble's `MapDownload.cs`
+and `SimpleOverworldMap.cs` (deleted from git by the session, with their `.meta`s), and
+SIMPLE_OVERWORLD_MAP.md.  A refused or unanswered PlayerReady sends the player back to the launcher with
+the server's words.  The files left on disk are Jacob's to delete by hand.
+
 ---
 
 # The brief, as the discussion chat had it

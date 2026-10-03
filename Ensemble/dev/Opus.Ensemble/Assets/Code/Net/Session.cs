@@ -7,19 +7,16 @@
 // the player is, makes the asks at character select (the list, CREATE,
 // DELETE, RESET HOME, PLAY) and sends what's typed in the chat box once
 // the character is in the world, and tells the screens through its
-// events.  PLAY fetches the simple overworld map first (protocol version
-// 11): the loading bar fills while it comes, it's checked against the
-// server's SHA-256 and kept in the player's folder, written over every
-// time.  Then the chunks around the character (version 12) go into the
-// Ground as they come, and once the nearest 99 are in and drawn
+// events.  PLAY's answer is a GroundOffer (protocol version 17): where the
+// character will stand and how far it sees.  The chunks around it
+// (version 12) go into the Ground as they come, the loading bar filling,
+// and once the nearest 99 are in and drawn
 // PlayerReady puts the character in the world; the rest keep coming
 // after.  Drawing that doesn't finish in 10 s sends the player back.  In
 // the world, the objects the server says are in view go into
 // WorldObjects as they come (protocol version 14), the player's own
-// character among them.  A map that
-// can't be had sends the player back to the launcher, told to delete the
-// file (or the game) and try again; chunks that stop coming send them back
-// too.  Main thread only: the connection's threads reach it through
+// character among them.  Chunks that stop coming send the player back to
+// the launcher.  Main thread only: the connection's threads reach it through
 // MainThread.Post, and every message from a connection that's already
 // been dropped is ignored.
 //
@@ -32,9 +29,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using Opus.World;
 using UnityEngine;
@@ -101,13 +95,9 @@ namespace Opus.Net
         // none.  The camera follows that one.
         public static uint OwnObject { get; private set; }
 
-        // The map at PLAY, while it comes: how many bytes are in, of how
-        // many.  0 of 0 before the offer.
-        public static long MapReceived { get; private set; }
-        public static long MapSize { get; private set; }
-
-        // Then the nearest chunks: how many are in (or refused for good),
-        // of how many PlayerReady waits on.  0 of 0 before the map is in.
+        // The nearest chunks, after PLAY: how many are in (or refused for
+        // good), of how many PlayerReady waits on.  0 of 0 before the
+        // GroundOffer.
         public static int GroundHave { get; private set; }
         public static int GroundNeed { get; private set; }
 
@@ -136,7 +126,7 @@ namespace Opus.Net
         // back to the launcher instead.
         public static event Action<string, bool> SessionOver;
 
-        // More of the map, or of the nearest chunks, came in: the loading
+        // More of the nearest chunks came in, or were drawn: the loading
         // bar fills.
         public static event Action LoadingProgressed;
 
@@ -156,9 +146,6 @@ namespace Opus.Net
         // The name of the character RESET HOME was asked for, for its
         // answer (a CommandAccepted, which carries no name).
         static string sentHome;
-
-        // The map's SHA-256, as the offer said it.
-        static string mapHash;
 
         // The nearest chunks: the column they're round, which of them are
         // drawn, and whether they're all in.
@@ -567,7 +554,7 @@ namespace Opus.Net
             }
             if (kind == Protocol.PlayerReady)
             {
-                MapTrouble("the server said \"" + why + "\"");
+                CouldNotEnter("the server said \"" + why + "\"", why);
                 return;
             }
             if (kind == Protocol.CharacterListRequest)
@@ -589,7 +576,7 @@ namespace Opus.Net
             }
             if (kind == Protocol.PlayerReady)
             {
-                MapTrouble("the server didn't answer PlayerReady");
+                CouldNotEnter("the server didn't answer PlayerReady", "The server didn't answer.");
                 return;
             }
             if (kind == Protocol.CharacterListRequest)
@@ -615,63 +602,17 @@ namespace Opus.Net
             SayHere(words, false);
         }
 
-        // PLAY's answer (version 11): the character is loaded, and the map
-        // is coming.  Character select's buttons go, and the loading bar
-        // shows over the list.
-        internal static void MapOffered(GameConnection from, string hash, uint size)
+        // PLAY's answer (version 17): the character is loaded, and the
+        // GroundOffer said where it will stand.  Character select's buttons
+        // go, the loading bar shows over the list, and the chunks around it
+        // are asked for.
+        internal static void GroundOffered(GameConnection from)
         {
             if (from != game)
                 return;
             Asking = 0;
             Stage = SessionStage.LoadingWorld;
-            mapHash = hash;
-            MapSize = size;
-            MapReceived = 0;
             SayHere("", false);
-        }
-
-        internal static void MapProgress(GameConnection from, long received, uint size)
-        {
-            if (from != game || Stage != SessionStage.LoadingWorld)
-                return;
-            MapReceived = received;
-            MapSize = size;
-            if (LoadingProgressed != null)
-                LoadingProgressed();
-        }
-
-        // Every piece is in.  The map is checked against the offer's hash,
-        // written over the player's copy, and read once to be sure of it;
-        // then the chunks around the character are asked for.  Here on the
-        // main thread: a hash, a write and a read of a few MB, once a PLAY,
-        // behind a full loading bar.
-        internal static void MapArrived(GameConnection from, byte[] bytes)
-        {
-            if (from != game || Stage != SessionStage.LoadingWorld)
-                return;
-            string hash = Sha256Hex(bytes);
-            if (hash != mapHash)
-            {
-                MapTrouble("what came has SHA-256 " + hash + ", and the server said " + mapHash);
-                return;
-            }
-
-            SimpleOverworldMap map;
-            try
-            {
-                map = SimpleOverworldMap.FromBytes(bytes);
-                KeepMap(bytes);
-            }
-            catch (Exception e)
-            {
-                MapTrouble(e.Message);
-                return;
-            }
-            SimpleOverworldMap.Current = map;
-            Debug.Log("Game: the world's map is kept, " + map.Width + " by " + map.Depth + " patches, in "
-                      + MapPath() + ".");
-
-            MapReceived = bytes.Length;
             Ground.Clear();
             GroundHave = 0;
             GroundDrawn = 0;
@@ -680,15 +621,6 @@ namespace Opus.Net
             GroundNeed = game.FetchChunks(out nearX, out nearZ);
             if (LoadingProgressed != null)
                 LoadingProgressed();
-        }
-
-        // The map couldn't be had: no new piece in the wait, or an offer
-        // that didn't add up.
-        internal static void MapFailed(GameConnection from, string why)
-        {
-            if (from != game)
-                return;
-            MapTrouble(why);
         }
 
         // A chunk, unsqueezed, for the Ground.  They keep coming once the
@@ -746,8 +678,8 @@ namespace Opus.Net
             ReadyIfDrawn();
         }
 
-        // The nearest are in and drawn: PlayerReady, with the map's hash,
-        // puts the character in the world.
+        // The nearest are in and drawn: PlayerReady puts the character in
+        // the world.
         static void ReadyIfDrawn()
         {
             if (!nearIn || GroundDrawn < GroundNeed || Asking == Protocol.PlayerReady)
@@ -755,7 +687,7 @@ namespace Opus.Net
             StopDrawWait();
             Debug.Log("Game: the nearest " + GroundNeed + " chunks are drawn.  PlayerReady.");
             Asking = Protocol.PlayerReady;
-            game.Ask(Protocol.PlayerReady, mapHash);
+            game.Ask(Protocol.PlayerReady);
             Changed();
         }
 
@@ -941,60 +873,19 @@ namespace Opus.Net
             InWorldAs = null;
             OwnObject = 0;
             WorldObjects.Clear();
-            MapReceived = 0;
-            MapSize = 0;
-            mapHash = null;
             GroundHave = 0;
             GroundNeed = 0;
             Ground.Clear();
         }
 
-        // ---------------------------------------------------------------
-        // The map at PLAY
-        // ---------------------------------------------------------------
-
-        // Where the map is kept: the player's folder, simple_overworld.map.
-        static string MapPath()
+        // PlayerReady was refused, or never answered: the character didn't
+        // come into the world.  The session ends, and the player is back at
+        // the launcher with the server's words.  The why goes in the log.
+        static void CouldNotEnter(string why, string words)
         {
-            return PlayerFiles.PathOf(SimpleOverworldMap.FileName);
-        }
-
-        // Writes the map over the player's copy: to a file beside it first,
-        // then moved into its place, so a game that dies part way never
-        // leaves half a map under the real name.
-        static void KeepMap(byte[] bytes)
-        {
-            string path = MapPath();
-            string part = path + ".part";
-            Directory.CreateDirectory(PlayerFiles.Folder);
-            File.WriteAllBytes(part, bytes);
-            if (File.Exists(path))
-                File.Delete(path);
-            File.Move(part, path);
-        }
-
-        static string Sha256Hex(byte[] bytes)
-        {
-            byte[] hash;
-            using (SHA256 sha = SHA256.Create())
-                hash = sha.ComputeHash(bytes);
-            var hex = new StringBuilder(64);
-            foreach (byte b in hash)
-                hex.Append(b.ToString("x2"));
-            return hex.ToString();
-        }
-
-        // The player couldn't get the map.  The session ends, and they're
-        // told to delete the file, or the game, and try again (Jacob,
-        // 2026-10-03: "notify the person playing the game to delete the
-        // local map file or client and try again"), back at the launcher.
-        // The why goes in the log, not on the screen.
-        static void MapTrouble(string why)
-        {
-            Debug.LogWarning("Game: couldn't get the world's map: " + why + ".");
+            Debug.LogWarning("Game: couldn't come into the world: " + why + ".");
             Drop();
-            Finish("Couldn't get the world's map. Delete " + MapPath() + " (or reinstall the game) and try again.",
-                   true);
+            Finish(words, true);
         }
 
         // The session is over, however it ended.  A game the launcher

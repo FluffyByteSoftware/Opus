@@ -51,13 +51,6 @@ pub fn ground_at(region: &Region, heights: Option<&Heights>, x: i32, z: i32) -> 
     }
 }
 
-/// The highest block in column x,z that isn't AIR, as nobody has changed
-/// it: its height and its kind, the dirt.  The simple overworld map is
-/// made from this, so it and the chunks never disagree.
-pub fn top(region: &Region, heights: Option<&Heights>, x: i32, z: i32) -> Result<(i32, Block), String> {
-    Ok((ground_at(region, heights, x, z)?, Block::DIRT))
-}
-
 /// What's at height `y` in a column whose dirt is at `ground`.
 fn layer(y: i32, ground: i32) -> Block {
     if y <= FLOOR_Y {
@@ -145,7 +138,6 @@ mod tests {
         let ground = heights.at(0, 0).unwrap();
         assert_eq!(at(&rows, 0, ground, 0), Block::DIRT);
         assert_eq!(at(&rows, 0, ground + 1, 0), Block::AIR);
-        assert_eq!(top(&omega(), Some(&heights), 0, 0).unwrap(), (ground, Block::DIRT));
     }
 
     #[test]
@@ -160,24 +152,6 @@ mod tests {
             assert_eq!(at(&rows, x, ground + 1, z), Block::AIR);
             assert_eq!(at(&rows, x, -30, z), Block::STONE);
             assert_eq!(at(&rows, x, -31, z), Block::BEDROCK);
-        }
-    }
-
-    #[test]
-    fn the_top_of_a_column_is_its_highest_block_that_isnt_air() {
-        let bytes = heights::make(11, -64, -64, 192, 192, |_| true).unwrap();
-        let heights = heights::Heights::from_contents(Arc::new(bytes)).unwrap();
-        // Columns in chunk 2,2 and chunk -1,0, and 0,0 itself, checked
-        // against the chunks the same rules build.
-        for (x, z) in [(64, 64), (77, 85), (-1, 0), (-32, 31), (0, 0)] {
-            let (region, from) = if x < 0 { (alpha(), None) } else { (omega(), Some(&heights)) };
-            let (height, block) = top(&region, from, x, z).unwrap();
-            let rows = column(x.div_euclid(SIDE), z.div_euclid(SIDE), &region, from);
-            let (inside_x, inside_z) = (x.rem_euclid(SIDE), z.rem_euclid(SIDE));
-            assert_eq!(at(&rows, inside_x, height, inside_z), block, "{x},{z}");
-            for y in height + 1..=BOTTOM_Y + ROWS as i32 * SIDE - 1 {
-                assert_eq!(at(&rows, inside_x, y, inside_z), Block::AIR, "{x},{y},{z}");
-            }
         }
     }
 

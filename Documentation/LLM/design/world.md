@@ -45,9 +45,10 @@ while the server world isn't ready"; `design/gameclock.md`) and the door stays s
 (`design/conductor-launcher.md`).  Jacob asked for the door after his first run, when networking listened
 through the 19 seconds: nobody gets in before there's a voxel to step on (TCP and UDP both, "may as well").
 
-**The simple overworld map** (2026-10-03, session 1, **written, not built by Jacob yet**): GameWorld writes
-`simple_overworld.map` on START SERVER when it's missing or another world's, before the first chunk goes
-out, so the door waits on it too (under "The simple overworld map" below).
+**The simple overworld map is dropped** (session 12, 2026-10-03, protocol version 17; Jacob: "we are
+dropping it... we don't need it anymore"): nothing is drawn past the view, so GameWorld no longer writes
+`simple_overworld.map`, and PLAY's answer is a GroundOffer.  How it was is under "The simple overworld
+map" below.
 
 **The chunks streamed** (2026-10-03, session 3, **built and tested on Linux**, Conductor's half and the test
 client): the client pulls the
@@ -103,9 +104,9 @@ Version 2 had no densities, and still reads, each voxel at its kind's plain dens
 the rest).  A version 3 file whose kind and density disagree on solid (`design/smooth-voxels.md`) is turned
 away like any bad file.
 
-`simple_overworld.map`: the world's rough shape for the client, a patch of 16 by 16 blocks at a time.
-**`Documentation/LLM/SIMPLE_OVERWORLD_MAP.md`** has it byte for byte, with a worked example and a C#
-reader; it's a contract with Ensemble, like REGION_MAP.md.  4,194,332 bytes at `world_size` 16.
+`simple_overworld.map` was the world's rough shape for the client, a patch of 16 by 16 blocks at a time,
+4,194,332 bytes at `world_size` 16, with SIMPLE_OVERWORLD_MAP.md its contract.  Dropped in session 12,
+the contract with it (git has both).
 
 The block numbers: AIR 0, DIRT 1, STONE 2, WOOD 3, BEDROCK 5, MASONED_STONE 6.  A number never changes once
 it's out there, and a dropped one is never used again: 4 was GOLD, dropped in session 12 (2026-10-03).
@@ -243,7 +244,13 @@ it's out there, and a dropped one is never used again: 4 was GOLD, dropped in se
   table, read on every START SERVER): "the world should need a reboot so the voxel engine or service
   restarts and rebuilds".
 
-### The simple overworld map
+### The simple overworld map (dropped in session 12)
+
+**Dropped** (2026-10-03, session 12, protocol version 17): with smooth voxels nothing is drawn past the
+view ("its a fixed camera so not far 8 chunks is probably far enough and the skybox will take care of the
+rest of that"), so the map had no use left; `overworld.rs` on both sides, SIMPLE_OVERWORLD_MAP.md, the
+map's packets and `map_cooldown_seconds` went with it.  A `simple_overworld.map` left in `Content/world/`
+is nothing's, and is deleted by hand.  As it was:
 
 Designed with Jacob on 2026-10-03, session 1, every quote his.  The client needs the world in two halves:
 the bulk, downloaded once a connect, and the chunks near the player, streamed as they walk.  This is the
@@ -309,7 +316,7 @@ chunks around the player", protocol version 12).
   client can ask before PlayerReady.
 - **Before PlayerReady is the client's call**: "it can be the clients call but I think we are gonna want to
   wait till most of the scene is filled?".  The server lets a character waiting on the map have its chunks,
-  and only checks the map's hash.
+  and only checks the map's hash (since version 17, nothing).
 - **Squeezed by hand, runs only** ("yes absolutely", then "runs only for now"): a chunk's kinds of block
   listed once, then its blocks as runs of one kind (`squeeze.rs`; PROTOCOL.md, "A chunk, squeezed").  8 bytes
   for an all-air chunk, 13 for a flat one, against 64 KB as it is.  Zipping on top (Minecraft zips every

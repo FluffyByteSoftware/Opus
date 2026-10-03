@@ -85,9 +85,7 @@ Opus/
 │       │       ├── lib.rs             # start(), stop(), status(); the two helpers both sides share
 │       │       ├── settings.rs        # networking.cfg as networking reads it; the file itself is Constellations'
 │       │       ├── tls.rs             # reads the certificate and key, builds rustls's server settings
-│       │       ├── protocol.rs        # the packets, byte for byte (version 14); PROTOCOL.md is the other half
-│       │       ├── overworld.rs       # the simple overworld map as players are sent it at PLAY: its SHA-256, the
-│       │       │                      #   offer, every piece built once as its packet
+│       │       ├── protocol.rs        # the packets, byte for byte (version 17); PROTOCOL.md is the other half
 │       │       ├── view.rs            # what each player sees of the world, sent: fills the GameClock's view
 │       │       │                      #   sender; an ObjectAsk to the GameClock's mailbox
 │       │       ├── chunks.rs          # the chunks around a player: may_see(), the one place that says what a
@@ -135,8 +133,7 @@ Opus/
 │       │   ├── Cargo.toml             # depends on conductor-tools
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(); reads the world (or makes it, or remakes it when world_size
-│       │       │                      #   changed), sees to simple_overworld.map and keeps its bytes for
-│       │       │                      #   networking (overworld_map()), and hands the GameClock chunks; keeps
+│       │       │                      #   changed), and hands the GameClock chunks; keeps
 │       │       │                      #   every chunk squeezed for players (squeezed(), in_world())
 │       │       ├── make.rs            # making the world: a seed, Omega's heights, then region.map last
 │       │       ├── block.rs           # Block: AIR, DIRT, STONE, WOOD, BEDROCK, MASONED_STONE; terrain or structure; Density
@@ -144,9 +141,7 @@ Opus/
 │       │       ├── regionmap.rs       # region.map: which region every chunk is in (REGION_MAP.md is its contract)
 │       │       ├── heights.rs         # a heights region's file (omega.heights): the dirt's height per column
 │       │       ├── noise.rs           # Omega's rolling hills, from the seed, written by hand
-│       │       ├── build.rs           # an untouched chunk, built from its region's ground; a column's top
-│       │       ├── overworld.rs       # simple_overworld.map: the world's rough shape for the client's distance
-│       │       │                      #   (SIMPLE_OVERWORLD_MAP.md is its contract)
+│       │       ├── build.rs           # an untouched chunk, built from its region's ground
 │       │       ├── squeeze.rs         # a chunk squeezed for sending (runs) and back; PROTOCOL.md has the layout
 │       │       ├── spawn.rs           # spawn points (columns), the top of one's column to stand on, the last
 │       │       │                      #   known place of each; footing(), a saved character inside the ground
@@ -227,15 +222,13 @@ Opus/
 │           │   │   │                  #   OPUS_TOKEN, OPUS_SOUNDCHECK); in the editor, out of debug_ticket.json
 │           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks, the chat, Spans, the map's pieces,
 │           │   │   │                  #   the chunks' pieces (unsqueezed here); Kicked and the quiet timer end it
-│           │   │   ├── MapDownload.cs # the map coming in at PLAY: which pieces are in, the next 64 to ask for
 │           │   │   ├── ChunkDownload.cs # the chunks after the map: nearest first, the next 64, the nearest 99
 │           │   │   │                  #   PlayerReady waits on, the Console's summary
 │           │   │   ├── MainThread.cs  # what the threads hand to Unity's main thread, run once a frame
 │           │   │   └── Session.cs     # the flow from the ticket back to the launcher, character select's asks, a
-│           │   │                      #   line typed (/camp caught here), the events; the map checked and kept,
-│           │   │                      #   the chunks into the Ground, PlayerReady once the nearest are in
+│           │   │                      #   line typed (/camp caught here), the events; the GroundOffer, the
+│           │   │                      #   chunks into the Ground, PlayerReady once the nearest are drawn
 │           │   ├── World/             # the world on the client, namespace Opus.World
-│           │   │   ├── SimpleOverworldMap.cs # simple_overworld.map's reader (SIMPLE_OVERWORLD_MAP.md), Current
 │           │   │   ├── Chunk.cs       # a chunk: its place, its blocks (or its one kind), Unsqueeze(); the block
 │           │   │   │                  #   numbers' names (Blocks)
 │           │   │   ├── ChunkMesher.cs # a chunk and the six round it into a mesh's lists, faces only against
@@ -346,7 +339,6 @@ Opus/
         ├── PROJECT_OPUS.md            # this file
         ├── PROTOCOL.md                # the server/client contract: the login over TLS, the game over UDP
         ├── REGION_MAP.md              # region.map, byte for byte: which region every chunk is in
-        ├── SIMPLE_OVERWORLD_MAP.md    # simple_overworld.map, byte for byte: the world's rough shape for the client
         ├── HUD_FORMATS.md             # the HUD's layout and catalog files, field by field: the contract
         ├── PATCH_MANIFEST.md          # the two manifests, field by field, and the web folder's layout: the launcher's contract
         ├── HUD_LAYOUT_SYSTEM.md       # Jacob's brief for the HUD, kept as he wrote it

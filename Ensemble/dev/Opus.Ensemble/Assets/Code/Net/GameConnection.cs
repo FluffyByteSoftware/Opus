@@ -8,13 +8,12 @@
 // typed in the chat box) every half second until it's answered.  It sends
 // nothing on its own between those, so it waits on the next thing due, not
 // on a timer.  It hears the chat going out to everybody, and puts an answer
-// that came in Spans back together.  At PLAY it fetches the simple
-// overworld map (protocol version 11): the server's answer is the offer,
-// and the sender asks for the pieces 64 at a time, as soon as the last 64
-// are in or every quarter second, until they're all here.  Then the chunks
-// around the character (protocol version 12), the same way: 64 at a time,
-// nearest first, each unsqueezed on the listener before it goes to the
-// main thread.  Once the character is in the world it hears the world's
+// that came in Spans back together.  At PLAY the server's answer is a
+// GroundOffer (protocol version 17): where the character will stand and
+// how far it sees.  Then the sender asks for the chunks around it
+// (protocol version 12), 64 at a time, nearest first, as soon as the last
+// 64 are in or every quarter second, each unsqueezed on the listener
+// before it goes to the main thread.  Once the character is in the world it hears the world's
 // objects (protocol version 14): each one whole as it comes into view,
 // what moves, what's gone, and a roll call once a second, all handed to
 // the main thread as they come; it asks about a number the roll call has
@@ -57,13 +56,9 @@ namespace Opus.Net
         // if the rest haven't all come (Jacob, 2026-10-02: "2s is fine").
         const long PiecesForMs = 2000;
 
-        // The map at PLAY: what's missing is asked for again after a
-        // quarter second, and with no new piece in 10 seconds it's given up.
-        const long MapAskAgainMs = 250;
-        const long MapStallMs = 10000;
-
-        // The chunks the same: asked again after a quarter second, and with
-        // no new chunk (in, or refused for good) in 10 seconds given up.
+        // The chunks around the character: what's missing is asked for
+        // again after a quarter second, and with no new chunk (in, or
+        // refused for good) in 10 seconds it's given up.
         const long ChunkAskAgainMs = 250;
         const long ChunkStallMs = 10000;
 
@@ -94,17 +89,8 @@ namespace Opus.Net
         int piecesIn;
         long firstPiece;
 
-        // The simple overworld map while it comes in, or null, and when its
-        // next request is due.
-        MapDownload map;
-        long nextMapAsk;
-
-        // How far along the map is, in whole percent, last time Session was
-        // told, so it's told a hundred times and not four thousand.
-        int mapPercentSaid;
-
         // Where the character will stand and how many chunks each way it
-        // sees, from the offer (version 12).
+        // sees, from the GroundOffer.
         float standX;
         float standY;
         float standZ;
@@ -118,8 +104,8 @@ namespace Opus.Net
         // How many of the nearest were in last time Session was told.
         int nearDoneSaid;
 
-        // Rung to wake the sender early: a new ask, the map's last pieces
-        // in, or closing.
+        // Rung to wake the sender early: a new ask, the last chunks asked
+        // for in, or closing.
         readonly AutoResetEvent wake = new AutoResetEvent(false);
 
         GameConnection(string host, ushort port, string token)
@@ -211,9 +197,9 @@ namespace Opus.Net
             }
         }
 
-        // The map is in and kept: the chunks around where the character
-        // will stand, from the offer.  How many PlayerReady waits on, the
-        // nearest, and the column they're round.  From the main thread.
+        // The chunks around where the character will stand, from the
+        // GroundOffer.  How many PlayerReady waits on, the nearest, and the
+        // column they're round.  From the main thread.
         public int FetchChunks(out short columnX, out short columnZ)
         {
             int near;
@@ -311,27 +297,6 @@ namespace Opus.Net
                                 waitMs = Math.Min(waitMs, nextAsk - now);
                                 if (pieces != null)
                                     waitMs = Math.Min(waitMs, firstPiece + PiecesForMs - now);
-                            }
-                        }
-
-                        if (map != null)
-                        {
-                            if (now - map.LastNew >= MapStallMs)
-                            {
-                                string why = "no new piece of it in " + MapStallMs / 1000 + " s (" + map.Have + " of "
-                                             + map.Count + " in)";
-                                map = null;
-                                Debug.Log("Game: gave up on the world's map: " + why + ".");
-                                MainThread.Post(() => Session.MapFailed(this, why));
-                            }
-                            else
-                            {
-                                if (now >= nextMapAsk)
-                                {
-                                    SendNow(map.NextRequest());
-                                    nextMapAsk = now + MapAskAgainMs;
-                                }
-                                waitMs = Math.Min(waitMs, Math.Min(nextMapAsk, map.LastNew + MapStallMs) - now);
                             }
                         }
 
@@ -493,10 +458,6 @@ namespace Opus.Net
                     Waiting(packet);
                     return;
 
-                case Protocol.OverworldMapPiece:
-                    MapPiece(packet);
-                    return;
-
                 case Protocol.ChunkPiece:
                     ChunkPieceCame(packet);
                     return;
@@ -656,53 +617,6 @@ namespace Opus.Net
             }
             Debug.Log("Game: an answer in " + count + " pieces, " + whole.Length + " bytes, put back together.");
             Heard(new PacketReader(whole));
-        }
-
-        // One piece of the map: its number, then its bytes.  One for a map
-        // we aren't fetching, or that we already have, is let go.  The last
-        // one hands the whole map to Session, which checks it and keeps it.
-        void MapPiece(PacketReader packet)
-        {
-            uint number = packet.U32();
-            byte[] bytes = packet.Rest();
-            long received;
-            uint size;
-            byte[] whole = null;
-            long tookMs = 0;
-            lock (gate)
-            {
-                long now = clock.ElapsedMilliseconds;
-                if (map == null || !map.Take(number, bytes, now))
-                    return;
-                received = map.Received;
-                size = map.Size;
-                if (map.Done)
-                {
-                    whole = map.Whole();
-                    tookMs = now - map.Started;
-                    map = null;
-                }
-                else if (map.AskedAllIn)
-                {
-                    // The next 64 can go now.
-                    nextMapAsk = 0;
-                    wake.Set();
-                }
-            }
-
-            int percent = (int)(received * 100 / size);
-            if (whole != null)
-            {
-                double seconds = System.Math.Max(tookMs, 1) / 1000.0;
-                Debug.Log("Game: the world's map is in, " + size + " bytes in " + seconds.ToString("0.00") + " s ("
-                          + (size / seconds / 1000000.0).ToString("0.0") + " MB/s).");
-                MainThread.Post(() => Session.MapArrived(this, whole));
-            }
-            else if (percent != mapPercentSaid)
-            {
-                mapPercentSaid = percent;
-                MainThread.Post(() => Session.MapProgress(this, received, size));
-            }
         }
 
         // One piece of a chunk: its place, which piece of how many, then
@@ -867,46 +781,26 @@ namespace Opus.Net
                     return;
                 }
 
-                // PLAY's answer (version 11): the character is loaded, and
-                // this is the map to fetch first.  The sender starts asking
-                // for it at once.
-                case Protocol.OverworldMapOffer:
+                // PLAY's answer (version 17): the character is loaded, and
+                // this is where it will stand and how many chunks each way it
+                // sees.  Session asks for the chunks around it at once.
+                case Protocol.GroundOffer:
                 {
-                    uint size = packet.U32();
-                    ushort pieceBytes = packet.U16();
-                    uint count = packet.U32();
-                    string hash = packet.String();
-                    // Where the character will stand and how many chunks
-                    // each way it sees (version 12), for asking for the
-                    // chunks around it once the map is in.
                     float x = packet.F32();
                     float y = packet.F32();
                     float z = packet.F32();
                     byte sees = packet.U8();
                     packet.End();
-                    Debug.Log("Game: the world's map is " + size + " bytes in " + count + " pieces, SHA-256 " + hash
-                              + ".");
-                    try
+                    Debug.Log("Game: the character will stand at " + x + ", " + y + ", " + z + " and sees " + sees
+                              + " chunks each way.");
+                    lock (gate)
                     {
-                        lock (gate)
-                        {
-                            map = new MapDownload(size, pieceBytes, count, hash, clock.ElapsedMilliseconds);
-                            nextMapAsk = 0;
-                            mapPercentSaid = 0;
-                            standX = x;
-                            standY = y;
-                            standZ = z;
-                            view = sees;
-                        }
+                        standX = x;
+                        standY = y;
+                        standZ = z;
+                        view = sees;
                     }
-                    catch (ProtocolException e)
-                    {
-                        string why = "the server offered " + e.Message;
-                        MainThread.Post(() => Session.MapFailed(this, why));
-                        return;
-                    }
-                    wake.Set();
-                    MainThread.Post(() => Session.MapOffered(this, hash, size));
+                    MainThread.Post(() => Session.GroundOffered(this));
                     return;
                 }
 
