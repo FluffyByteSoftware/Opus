@@ -240,7 +240,12 @@ Windows.  What's left, a step each:
   The built game from before it got "The server didn't answer." and then, on a second PLAY, "Your
   character is on its way into the world.": it didn't know the offer, and a new PLAY while the character
   is held is refused until the session ends.  A fix was offered (a PLAY for the held character gets the
-  offer again), not yet picked.  Left after it: drawing
+  offer again), not yet picked.
+  **A cooldown on the download** (Jacob, session 2, asked in answer to the stuck PLAY): "server puts a
+  cooldown on an IP after it downloads and that IP must wait 5 minutes before it can attempt a download
+  again".  Not built; being talked through: what counts as a download (the offer, or the map finished),
+  what a PLAY inside the five minutes gets (every PLAY downloads, so a refusal blocks a quick log out and
+  back in), and players sharing one address.  Left after it: drawing
   the distance from `SimpleOverworldMap.Current`, and writing the map again at the world save once blocks
   change.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
