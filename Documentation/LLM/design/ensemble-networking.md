@@ -236,7 +236,14 @@ there (session 2); this is the chunks, received and held, nothing drawn.
   client's summary (how many, how many bytes, how long, the blocks by kind, the block at 0,0,0).  Drawing,
   plain colours or the purchased art (an atlas), is for when the chunks are drawn.
 
-### As written (2026-10-03, session 4, not built yet)
+### As written (2026-10-03, session 4, built and run)
+
+**Measured** (Jacob, in the editor against Conductor on Linux, `view_chunks` 8): 3,179 chunks, all in, 0
+refused, 88,746 bytes squeezed, 3,179 packets, 50 requests, 0 "not yet"s, in 0.12 s; **the nearest 99 in
+0.02 s**, then PlayerReady.  The blocks the same as the test client's to the block, 0 that didn't unsqueeze,
+GOLD at 0,0,0.  **Held: 561 chunks as blocks, 35.1 MB, and 2,618 all one kind** (the guess was about 37).
+The map before it: 16.8 MB in 0.17 s.
+
 
 - **`Code/Net/ChunkDownload.cs`**, the chunks' `MapDownload`: every chunk within the offer's view of the
   character's column, every row, sorted nearest first the test client's way; which are done (in, refused
