@@ -51,7 +51,7 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 | The HUD's layout and catalog files           | `Documentation/LLM/HUD_FORMATS.md`; the brief, `HUD_LAYOUT_SYSTEM.md`|
 | The patcher's manifests and the web folder   | `Documentation/LLM/PATCH_MANIFEST.md`                     |
 | The password's key, both halves              | `Documentation/LLM/design/client-security.md`             |
-| The tools: DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist, the rest | `design/conductor-tools.md` |
+| The tools: DiskMan, Scribe, Constellations, Fingerprinter, Security, Archivist | `design/conductor-tools.md` |
 | Accounts, characters' rows, the account desk | `design/conductor-accounts.md`                            |
 | The monitor                                  | `design/conductor-monitor.md`                             |
 | The door: TLS, UDP, Protogame, the spawn, chat, `/who`, the commands, the lists | `design/conductor-networking.md` |
