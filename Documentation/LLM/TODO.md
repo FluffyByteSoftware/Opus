@@ -258,6 +258,12 @@ Windows.  What's left, a step each:
   guess of some 13 s at a 50 ms ping, since each 64 pieces waits a round trip), and asking for the next 64
   before the last are in if it drags; the stuck PLAY, with LOG OUT the way out.  **The chunks streamed** are
   the other half, and Jacob's pick for the next session ("we're gonna stream the chunks").
+- **The chunks streamed** (session 3, 2026-10-03, being talked through): Conductor first, "prepare
+  conductor for 'streaming' the world around the player in its chunk data and voxel data... we essentially
+  want to copy minecraft."  The simple overworld map is "a 'broad outline'... we're gonna use to draw at a
+  distance for the client"; the stream "is meant to give the high resolution details".  Open: whether the
+  server pushes chunks (Minecraft's way) or the client pulls them (the map's way), what's needed before
+  PlayerReady, squeezing, and how far.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
