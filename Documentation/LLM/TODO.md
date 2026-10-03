@@ -108,6 +108,12 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   that way (the other screens' font goes through `ApplyText()`); `design/conductor-networking.md`'s "Chat"
   and "/who" sections, patched for the commands' move rather than rewritten; `design/ensemble-hud.md`'s
   login sections, kept as history (Jacob: leave them); REPORT.html, not looked at.
+- **"Reliable ordered" packets over UDP** (Jacob, session 9, 2026-10-03): "we could consider redesigning
+  the UDP service to have "reliable ordered" packets?"  Today only a client's ask is sent again until
+  answered; nothing the server starts on its own is (ChatDelivery, the world's objects).  The objects in
+  view are mended by a roll call once a second instead (`design/ensemble-world.md`).  A channel the server
+  sends again until the client says it has it, in order, would suit chat; positions are better without
+  it, since a fresh one shouldn't wait behind a lost old one.  Its own feature.
 - **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up
   repeatedly needing but we don't need it... yet put this in todo".  A static class beside the Translator,
   when there's a formula used in more than one place.

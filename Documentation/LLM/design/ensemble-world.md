@@ -130,5 +130,22 @@ names over heads.
 - **Facing**: "full rotation if possible", the `Transform`'s whole rotation.
 - **Over the head**: the short name.
 
-Still open, put to him: how a lost "came into view" or "left" is mended; a heading and speed, or a
-velocity; what an Actor is on the client; how a model's name finds a model.
+Then put to him: how a lost "came into view" or "left" is mended; a heading and speed, or a velocity; what
+an Actor is on the client; how a model's name finds a model.
+
+**His answers** (session 9, the second round):
+- **A lost packet**: **a roll call once a second**, every object in view with its number and its movement
+  as it is now; the client drops what isn't in it and asks about a number it doesn't know.  "Or we could
+  consider redesigning the UDP service to have "reliable ordered" packets?"  That one's in TODO.md, its
+  own feature.  (The other shape was the client confirming each packet and the server sending again.)
+- **Movement**: "WASD movement", so **a velocity**, blocks a second along x, y and z.  (The other shape
+  was a destination and a speed, which suits click-to-move.)
+- **The hydrate packet**: "the transform information, fallback enum shape, and animation name", and the
+  rest as put to him: an **Actor** on the client for anything Living, with its short name over its head;
+  a plain world object for everything else.  For the model: "we're gonna have two ways of sending it:
+  UUID and a string literal to the relative path in the client's data directory that should be with the
+  executable?  Or relative to the executable's path?"  And: "we may have to build a plug in together to
+  help visualize this so I don't get confused as the dev who doesn't speak UUID - but something that might
+  show the UUID to which model in a browser."  Being talked through: what a path can mean to Unity.
+- **The list of models in the Inspector** (a name and a prefab each, the fallback shape for a name not in
+  it): "sounds good".  **The Character template's model is named "Actor"**: "Actor not character or human".
