@@ -24,8 +24,10 @@ ends it starts Soundcheck again with why, and closes; with no ticket (started by
 shows the start screen, which in the editor is dev mode, watching for the ticket Soundcheck's `--debug`
 SUBMIT writes.  Admin mode (`--admin`) publishes a platform's build into the web folder.  Conductor has no
 part in the patcher.  **The game's name is Forgotten Legends**; the project, its folders and code stay Opus.
-**Everything speaks protocol version 13** (session 8, `/who` a line a character; 12 was session 3).  CLAUDE.md's "Client rules" and "Launcher rules" have
-the detail.
+**Everything speaks protocol version 13** (session 8, `/who` a line a character; 12 was session 3).
+CLAUDE.md's "Client rules" and "Launcher rules" have the detail.  **The built game in
+`Ensemble/build/Linux/0.0.12/` still speaks 12**, so Soundcheck without `--debug` can't play it against
+today's Conductor: a fresh build first, or the editor with `--debug`.
 
 **The world to the client** (0.0.13 on WAYPOINTS.md): **Conductor's side is whole**.  The bulk:
 GameWorld writes `simple_overworld.map`, the world's rough shape for the distance, before the door opens
@@ -46,6 +48,11 @@ widget moves, chat resizes by its edges and corners, a right-click gives LOCK / 
 (18 to 42), unlocked widgets flash, Jacob's two pointers from his purchased pack show where a drag can
 start, and it's all kept in `<character>_hud_layout.json` (HUD_FORMATS.md's layout version 2).
 
+**`/who` is a line a character, EverQuest's way** (session 8, `design/conductor-networking.md`, "/who"):
+`Chatter is at [0, 0, 0] [16 days, 12 minutes online]`, the one in the world longest at the top, a blank
+line, "There are 2 Legends online." and the time it ran.  `/who list` went into `/who`; every `/who` is
+answered from the GameClock, which notes when each character came in.
+
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
@@ -53,9 +60,9 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 
 **The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
 the GitHub Release.  `main` is two docs commits past the tag; `testing` and `unstable` are level with each
-other, sessions 0 to 7 past `main`.  `main` moves when Jacob says.
+other, sessions 0 to 8 past `main`.  `main` moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor as released, and sessions 0 to 7 since; Soundcheck through
+**Built and tested on Linux**: all of Conductor as released, and sessions 0 to 8 since; Soundcheck through
 PLAY and the way back, the check at start and the patch against the real web folder; Ensemble through the
 start screen, dev mode, the launcher's ticket, the map at PLAY, the chunks and the ground on screen, the
 HUD moved, resized and locked.
@@ -115,7 +122,10 @@ At session 6's hand-off (2026-10-03): **"wrap it up bro!  We're good"**, no pick
 on one he'd forgotten and then found: "Resizable chat window".  Done.
 
 At session 7's hand-off (2026-10-03): **"next session we're gonna try to get a character loaded into the
-world as a rep for the player"**.  His to change.
+world as a rep for the player"**.  His to change.  Session 8 opened on a quick change instead (`/who`), so
+this one still stands.
+
+At session 8's hand-off (2026-10-03): **"next session gonna be hard I think"**, no pick named.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -157,38 +167,36 @@ have no number.
 - **Session 7, 2026-10-03**: Jacob's forgotten pick, found: the HUD moved, resized (chat) and locked by the
   player, a right-click menu with chat's font size, his own two pointers, a layout file a character
   (layout version 2).  Built and tested, every check.
+- **Session 8, 2026-10-03**: `/who` a line a character, EverQuest's way, protocol version 13: where each
+  stands and its time online, the one in longest first, the count in digits and the time under it;
+  `/who list` gone into `/who`, every `/who` through the GameClock; Ensemble's `WhoBox.cs` became
+  `WhoLines.cs`.  Built and tested, every check.  `/who <character name>` is for later (TODO.md).
 
-## Last session -- session 7, 2026-10-03, the HUD the player's own
+## Last session -- session 8, 2026-10-03, /who a line a character
 
-A fresh chat.  Jacob came in with a pick he'd forgotten ("It was something to do with the client and the
-streams"); a run through what's open before movement (seeing other players, ground loaded around players
-who move, a body for the stand-in, the 250 ms tick and the client filling the gaps, a second computer) jogged
-nothing, and then: **"OH I REMEMBER  Resizable chat window"**.  Talked through a question at a time, every
-answer pushed to TODO.md as it came, then built, and every check passed:
+A fresh chat, opened on a quick change: **"since the chat window is "scaleable" we need to redesign it to I
+think more of an EverQUest style but we're gonna sort in single file by time since log on"**, with his
+example, then "sorry": `Chatter is at [0, 0, 0] [16 days, 12 minutes online]`.  Six questions, his answers
+(each in `design/conductor-networking.md`, "/who", in his words), then built, and every check passed:
 
-- **The shape** (his words, TODO.md has each): "right click it and lock it or unlock it and when unlocked if
-  you go to the border of the chat box you can drag its edges out"; every edge "like windows window";
-  unlocked by default, with "a flashing orange/red/yellow border" ("its gonna be annoying but yes until I get
-  a lock/unlock icon in to draw on the title bar"); **all widgets movable, only chat resizable**; moved by
-  grabbing the inside; the font size of chat's contents, not its header, 18 to 42; remembered in
-  **`playername_hud_layout.json`**, the character's name ("we can do this even better").
-- **Built**: `WidgetFrame.cs` (lock, move, resize, the flashing), `WidgetMenu.cs` (the right-click menu, ours,
-  since Unity's own is editor-only), `HudPointer.cs`; HudBuilder frames every box on the HUD; the layout's
-  version 2 (`locked`, `fontSize`, rule 8 in HUD_FORMATS.md); LayoutLoader writes the character's file
-  through a `.new` and a replace; health and the minimap not resizable.
-- **The pointers**: Unity's docs, forums and issue tracker are blocked from the session; its C# source on
-  raw.githubusercontent.com (UnityCsReference) showed UI Toolkit's `cursor` calling `Cursor.SetCursor` with
-  `CursorMode.Auto`.  Jacob's are a purchased pack (the PremiumCursors), so two slots on ScreenRoot.  The
-  64 x 64s were "like 2.5 times the size" of the normal pointer: **Max Size 32 in the Inspector and hotspots
-  at 2, 2**, "now it feels perfect".  No code.
-- **What's kept**: a character with no file starts unlocked; with one, everything resumes as last saved
-  (Jacob's rule).  A lock that seemed lost on Chatter wasn't, on a second look.
-- **The checklist**: session 6's two Unity checks and session 7's ten passed and are out; only the three
-  Parked are left.
-- The session's clone opened with a local `unstable` 51 commits off `origin/unstable`; it was set to
-  `origin/unstable`, the old one kept as a local branch only.
+- **The shape**: "just mutate them into who" (`/who list` gone; anything after `/who` gets "Try /who.");
+  "Oldest log in goes at the top, newest at the bottom"; log on is "When character _entered_ the world";
+  days, hours and minutes with "no zeros"; "Capital L Legends", "there is 1 Legend online", a blank line
+  above it; "Put a stamp at the bottom with the time".
+- **Built**: protocol version 13, WhoDelivery without its list byte and each character with x, y, z and
+  its seconds online.  The GameClock's `Players` notes the `Instant` each character spawns and
+  `standing()` hands them back in that order, so every `/who` goes through its mailbox (`who()`) and
+  networking's `names_in_world()` is gone.  `player-commands/src/who.rs` has `send()`.  Ensemble:
+  `WhoLines.cs` in place of `WhoBox.cs` (its `.meta` moved with `git mv`, so no `.meta` round), the chat
+  window's hidden ruler gone with the box.  The test client draws the same lines; both `Protocol.cs` at 13.
+- **Later**: "eventually we're gonna make who able to do /who <character name> but not yet" (TODO.md).
+- **The checklist**: session 8's four checks passed and are out; only the three Parked are left.
+- The session's clone opened with a local `unstable` off `origin/unstable` again (51 ahead, 50 behind, a
+  shallow clone's doing); it was set to `origin/unstable`.
 
 ## Where the next session starts
+
+No new pick at session 8's hand-off ("next session gonna be hard I think"); session 7's still stands.
 
 **Jacob's pick: "try to get a character loaded into the world as a rep for the player"**.  Read
 `design/ensemble-world.md` (the stand-in Cube, `CharacterStandIn`, the Cinemachine camera) and
@@ -223,8 +231,9 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
   once blocks change, a timing over the internet, the stuck PLAY (LOG OUT is the way out).
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale
   words.
-- **Saying things without a `/`**, **kicking a player who keeps flooding**, **`/help`**, **whether the web
-  admin sees the chat**, **who may see positions**, **a Math class on the client**: TODO.md.
+- **Saying things without a `/`**, **`/who <character name>`**, **kicking a player who keeps flooding**,
+  **`/help`**, **whether the web admin sees the chat**, **who may see positions**, **a Math class on the
+  client**: TODO.md.
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
 - **Ensemble**: the HUD's Phases 2 and 3; its project files in git (Packages/, LFS for scenes): TODO.md.
 - **Movement** (0.0.2 on WAYPOINTS.md), and what the client is sent after CharacterEnteredWorld.

@@ -589,7 +589,9 @@ When I say we're wrapping up:
   refuses a `git rm` of many files, so the files that go are one `git rm -r
   -q` line with absolute paths and globs, run right after the pull and
   before Unity gets focus, and `git meta` commits the deletions with the
-  `.meta`s.
+  `.meta`s.  **A rename needs no round**: the session `git mv`s the file
+  and its `.meta` together, so the GUID stays and Unity sees a move
+  (session 8, `WhoBox.cs` to `WhoLines.cs`).
 - **Ensemble never logs in and never sees a password** (2026-10-02; the
   login is Soundcheck's).  It has no TCP and no TLS: it reads the ticket
   from its environment (`OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`,
