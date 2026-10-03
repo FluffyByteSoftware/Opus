@@ -138,11 +138,14 @@ so **protocol version 16** (Jacob: "bump protocol version up"), all four program
   full for the rest).  GOLD gone, 4 never used again; MASONED_STONE 6.
 - `chunk.rs`: a density beside every kind; the file at version 3, the densities after the kinds; version 2
   still read at plain densities; a file whose kinds and densities disagree turned away.  96 KB a chunk in
-  memory: with 3,179 chunks held at `view_chunks` 8, about 100 MB more than before (a sum, not measured).
+  memory: with 3,179 chunks held at `view_chunks` 8, about 100 MB more than before, the sum; **measured**
+  (Jacob, 2026-10-03, the Conductor tab with the server up): about 810 MB before, 918 after, 108 MB more.
 - `build.rs`: no GOLD at 0,0,0, so 0,0 is Omega's dirt at whatever height its heights file has, and the
   spawn point's height follows it.  Every voxel at its plain density.
 - `squeeze.rs`: the kinds only, as before; a chunk unsqueezed comes back at plain densities.
-- `test_client.py`: the block names, 4 out and 6 in.
+- `test_client.py`: the block names, 4 out and 6 in.  Checked: the view came to 88,742 bytes, 4 fewer
+  (the GOLD's run), no GOLD in it, and 0,0,0 is AIR in Jacob's world (Omega's dirt there is under 0), so
+  Tester, saved on the GOLD, comes in standing over the ground.
 - Ensemble: `Blocks` (`Chunk.cs`) loses Gold and gains MasonedStone; GroundView's GOLD slot is gone and a
   MASONED_STONE slot is new (empty until Jacob gives it a material; nothing makes it yet).
 - Version 16 in `protocol.rs`, `test_client.py`, Ensemble's and Soundcheck's `Protocol.cs`, PROTOCOL.md.
