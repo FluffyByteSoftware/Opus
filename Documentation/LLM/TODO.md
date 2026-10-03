@@ -56,7 +56,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   talked through.  What's there: the catalog already says chat is `Resizable` (min 320 x 160), but
   nothing in the game lets a player change a size, and nothing writes the player's `hud_layout.json`
   (only the web editor was to, Phase 3).  A widget never sizes its own box (`Widget.cs`), so a grip
-  would be HudBuilder's, not ChatWidget's.
+  would be HudBuilder's, not ChatWidget's.  **Jacob**: "I'd like it so that you can right click it and
+  lock it or unlock it and when unlocked if you go to the border of the chat box you can drag its edges
+  out into the game screen space and resize it."  So a right-click menu on the window (Lock / Unlock),
+  and while unlocked its border is a grip, any edge.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
