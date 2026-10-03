@@ -483,7 +483,7 @@ mod tests {
         assert!(matches!(list_all().wait(), Err(ArchivistError::NotRunning)));
         let loaded = load("jacob_01", "0192a7c4-0000-7000-8000-000000000000").wait();
         assert!(matches!(loaded, Err(ArchivistError::NotRunning)));
-        let made = create("jacob_01", "Jacob", "return {}".to_string()).unwrap().wait();
+        let made = create("jacob_01", "Jacob", "return {}".to_string(), [0.5, 1.0, 0.5]).unwrap().wait();
         assert!(matches!(made, Err(ArchivistError::NotRunning)));
         assert!(matches!(save(1, [0.0, 0.0, 0.0], "return {}".to_string()).wait(),
                          Err(ArchivistError::NotRunning)));
