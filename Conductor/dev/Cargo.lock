@@ -190,10 +190,12 @@ version = "0.0.1"
 dependencies = [
  "conductor-accounts",
  "conductor-gameclock",
+ "conductor-gameworld",
  "conductor-lua-parser",
  "conductor-primlib",
  "conductor-tools",
  "rustls",
+ "sha2",
 ]
 
 [[package]]
