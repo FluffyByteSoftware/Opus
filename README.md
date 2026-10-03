@@ -13,10 +13,12 @@ starts Ensemble.  Conductor is authoritative -- it owns the game state, clients 
 
 It is early.  The server has its foundations, a login, a web page to run it from, a world of blocks and a
 game loop ticking over it, and a player can pick a character, stand in that world and chat with whoever
-else is there, though nothing moves yet.  Ensemble has an editor tool for the art, and screens built from
-layout files: it starts with the launcher's ticket, makes, deletes and picks a character at character select,
-and puts it in the world on the ground drawn around it, with a HUD the player can move, lock and (the chat
-window) resize.
+else is there, though nothing moves yet.  The server has the say on where everything stands: each player
+is sent everyone in their view, and a character saved inside the ground is stood back on top of it.
+Ensemble has an editor tool for the art, and screens built from layout files: it starts with the launcher's
+ticket, makes, deletes and picks a character at character select, and puts it in the world on the ground
+drawn around it, with everyone nearby drawn standing there with their name over their head (a capsule each
+until there are models), and a HUD the player can move, lock and (the chat window) resize.
 Soundcheck checks the game's files against the manifest its admin mode published to a web folder (1.3 s
 for 655 MB), fetches whatever's off a file at a time, logs in over TLS 1.3 with the password turned into a
 key before it's sent or kept, and starts Ensemble with the ticket; all of it built and tested on Linux,
