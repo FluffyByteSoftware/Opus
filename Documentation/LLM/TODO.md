@@ -169,19 +169,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **A spawn system** (Jacob, 2026-09-30): keeps count of the NPCs in the world and spawns more from their
   blueprint when a kind runs low ("when the number of goblin_as is growing low").  So a copy needs to know
   its blueprint.  It goes in the housekeeping check and has to wait for `conductor_gameclock::ready()`.
-- **NPCs that keep the world awake** (Jacob, 2026-10-03, session 11; being talked through, waits on NPCs,
-  0.0.3 on WAYPOINTS.md).  Players wake the world two ways: their client is sent the ground and the
-  objects around them, and the server keeps the ground around them loaded (`gameclock/src/ground.rs`,
-  since session 10).  "I want to have unique actors (NPCs) that can also wake the world up around them.
-  There won't be many, maybe 2 or 3 in the world at a time.  They keep it awake because they are the ones
-  that might be moving from one city to another in game... Also if a dragon is spawned in the world it
-  should keep attacking until its dealt with."  So a waking NPC is the server half of a player: the ground
-  around it stays loaded, and the world there goes on, with nobody watching.  Put to him, not answered
-  yet: whether NPCs away from any waker (a goblin camp nobody's near) stop acting until something wakes
-  their ground; how far round a waker stays awake; what a dragon "dealt with" means (killed, driven off,
-  or something else) and whether it keeps the world awake only while it's on the attack; whether 2 or 3 is
-  a limit the server holds to or just how many there'll be; and what the world keeps of what happens
-  while nobody's there (blocks a dragon burns need chunks saved, the world's part two).
+- **NPCs that keep the world awake**, and the world asleep where nothing is: LONGTERM_TODO.md, "The world
+  asleep and awake" (Jacob, 2026-10-03, session 11).
 - **Saving primlib's copies** on STOP SERVER, with their UUIDs and internal names (`goblin_archer_1`),
   and loading them back on START SERVER.  `design/primlib.md`.  When they join the world save, its snapshot's
   cost matters: 32.88 ms for 10,000 characters (2026-10-01), likely most of it `Save::of()`'s small

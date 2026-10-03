@@ -94,6 +94,41 @@ is a biome).  The first world is Alpha (flat) and Omega (hills).  `design/world.
   change today remakes the world.  `region.map` keeps its size in its header, so growing one without
   remaking it is possible one day; keeping the digging across a change is in TODO.md.
 
+## The world asleep and awake (Jacob, 2026-10-03, session 11; being talked through)
+
+Waits on NPCs (0.0.3 on WAYPOINTS.md) and on saving changed chunks (above).  Players wake the world two ways:
+their client is sent the ground and the objects around them, and the server keeps the ground around them
+loaded (`gameclock/src/ground.rs`, since session 10).  Jacob: "I want to have unique actors (NPCs) that can
+also wake the world up around them.  There won't be many, maybe 2 or 3 in the world at a time.  They keep
+it awake because they are the ones that might be moving from one city to another in game... Also if a
+dragon is spawned in the world it should keep attacking until its dealt with."  So a waking NPC is the
+server half of a player: the ground around it stays loaded and the world there goes on, with nobody
+watching.
+
+**His answers** (session 11):
+- **The world sleeps where nothing wakes it, and catches up when it wakes**: "my original intent is that
+  they go to sleep but when something heats the voxels up around them - they wake up and the "zone" can
+  play catch up multiplying hte goblins if enough time has spread for reproduction to occur."
+- **NPCs with an economy**: "while foxes and a deer might not matter -- the goblins will be producing
+  things, mining, hunting, etc. so they will have their own controller determining their resource needs
+  and what resources are available.  Then the goblins will have to figure out how to get those resources.
+  That should naturally drive some conflict in the world too."  So a group of goblins has a controller
+  above the single goblin's brain (the GOAP talk under "The scripting language" is the single goblin's).
+- **How far round a waker stays awake**: "Its probably going to need to be a part of the Actor's scripts?
+  Some way of defining it if its less than 2 or more than 2".  A value on the actor, set by its script;
+  a player's is 2 chunks each way today.
+- **A dragon is dealt with more than one way**: "You could slay it that's one way.  You could try to
+  negotiate peace with it.  You could try to scare it."  Talking an NPC round and scaring one are each a
+  system of their own, still to come.
+- **2 or 3 wakers is how many he expects**, not a limit the server holds to.  Each costs about what a
+  player's ground does on the server (about 18 MB at 2 chunks each way, a guess, not measured).
+- **What a dragon does while nobody's there stays done**: "The damage happens that's the point.  The
+  dragon is an existential threat!"  So the ground it burns is saved, which is why this waits on saving
+  changed chunks.
+
+Still open: what "heats the voxels up" means (below, in the session's reply), what a zone is when it
+catches up, what catching up changes, and whether a goblin party out for resources wakes the world.
+
 ## Soundcheck, the patcher, and a certificate for every client
 
 **Opus.Soundcheck** is the launcher (Jacob's name).  **Started 2026-10-02, and the patcher half is built**:
