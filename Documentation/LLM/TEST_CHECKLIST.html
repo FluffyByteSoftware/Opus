@@ -270,13 +270,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      Tester pulls its chunks: the "Blocks:" line has no GOLD (and no 4), and "The block at 0,0,0" is DIRT,
-      or AIR if Omega's ground there is under 0.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --chunks --leave-after 2 testuser123 'Testpass123!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
       In the editor with Soundcheck's <code>--debug</code>, both rebuilt at protocol version 16 (a 15 is
       stopped at the Hello): the ground looks as it did, with no block of its own at 0,0,0, and GroundView
       has a MASONED_STONE slot where GOLD's was.  A character saved on the GOLD may stand a block or few over the ground (nothing
