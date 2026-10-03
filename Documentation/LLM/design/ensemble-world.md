@@ -24,6 +24,13 @@ come in as `design/ensemble-networking.md` says ("The chunks, Ensemble's half") 
   block kind is a submesh with its own material, from a slot each in the Inspector.  No shader of ours.
 - **The camera**: "we're gonna be using a cinemachine following camera in the style of zomboid except a bit
   more direct".  Project Zomboid's is a fixed, angled view from above that follows the character.
+  **Fixed**: "I'm going for the zomboid style where you can walk towards the camera but the camera only
+  zooms in and out.  It doesn't swivel or rotate."  Cinemachine (3, already in the project) is set up by
+  Jacob in the editor, following a **stand-in** the code puts where the character stands: a box 1 block
+  wide and 2 tall, its feet at the server's y, its material a slot like the blocks'.  The other shape was
+  the code building the camera rig.
+- **The slots**: one material each for DIRT, STONE, WOOD, GOLD and BEDROCK, and one for the stand-in.  An
+  empty slot's faces aren't drawn, and the Console says so once.
 - **Where the character stands**: a block at x, y, z fills x to x+1 each way, and the character's y is its
   feet, so a character at 0, 0, 0 stands in the GOLD, a block into Alpha's ground.  Drawn as it is; the
   spawn's height is a Conductor question in TODO.md.
