@@ -268,7 +268,10 @@ When I say we're wrapping up:
 - Explain Rust plainly.  Don't translate Rust into C terms unless I ask.
 - **Questions for me go at the bottom of your reply, under a big, loud
   header** (`# >>>>>>>>>> QUESTIONS FOR JACOB <<<<<<<<<<` -- large and annoying
-  on purpose, so I can't miss them).
+  on purpose, so I can't miss them).  **While TEST_CHECKLIST.html has checks
+  waiting, the questions remind me to go through it** (Jacob, session 12:
+  "please remind me to go through the checklist in these questions"), and
+  say which section is new.
 - Keep replies short at first.  Expand when I engage.
 - **Every command I'm to paste is one line.**  Never wrapped with `\` over
   several lines; pasting a wrapped command breaks it.  Long is fine.
