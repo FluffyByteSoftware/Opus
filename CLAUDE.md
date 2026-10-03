@@ -172,7 +172,10 @@ every folder and file.
   message is asked about, not taken out.  Whether a check becomes a GitHub
   issue instead is my call (issue #10 is one).  A number the session needs
   back (a timing, say) is asked for under the QUESTIONS header too, not only
-  inside a check, or it never comes back.
+  inside a check, or it never comes back.  Better still, the program prints
+  it in one line where I already look (the Console, the log): the map's
+  download time was asked for four times from the test client, and came
+  back the first time once Ensemble's Console said it (session 2).
 - **A review's finding is a claim until the code says so.**  A review goes
   in as a file with file and line for every finding, a "checked and fine"
   list so nothing is re-investigated, and a line on each finding saying when
@@ -347,7 +350,9 @@ When I say we're wrapping up:
   as a whole.  Adding a setting is one entry in the table and a line
   wherever it's read; a piece never reads a config file itself.  A change
   from the web admin waits as `name.cfg.wait4server` until the file's
-  reboot; the live file always says what Conductor is running on.  **The one
+  reboot; the live file always says what Conductor is running on.  A new
+  setting also goes in the committed file in `Content/cfg/`, in the table's
+  words, so my copy doesn't change under me when Conductor adds it.  **The one
   exception**: the whitelist and the blacklist, one address or range a line,
   not in the table, read on every START SERVER and changed from the page at
   once.  **Nothing else in Conductor hot swaps.**
@@ -651,7 +656,10 @@ When I say we're wrapping up:
   reply gives the plain `git add` of `Soundcheck/dev`.  A test of
   Soundcheck starting the game needs a game built from the code being
   tested (`Ensemble/build/Linux/<version>/`), and a reply that changes
-  Ensemble's half says "a fresh build first".
+  Ensemble's half says "a fresh build first".  Until that build, Ensemble
+  is tested in the editor with Soundcheck's `--debug`: Soundcheck without
+  it starts the old build, which answers a new packet with "The server
+  didn't answer." (session 2 lost a round to it).
 
 ---
 

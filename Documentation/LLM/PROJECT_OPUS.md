@@ -72,18 +72,22 @@ Opus/
 │       │           ├── windows.rs     # kernel32
 │       │           └── other.rs       # macOS and the rest: not measured yet
 │       ├── networking/                # lib -- a server piece
-│       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -gameclock, -primlib, -lua-parser
-│       │   │                          #   and rustls (ring, TLS 1.3 and 1.2)
+│       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -gameclock, -gameworld, -primlib,
+│       │   │                          #   -lua-parser, rustls (ring, TLS 1.3 and 1.2) and sha2 (the map's hash)
 │       │   ├── test_client.py         # the stand-in client, Python 3: logs in, connects over UDP, character
 │       │   │                          #   select (--create, --delete, --reset-home), --play, --type lines (chat,
-│       │   │                          #   /who, drawn in the box), keeps alive; Ctrl-C says Goodbye anywhere
+│       │   │                          #   /who, drawn in the box), keeps alive; Ctrl-C says Goodbye anywhere;
+│       │   │                          #   --play fetches the map first (--save-map, --wrong-map-hash)
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(), status(); the two helpers both sides share
 │       │       ├── settings.rs        # networking.cfg as networking reads it; the file itself is Constellations'
 │       │       ├── tls.rs             # reads the certificate and key, builds rustls's server settings
-│       │       ├── protocol.rs        # the packets, byte for byte; PROTOCOL.md is the other half
+│       │       ├── protocol.rs        # the packets, byte for byte (version 11); PROTOCOL.md is the other half
+│       │       ├── overworld.rs       # the simple overworld map as players are sent it at PLAY: its SHA-256, the
+│       │       │                      #   offer, every piece built once as its packet
 │       │       ├── sessions.rs        # the book: tickets by token, players by address (and their character in
-│       │       │                      #   the world, their last command), accounts by name only; the lockout
+│       │       │                      #   the world, their last command), accounts by name only; the lockout;
+│       │       │                      #   a character held while its player fetches the map; the map's cooldown
 │       │       ├── typed.rs           # a line a player typed: Asker, Outcome, and the slot player-commands' wire()
 │       │       │                      #   fills; "Commands Unavailable" with nothing in it
 │       │       ├── tcp.rs             # the acceptor, the login threads, TLS, the login, the failure hold, the kick
@@ -94,9 +98,10 @@ Opus/
 │       │       ├── dns/windows.rs     # getnameinfo from ws2_32
 │       │       ├── dns/other.rs       # macOS and the rest: no names yet
 │       │       ├── protogame.rs       # Protogame: character select's asks, on their own thread, answered over UDP;
-│       │       │                      #   playing a character brings it into the world through the GameClock
+│       │       │                      #   PLAY loads a character and offers the map (or refuses inside the
+│       │       │                      #   cooldown); PlayerReady brings it into the world through the GameClock
 │       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; hands asks on;
-│       │                              #   answers a typed line; an answer too big goes in Spans
+│       │                              #   answers a typed line; an answer too big goes in Spans; the map's pieces
 │       ├── lua-parser/                # lib, conductor-lua-parser -- a server piece
 │       │   ├── Cargo.toml             # depends on conductor-tools, conductor-primlib and mlua (Lua 5.4)
 │       │   └── src/
@@ -120,7 +125,8 @@ Opus/
 │       │   ├── Cargo.toml             # depends on conductor-tools
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(); reads the world (or makes it, or remakes it when world_size
-│       │       │                      #   changed), sees to simple_overworld.map, and hands the GameClock chunks
+│       │       │                      #   changed), sees to simple_overworld.map and keeps its bytes for
+│       │       │                      #   networking (overworld_map()), and hands the GameClock chunks
 │       │       ├── make.rs            # making the world: a seed, Omega's heights, then region.map last
 │       │       ├── block.rs           # Block: AIR, DIRT, STONE, WOOD, GOLD, BEDROCK; the numbers never change
 │       │       ├── chunk.rs           # ChunkPos and Chunk (32 blocks a side), and a changed chunk's .chunk file
@@ -187,17 +193,21 @@ Opus/
 │           │   │                      #   start screen's three (background, logo, the card: the line, QUIT,
 │           │   │                      #   and dev mode in the editor); character select's ten, and
 │           │   │                      #   CharacterSelectForm.cs, where they meet: the list and its pick,
-│           │   │                      #   PLAY, CREATE, DELETE, RESET HOME, the two cards
+│           │   │                      #   PLAY, CREATE, DELETE, RESET HOME, the two cards, and the loading
+│           │   │                      #   bar over the list while the map comes (CharacterSelectLoadingWidget)
 │           │   ├── Net/               # the client's net code, namespace Opus.Net (design/ensemble-networking.md)
 │           │   │   ├── Protocol.cs    # the version, the packet types, the answers, the Kicked reasons' words
 │           │   │   ├── Packets.cs     # PacketWriter and PacketReader: PROTOCOL.md's bytes
 │           │   │   ├── Ticket.cs      # the launcher's ticket out of the environment (OPUS_SERVER, OPUS_UDP_PORT,
 │           │   │   │                  #   OPUS_TOKEN, OPUS_SOUNDCHECK); in the editor, out of debug_ticket.json
-│           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks, the chat, Spans; Kicked and the
-│           │   │   │                  #   quiet timer end it
+│           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks, the chat, Spans, the map's pieces;
+│           │   │   │                  #   Kicked and the quiet timer end it
+│           │   │   ├── MapDownload.cs # the map coming in at PLAY: which pieces are in, the next 64 to ask for
 │           │   │   ├── MainThread.cs  # what the threads hand to Unity's main thread, run once a frame
 │           │   │   └── Session.cs     # the flow from the ticket back to the launcher, character select's asks, a
-│           │   │                      #   line typed (/camp caught here), the events
+│           │   │                      #   line typed (/camp caught here), the events; the map checked and kept
+│           │   ├── World/             # the world on the client, namespace Opus.World
+│           │   │   └── SimpleOverworldMap.cs # simple_overworld.map's reader (SIMPLE_OVERWORLD_MAP.md), Current
 │           ├── Scripts/
 │           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the start screen, character
 │           │                          #   select, the HUD) and which is showing; takes the ticket at start; the

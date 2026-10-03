@@ -51,6 +51,8 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 | Ensemble starting from the launcher's ticket     | Built and tested: the start screen, dev mode           |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
+| The world's map sent at PLAY, behind a bar       | Built and tested (protocol version 11)                 |
+|                                                  | and a five-minute cooldown on it, by account           |
 | Soundcheck, the launcher                         | Built and tested on Linux: the login over TLS 1.3,     |
 |                                                  | Remember Me, PLAY and the way back, debug mode, admin  |
 |                                                  | mode's PUBLISH, the check at start, the patch          |
@@ -149,7 +151,7 @@ over UDP.  When the session ends, Ensemble starts Soundcheck again with the reas
 is built and tested on Linux; none of it on Windows yet.
 
 The design behind each piece is in `Documentation/LLM/design/`, and what the server and a client say to
-each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 10).  The manifest's shape is
+each other, byte for byte, is `Documentation/LLM/PROTOCOL.md` (version 11).  The manifest's shape is
 `Documentation/LLM/PATCH_MANIFEST.md`.
 
 ## What it needs

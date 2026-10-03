@@ -240,7 +240,7 @@ Windows.  What's left, a step each:
   The built game from before it got "The server didn't answer." and then, on a second PLAY, "Your
   character is on its way into the world.": it didn't know the offer, and a new PLAY while the character
   is held is refused until the session ends.  A fix was offered (a PLAY for the held character gets the
-  offer again), not yet picked.
+  offer again); the cooldown below overtook it.
   **A cooldown on the download** (Jacob, session 2, asked in answer to the stuck PLAY): "server puts a
   cooldown on an IP after it downloads and that IP must wait 5 minutes before it can attempt a download
   again".  Not built; being talked through: what counts as a download (the offer, or the map finished),
@@ -250,10 +250,14 @@ Windows.  What's left, a step each:
   **when the server sends the offer**; **by account** ("By Account I guess"), not by address; **a setting in
   `networking.cfg`**.  What it's for: "its more for DDOS protection I think".  On the stuck PLAY: "yes and
   no".  The plan OKed ("yes"), `map_cooldown_seconds` (0 to 3600, 0 off, 300), and the stuck-PLAY fix left
-  out ("leave it out"): a second offer is a second download.  Written, not built yet
-  (`design/conductor-networking.md`).  Left after it: drawing
-  the distance from `SimpleOverworldMap.Current`, and writing the map again at the world save once blocks
-  change.
+  out ("leave it out"): a second offer is a second download (`design/conductor-networking.md`).  Built
+  and tested: the second PLAY got "... You have 199 seconds remaining."; four of its checks are still on
+  TEST_CHECKLIST.html.
+  **Left of the map**: drawing the distance from `SimpleOverworldMap.Current`; writing the map again at the
+  world save once blocks change; a timing over the internet (the LAN's is 0.08 to 0.16 s for 16.8 MB; a
+  guess of some 13 s at a 50 ms ping, since each 64 pieces waits a round trip), and asking for the next 64
+  before the last are in if it drags; the stuck PLAY, with LOG OUT the way out.  **The chunks streamed** are
+  the other half, and Jacob's pick for the next session ("we're gonna stream the chunks").
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships

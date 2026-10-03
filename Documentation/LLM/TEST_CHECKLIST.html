@@ -182,7 +182,7 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <p class="soft">
   Ticking a box marks my place, in this browser only, and writes the check into the message for the session.
   COPY MESSAGE copies it to paste back; the session takes the passed checks out of this file.  Every command is one line, from <code>Conductor/dev</code>.
-  The test account is <code>testuser123</code> / <code>Testpass1!</code>, and the client is
+  The test account is <code>testuser123</code> / <code>Testpass123!</code>, and the client is
   <code>networking/test_client.py</code>, pointed at <code>--host 10.0.0.84</code> (the
   <code>bind_address</code> in networking.cfg).
 </p>
@@ -215,11 +215,9 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      PLAY with the test client, Ctrl-C, then PLAY again at once: the second gets a CommandRefused, "You are
-      temporarily cooling down from download for DDOS protection. You have ... seconds remaining.", and no
-      map comes.  Another account (testuser456, Chatter) plays at the same moment as usual.
+      Another account plays inside the first's cooldown: PLAY as Tester, then at once as Chatter (testuser456),
+      and Chatter fetches the map as usual.
     </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester testuser123 'Testpass1!'</pre>
     <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter testuser456 'Testpass1!'</pre>
   </li>
   <li class="check">

@@ -24,11 +24,14 @@ ends it starts Soundcheck again with why, and closes; with no ticket (started by
 shows the start screen, which in the editor is dev mode, watching for the ticket Soundcheck's `--debug`
 SUBMIT writes.  Admin mode (`--admin`) publishes a platform's build into the web folder.  Conductor has no
 part in the patcher.  **The game's name is Forgotten Legends**; the project, its folders and code stay Opus.
-Everything speaks protocol version 10.  CLAUDE.md's "Client rules" and "Launcher rules" have the detail.
+Everything speaks protocol version 11.  CLAUDE.md's "Client rules" and "Launcher rules" have the detail.
 
-**The world to the client** (0.0.13) has its first step: GameWorld writes `simple_overworld.map`, the
-world's rough shape for the client's distance, before the door opens (session 1; SIMPLE_OVERWORLD_MAP.md,
-`design/world.md`).  Nothing sends it yet.
+**The world to the client** (0.0.13) has its first half, the bulk: GameWorld writes `simple_overworld.map`,
+the world's rough shape for the client's distance, before the door opens (session 1), and **every PLAY sends
+it** over UDP behind a red loading bar, checked by its SHA-256 and kept in the player's folder, before
+PlayerReady puts the character in the world (session 2, protocol version 11; PROTOCOL.md's "The map at
+PLAY").  An account waits `map_cooldown_seconds` (300) between maps, Jacob's DDOS protection.  Nothing draws
+the map yet, and the chunks themselves aren't streamed: that's the other half.
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -37,16 +40,20 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 
 **The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
 the GitHub Release.  `main` is two docs commits past the tag; `testing` and `unstable` are level with each
-other, sessions 0 and 1 past `main`.  `main` moves when Jacob says.
+other, sessions 0, 1 and 2 past `main`.  `main` moves when Jacob says.
 
 **Built and tested on Linux**: all of Conductor as released, and sessions 0 and 1 since (375 tests pass),
 Soundcheck through PLAY and the way back, and Ensemble through the start screen, dev mode and the launcher's
 ticket.  **Built and tested 2026-10-02**: PUBLISH, the check at start, the patch (two files, and the game's
 program itself fetched back runnable), the extra file, the web server down, a 404, a file missing from the web
-folder, a bad hash, `--debug`, the farewell after a KICK, all against the real address.  **Hashing the 655 MB
+folder, a bad hash, `--debug`, the farewell after a KICK, all against the real address.  **Built and tested 2026-10-03, session 2**: the map at PLAY, both halves,
+every check (the test client, the editor, a fresh build from Soundcheck, the hash and the file byte for
+byte, a file that can't be written), and the cooldown's refusal.  **The map takes 0.08 to 0.16 s on the LAN**
+(16.8 MB at `world_size` 32); over the internet a guess of some 13 s at a 50 ms ping, unmeasured.  **Hashing the 655 MB
 build takes 1.3 s** at a start (193 files; the disk cache does most of that, a cold start will be slower).
-TEST_CHECKLIST.html is down to two Parked checks (session 0's and 1's all passed): the launcher's own restart
-after a patch (needs Soundcheck shipped beside the game) and Spans for real.  **On Windows**: Conductor builds
+TEST_CHECKLIST.html has the cooldown's last four checks (the tests, the Settings tab, the editor's red band,
+0 turning it off, another account inside the first's wait) and two Parked: the launcher's own restart after
+a patch (needs Soundcheck shipped beside the game) and Spans for real.  **On Windows**: Conductor builds
 and runs, START SERVER included, without a database; nothing since the world has been tried there (GitHub
 issue #10), and neither Soundcheck nor the new Ensemble has been built there at all.  The `.meta` round from
 the login's move landed before session 0 (`git ls-files` shows none of the old login's files).
@@ -75,7 +82,10 @@ start working on the hard part getting the world to the client"**.  At the clean
 think we are going to have to figure out how to serve the world up to the client :)"**.  His to change.
 
 At session 1's hand-off (2026-10-03): **"next session we prepare Ensemble for receiveing this"**, the
-simple overworld map.  His to change.
+simple overworld map.  Done in session 2.
+
+At session 2's hand-off (2026-10-03): **"we'll move on to the next conversation where we're gonna stream the
+chunks"**.  His to change.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -106,57 +116,73 @@ have no number.
 - **Session 1, 2026-10-03**: the world to the client designed with Jacob (the bulk and the stream; the bulk
   smoothed; sent by Conductor over UDP at PLAY; PlayerReady; one world save); `simple_overworld.map` written
   by GameWorld before the door opens, with its contract.  Built and tested (1.17 s at `world_size` 16).
+- **Session 2, 2026-10-03**: the map at PLAY, protocol version 11 (the offer, the pieces 64 at a time,
+  PlayerReady), Conductor and the test client, then Ensemble (`MapDownload`, `SimpleOverworldMap`, the red
+  loading bar, back to the launcher on trouble); the map's cooldown by account, `map_cooldown_seconds`.
+  Built and tested (0.16 s for 16.8 MB on the LAN), but for four of the cooldown's checks.
 
-## Last session -- session 1, 2026-10-03, the world to the client: the simple overworld map
+## Last session -- session 2, 2026-10-03, the map at PLAY
 
-Jacob opened with a web admin bug (after a login, the page "kicks you to a random web page"); nothing in
-`page.html` or the server navigates anywhere, and a headless Chromium against a fake server (not Conductor)
-stayed on `/Opus`.  He couldn't make it happen again, so it was let go.  If it comes back: the URL it lands
-on, the browser, and whether a private window does it too.
+Jacob opened unsure whether it was the client or more Conductor; STATUS.md had his "next session we prepare
+Ensemble for receiveing this".  His pick: "A packets first in the server and then we'll in this conversation
+also integrate Ensemble with receipt of those packets."  Every answer is in TODO.md ("The world's dump") and
+`design/world.md`.
 
-Then the world.  "Players need to download the bulk map data and then stream in the chunk changes as they
-walk through the world right?"  Talked through and written down as it settled, every answer in Jacob's
-words in `design/world.md` ("The simple overworld map") and TODO.md ("The world's dump"):
+- **The packets** (protocol version 11, the group `0x4_`, the ground): UserPressPlay loads the character and
+  holds it on the player (`sessions::parked()`), answered with an **OverworldMapOffer** (size, pieces of
+  1,024, SHA-256); the client asks with **OverworldMapRequest** (up to 64 pieces, no ask number) and the UDP
+  thread sends **OverworldMapPiece**s out of packets built once when the door opens (`networking/src/
+  overworld.rs`, the map's size again in RAM to spend no CPU); **PlayerReady** (`0x29`, the hash) puts the
+  character in the world, answered with CharacterEnteredWorld.  GameWorld keeps the map's bytes
+  (`overworld_map()`); `sha2` joined networking (Jacob: "ok").  PROTOCOL.md has "The map at PLAY" with a
+  worked example; the test client fetches it at `--play` (`--save-map`, `--wrong-map-hash`).
+- **Jacob's answers**: a fresh download every PLAY ("we're just gonna write over whatever the client already
+  has every time"); the bar "draw over top the character select list please and look like an enemy healthbar
+  going backwards lol", a red bar filling ("Yes we'll make it sexy later and look like you're fighting a
+  boss"); a client that can't get the map goes back to the launcher with the message.
+- **Ensemble**: `Code/Net/MapDownload.cs` (the pieces, the next 64, again after 250 ms, given up after 10 s
+  without one), `GameConnection` drives it, `Session`'s new LoadingWorld stage checks the hash, reads the
+  map once (`Code/World/SimpleOverworldMap.cs`, namespace `Opus.World`, `Current`) and writes it over
+  `simple_overworld.map` in the player's folder, then PlayerReady; trouble ends the session and goes back
+  to the launcher with "Couldn't get the world's map. Delete <the file> (or reinstall the game) and try
+  again."  The bar is `CharacterSelectLoadingWidget.cs`.  The Console says how long the download took.
+- **A wrong turn in the testing**: Soundcheck started the old built game, which didn't know the offer: "The
+  server didn't answer.", then "Your character is on its way into the world." on a second PLAY.  The editor
+  with Soundcheck's `--debug` worked.  It showed **the stuck PLAY**: a new PLAY while the character is held
+  is refused until the session ends.  A re-offer was offered; Jacob asked for a cooldown instead, and the
+  re-offer was left out ("leave it out"): a second offer is a second download.
+- **The map's cooldown** (Jacob: "server puts a cooldown on an IP after it downloads and that IP must wait 5
+  minutes", then by account, "its more for DDOS protection I think"): from the offer, `map_cooldown_seconds`
+  in `networking.cfg` (300, 0 to 3600, 0 off), a PLAY inside it refused before anything is read, "You are
+  temporarily cooling down from download for DDOS protection. You have <X> seconds remaining."  Kept past
+  the player's leaving, gone at STOP SERVER.  So a log out and back in inside five minutes can't PLAY.
 
-- **The bulk is smoothed**, the surface's shape and nothing under it, so the secrets aren't in it; a seed
-  was weighed and left out (it rebuilds the whole world).  16 by 16 blocks a patch, each its average height
-  and its commonest top block, which colours the distance.  Not squeezed.
-- **Redesigned once**: first the patcher was to ship it from the web folder (`download/map/`); then "the
-  unity client is going to have to download this at play", **from Conductor over UDP**, in pieces, behind a
-  loading bar, into `Application.persistentDataPath`, by the same means the chunks will stream.
-- **PlayerReady** is the client saying it has the terrain, and the character isn't spawned until it comes.
-- **Hidden things** are sent ahead and hidden by the client, with room to tighten later.
-- **The terrain save and the character save are one save**, every `world_save_seconds`.
-- **If the map can't be written, the door stays shut**; **a client that can't get it tells the player** to
-  delete the local map file (or the client) and try again.  "The end user" was the player: the session took
-  it for the admin first, so the Error on the bell says to delete the file (which stands, as the admin's
-  half), and `with_overworld()`'s comment in `gameworld/src/lib.rs` quoted that answer as its reason.  The
-  comment was corrected at the hand-off, on Jacob's ask (a comment only, **not built**; nothing to test).
-
-Built: `gameworld/src/overworld.rs` (makes, writes, reads the map), `build.rs`'s `top()` (one column's
-top, shared by the chunks and the map), `lib.rs` (`with_overworld()`, before the first chunk goes out),
-`regionmap.rs`'s `block_bounds()`, and SIMPLE_OVERWORLD_MAP.md, the contract, with a worked example the
-tests check and a C# reader sketch.  **Built and tested by Jacob**: every check passed, the door staying
-shut on an unwritable file included; 1.17 s at `world_size` 16 (`--release`), and his world is 32, 16.8 MB
-(a guess of 4 to 5 s to make, unmeasured).
+**Built and tested by Jacob**: everything but four of the cooldown's checks (TEST_CHECKLIST.html).  The map:
+0.08 s in the test client, 0.16 s in the editor, for 16,777,244 bytes in 16,385 pieces at `world_size` 32.
 
 ## Where the next session starts
 
-**Jacob's pick**: "next session we prepare Ensemble for receiveing this".  What's written: the file's layout
-and a C# reader in SIMPLE_OVERWORLD_MAP.md; where it's kept (`Application.persistentDataPath`, which is
-`PlayerFiles.PathOf()`'s folder, CLAUDE.md's Client rules); the loading bar at PLAY, PlayerReady, and the
-player told to start over when the map can't be had (`design/world.md`).  **The packets aren't designed**:
-how the map goes in pieces, how a lost piece is sent again, what PlayerReady carries, and the protocol
-bump.  Whether Ensemble's side starts before, with or after them is the plan's first question for him.
+**Jacob's pick**: "the next conversation where we're gonna stream the chunks".  What's written already:
+the chunk's file layout (`design/world.md`, 32,768 blocks, 64 KB a chunk), `view_chunks` in `game.cfg` (4),
+the group `0x4_` kept for the ground (PROTOCOL.md), `MapDownload` meant as "the same tool set", TODO.md's
+lean of run-length squeezing written by hand for the stream (not OKed), hidden things sent ahead with one
+place on the server to hold things back.  **Not designed**: whether the server pushes the chunks around a
+player or the client asks for them, what's sent before PlayerReady (the chunks under the spawn?), how a
+chunk goes in pieces and how a lost one is asked for again, squeezing, and how the client puts blocks on
+screen.  Nobody moves yet (movement is 0.0.2), so the chunks around where a character stands are all there
+is to stream for now.  Plan with him first.
 
-Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
+Accounts to log in with: `testuser123` / `Testpass123!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
 ## What's waiting
 
 - **Soundcheck's rest** (TODO.md): Conductor's report up and debug clients
   (open), Windows, one package; and the certificate for every client (LONGTERM_TODO.md).
-- **The simple overworld map's rest** (TODO.md, "The world's dump"): the packets, PlayerReady, Ensemble's
-  half, writing it again at the world save.
+- **The simple overworld map's rest** (TODO.md, "The world's dump"): drawing the distance from
+  `SimpleOverworldMap.Current`, writing it again at the world save once blocks change, a timing over the
+  internet (and asking for the next 64 before the last are in, if it drags), the stuck PLAY (a new PLAY
+  while the character waits on the map is refused until the session ends; LOG OUT is the way out).
+- **The chunks streamed to the client**: Jacob's pick for next (above).
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale
   words.
 - **Saying things without a `/`**, **kicking a player who keeps flooding**, **`/help`**, **whether the web
@@ -164,7 +190,7 @@ Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
 - **Ensemble's client code**: the world on screen, and the HUD's Phases 2 and 3.  **Ensemble's project files
   in git** (Packages/, LFS for scenes): TODO.md.
-- **Movement** (0.0.0.12, Jacob's number), and what the client is sent after CharacterEnteredWorld.
+- **Movement** (0.0.2 on WAYPOINTS.md), and what the client is sent after CharacterEnteredWorld.
 - **Editing characters and NPCs** from GAME MANAGEMENT.  TODO.md.
 - **The world's part two**: saving changed chunks, a `world_size` change that keeps the digging, loading
   around players who move, an all-air chunk that costs nothing, a mountain.
