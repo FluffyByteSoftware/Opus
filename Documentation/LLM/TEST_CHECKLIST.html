@@ -197,62 +197,6 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
-<h2>The map at PLAY, Conductor's half (2026-10-03)</h2>
-<ul class="checks">
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The build and the tests pass with the map's packets (protocol version 11), <code>overworld.rs</code> in
-      networking, and <code>sha2</code> in networking's <code>Cargo.toml</code>.
-    </span></label>
-    <pre class="cmd">cargo build</pre>
-    <pre class="cmd">cargo test</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      START SERVER: once the door opens, the log has (at Debug) "The simple overworld map is ready to send:
-      ... bytes in ... pieces, SHA-256 ...", and that SHA-256 is the one this prints for the file on disk.
-    </span></label>
-    <pre class="cmd">cargo run -p conductor-launcher</pre>
-    <pre class="cmd">sha256sum /opt/storage/Coding/Opus/Content/world/simple_overworld.map</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      PLAY with the test client: the OverworldMapOffer (the size, the pieces of 1,024, the SHA-256), the
-      first request and piece, 10% to 100%, "SHA-256 of what came: ..., the same", the line with the
-      seconds and MB/s (paste it back), then PlayerReady and CharacterEnteredWorld.  The Connections tab
-      shows Tester's character once it's in.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --save-map /tmp/opus_map testuser123 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The map the test client saved is the server's, byte for byte.
-    </span></label>
-    <pre class="cmd">cmp /tmp/opus_map /opt/storage/Coding/Opus/Content/world/simple_overworld.map &amp;&amp; echo the same</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      The wrong hash: PlayerReady gets a CommandRefused, "Your copy of the world's map doesn't match the
-      server's.  Log in and try again.", and the character isn't in the world (the Connections tab says
-      character select).  Ctrl-C after: the log says logged out, and no save of the character.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --wrong-map-hash testuser123 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      In the world after the map, chat and <code>/who</code> work as before.
-    </span></label>
-    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --type '/chat Yo yo yo!' --type '/who' testuser123 'Testpass1!'</pre>
-  </li>
-  <li class="check">
-    <label><input type="checkbox"><span class="words">
-      Soundcheck built again (protocol version 11) logs in past the Hello.  Ensemble's PLAY needs its own
-      half, which comes next; until then its PLAY goes nowhere.
-    </span></label>
-    <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
-  </li>
-</ul>
-
 <h2>The map at PLAY, Ensemble's half (2026-10-03)</h2>
 <ul class="checks">
   <li class="check">
