@@ -241,6 +241,50 @@ half:
 - **Its cost**: a guess, not measured.  Every move is checked against every player standing still, so a
   cycle's checks grow with players times moves.  If it shows up in a late cycle, a timing test comes first.
 
+## Gravity (session 13, 2026-10-03; planned, waiting on Jacob's OK)
+
+Jacob, opening session 13: **"set up gravity on the server now (Conductor) so that clients cannot cheat
+and fly around"**.  Gravity alone is the server's; walking stays the client's (session 12's "gravity
+sorry").
+
+**How a client flies today** (round one's rules, read from `movement.rs`):
+
+- **The hanging rule only asks for one block.**  It goes back to the first move off the ground: 2 seconds
+  later the character has to be a block under where it left.  After that it's never asked again, so a
+  client walks off a ledge, drops one block, and flies anywhere under that height for as long as it likes.
+- **Every move gets a free block up.**  The step up is counted from the last move, not from the ground, so
+  in the air a client climbs a block a move, ten a second at a move every 100 ms, and anything it lands
+  standing on in under 2 seconds (a cliff top) is taken.
+- **Up past the step counts as walking**, so a client walks straight up a wall at 4 blocks a second, and
+  up to 16 blocks past that is taken with a Warn.
+- **Nothing drops anybody on the server.**  The hanging rule only runs when a move comes in, so a client
+  that goes quiet in the air hangs there for everybody else, and so would an NPC, or a player whose
+  ground is blown away.
+
+**The plan** (each piece a question until he answers; his picks go in here as they come):
+
+- **The server drops everything**, in the movement check, every cycle: an object with a `Transform` and a
+  `Collider` standing on nothing speeds up downward and lands on the first block under its collider.  A
+  new file, `gravity.rs`, keeps each fall (how fast, where it left the ground, where it was a cycle
+  before).  The fall is in the `Transform`'s velocity, so everybody watching sees it fall through
+  ObjectsMoved.  Ground the server hasn't got still counts as something to stand on.
+- **How fast**: a guess to pick, fixed in code like the walk: about 32 blocks a second squared (near
+  Minecraft's, from memory, not looked up) or the real 9.8, either way no faster than `FASTEST_FALL`, 60.
+- **The player's own client** isn't told when the server drops its character: it falls on its own
+  (Ensemble's round two will fall at the same numbers).  Its moves are held to the fall instead:
+- **A move that ends in the air** may be no higher than the server had the character a cycle before, plus
+  a block.  Higher is flying: pulled back to where the server has it.  No jumping until jumping comes.
+- **A move that ends standing** may be no more than a block above where the character last stood, plus
+  the flat distance it walked (smooth voxels' 45-degree slope, brought in early), and up no longer counts
+  as walking.  Steeper is climbing a wall: pulled back.
+- **The hanging rule goes**, and so does "back to the last spot it stood on": the server's own fall
+  takes their place.
+- **No packet changes**, so the protocol stays at 17; PROTOCOL.md's "Movement" gets the new rules.
+- **The test client** gets `--fly BLOCKS`, a move that says it went that many blocks straight up, to be
+  pulled back.
+- **The cost**: a footing check for each object every cycle, a guess of nothing much until an `#[ignore]`
+  timing test says (500 falling).
+
 ## Open
 
 - What each check does, as the pieces come: a brain component for the AI, NPCs walking in movement, the
