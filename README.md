@@ -47,7 +47,6 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Chat: `/chat` to everybody in the world          | Built and tested with the test client                  |
 | `/who`, the anti-flood                           | Built and tested                                       |
-| Movement                                         | Not started                                            |
 | Ensemble                                         | An editor tool; the screens and the HUD, from layouts  |
 | Ensemble's character select and PLAY             | Built and tested; the HUD comes up over the scene      |
 | Ensemble's chat window, `/who`'s box, `/camp`    | Built and tested, EverQuest's keys included            |
@@ -56,17 +55,17 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 | Ensemble starting from the launcher's ticket     | Built and tested: the start screen, dev mode           |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |
-| The world's map sent at PLAY, behind a bar       | Built and tested (protocol version 11)                 |
-|                                                  | and a cooldown on it by account (5 s)                  |
+| The world's map sent at PLAY                     | Dropped (protocol 17): nothing is drawn past the view  |
 | The chunks around the player, client-pulled      | Built and tested (protocol 12), Ensemble and the test  |
 |                                                  | client; the player waits until the nearest are drawn   |
-| The ground on screen in Ensemble                 | Built and tested: a mesh a chunk; the distance to come |
+| The ground on screen in Ensemble                 | Built and tested: a mesh a chunk, cubes until smooth   |
 | Spawn points: on top of the highest block        | Built and tested: new characters and RESET HOME        |
 | Characters seen in the world, the server's say   | Built and tested (protocol 14): everybody in view as a |
 |                                                  | capsule with their name over it, the camera on yours   |
 | A character saved inside the ground              | Built and tested: stood on top of its column at PLAY   |
-| Movement: the server judges every move           | Conductor's half written, not yet built (protocol 15): |
-|                                                  | the client walks, the server pulls back; Ensemble next |
+| Movement: the server judges every move           | Built and tested (protocol 15), Conductor and the test |
+|                                                  | client: it walks, the server pulls back; Ensemble next |
+| Smooth voxels, stage 1                           | Being built: a density in every voxel (protocol 16-17) |
 | Soundcheck, the launcher                         | Built and tested on Linux: the login over TLS 1.3,     |
 |                                                  | Remember Me, PLAY and the way back, debug mode, admin  |
 |                                                  | mode's PUBLISH, the check at start, the patch          |
