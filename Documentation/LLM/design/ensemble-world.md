@@ -71,6 +71,12 @@ is on screen.  The server already waits for PlayerReady before it puts the chara
 but the UDP timeout.  Open: what "ready" is (the nearest 99 drawn, or the whole view), whether the server
 needs more than PlayerReady at a later moment, and what the loading bar says meanwhile.
 
+**His answers**: ready is **the nearest 99 visible**: "I just don't want a situation where a player walks
+forward and 'falls' until the server catches up.  I'd rather make them wait and have a more seamless
+world loaded.  Hell we can give them a loading screen."  **PlayerReady at that later moment is enough**;
+the server seeing the loading's progress is "over kill but I like where your head is at".  **The loading
+bar stays up through the drawing**, saying so.
+
 ## Where the ground sits in Unity (asked 2026-10-03, session 1; being talked through)
 
 Jacob, after the ground worked: "it loaded the whole damn world with the split perfectly" (Alpha flat to
@@ -79,3 +85,5 @@ this at -1 on Y I think so characters I put down at 0 are on top of it".  Today 
 y+1, so the ground's top at 0 is at Unity's y 1, and anything stood at 0 is a block deep in it.  Open: a
 client-only shift (the whole ground drawn a block lower, so a block's top face is at its own y) or the
 server's spawn at y 1 with the drawing as it is; and which the server's own idea of "standing on" follows.
+**His answer**: the drawing stays as it is: "actually I'll jsut set characters to stand on top of 0 that
+seems easier".  So a block at y fills y to y+1, and a character standing on the ground at 0 is at y 1.
