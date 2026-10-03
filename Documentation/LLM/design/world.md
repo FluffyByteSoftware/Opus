@@ -343,8 +343,21 @@ its feet a block into the ground.  RESET HOME fixed Asdf by hand; Jacob wants it
 player is spawned into the world if the space they were in is now occupied with impassable voxel (IE: not
 air) it should move them on top of it instead of trying to spawn them inside it... so basically my proposal
 is we search for the top most voxel on the Y and put them on top of it.  If for some reason it reaches max
-height, then it puts them at reset position or a spawn point again".**  Being talked through: which blocks
-count as "the space they were in", the middle of the block or where they were, and what the player is told.
+height, then it puts them at reset position or a spawn point again".**  Put to him, and his answers:
+
+- **Where and when**: at PLAY, when Protogame loads the character, before the map offer, so the offer,
+  CharacterEnteredWorld and the chunks all have the corrected spot; GameWorld's thread looks, as it does
+  for the spawn point's top.  The saved spot changes with the character's next save.
+- **"The space they were in"** is both blocks a 2-tall character fills, its feet's and its head's: either
+  one not AIR and it's moved (his "a"; the other shape was the feet's block only).
+- **Where it's moved**: on top of the highest block in the column its saved spot is in, **in the middle of
+  the block**, x + 0.5 and z + 0.5, like a spawn point (his "a"; the other shape kept its own x and z, which
+  for Asdf at x 0 would have left it half inside the block beside).  Too high to stand on inside the world
+  (the world ends at y 319): the spawn point instead.
+- **The player is told** (his "Yes"): a line in their chat when they come in, "You were inside the ground,
+  and have been moved on top of it."
+- **GameWorld not answering in time** (10 s, as RESET HOME): "refused and reset home".  Being talked
+  through: RESET HOME needs GameWorld's answer too.
 
 ## Still open
 
