@@ -8,8 +8,9 @@
 //! world, so networking leaves the ask here with `who_list()`, which
 //! comes straight back.  The broadcast check reads every player's
 //! character's name and the block it stands in, once for however many
-//! asked that cycle, and hands them with each ask to the function
-//! networking gave us at its start, which builds the answer and sends it
+//! asked that cycle, and hands them with each ask to the function in our
+//! slot (`set_who_sender()`, filled by conductor-player-commands' `wire()`
+//! from the launcher), which builds the answer and sends it
 //! to the one who asked.  The same shape as the chat (`chat.rs`), and for
 //! the same reason: the GameClock can't call networking itself.
 

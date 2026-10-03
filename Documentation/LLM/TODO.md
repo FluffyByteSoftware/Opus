@@ -59,11 +59,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **A major clean-up of code and documentation** (Jacob, 2026-10-02, at the chat window's hand-off: "Next
   conversation we're gonna do major clean up of code and documentation").  **Pass one of the docs is done**
   (2026-10-02): the facts the code had overtaken, the built history in this file, the doubles, and CLAUDE.md's
-  longer directions cut down.  Seen and left for a later pass: the stale words in the code (below);
-  `ChatWidget`'s `Font` being a static set by ScreenRoot, which works but is the only slot handed over that
-  way (the other screens' font goes through `ApplyText()`); `design/conductor-networking.md`'s "Chat" and
-  "/who" sections, patched for the commands' move rather than rewritten; `design/ensemble-hud.md`'s login
-  sections, kept as history; REPORT.html, not looked at.
+  longer directions cut down; the stale words in the code went the day after.  Seen and left:
+  `ChatWidget`'s `Font` being a static set by ScreenRoot, which works but is the only slot handed over
+  that way (the other screens' font goes through `ApplyText()`); `design/conductor-networking.md`'s "Chat"
+  and "/who" sections, patched for the commands' move rather than rewritten; `design/ensemble-hud.md`'s
+  login sections, kept as history (Jacob: leave them); REPORT.html, not looked at.
 - **A Math class on the client** (Jacob, 2026-10-02): "maths was going to be for any formulas we ended up
   repeatedly needing but we don't need it... yet put this in todo".  A static class beside the Translator,
   when there's a formula used in more than one place.
@@ -254,39 +254,10 @@ Windows.  What's left, a step each:
   - The start screen and character select are shipped layouts (`screen` `"start"` and
     `"character_select"`), built; only the HUD's layout is ever the player's.
 - **Effects between screens** (Jacob, 2026-10-01: "cool ass effects if we can", "I don't know yet").
-- **Stale words in the code**, for whichever session next touches each file:
-  - `access.rs`: a Warn the admin sees says "the web admin's Networking tab" (the tabs are Whitelist and
-    Blacklist), and a comment the same.
-  - `dns.rs`, `dns/other.rs` and a comment in the web admin's `lib.rs` still say "the TCP tab".
-  - `security.rs` says the arena is kept for as long as Conductor runs (it goes with the server).
-  - `snapshot.rs` says uptime is a moment less than Conductor's (it's since START SERVER).
-  - `tcp.rs`'s header says a stop has no deadline (it has 2 seconds).
-  - `json.rs`'s notes and the Server tab's note on the page leave out the Settings tab and networking.
-  - The header of `constellations.rs` names only `postgres.cfg` as soft.
-  - The launcher's boot line (`main.rs:69`) says a changed postgres.cfg or networking.cfg needs STOP SERVER
-    and START SERVER, and leaves out game.cfg (seen 2026-10-01, with `world_save_seconds` in it).
-  - The monitor's `Cargo.toml` header leaves out the process list.
-  - `json.rs` and the web admin's `Cargo.toml` say "the Network Admin tabs", and `json.rs` says the page
-    shows "the Control Panel" while the server is stopped (the Server tab).
-  - "The Control Panel" where the Server tab is meant: `accounts.rs:202` (text the admin sees), the launcher's
-    boot line (`main.rs:78`), and comments in the web admin's `lib.rs`; `page.html:20` has a history note.
-  - The web admin's `lib.rs`: "KICK on the TCP tab"; "when Security brings in TLS for the game" (networking
-    has it); the header's list of what needs `X-Opus` leaves out LOG OUT, the settings, the kick, the lists
-    and the accounts.
-  - The launcher's `main.rs`: `stop_server()` says networking goes first (the monitor does), and the header
-    calls `start_server()` / `stop_server()` the list of what the server is (networking opens from
-    `take_commands()`).  Its boot line names the soft files and leaves out `game.cfg`.
-  - The monitor's `lib.rs` header leaves out the process list, per-core load and the machine's RAM.
-  - `protocol.rs`: `LoginAnswer::Unavailable`'s comment leaves out Fingerprinter failing to make a token.
-  - gameworld: `Ground::Flat`'s doc leaves out BEDROCK at -16; `lib.rs` says saving chunks "comes next".
-  - The GameClock's `chat.rs` and `who.rs` headers say networking hands the sender over "at its start";
-    it's `conductor_player_commands::wire()`, from the launcher.
-  - `test_client.py`'s usage lines only work from inside `networking/` (the terminal sits in
-    `Conductor/dev`), and its `--cert` example is relative to the working directory.
-  - `security/windows.rs`, `fingerprinter/windows.rs` and `fingerprinter.rs` say the Windows code was never
-    built (it was, 2026-09-30).  The tools' `Cargo.toml` header lists only some of what's in the crate.
-  - `accounts.sql`'s header says a player gets a clear message (the admin makes accounts now).  The file is
-    frozen, so it stays.
+- **Stale words in the code**: done 2026-10-03 (the tabs' old names, "the Control Panel", the senders,
+  the soft files, the Windows files, the test client's usage lines, and the rest of the list).  Left on
+  purpose: `accounts.sql`'s header says a player gets a clear message (the admin makes accounts now),
+  since the file is frozen.
 - `RegionMap::from_bytes` never checks for a count of 0 regions.  REGION_MAP.md says 1 to 255, and a map of
   0 is refused anyway unless its width or depth is also 0.  The code is what gets fixed, if it's worth it.
 

@@ -3,7 +3,7 @@
 //! Author:     Jacob Chacko
 //!
 //! The names behind the addresses on the ledger, from a reverse DNS
-//! lookup ("DNS if known", Jacob's words for the TCP tab, 2026-09-29).
+//! lookup ("DNS if known", Jacob's words for the Connections tab, 2026-09-29).
 //! A lookup asks the OS's resolver, which can take seconds when the
 //! network is slow or the address has no name, so none of it runs on the
 //! acceptor or a login thread: `ask()` puts the address on a queue and

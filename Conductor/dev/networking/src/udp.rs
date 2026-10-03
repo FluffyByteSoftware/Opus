@@ -356,7 +356,7 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 sessions::heard(from);
             }
         },
-        // A line the player typed: a command, `/chat` so far.
+        // A line the player typed: a command (`/chat`, `/who`, ...).
         Some(PacketType::PlayerCommand) => match protocol::read_player_command(payload) {
             Ok((ask, line)) => player_command(socket, from, ask, &line),
             Err(_) => {

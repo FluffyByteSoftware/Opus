@@ -21,8 +21,8 @@ use crate::probe::{MachineMemory, ProcessReading, Reading};
 #[derive(Debug, Clone)]
 pub struct Snapshot {
     pub taken_at: Utc,
-    /// How long the monitor has been running, which is a moment less than
-    /// Conductor has.
+    /// How long the monitor has been running: since the last START SERVER,
+    /// not since Conductor was run.
     pub uptime: Duration,
     /// Something like "Nobara Linux 42 (KDE Plasma), kernel 6.14.5".
     pub os: String,

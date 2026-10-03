@@ -7,7 +7,7 @@
 //! different allocation call (`VirtualAlloc` with `MEM_LARGE_PAGES`), so
 //! there's nothing to do to memory we already have.  The arena runs on
 //! ordinary pages, and the benchmark's "huge" column reads the same as
-//! "arena".  Never built yet, like every Windows file.
+//! "arena".  Built and run on Windows (2026-09-30).
 
 use std::io;
 

@@ -48,7 +48,8 @@ const VERSION: u16 = 2;
 /// How an untouched chunk in a region is made.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Ground {
-    /// Dirt at 0, stone under it, air over it.  Alpha.
+    /// Dirt at 0, stone under it down to -30, BEDROCK at -31 and -32, air
+    /// over it.  Alpha.
     Flat,
     /// The same layers, with the dirt at the height the region's heights
     /// file says for each column.  Omega.

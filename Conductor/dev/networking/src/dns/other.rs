@@ -3,7 +3,7 @@
 //! Author:     Jacob Chacko
 //!
 //! Any OS that isn't Linux or Windows, which for now means macOS.  No
-//! reverse lookup here yet: the TCP tab shows addresses without names.
+//! reverse lookup here yet: the Connections tab shows addresses without names.
 //! macOS has the same `getnameinfo`, with its own `sockaddr` layout (a
 //! length byte first), and that's a job for when there's a Mac to test
 //! it on.

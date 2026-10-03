@@ -188,9 +188,9 @@ impl Players {
             match self.notes.try_recv() {
                 Ok(Note::Enter(character)) => self.enter(world, &character),
                 Ok(Note::Leave(character_id)) => leaving.extend(self.leave(world, character_id)),
-                // Empty is the usual end.  Disconnected can't happen while
-                // the GameClock runs, since the sending end is only dropped
-                // by `stop()`.
+                // Empty is the usual end.  Disconnected only comes in the
+                // gap inside `stop()` between the mailbox closing and the
+                // beat stopping, and means the same: nothing more to read.
                 Err(TryRecvError::Empty) | Err(TryRecvError::Disconnected) => break,
             }
         }
