@@ -167,6 +167,15 @@ Windows.  What's left, a step each:
   client download.  Not designed yet: what's in it, how "smoothed", where it lands in the install
   (`Ensemble_Data/StreamingAssets/World/`, the fifth folder), and whether Conductor dumps it on START
   SERVER or on a button.  Its own session, after the patcher.
+  **Session 1, 2026-10-03** (Jacob): the dump comes first, inside Conductor.  He pictures it **smoothed**
+  ("I am imagining a smoothed shape"), not the exact ground: the point is "didn't want to give them the
+  entire worlds voxel information so they could find all the secrets".  A seed was weighed and is out for
+  the same reason (it rebuilds the whole world exactly).  So the dump is the surface's rough shape for the
+  distance, nothing under it, and the real chunks come from the server near the player.  **Hidden things**
+  (Jacob): "there may be voxels with chests on it and stuff we want to make 'hidden'... The client should
+  know its there but the player needs to discover it."  Still open: whether "the client knows" means it's
+  sent ahead (and a changed client can show it), or only sent once the player is near enough to find it.
+  Also open: how coarse "smoothed" is, and whether the dump is compressed (Jacob asked what it buys).
 - **The world's files on the client** go in `Assets/StreamingAssets/World/`, a fifth folder of ours under
   `Assets/`, into the `.gitignore` with its `.meta` (Jacob, 2026-10-02: out of that pass).  A Unity build
   packs everything under `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as
