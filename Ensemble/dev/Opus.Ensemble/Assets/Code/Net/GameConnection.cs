@@ -188,10 +188,12 @@ namespace Opus.Net
 
         // The map is in and kept: the chunks around where the character
         // will stand, from the offer.  How many PlayerReady waits on, the
-        // nearest.  From the main thread.
-        public int FetchChunks()
+        // nearest, and the column they're round.  From the main thread.
+        public int FetchChunks(out short columnX, out short columnZ)
         {
             int near;
+            columnX = 0;
+            columnZ = 0;
             lock (gate)
             {
                 if (closed)
@@ -200,6 +202,8 @@ namespace Opus.Net
                 nextChunkAsk = 0;
                 nearDoneSaid = 0;
                 near = chunks.NearCount;
+                columnX = chunks.ColumnX;
+                columnZ = chunks.ColumnZ;
                 Debug.Log("Game: asking for " + chunks.Count + " chunks around column " + chunks.ColumnX + ", "
                           + chunks.ColumnZ + ", " + view + " each way, the nearest " + near + " first.");
             }

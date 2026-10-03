@@ -75,7 +75,19 @@ needs more than PlayerReady at a later moment, and what the loading bar says mea
 forward and 'falls' until the server catches up.  I'd rather make them wait and have a more seamless
 world loaded.  Hell we can give them a loading screen."  **PlayerReady at that later moment is enough**;
 the server seeing the loading's progress is "over kill but I like where your head is at".  **The loading
-bar stays up through the drawing**, saying so.
+bar stays up through the drawing**, saying so.  **If it isn't drawn 10 s after it's in** (a near chunk
+refused, so the ones beside it can't be meshed either, or no GroundView in the scene): "kick them back to
+the main screen and state: Your connection may be to slow or the server is unresponsive.  Please try
+again.  If this happens repeatedly please talk to the admin."  (Written "too slow" on screen.)
+
+**As written** (session 1, **not built yet**): `Session.NearGroundIn()` no longer sends PlayerReady; it
+starts the 10 s wait.  GroundView calls `Session.ChunkShown(place)` for every chunk it's done with: drawn,
+meshed to nothing, or all air (never sent to the worker).  Session counts the nearest 99 among them
+(`GroundDrawn`, the column from `GameConnection.FetchChunks()`, `ChunkDownload.NearColumns`), and
+`ReadyIfDrawn()` sends PlayerReady once they're in and drawn; the wait running out is `DrawWaitOver()`,
+`Finish()` with his words.  The bar: "Loading the ground... N of 99", then "Drawing the ground... N of
+99", then "The ground is drawn.  Entering the world...".  No packet or Conductor change: the server
+already waits on PlayerReady.
 
 ## Where the ground sits in Unity (asked 2026-10-03, session 1; being talked through)
 

@@ -16,6 +16,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
+using Opus.Net;
 using UnityEngine;
 using UnityEngine.Rendering;
 using Debug = UnityEngine.Debug;
@@ -138,14 +139,20 @@ namespace Opus.World
         }
 
         // To the worker, if it's in, has something but air, hasn't gone
-        // already, and all six round it are in.
+        // already, and all six round it are in.  An all-air chunk has
+        // nothing to draw, so it's done as soon as it's in.
         void Send(ChunkPlace place)
         {
             if (sent.Contains(place))
                 return;
             Chunk chunk = Ground.Get(place);
-            if (chunk == null || (chunk.AllOneKind && chunk.OnlyKind == Blocks.Air))
+            if (chunk == null)
                 return;
+            if (chunk.AllOneKind && chunk.OnlyKind == Blocks.Air)
+            {
+                Session.ChunkShown(place);
+                return;
+            }
 
             var around = new Chunk[6];
             for (int way = 0; way < 6; way++)
@@ -177,6 +184,9 @@ namespace Opus.World
                 facesSince += result.Mesh.Faces;
                 workerMsSince += result.Mesh.TookMs;
                 Draw(result.Mesh);
+                // Drawn, or nothing in it to draw: either way it's done, and
+                // the nearest being done is what PlayerReady waits on.
+                Session.ChunkShown(result.Mesh.Place);
                 made++;
             }
 

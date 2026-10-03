@@ -392,7 +392,8 @@ namespace Opus.Hud
 
         // The loading bar shows only while the world loads after PLAY:
         // filled as far as the map is, then from empty again as far as the
-        // nearest chunks are (and while PlayerReady waits on its answer).
+        // nearest chunks are, then again as far as they're drawn (and while
+        // PlayerReady waits on its answer).
         static void FillLoading()
         {
             if (loading == null)
@@ -406,11 +407,19 @@ namespace Opus.Hud
             if (need > 0)
             {
                 int have = Session.GroundHave;
-                loadingFill.style.width = Length.Percent(100f * have / need);
-                if (have >= need)
-                    loadingLine.text = "The ground is in.  Entering the world...";
-                else
+                if (have < need)
+                {
+                    loadingFill.style.width = Length.Percent(100f * have / need);
                     loadingLine.text = "Loading the ground...  " + have + " of " + need + " chunks";
+                    return;
+                }
+                // In: then drawn, before the player goes in.
+                int drawn = Session.GroundDrawn;
+                loadingFill.style.width = Length.Percent(100f * drawn / need);
+                if (drawn >= need)
+                    loadingLine.text = "The ground is drawn.  Entering the world...";
+                else
+                    loadingLine.text = "Drawing the ground...  " + drawn + " of " + need + " chunks";
                 return;
             }
 

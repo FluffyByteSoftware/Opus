@@ -11,8 +11,9 @@
 // 11): the loading bar fills while it comes, it's checked against the
 // server's SHA-256 and kept in the player's folder, written over every
 // time.  Then the chunks around the character (version 12) go into the
-// Ground as they come, and once the nearest 99 are in PlayerReady puts
-// the character in the world; the rest keep coming after.  A map that
+// Ground as they come, and once the nearest 99 are in and drawn
+// PlayerReady puts the character in the world; the rest keep coming
+// after.  Drawing that doesn't finish in 10 s sends the player back.  A map that
 // can't be had sends the player back to the launcher, told to delete the
 // file (or the game) and try again; chunks that stop coming send them back
 // too.  Main thread only: the connection's threads reach it through
@@ -27,9 +28,11 @@
 // open on the start screen, which says why.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using Opus.World;
 using UnityEngine;
 
@@ -100,6 +103,12 @@ namespace Opus.Net
         public static int GroundHave { get; private set; }
         public static int GroundNeed { get; private set; }
 
+        // Then how many of those nearest are drawn (GroundView says each
+        // one it's done with), of the same GroundNeed.  PlayerReady waits on
+        // all of them: the player isn't put in the world on ground that
+        // isn't on screen yet.
+        public static int GroundDrawn { get; private set; }
+
         // Notice changed: the start screen's card redraws.
         public static event Action NoticeChanged;
 
@@ -142,6 +151,25 @@ namespace Opus.Net
 
         // The map's SHA-256, as the offer said it.
         static string mapHash;
+
+        // The nearest chunks: the column they're round, which of them are
+        // drawn, and whether they're all in.
+        static short nearX;
+        static short nearZ;
+        static readonly HashSet<ChunkPlace> nearDrawn = new HashSet<ChunkPlace>();
+        static bool nearIn;
+
+        // How long the drawing may take once the nearest are in (Jacob,
+        // 2026-10-03: "if after 10s it still isn't drawing kick them back"),
+        // the timer counting it, and which wait it's for.
+        const int DrawWaitMs = 10000;
+        static Timer drawWait;
+        static int drawWaitFor;
+
+        // What the player is told when the drawing takes too long, in
+        // Jacob's words.
+        const string DrawTooSlow = "Your connection may be too slow or the server is unresponsive.  Please try "
+                                   + "again.  If this happens repeatedly please talk to the admin.";
 
         // ---------------------------------------------------------------
         // In: the ticket
@@ -638,7 +666,10 @@ namespace Opus.Net
             MapReceived = bytes.Length;
             Ground.Clear();
             GroundHave = 0;
-            GroundNeed = game.FetchChunks();
+            GroundDrawn = 0;
+            nearDrawn.Clear();
+            nearIn = false;
+            GroundNeed = game.FetchChunks(out nearX, out nearZ);
             if (LoadingProgressed != null)
                 LoadingProgressed();
         }
@@ -671,17 +702,76 @@ namespace Opus.Net
                 LoadingProgressed();
         }
 
-        // The nearest chunks are all in (or refused for good): PlayerReady,
-        // with the map's hash, puts the character in the world.  The rest
-        // keep coming.
+        // The nearest chunks are all in (or refused for good).  PlayerReady
+        // waits for them to be drawn too, for 10 s at most.  The rest keep
+        // coming.
         internal static void NearGroundIn(GameConnection from)
         {
-            if (from != game || Stage != SessionStage.LoadingWorld || Asking == Protocol.PlayerReady)
+            if (from != game || Stage != SessionStage.LoadingWorld || nearIn)
                 return;
-            Debug.Log("Game: the nearest " + GroundNeed + " chunks are in.  PlayerReady.");
+            nearIn = true;
+            Debug.Log("Game: the nearest " + GroundNeed + " chunks are in.  Drawing them.");
+            int waitFor = ++drawWaitFor;
+            StopDrawWait();
+            drawWait = new Timer(_ => MainThread.Post(() => DrawWaitOver(waitFor)), null, DrawWaitMs,
+                                 Timeout.Infinite);
+            if (LoadingProgressed != null)
+                LoadingProgressed();
+            ReadyIfDrawn();
+        }
+
+        // GroundView is done with a chunk: drawn, or nothing to draw (all
+        // air, or buried with no air beside it).  One of the nearest counts
+        // toward PlayerReady.  Main thread.
+        public static void ChunkShown(ChunkPlace place)
+        {
+            if (Stage != SessionStage.LoadingWorld || Asking == Protocol.PlayerReady)
+                return;
+            if (Math.Abs(place.X - nearX) > ChunkDownload.NearColumns
+                || Math.Abs(place.Z - nearZ) > ChunkDownload.NearColumns)
+                return;
+            if (!nearDrawn.Add(place))
+                return;
+            GroundDrawn = nearDrawn.Count;
+            if (LoadingProgressed != null)
+                LoadingProgressed();
+            ReadyIfDrawn();
+        }
+
+        // The nearest are in and drawn: PlayerReady, with the map's hash,
+        // puts the character in the world.
+        static void ReadyIfDrawn()
+        {
+            if (!nearIn || GroundDrawn < GroundNeed || Asking == Protocol.PlayerReady)
+                return;
+            StopDrawWait();
+            Debug.Log("Game: the nearest " + GroundNeed + " chunks are drawn.  PlayerReady.");
             Asking = Protocol.PlayerReady;
             game.Ask(Protocol.PlayerReady, mapHash);
             Changed();
+        }
+
+        // 10 s since the nearest were all in, and they still aren't all
+        // drawn: back to the launcher (or the start screen), with why.  A
+        // wait that's been overtaken (ready, or another session) is let go.
+        static void DrawWaitOver(int waitFor)
+        {
+            if (waitFor != drawWaitFor || Stage != SessionStage.LoadingWorld || Asking == Protocol.PlayerReady)
+                return;
+            StopDrawWait();
+            Debug.LogWarning("Game: only " + GroundDrawn + " of the nearest " + GroundNeed + " chunks were drawn "
+                             + DrawWaitMs / 1000 + " s after they were in.  Is GroundView in the scene?");
+            Drop();
+            Finish(DrawTooSlow, true);
+        }
+
+        static void StopDrawWait()
+        {
+            if (drawWait != null)
+            {
+                drawWait.Dispose();
+                drawWait = null;
+            }
         }
 
         // Every chunk in the view is in, or refused for good: the summary

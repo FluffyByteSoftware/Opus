@@ -21,8 +21,8 @@ namespace Opus.Net
     public class ChunkDownload
     {
         // PlayerReady waits on the chunks this many columns round the
-        // character's, every row: 3 by 3 by 11, 99 chunks.
-        const int NearColumns = 1;
+        // character's, every row: 3 by 3 by 11, 99 chunks, in and drawn.
+        public const int NearColumns = 1;
 
         readonly ChunkPlace[] wanted;          // nearest first
         readonly Dictionary<ChunkPlace, int> index = new Dictionary<ChunkPlace, int>();

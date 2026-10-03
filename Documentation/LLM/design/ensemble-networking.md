@@ -231,7 +231,12 @@ there (session 2); this is the chunks, received and held, nothing drawn.
   rest of the view keeps coming after, with the character in the world, so the download already runs in
   the world when movement (0.0.2) needs it to.  The 10 seconds' give-up holds in the world too.  The other
   shape was all of the view before PlayerReady (0.04 s on the LAN today), simpler, with streaming in the
-  world left to 0.0.2.
+  world left to 0.0.2.  **Then in and drawn** (2026-10-03, session 1, Jacob: "ready to drawn means the
+  nearest 99 chunks are visible... I'd rather make them wait and have a more seamless world loaded"): the
+  99 have to be on screen too, GroundView saying each chunk it's done with (`Session.ChunkShown()`), and
+  if they aren't 10 s after they're in, the player goes back with his words, "Your connection may be too
+  slow or the server is unresponsive.  Please try again.  If this happens repeatedly please talk to the
+  admin."  `design/ensemble-world.md` has it.
 - **Nothing drawn, so nothing to look at**: one line in the Console when the whole view is in, the test
   client's summary (how many, how many bytes, how long, the blocks by kind, the block at 0,0,0).  Drawing,
   plain colours or the purchased art (an atlas), is for when the chunks are drawn.
@@ -261,7 +266,8 @@ The map before it: 16.8 MB in 0.17 s.
   unsqueezes each whole chunk itself and posts it; a chunk that won't unsqueeze, and one the server calls
   unavailable, is a warning and left empty.
 - **`Session`**: `MapArrived` asks for the chunks instead of sending PlayerReady; `ChunkArrived` puts each
-  in the Ground; `NearGroundIn` sends PlayerReady; `GroundAllIn` writes the summary (with how many are held
+  in the Ground; `NearGroundIn` starts the 10 s wait on the drawing, and `ReadyIfDrawn()` sends PlayerReady once the
+  nearest are drawn too; `GroundAllIn` writes the summary (with how many are held
   as blocks, the MB, and the block at 0,0,0); `GroundFailed` goes back to the launcher with "Couldn't get
   the ground around you."  `MapProgressed` became **`LoadingProgressed`**, with `GroundHave` and
   `GroundNeed` beside `MapReceived` and `MapSize`.

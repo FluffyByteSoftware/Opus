@@ -439,7 +439,8 @@ in, waits for them or a quarter of a second, and asks again; they give up with n
 **When the client has enough to send PlayerReady is its own call** (Jacob: "it can be the clients call but
 I think we are gonna want to wait till most of the scene is filled"): the server only checks the map's
 hash.  Ensemble sends it once the nearest 99 are in, the 3 by 3 columns round the character's, every row
-(Jacob, 2026-10-03: Minecraft's way), and the rest keep coming with the character in the world.
+(Jacob, 2026-10-03: Minecraft's way), and drawn on screen (the same day, later), and the rest keep coming
+with the character in the world.
 
 ### A chunk, squeezed
 

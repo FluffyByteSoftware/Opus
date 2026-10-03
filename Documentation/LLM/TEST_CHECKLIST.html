@@ -256,6 +256,30 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>PlayerReady once the ground is drawn (2026-10-03, session 1)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Unity compiles clean (no new files, so no <code>.meta</code> round).
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      PLAY: the bar says "Loading the ground... N of 99", then "Drawing the ground... N of 99", then "The
+      ground is drawn.  Entering the world..."; the Console has "the nearest 99 chunks are in.  Drawing
+      them." and then "...are drawn.  PlayerReady."; the stand-in appears on ground that's already there.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      With GroundView's GameObject switched off in the Hierarchy, PLAY: the bar stops at "Drawing the ground...
+      0 of 99", and 10 s later the game goes back with "Your connection may be too
+      slow or the server is unresponsive..." and the Console's warning asks whether GroundView is in the
+      scene.  Switch it back on after.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">
