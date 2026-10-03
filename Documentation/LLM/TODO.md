@@ -72,7 +72,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   be annoying but yes until I get a lock/unlock icon in to draw on the title bar of the UI element");
   **the font size 18 to 42**; **moving by grabbing the inside, resizing by the edges, and "the mouse cursor
   should change appearance like it would in windows"**; **every widget movable, only chat resizable** for
-  now.  The start screen and character select stay fixed.
+  now.  The start screen and character select stay fixed.  "Playername" is **the character's name**
+  (Jacob: "Yes"; Ensemble never learns the account's), and **the font size is the chat's contents, not its
+  header** ("just the contents of the chat window not the header").  The pointers: he asked whether we
+  can bring in our own, animated or not, and in what format, before the plan's OK.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
