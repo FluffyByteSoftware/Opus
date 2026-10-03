@@ -204,6 +204,10 @@ because of the CPU cost.
   checks nothing and says so), prints every packet, and asks whether to log out another session
   (`--leave-other-alone` says no).  `--leave-after N` says Goodbye after N seconds, `--go-quiet` stops the
   keep-alives, and `--pause-before-login N` sits open after TLS so the row can be kicked or banned.
+  Character select is `--create`, `--delete` (with `--delete-word`), `--reset-home` and `--play`.  Once in
+  the world, a line typed in its terminal goes out as the chat window would send it; `--type` sends lines
+  from the command line, `--type-gap` (1.1 s) apart so the anti-flood lets them through.  Keep-alives print
+  only when one goes unanswered (`--show-keepalives` for all).  Ctrl-C anywhere sends a Goodbye.
 
 ## Character select and Protogame (2026-09-30)
 

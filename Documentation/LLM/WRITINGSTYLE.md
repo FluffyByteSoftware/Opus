@@ -273,8 +273,11 @@ Three kinds of reader, three registers.
   build and run each part, and the folder layout.  No feature list for features that don't exist.  No mention
   of how the code gets written.
 - **STATUS.md** -- the bridge between sessions, not a log.  Where things stand, the last session (what we did,
-  what fought back, what Jacob decided), and anything earlier that bears on what's next.  What's waiting is
-  listed unordered and unnumbered, since Jacob doesn't predict future sessions.
+  what fought back, what Jacob decided), the last day's sessions as a line each (his "oh shit" fallback,
+  2026-10-03), and anything earlier that bears on what's next.  What's waiting is listed unordered and
+  unnumbered, since Jacob doesn't predict future sessions.
+- **CLAUDE.md** -- the rules that hold in every session and a map of where the rest is.  A rule that only
+  matters inside one piece goes in that piece's design file (2026-10-03).
 - **TODO.md** -- two sections: *Deferred* (stubs and things waiting on pieces that don't exist yet) and *Ideas*
   (things we thought of along the way).  A good idea that doesn't fit this week's work still gets a home here.
 - **PROJECT_OPUS.md** -- the skeleton: folder tree, one line per file on what it is for, and a table of the

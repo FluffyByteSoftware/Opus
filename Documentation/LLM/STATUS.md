@@ -67,9 +67,10 @@ start working on the hard part getting the world to the client"**.  His to chang
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
-## Last session -- 2026-10-02, the web folder: PUBLISH, the check at start, the patch
+## The session before -- 2026-10-02, the web folder: PUBLISH, the check at start, the patch
 
-Two rounds in one chat, built and tested the same evening.  The first (two manifests from a web address, the
+Kept because the next code session starts from it.  Two rounds in one chat, built and tested the same
+evening.  The first (two manifests from a web address, the
 check after SUBMIT) went up and was overtaken the same afternoon by Jacob's redesign (above); the second
 is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
 
@@ -92,16 +93,43 @@ is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
 - **Nothing in Conductor changed**, and nothing of its half is left but the report up and
   `allow_debug_clients`, both open (TODO.md).
 
-## This session -- 2026-10-02, the docs clean-up, pass one
+## The last day
+
+A line a session, newest last, Jacob's "oh shit" fallback (2026-10-03): what each did, so a lost chat or a
+wrong turn can be seen at a glance.  A line older than a day comes out unless it still bears on what's next.
+The number is the session's place in its day.
+
+- **2026-10-02 #1**: chat on the server (`/chat`, protocol version 8), `/who` and `/who list` (version 9),
+  Spans, the anti-flood for every command, the test client's Ctrl-C.  Built and tested.
+- **2026-10-02 #2**: Ensemble's chat window, `/who`'s box and `/camp`; the commands moved into
+  `conductor-player-commands`; EverQuest's keys (Enter, `/`, Escape, `GameFocus`).  Built and tested.
+- **2026-10-02 #3**: the 0.0.1 review's four bugs and seven risks fixed; PleaseWait (version 10); **0.0.1
+  released**: `main` to `testing`'s tip, the tag, the two packages, INSTALLATION_INSTRUCTIONS and RELEASE.
+- **2026-10-02 #4**: Soundcheck's first step: the login over TLS 1.3, Remember Me, admin mode's manifest,
+  debug mode.  Built and tested.
+- **2026-10-02 #5**: the login out of Ensemble; the start screen and dev mode; PLAY starts the game with the
+  ticket; the way back with the reason.  Built and tested; the old login's files deleted.
+- **2026-10-02 #6**: two manifests from a web address, then Jacob's redesigns: the web folder, PUBLISH, the
+  check at start, the patch a file at a time.  Built and tested against the real web folder.
+- **2026-10-02 #7**: REPORT.html, the easy version of how Opus hangs together, with diagrams.
+- **2026-10-03 #1**: the docs clean-up, pass one: facts the code had overtaken, the built history out of
+  TODO.md, the doubles merged, Soundcheck's first design told as history; the stale words in the code (a
+  build to run); CLAUDE.md cut to the rules and a "where to look" map; this rolling day.
+
+## Last session -- 2026-10-03, the docs clean-up, pass one
 
 Jacob: "I'd like to go over our documentation and prune any out of date information or repeat information
-on the first pass.  Let's also see if theres any directions you can rephrase in fewer words."  No code
-changed.  What went: facts the code had overtaken (Ensemble's certificate copy, "four crates", "ten
-members", the GameClock's senders handed over "at networking's start", the design shapes Soundcheck went
-through written up as if live), TODO.md's built-and-tested history (the design files have it), and the
-doubles (CLAUDE.md's two player-commands bullets, its copy of the web admin's tabs, STATUS's crate list).
-CLAUDE.md's longer directions were cut to the rule and the reason.  Pass two is Jacob's to lay out; TODO.md's
-"A major clean-up" entry has what was seen and left.
+on the first pass.  Let's also see if theres any directions you can rephrase in fewer words."  What went:
+facts the code had overtaken (Ensemble's certificate copy, "four crates", "ten members", the GameClock's
+senders handed over "at networking's start", the design shapes Soundcheck went through written up as if
+live), TODO.md's built-and-tested history (the design files have it), and the doubles (CLAUDE.md's two
+player-commands bullets, its copy of the web admin's tabs, STATUS's crate list).  His answers after: trim
+CLAUDE.md down to the rules and pointers at the documents, so a session reads the one for the concern in
+front of it (done: a "Where to look" table, and each piece's detail left to its design file); STATUS.md
+keeps the last 24 hours of sessions as one-line summaries (done, above); the pass-two candidates
+(`ensemble-hud.md`'s login sections, networking's "Chat" and "/who", the launcher rules, REPORT.html) are
+left alone; the stale words in the code go now (done: comments, log lines and the Server tab's note, no
+behaviour changed; three checks in TEST_CHECKLIST.html, **not built by Jacob yet**).
 
 ## Where the next session starts
 
