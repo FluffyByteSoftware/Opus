@@ -235,7 +235,12 @@ Windows.  What's left, a step each:
   already has every time"), no skipping on a matching hash; **the loading bar draws over character select's
   list** "and look like an enemy healthbar going backwards lol"; **`sha2` in networking**, OK; **a client that
   can't get the map goes back to the launcher with the message**.  Both halves written in session 2:
-  Conductor's ran (Soundcheck logged in on version 11), Ensemble's not built yet.  Left after it: drawing
+  Conductor's ran (Soundcheck logged in on version 11), and PLAY in the editor worked through the map to
+  the world (Jacob: "it worked with the live client I just had to alunch in debug mode for soundcheck").
+  The built game from before it got "The server didn't answer." and then, on a second PLAY, "Your
+  character is on its way into the world.": it didn't know the offer, and a new PLAY while the character
+  is held is refused until the session ends.  A fix was offered (a PLAY for the held character gets the
+  offer again), not yet picked.  Left after it: drawing
   the distance from `SimpleOverworldMap.Current`, and writing the map again at the world save once blocks
   change.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
