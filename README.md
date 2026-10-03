@@ -44,7 +44,7 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 |                                                  | client's distance; nothing changes a block yet         |
 | The game loop (the GameClock)                    | Ticking; takes characters in and out, saves the world  |
 | Chat: `/chat` to everybody in the world          | Built and tested with the test client                  |
-| `/who`, the anti-flood                           | Built and tested; `/who` a line a character, untested  |
+| `/who`, the anti-flood                           | Built and tested                                       |
 | Movement                                         | Not started                                            |
 | Ensemble                                         | An editor tool; the screens and the HUD, from layouts  |
 | Ensemble's character select and PLAY             | Built and tested; the HUD comes up over the scene      |

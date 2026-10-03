@@ -373,6 +373,9 @@ the lines.  The first shape (below the next section) was built and tested on Lin
 
 ### One line a character, EverQuest's way (2026-10-03, protocol version 13)
 
+Built and tested on Linux (session 8), every check passed: the test client, two in the world in order, and
+Ensemble's chat window in the editor, a long line wrapping when it's made narrow.
+
 Jacob: "since the chat window is "scaleable" we need to redesign it to I think more of an EverQUest style
 but we're gonna sort in single file by time since log on", with
 
