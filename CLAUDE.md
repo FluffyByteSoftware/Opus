@@ -89,8 +89,10 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 - **Opus.Treble** -- named 2026-10-03, not started: "a unity powered
   application that's meant to place the voxels we've 'defined' down and
   build prefabs out and save them to a .fbm (fluffybyte model)", which
-  Conductor stamps into the world as it's made.  Its folder is mine to say
-  before it's made (LONGTERM_TODO.md).
+  Conductor stamps into the world as it's made.  A core Opus project ("yes
+  its a core Opus project now", session 11): its folder is `Treble/` at
+  the top, `dev/` and `build/` like the others, made when it's started
+  (LONGTERM_TODO.md).
 - **Content/** -- the data the programs read and write: `cfg/`, `certs/`,
   `scripts/`, `psql/`, and the uncommitted `logs/`, `world/`, `Assets/`
   (the purchased art) and `patch/`.  Files are named so it's clear who owns

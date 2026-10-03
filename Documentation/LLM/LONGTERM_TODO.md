@@ -109,8 +109,9 @@ conversation with yourself that we will begin implementation of this system."
 build prefabs out and save them to a .fbm (fluffybyte model) which can then be called on by conductor during
 world generation to place points of interest like 7 days."  A building is a grid of voxels, made by hand in
 Treble and stamped into the world by Conductor; it breaks apart like the ground.  The `.fbm` is a contract
-of its own when it comes (`design/smooth-voxels.md`, "Open").  Where its folder goes is Jacob's to say (a
-new top-level folder is asked about first).
+of its own when it comes (`design/smooth-voxels.md`, "Open").  **A core Opus project**, its folder
+`Treble/` at the top, `dev/` and `build/` like Ensemble's and Soundcheck's (Jacob, asked: "yes its a core
+Opus project now").  Made when it's started, not before.
 
 ## The world asleep and awake (Jacob, 2026-10-03, session 11; being talked through)
 

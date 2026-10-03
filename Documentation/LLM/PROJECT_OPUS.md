@@ -386,7 +386,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 |                      | Ensemble.  C# on .NET 10, Avalonia.                     | PLAY, debug mode, the web folder,|
 |                      |                                                         | the check, the patch (Linux)     |
 | Opus.Treble          | Unity tool: buildings placed voxel by voxel, saved as   | Named 2026-10-03, not started;   |
-|                      | `.fbm`s for Conductor to stamp into the world.          | its folder is Jacob's to say     |
+|                      | `.fbm`s for Conductor to stamp into the world.          | a core project, `Treble/` to come|
 | conductor-tools      | Lib: the tools the server leans on.                     | Tested                           |
 | conductor-accounts   | Lib: the accounts and characters, and the account desk. | Tested                           |
 | conductor-monitor    | Lib: the process and the machine, once a second.        | Tested                           |
