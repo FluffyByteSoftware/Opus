@@ -59,6 +59,15 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   chatting your movement keys just go to the chat when its focused... everything does its gotten me killed
   a few times before I realized I was chatting".  So no key is ever both; the game never moves you while
   you're typing.  Part of movement.
+- **Movement speed modifiers** (Jacob, 2026-10-03, session 10: "we're going to have movement speed
+  modification abilities (potions, spells, enchantments)").  The walk, 4 blocks a second, stays fixed in
+  code as every character's base; a character's own speed, with what's on it, would be a component the
+  server checks moves against, and a packet telling the client when it changes (CharacterEnteredWorld only
+  says it once).  `design/ensemble-world.md`, "Movement".
+- **Fewer voxels a column, EQ Next's style** (Jacob, 2026-10-03, session 10: "about possibly trimming down
+  the number of voxels per column because we want the EQ Next style voxels not Minecraft really but that's
+  for next iteration").  His to bring up; nothing settled.  It touches GameWorld's chunks, the squeezed
+  chunks, Ensemble's mesher and `design/world.md`.
 - **Jumping** (Jacob, 2026-10-03, session 10, on movement: "we can do jumping later").  Movement steps up
   one block on its own and falls off edges; a jump is its own feature.  `design/ensemble-world.md`,
   "Movement".

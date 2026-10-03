@@ -347,3 +347,26 @@ half; `design/primlib.md` the `Collider` and the `Transform`'s velocity.  In sho
 Round two is Ensemble: the player anchor and its controller (Zomboid's turning, a CharacterController, 4
 blocks a second, falling), the chunks' mesh colliders, capsules from the Hydrate, sending moves and taking
 pull-backs, everybody else gliding.  Round three is Ensemble pulling the ground as it walks.
+
+**His answers** (session 10, the fourth round, on round one's questions):
+- **The walk stays in code**: "no walking will be fixed because we're going to have movement speed
+  modification abilities (potions, spells, enchantments)".  So 4 blocks a second is every character's
+  base, and a character's own speed, modified, is to come (TODO.md, "Movement speed modifiers").
+- **A Warn a character a minute**: "ok".
+- **The server's ground**: "yeah just what terrain is necessary".  And for later: "we are going to
+  eventually do a couple things that I will need to discuss next session with you... about possibly
+  trimming down the number of voxels per column because we want the EQ Next style voxels not Minecraft
+  really but that's for next iteration".  In TODO.md.
+- **The input check**: "What does EQ do?"  Looked up in EQEmu, the open-source EverQuest server, which
+  speaks the real client's packets (`zone/client_packet.cpp`, `Handle_OP_ClientUpdate`;
+  `zone/cheat_manager.cpp`, read on GitHub in session 10): the client sends an OP_ClientUpdate with its
+  position, heading, its deltas (a velocity) and its animation; the server takes it **the moment it
+  arrives**, not on a tick, makes it the player's position as sent, and passes it straight on to every
+  client in range (and the group, wherever they are), only when something changed.  Its cheat check adds up
+  the distance across updates and judges the average speed over at least 2.5 seconds against the
+  character's run speed: over it is logged as a possible warp (a "light" one, or a large one past one and
+  a half times), with exemptions for a knockback, Shadow Step or a port.  It **logs and doesn't pull
+  back**.  (What the real EverQuest servers did isn't public; EQEmu is the nearest.)  Put to him: ours
+  takes the moves once a 250 ms cycle and passes them on in the broadcast, so others hear up to a cycle
+  later than EQ's would; the check is EQ's in shape (distance against speed over time, with slack) but
+  pulls back, as he asked.
