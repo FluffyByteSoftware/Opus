@@ -171,6 +171,17 @@ With the client's net code (`design/ensemble-networking.md`):
   slot, a name or Empty, greyed when it can't be played) and `character_select_log_out`.  Look only for now.
   ScreenRoot has its Character Select Layout and Style slots, and puts the login's text colour and font on it.
 
+### The loading bar (2026-10-03, session 2, written, not built by Jacob yet)
+
+**`character_select_loading`** (`CharacterSelectLoadingWidget.cs`), over the list on layer 2, 640 x 160 on the
+1080p layout: ENTERING THE WORLD, a red bar on a dark red track filling from empty as the world's map comes
+in after PLAY, and "Loading the world's map...  1.2 of 4.0 MB" under it ("The world's map is in.  Entering
+the world..." at the end).  Shown only while `Session.Stage` is LoadingWorld; character select's buttons go
+meanwhile.  Jacob: "make it draw over top the character select list please and look like an enemy
+healthbar going backwards lol", and on the red bar filling up: "Yes we'll make it sexy later and look like
+you're fighting a boss".  `CharacterSelectForm.FillLoading()` fills it, on `Session.MapProgressed` (a hundred
+times a map, once a whole percent) and on every change to character select.
+
 ## The chat window (2026-10-02, built and tested)
 
 Jacob: "We're in this conversation set to build Ensemble up to support the chat window".  TODO.md's chat

@@ -253,6 +253,49 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>The map at PLAY, Ensemble's half (2026-10-03)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      After the pull, Unity compiles the new files clean (<code>MapDownload.cs</code>,
+      <code>SimpleOverworldMap.cs</code> in the new <code>Code/World/</code>, <code>CharacterSelectLoadingWidget.cs</code>)
+      with nothing red in the Console, and <code>git meta</code> commits their <code>.meta</code>s.
+    </span></label>
+    <pre class="cmd">git meta</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      In the editor (dev mode, Soundcheck's <code>--debug</code> SUBMIT), PLAY: the buttons go, the red bar fills
+      over the list with "Loading the world's map...  x of 4.0 MB", then the HUD.  The Console has "the world's
+      map is ... bytes in ... pieces", "the world's map is in", and "the world's map is kept, 1024 by 1024
+      patches, in ...".
+    </span></label>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The map the game kept is the server's, byte for byte.
+    </span></label>
+    <pre class="cmd">cmp ~/.config/unity3d/FluffyByte/Opus.Ensemble/simple_overworld.map /opt/storage/Coding/Opus/Content/world/simple_overworld.map &amp;&amp; echo the same</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The map can't be kept: with a folder in the way of the file it writes first, PLAY goes back to the
+      launcher with "Couldn't get the world's map. Delete .../simple_overworld.map (or reinstall the game) and
+      try again." (in the editor, the start screen says it).  Take the folder away after.
+    </span></label>
+    <pre class="cmd">mkdir ~/.config/unity3d/FluffyByte/Opus.Ensemble/simple_overworld.map.part</pre>
+    <pre class="cmd">rmdir ~/.config/unity3d/FluffyByte/Opus.Ensemble/simple_overworld.map.part</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A fresh build of the game into <code>Ensemble/build/Linux/0.0.12/</code>, started by Soundcheck: PLAY,
+      the bar, the world, chat, and LOG OUT back to the launcher, as before.
+    </span></label>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

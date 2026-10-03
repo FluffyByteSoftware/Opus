@@ -102,7 +102,9 @@ doesn't need them to be.
 
 ## Reading it in C# (for Ensemble)
 
-A sketch, not code from the repo yet.  `BinaryReader` always reads little-endian, whatever the machine.
+The sketch it started as.  Ensemble's own is `Assets/Code/World/SimpleOverworldMap.cs` (session 2), the same
+checks, reading the bytes fetched at PLAY (`FromBytes()`) rather than a path.  `BinaryReader` always reads
+little-endian, whatever the machine.
 
 ```csharp
 using System.IO;

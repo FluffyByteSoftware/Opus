@@ -234,7 +234,10 @@ Windows.  What's left, a step each:
   version 11.  His answers: **a fresh download every PLAY** ("we're just gonna write over whatever the client
   already has every time"), no skipping on a matching hash; **the loading bar draws over character select's
   list** "and look like an enemy healthbar going backwards lol"; **`sha2` in networking**, OK; **a client that
-  can't get the map goes back to the launcher with the message**.
+  can't get the map goes back to the launcher with the message**.  Both halves written in session 2:
+  Conductor's ran (Soundcheck logged in on version 11), Ensemble's not built yet.  Left after it: drawing
+  the distance from `SimpleOverworldMap.Current`, and writing the map again at the world save once blocks
+  change.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships

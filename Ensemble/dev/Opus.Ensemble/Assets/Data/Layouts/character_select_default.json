@@ -44,6 +44,10 @@
     {
       "id": "character_select_delete_card", "anchor": "Center",
       "offset": { "x": 0, "y": -110 }, "size": { "width": 560, "height": 300 }, "layer": 2
+    },
+    {
+      "id": "character_select_loading", "anchor": "Center",
+      "offset": { "x": 0, "y": -110 }, "size": { "width": 640, "height": 160 }, "layer": 2
     }
   ]
 }

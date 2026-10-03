@@ -8,7 +8,10 @@
 // typed in the chat box) every half second until it's answered.  It sends
 // nothing on its own between those, so it waits on the next thing due, not
 // on a timer.  It hears the chat going out to everybody, and puts an answer
-// that came in Spans back together.
+// that came in Spans back together.  At PLAY it fetches the simple
+// overworld map (protocol version 11): the server's answer is the offer,
+// and the sender asks for the pieces 64 at a time, as soon as the last 64
+// are in or every quarter second, until they're all here.
 //
 // The session ends with a Kicked, with the server going quiet, or with
 // Close() (LOG OUT, quitting).  Whichever way, there's no reconnect: the
@@ -46,6 +49,11 @@ namespace Opus.Net
         // if the rest haven't all come (Jacob, 2026-10-02: "2s is fine").
         const long PiecesForMs = 2000;
 
+        // The map at PLAY: what's missing is asked for again after a
+        // quarter second, and with no new piece in 10 seconds it's given up.
+        const long MapAskAgainMs = 250;
+        const long MapStallMs = 10000;
+
         readonly ushort port;
         readonly UdpClient udp;
         readonly byte[] connectPacket;
@@ -73,7 +81,17 @@ namespace Opus.Net
         int piecesIn;
         long firstPiece;
 
-        // Rung to wake the sender early: a new ask, or closing.
+        // The simple overworld map while it comes in, or null, and when its
+        // next request is due.
+        MapDownload map;
+        long nextMapAsk;
+
+        // How far along the map is, in whole percent, last time Session was
+        // told, so it's told a hundred times and not four thousand.
+        int mapPercentSaid;
+
+        // Rung to wake the sender early: a new ask, the map's last pieces
+        // in, or closing.
         readonly AutoResetEvent wake = new AutoResetEvent(false);
 
         GameConnection(string host, ushort port, string token)
@@ -221,6 +239,27 @@ namespace Opus.Net
                                     waitMs = Math.Min(waitMs, firstPiece + PiecesForMs - now);
                             }
                         }
+
+                        if (map != null)
+                        {
+                            if (now - map.LastNew >= MapStallMs)
+                            {
+                                string why = "no new piece of it in " + MapStallMs / 1000 + " s (" + map.Have + " of "
+                                             + map.Count + " in)";
+                                map = null;
+                                Debug.Log("Game: gave up on the world's map: " + why + ".");
+                                MainThread.Post(() => Session.MapFailed(this, why));
+                            }
+                            else
+                            {
+                                if (now >= nextMapAsk)
+                                {
+                                    SendNow(map.NextRequest());
+                                    nextMapAsk = now + MapAskAgainMs;
+                                }
+                                waitMs = Math.Min(waitMs, Math.Min(nextMapAsk, map.LastNew + MapStallMs) - now);
+                            }
+                        }
                     }
                 }
                 wake.WaitOne((int)Math.Max(1, waitMs));
@@ -358,6 +397,10 @@ namespace Opus.Net
                 case Protocol.PleaseWait:
                     Waiting(packet);
                     return;
+
+                case Protocol.OverworldMapPiece:
+                    MapPiece(packet);
+                    return;
             }
 
             if (!Protocol.CarriesAsk(packet.Kind))
@@ -450,6 +493,48 @@ namespace Opus.Net
             Heard(new PacketReader(whole));
         }
 
+        // One piece of the map: its number, then its bytes.  One for a map
+        // we aren't fetching, or that we already have, is let go.  The last
+        // one hands the whole map to Session, which checks it and keeps it.
+        void MapPiece(PacketReader packet)
+        {
+            uint number = packet.U32();
+            byte[] bytes = packet.Rest();
+            long received;
+            uint size;
+            byte[] whole = null;
+            lock (gate)
+            {
+                if (map == null || !map.Take(number, bytes, clock.ElapsedMilliseconds))
+                    return;
+                received = map.Received;
+                size = map.Size;
+                if (map.Done)
+                {
+                    whole = map.Whole();
+                    map = null;
+                }
+                else if (map.AskedAllIn)
+                {
+                    // The next 64 can go now.
+                    nextMapAsk = 0;
+                    wake.Set();
+                }
+            }
+
+            int percent = (int)(received * 100 / size);
+            if (whole != null)
+            {
+                Debug.Log("Game: the world's map is in, " + size + " bytes.");
+                MainThread.Post(() => Session.MapArrived(this, whole));
+            }
+            else if (percent != mapPercentSaid)
+            {
+                mapPercentSaid = percent;
+                MainThread.Post(() => Session.MapProgress(this, received, size));
+            }
+        }
+
         // The answer to the ask we were waiting on, its ask number read.
         void Answered(PacketReader packet)
         {
@@ -501,6 +586,38 @@ namespace Opus.Net
                     Debug.Log("Game: " + name + " (" + uuid + ") is in the world at " + x + ", " + y + ", " + z
                               + ".");
                     MainThread.Post(() => Session.EnteredWorld(this, name));
+                    return;
+                }
+
+                // PLAY's answer (version 11): the character is loaded, and
+                // this is the map to fetch first.  The sender starts asking
+                // for it at once.
+                case Protocol.OverworldMapOffer:
+                {
+                    uint size = packet.U32();
+                    ushort pieceBytes = packet.U16();
+                    uint count = packet.U32();
+                    string hash = packet.String();
+                    packet.End();
+                    Debug.Log("Game: the world's map is " + size + " bytes in " + count + " pieces, SHA-256 " + hash
+                              + ".");
+                    try
+                    {
+                        lock (gate)
+                        {
+                            map = new MapDownload(size, pieceBytes, count, hash, clock.ElapsedMilliseconds);
+                            nextMapAsk = 0;
+                            mapPercentSaid = 0;
+                        }
+                    }
+                    catch (ProtocolException e)
+                    {
+                        string why = "the server offered " + e.Message;
+                        MainThread.Post(() => Session.MapFailed(this, why));
+                        return;
+                    }
+                    wake.Set();
+                    MainThread.Post(() => Session.MapOffered(this, hash, size));
                     return;
                 }
 

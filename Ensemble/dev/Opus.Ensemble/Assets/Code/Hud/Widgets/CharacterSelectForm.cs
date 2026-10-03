@@ -6,8 +6,9 @@
 // two cards), and this fills them from Session, now and every time
 // something there changes.  A click on a row picks that character; PLAY,
 // DELETE and RESET HOME act on the one picked, CREATE and DELETE through a
-// card.  Once the character is in the world the list says so, and LOG OUT
-// is the only way on.
+// card.  After PLAY the loading bar shows over the list while the world's
+// map comes in, and the buttons go.  Once the character is in the world
+// the list says so, and LOG OUT is the only way on.
 
 using System;
 using Opus.Net;
@@ -44,6 +45,10 @@ namespace Opus.Hud
         static Label deleteLine;
         static TextField deleteWord;
         static Button deleteConfirm;
+
+        static VisualElement loading;
+        static VisualElement loadingFill;
+        static Label loadingLine;
 
         // The picked character's uuid, or null.
         static string picked;
@@ -122,6 +127,14 @@ namespace Opus.Hud
             Fill();
         }
 
+        public static void LoadingBuilt(VisualElement box, VisualElement fill, Label line)
+        {
+            loading = box;
+            loadingFill = fill;
+            loadingLine = line;
+            Fill();
+        }
+
         // ScreenRoot starts and stops the listening.  Off before on, so a
         // second Listen() never fills the screen twice.
         public static void Listen()
@@ -129,12 +142,14 @@ namespace Opus.Hud
             StopListening();
             Session.CharacterSelectChanged += Fill;
             Session.AskAnswered += Answered;
+            Session.MapProgressed += FillLoading;
         }
 
         public static void StopListening()
         {
             Session.CharacterSelectChanged -= Fill;
             Session.AskAnswered -= Answered;
+            Session.MapProgressed -= FillLoading;
         }
 
         // ---------------------------------------------------------------
@@ -266,6 +281,7 @@ namespace Opus.Hud
             FillStatus();
             FillButtons(atSelect);
             FillCards();
+            FillLoading();
 
             if (Filled != null)
                 Filled();
@@ -372,6 +388,33 @@ namespace Opus.Hud
                 return;
             button.style.display = shown ? DisplayStyle.Flex : DisplayStyle.None;
             button.SetEnabled(enabled);
+        }
+
+        // The loading bar shows only while the map comes in (and while
+        // PlayerReady waits on its answer), filled as far as the map is.
+        static void FillLoading()
+        {
+            if (loading == null)
+                return;
+            bool shown = Session.Stage == SessionStage.LoadingWorld;
+            loading.style.display = shown ? DisplayStyle.Flex : DisplayStyle.None;
+            if (!shown)
+                return;
+
+            long size = Session.MapSize;
+            long received = Session.MapReceived;
+            float part = size > 0 ? (float)received / size : 0f;
+            loadingFill.style.width = Length.Percent(part * 100f);
+            if (size > 0 && received >= size)
+                loadingLine.text = "The world's map is in.  Entering the world...";
+            else
+                loadingLine.text = "Loading the world's map...  " + Megabytes(received) + " of " + Megabytes(size)
+                                   + " MB";
+        }
+
+        static string Megabytes(long bytes)
+        {
+            return (bytes / (1024.0 * 1024.0)).ToString("0.0");
         }
 
         static void FillCards()

@@ -171,4 +171,30 @@ The server's side is PROTOCOL.md's "In the world"; the chat window is `design/en
   `WhoAnswered`, and puts Spans back together: the pieces kept by number for the ask waiting, the ask's
   resend bringing the missing ones, the whole read as if it had come in one packet, and given up 2 seconds
   after the first piece ("The server didn't answer.").
-- **`Session.ReachedWorld`**: PLAY's answer, which ScreenRoot turns into the HUD.
+- **`Session.ReachedWorld`**: PLAY's answer, which ScreenRoot turns into the HUD (since version 11,
+  PlayerReady's).
+
+## The map at PLAY (2026-10-03, session 2, written, not built by Jacob yet)
+
+Protocol version 11, PROTOCOL.md's "The map at PLAY".  Jacob: "A packets first in the server and then we'll in
+this conversation also integrate Ensemble with receipt of those packets"; a fresh download every PLAY ("we're
+just gonna write over whatever the client already has every time"); a client that can't get it goes back to
+the launcher with the message.
+
+- **`GameConnection`** reads PLAY's answer, the OverworldMapOffer, and starts a **`MapDownload`**
+  (`Code/Net/MapDownload.cs`): room for the whole map, which pieces are in, and the next request, the lowest
+  64 missing.  The sender thread asks for them at once, again as soon as the last 64 are all in (the
+  listener wakes it), and every quarter second for whatever didn't come; with no new piece in 10 seconds
+  it gives up (`Session.MapFailed`).  The listener tells Session how far along it is once a whole percent,
+  and hands it the whole map when the last piece lands.
+- **`Session`** has a new stage, **LoadingWorld**, between AtCharacterSelect and InWorld.  With the whole map
+  (`MapArrived`) it checks its SHA-256 against the offer's, reads it once (`SimpleOverworldMap.FromBytes()`,
+  `Code/World/SimpleOverworldMap.cs`, namespace `Opus.World`, the contract's reader) and keeps it in
+  `SimpleOverworldMap.Current`, writes it over the player's copy (`simple_overworld.map` through
+  `PlayerFiles.PathOf()`, a `.part` file moved into place), then sends **PlayerReady** with the hash.  On
+  the main thread: a few MB hashed, written and read once a PLAY, behind a full bar.
+- **Anything wrong** (no new piece in the wait, an offer that doesn't add up, a hash that isn't the offer's,
+  a file that can't be written, PlayerReady refused or unanswered) ends the session with a Goodbye and goes
+  back to the launcher with "Couldn't get the world's map. Delete <the file> (or reinstall the game) and try
+  again."  The why is in the log.
+- **The loading bar** is `design/ensemble-hud.md`'s.

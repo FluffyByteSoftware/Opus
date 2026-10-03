@@ -225,6 +225,48 @@
     background-color: rgb(166, 52, 52);
 }
 
+/* The loading bar over the list while the world's map comes in: an enemy's
+   health bar going backwards, red, filling from empty. */
+.character-loading {
+    justify-content: center;
+    padding: 20px 24px;
+    background-color: rgb(28, 30, 38);
+    border-width: 1px;
+    border-color: rgba(255, 255, 255, 0.35);
+    border-radius: 6px;
+}
+
+.character-loading-title {
+    font-size: 24px;
+    -unity-font-style: bold;
+    letter-spacing: 3px;
+    -unity-text-align: middle-center;
+    margin: 0 0 14px 0;
+    padding: 0;
+}
+
+.character-loading-track {
+    height: 32px;
+    background-color: rgb(58, 20, 20);
+    border-width: 1px;
+    border-color: rgba(0, 0, 0, 0.6);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.character-loading-fill {
+    width: 0%;
+    height: 100%;
+    background-color: rgb(192, 48, 48);
+}
+
+.character-loading-line {
+    font-size: 18px;
+    -unity-text-align: middle-center;
+    margin: 10px 0 0 0;
+    padding: 0;
+}
+
 /* LOG OUT, the same look as the start screen's QUIT. */
 .character-select-log-out {
     flex-grow: 1;

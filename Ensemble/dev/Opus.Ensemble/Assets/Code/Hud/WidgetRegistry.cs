@@ -31,6 +31,7 @@ namespace Opus.Hud
             () => new CharacterSelectResetHomeWidget(),
             () => new CharacterSelectCreateCardWidget(),
             () => new CharacterSelectDeleteCardWidget(),
+            () => new CharacterSelectLoadingWidget(),
         };
 
         // A new widget for this id, or null when there's no widget called

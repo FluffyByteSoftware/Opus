@@ -7,7 +7,12 @@
 // the player is, makes the asks at character select (the list, CREATE,
 // DELETE, RESET HOME, PLAY) and sends what's typed in the chat box once
 // the character is in the world, and tells the screens through its
-// events.  Main thread only: the connection's threads reach it through
+// events.  PLAY fetches the simple overworld map first (protocol version
+// 11): the loading bar fills while it comes, it's checked against the
+// server's SHA-256 and kept in the player's folder, written over every
+// time, and only then does PlayerReady put the character in the world.  A
+// map that can't be had sends the player back to the launcher, told to
+// delete the file (or the game) and try again.  Main thread only: the connection's threads reach it through
 // MainThread.Post, and every message from a connection that's already
 // been dropped is ignored.
 //
@@ -19,6 +24,10 @@
 // open on the start screen, which says why.
 
 using System;
+using System.IO;
+using System.Security.Cryptography;
+using System.Text;
+using Opus.World;
 using UnityEngine;
 
 namespace Opus.Net
@@ -28,6 +37,7 @@ namespace Opus.Net
         LoggedOut,
         Connecting,
         AtCharacterSelect,
+        LoadingWorld,
         InWorld,
     }
 
@@ -72,6 +82,11 @@ namespace Opus.Net
         // The character's name once it's in the world, or null.
         public static string InWorldAs { get; private set; }
 
+        // The map at PLAY, while it comes: how many bytes are in, of how
+        // many.  0 of 0 before the offer.
+        public static long MapReceived { get; private set; }
+        public static long MapSize { get; private set; }
+
         // Notice changed: the start screen's card redraws.
         public static event Action NoticeChanged;
 
@@ -91,8 +106,11 @@ namespace Opus.Net
         // back to the launcher instead.
         public static event Action<string, bool> SessionOver;
 
-        // PLAY's answer came: the character is in the world, and the HUD
-        // takes over from character select.
+        // More of the map came in: the loading bar fills.
+        public static event Action MapProgressed;
+
+        // PlayerReady's answer came: the character is in the world, and the
+        // HUD takes over from character select.
         public static event Action ReachedWorld;
 
         // A line for the chat box that isn't the player's own: the chat,
@@ -107,6 +125,9 @@ namespace Opus.Net
         // The name of the character RESET HOME was asked for, for its
         // answer (a CommandAccepted, which carries no name).
         static string sentHome;
+
+        // The map's SHA-256, as the offer said it.
+        static string mapHash;
 
         // ---------------------------------------------------------------
         // In: the ticket
@@ -494,6 +515,11 @@ namespace Opus.Net
                 Chat(why);
                 return;
             }
+            if (kind == Protocol.PlayerReady)
+            {
+                MapTrouble("the server said \"" + why + "\"");
+                return;
+            }
             if (kind == Protocol.CharacterListRequest)
                 CharactersTrouble = why;
             else
@@ -509,6 +535,11 @@ namespace Opus.Net
             if (kind == Protocol.PlayerCommand)
             {
                 Chat("The server didn't answer.");
+                return;
+            }
+            if (kind == Protocol.PlayerReady)
+            {
+                MapTrouble("the server didn't answer PlayerReady");
                 return;
             }
             if (kind == Protocol.CharacterListRequest)
@@ -534,8 +565,82 @@ namespace Opus.Net
             SayHere(words, false);
         }
 
-        // PLAY's answer: the character is in the world.  Character select is
-        // behind the player now; the way out is LOG OUT, to the launcher.
+        // PLAY's answer (version 11): the character is loaded, and the map
+        // is coming.  Character select's buttons go, and the loading bar
+        // shows over the list.
+        internal static void MapOffered(GameConnection from, string hash, uint size)
+        {
+            if (from != game)
+                return;
+            Asking = 0;
+            Stage = SessionStage.LoadingWorld;
+            mapHash = hash;
+            MapSize = size;
+            MapReceived = 0;
+            SayHere("", false);
+        }
+
+        internal static void MapProgress(GameConnection from, long received, uint size)
+        {
+            if (from != game || Stage != SessionStage.LoadingWorld)
+                return;
+            MapReceived = received;
+            MapSize = size;
+            if (MapProgressed != null)
+                MapProgressed();
+        }
+
+        // Every piece is in.  The map is checked against the offer's hash,
+        // written over the player's copy, and read once to be sure of it;
+        // then PlayerReady, with the hash, puts the character in the world.
+        // Here on the main thread: a hash, a write and a read of a few MB,
+        // once a PLAY, behind a full loading bar.
+        internal static void MapArrived(GameConnection from, byte[] bytes)
+        {
+            if (from != game || Stage != SessionStage.LoadingWorld)
+                return;
+            string hash = Sha256Hex(bytes);
+            if (hash != mapHash)
+            {
+                MapTrouble("what came has SHA-256 " + hash + ", and the server said " + mapHash);
+                return;
+            }
+
+            SimpleOverworldMap map;
+            try
+            {
+                map = SimpleOverworldMap.FromBytes(bytes);
+                KeepMap(bytes);
+            }
+            catch (Exception e)
+            {
+                MapTrouble(e.Message);
+                return;
+            }
+            SimpleOverworldMap.Current = map;
+            Debug.Log("Game: the world's map is kept, " + map.Width + " by " + map.Depth + " patches, in "
+                      + MapPath() + ".");
+
+            MapReceived = bytes.Length;
+            if (MapProgressed != null)
+                MapProgressed();
+            Asking = Protocol.PlayerReady;
+            game.Ask(Protocol.PlayerReady, hash);
+            Changed();
+        }
+
+        // The map couldn't be had: no new piece in the wait, or an offer
+        // that didn't add up.
+        internal static void MapFailed(GameConnection from, string why)
+        {
+            if (from != game)
+                return;
+            MapTrouble(why);
+        }
+
+        // PlayerReady's answer: the character is in the world.  Character
+        // select is behind the player now; the way out is LOG OUT, to the
+        // launcher.
         internal static void EnteredWorld(GameConnection from, string name)
         {
             if (from != game)
@@ -544,7 +649,7 @@ namespace Opus.Net
             Stage = SessionStage.InWorld;
             InWorldAs = name;
             SayHere("", false);
-            Answered(Protocol.UserPressPlay, true);
+            Answered(Protocol.PlayerReady, true);
             if (ReachedWorld != null)
                 ReachedWorld();
         }
@@ -628,6 +733,57 @@ namespace Opus.Net
             Said = "";
             SaidTrouble = false;
             InWorldAs = null;
+            MapReceived = 0;
+            MapSize = 0;
+            mapHash = null;
+        }
+
+        // ---------------------------------------------------------------
+        // The map at PLAY
+        // ---------------------------------------------------------------
+
+        // Where the map is kept: the player's folder, simple_overworld.map.
+        static string MapPath()
+        {
+            return PlayerFiles.PathOf(SimpleOverworldMap.FileName);
+        }
+
+        // Writes the map over the player's copy: to a file beside it first,
+        // then moved into its place, so a game that dies part way never
+        // leaves half a map under the real name.
+        static void KeepMap(byte[] bytes)
+        {
+            string path = MapPath();
+            string part = path + ".part";
+            Directory.CreateDirectory(PlayerFiles.Folder);
+            File.WriteAllBytes(part, bytes);
+            if (File.Exists(path))
+                File.Delete(path);
+            File.Move(part, path);
+        }
+
+        static string Sha256Hex(byte[] bytes)
+        {
+            byte[] hash;
+            using (SHA256 sha = SHA256.Create())
+                hash = sha.ComputeHash(bytes);
+            var hex = new StringBuilder(64);
+            foreach (byte b in hash)
+                hex.Append(b.ToString("x2"));
+            return hex.ToString();
+        }
+
+        // The player couldn't get the map.  The session ends, and they're
+        // told to delete the file, or the game, and try again (Jacob,
+        // 2026-10-03: "notify the person playing the game to delete the
+        // local map file or client and try again"), back at the launcher.
+        // The why goes in the log, not on the screen.
+        static void MapTrouble(string why)
+        {
+            Debug.LogWarning("Game: couldn't get the world's map: " + why + ".");
+            Drop();
+            Finish("Couldn't get the world's map. Delete " + MapPath() + " (or reinstall the game) and try again.",
+                   true);
         }
 
         // The session is over, however it ended.  A game the launcher
