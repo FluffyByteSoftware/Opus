@@ -195,7 +195,6 @@ dependencies = [
  "conductor-primlib",
  "conductor-tools",
  "rustls",
- "sha2",
 ]
 
 [[package]]
