@@ -306,6 +306,10 @@ Windows.  What's left, a step each:
   though when they're not spawning at 0,0,0?  When we get to where the map is generating we're gonna fill
   it with spawn points so we want to be ready for that", so **GameWorld** works it out (any column in the
   world, its files or its region's ground), not the GameClock (only what's loaded).  Plan OKed ("Yes").
+  **Written** (session 1, **not built yet**): `design/world.md`, "Spawn points".  What's left of it: the
+  height from a column changed since the last world save is the old one, once anything changes blocks
+  (the GameClock holds the newer chunk); and which spawn point a character gets, once there's more than
+  one.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships

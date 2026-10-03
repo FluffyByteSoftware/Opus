@@ -49,7 +49,7 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
-use conductor_gameworld::{SPAWN, Terrain};
+use conductor_gameworld::{SPAWN_POINTS, Terrain};
 use conductor_primlib::World;
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
@@ -180,7 +180,7 @@ fn run(stopped: Receiver<()>, notes: Receiver<players::Note>) {
         world_save: WorldSave::new(saving::world_save_every()),
         writes: Writes::new(),
     };
-    game.terrain.ask_around(SPAWN.0, SPAWN.2, conductor_gameworld::view_chunks());
+    game.terrain.ask_around(SPAWN_POINTS[0].0, SPAWN_POINTS[0].1, conductor_gameworld::view_chunks());
 
     // Tallies since START SERVER, for the Services tab.
     let mut cycles: u64 = 0;

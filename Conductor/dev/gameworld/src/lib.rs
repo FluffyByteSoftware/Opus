@@ -54,6 +54,7 @@ mod make;
 pub mod noise;
 pub mod overworld;
 pub mod regionmap;
+pub mod spawn;
 pub mod squeeze;
 pub mod terrain;
 
@@ -76,13 +77,10 @@ use conductor_tools::threads;
 // `conductor_gameworld::Terrain` instead of reaching into the files.
 pub use block::Block;
 pub use chunk::{Chunk, ChunkPos};
+pub use spawn::SPAWN_POINTS;
 pub use terrain::{Loaded, Terrain};
 
 use regionmap::CHUNKS_PER_SIZE;
-
-/// Where every player starts, for now (Jacob, 2026-09-30): the GOLD block,
-/// in the middle of the world.
-pub const SPAWN: (i32, i32, i32) = (0, 0, 0);
 
 /// How long the thread waits for a job before checking in anyway.  The
 /// Services tab calls a service stuck after 5 seconds of quiet.
@@ -95,6 +93,9 @@ enum Job {
     /// Read or build the chunk at `pos` and squeeze it, for a player who
     /// asked for it before anything else did.
     Squeeze { pos: ChunkPos },
+    /// The y of the highest block in column x, z that isn't AIR, for a
+    /// spawn point (`spawn.rs`), sent back on `reply`.
+    Top { x: i32, z: i32, reply: Sender<Result<i32, String>> },
 }
 
 /// The chunks squeezed for players, and the ones on their way.
@@ -298,6 +299,15 @@ fn ask(pos: ChunkPos, reply: &Sender<Loaded>) -> bool {
     }
 }
 
+/// Asks GameWorld for the top of column x, z, to be sent back on `reply`.
+/// Comes straight back.  False if GameWorld isn't running.
+fn ask_top(x: i32, z: i32, reply: Sender<Result<i32, String>>) -> bool {
+    match lock(&MAILBOX).as_ref() {
+        Some(mailbox) => mailbox.send(Job::Top { x, z, reply }).is_ok(),
+        None => false,
+    }
+}
+
 /// True once `stop()` has been called, for the long jobs to look at.
 fn stopping() -> bool {
     STOPPING.load(Ordering::SeqCst)
@@ -407,6 +417,14 @@ fn run(jobs: Receiver<Job>) {
                 }
             }
             Ok(Job::Squeeze { .. }) => {}
+            Ok(Job::Top { x, z, reply }) => {
+                let top = match &shape {
+                    Some(shape) => spawn::top_of(x, z, |pos| load(shape, pos, &mut from_files)),
+                    None => Err("GameWorld couldn't read the world".to_string()),
+                };
+                // Nobody left to take it is fine: the asker gave up waiting.
+                let _ = reply.send(top);
+            }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
         }

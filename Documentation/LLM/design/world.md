@@ -313,6 +313,28 @@ chunks around the player", protocol version 12).
 - **Ensemble gets its own sessions** "to bring it in line with these server changes": asking, reading the
   squeezed chunks, and putting blocks on screen.
 
+### Spawn points
+
+Settled with Jacob on 2026-10-03, session 1, and **written, not built yet**.  It went through two shapes:
+first "characters start at Y=1", then "we shouldn't give them a fixed position to spawn at (I mean no Y=X)
+instead we need ot make a designated spawn point which for right now is only 0,0,0 but the code needs to be
+able to tell how many physical voxels (not air) are on top of 0,0,0 and then put the player on top of the
+highest voxel."
+
+- **A spawn point is a column**, never a height: `SPAWN_POINTS` in `gameworld/src/spawn.rs`, only 0, 0
+  today.  "When we get to where the map is generating we're gonna fill it with spawn points so we want to
+  be ready for that."
+- **The character stands on top of the column's highest block that isn't AIR, in the middle of it**: at
+  x + 0.5, top + 1, z + 0.5 ("in the middle of a block").  With the GOLD on top at 0, 0, that's 0.5, 1,
+  0.5.
+- **Only for a new character and RESET HOME**; a saved character comes back where it was.
+- **GameWorld works it out** (a `Top` job on its thread: the column's chunks from the top row down, each
+  from its own file or its region's ground), so any column in the world can be a spawn point, loaded or
+  not.  Protogame asks and waits (`spawn::place_at()`), as it waits on the database; the GameClock never
+  does.  If GameWorld can't answer, making the character or RESET HOME is refused and nothing changes.
+- **The limit**: once blocks change, GameWorld knows a chunk as of the last world save, so a column dug or
+  built on since then gives the height it had then (TODO.md).
+
 ## Still open
 
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a

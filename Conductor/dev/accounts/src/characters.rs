@@ -74,9 +74,10 @@ const SLOTS_SQL: &str = "SELECT id, character_slot_1, character_slot_2, characte
 // The cast is there because `lower()` has more than one kind of argument.
 const NAME_TAKEN_SQL: &str = "SELECT 1 FROM player_characters WHERE lower(character_name) = lower($1::text)";
 
-/// A new row.  Postgres hands back the three things only it knows.
-const CREATE_SQL: &str = "INSERT INTO player_characters (uuid, account_id, character_name, save_lua) \
-    VALUES ($1::text::uuid, $2, $3, $4) RETURNING id, created_at, saved_at";
+/// A new row, with where it stands beside its save.  Postgres hands back
+/// the three things only it knows.
+const CREATE_SQL: &str = "INSERT INTO player_characters (uuid, account_id, character_name, save_lua, position_x, \
+    position_y, position_z) VALUES ($1::text::uuid, $2, $3, $4, $5, $6, $7) RETURNING id, created_at, saved_at";
 
 /// A save: the Lua text and the position together, so the columns never
 /// fall out of step with the save.  The name never changes.
@@ -261,14 +262,17 @@ pub fn load(username: &str, uuid: &str) -> Pending<Option<CharacterSave>> {
 /// Makes a character on an account, in its first empty slot, in one
 /// transaction: the row, then the slot pointing at it.  `save_lua` is the
 /// new character as the game wrote it (the Character template, with the
-/// name the player picked); it's stored as it is.  The name should have
-/// passed `check_character_name()` first; the table checks it again.
+/// name the player picked, standing at its spawn point); it's stored as it
+/// is, and `position` beside it, the same place the save holds.  The name
+/// should have passed `check_character_name()` first; the table checks it
+/// again.
 ///
 /// A missing account, full slots and a name in use come back as answers,
 /// checked in the same transaction as the write, and nothing is written.
 /// Fails before anything is sent only if the OS won't give random bytes
 /// for the UUID.
-pub fn create(username: &str, name: &str, save_lua: String) -> io::Result<Pending<CharacterCreated>> {
+pub fn create(username: &str, name: &str, save_lua: String, position: [f32; 3])
+    -> io::Result<Pending<CharacterCreated>> {
     let uuid = fingerprinter::new_uuid()?;
     let username = username.to_string();
     let name = name.to_string();
@@ -285,7 +289,8 @@ pub fn create(username: &str, name: &str, save_lua: String) -> io::Result<Pendin
             return Ok(CharacterCreated::NameTaken);
         }
 
-        let row = tx.query_one(CREATE_SQL, &[&uuid, &account_id, &name, &save_lua])?;
+        let row = tx.query_one(CREATE_SQL, &[&uuid, &account_id, &name, &save_lua, &position[0], &position[1],
+                                             &position[2]])?;
         let id: i64 = row.get("id");
         let slot_sql = format!("UPDATE accounts SET {} = $1 WHERE id = $2", SLOT_COLUMNS[slot_index]);
         tx.execute(slot_sql.as_str(), &[&id, &account_id])?;
@@ -297,7 +302,7 @@ pub fn create(username: &str, name: &str, save_lua: String) -> io::Result<Pendin
             account_username: username,
             slot: slot_index as u8 + 1,
             name,
-            position: [0.0, 0.0, 0.0],
+            position,
             created_at: row.get("created_at"),
             saved_at: row.get("saved_at"),
             unplayable: false,

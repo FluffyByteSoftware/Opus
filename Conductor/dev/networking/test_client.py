@@ -45,7 +45,7 @@
 #   python3 networking/test_client.py --pause-before-login 8 ...   (sits open, to KICK or ban it)
 #   python3 networking/test_client.py --create Jacob ...   (makes a character, then lists again)
 #   python3 networking/test_client.py --delete Jacob ...   (types DELETE; --delete-word to type another)
-#   python3 networking/test_client.py --reset-home Jacob ...   (puts it back at 0, 0, 0)
+#   python3 networking/test_client.py --reset-home Jacob ...   (puts it back at its spawn point)
 #   python3 networking/test_client.py --play Jacob ...   (fetches the map, then brings Jacob into the world)
 #   python3 networking/test_client.py --play Jacob --save-map /tmp/map ...   (keeps the map it fetched, for a cmp)
 #   python3 networking/test_client.py --play Jacob --wrong-map-hash ...   (says the wrong hash: refused)
@@ -989,7 +989,8 @@ def main():
     parser.add_argument("--delete", metavar="NAME", help="delete the account's character with this name")
     parser.add_argument("--delete-word", default="DELETE",
                         help="the word typed to confirm a --delete (default: DELETE; anything else is denied)")
-    parser.add_argument("--reset-home", metavar="NAME", help="put the account's character with this name at 0, 0, 0")
+    parser.add_argument("--reset-home", metavar="NAME",
+                        help="put the account's character with this name back at its spawn point")
     parser.add_argument("--play", metavar="NAME",
                         help="bring the account's character with this name into the world, after the other flags")
     parser.add_argument("--save-map", metavar="PATH",

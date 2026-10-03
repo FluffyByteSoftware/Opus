@@ -241,7 +241,8 @@ played is a byte per character in the list ("just add a bool in it"), not a pack
 - **Deleting** (Jacob: "player presses delete, and the client pre-reqs to ask them to type in delete then
   sends the packet to the server with the typed in word.  Server either approves or denies"): only DELETE,
   any capitals, deletes.
-- **Reset home** ("sends character back to 0, 0, 0"): the save holds the position too, so the save is read
+- **Reset home** ("sends character back to 0, 0, 0"; since 2026-10-03 to its spawn point, on top of its
+  highest block: `design/world.md`, "Spawn points"): the save holds the position too, so the save is read
   back with lua-parser, made into the character, moved (rotation and scale kept), and saved again whole with
   the position columns.  A save that won't load marks the character unplayable, with the Error on the bell,
   the same as the spawn will.

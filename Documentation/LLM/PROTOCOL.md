@@ -262,9 +262,11 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
   DELETE deletes (any capitals).  Answer `0` approved: the character is gone.  `1` denied, and the message
   says why: the word was wrong, there's no such character on the account, or the server can't do it right
   now.
-- **CharacterRequestResetHome** with a character's uuid puts it back at 0, 0, 0 and gets a
-  **CommandAccepted**, or a **CommandRefused** saying why not (no such character on the account, the
-  character is unplayable, its save won't load, or the server can't right now).
+- **CharacterRequestResetHome** with a character's uuid puts it back at its spawn point (0, 0 today; it
+  stands on top of the highest block there, in the middle of it, since 2026-10-03; it was 0, 0, 0) and gets
+  a **CommandAccepted**, or a **CommandRefused** saying why not (no such character on the account, the
+  character is unplayable, its save won't load, or the server can't right now).  A new character starts at
+  the same place.
 
 - **UserPressPlay** with a character's uuid loads it, where its last save left it, and gets an
   **OverworldMapOffer** (version 11): the character is waiting, and this is the map to fetch before it

@@ -6,8 +6,12 @@
 //! character being in the world.  Jacob's word, 2026-09-30: "the character
 //! selection and character construction are proto game then become game
 //! objects after load."  That's character select: listing an account's
-//! characters, making one, deleting one, putting one back at 0, 0, 0, and
-//! the last step, playing one (protocol version 6).
+//! characters, making one, deleting one, putting one back at its spawn
+//! point, and the last step, playing one (protocol version 6).  A new
+//! character and RESET HOME stand the character on top of the spawn
+//! point's highest block, worked out by GameWorld (`conductor_gameworld::
+//! spawn`, Jacob, 2026-10-03), so this thread waits on it as it waits on
+//! the database.
 //!
 //! Playing one is the spawn's slow part, done here so the GameClock never
 //! waits on it: the row and the save are read, and the save is laid over
@@ -61,6 +65,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use conductor_accounts::characters::{self, CharacterCreated, CharacterSave};
+use conductor_gameworld::spawn::{self, SPAWN_POINTS};
 use conductor_primlib::gameobject;
 use conductor_primlib::{Blueprint, Component, Kind, Save, Transform, Vector3};
 use conductor_tools::scribe::{self, Channel};
@@ -105,6 +110,11 @@ const DELETE_UNAVAILABLE: &str = "Character Deletion Unavailable";
 const RESET_UNAVAILABLE: &str = "Reset Home Unavailable";
 const PLAY_UNAVAILABLE: &str = "World Unavailable";
 
+/// How long a new character or RESET HOME waits on GameWorld for the
+/// spawn point's height.  It's a column of chunks read or built, so a
+/// fraction of this.
+const SPAWN_WAIT: Duration = Duration::from_secs(10);
+
 /// What the player hears for a PlayerReady whose hash isn't the map's
 /// (version 11).  Their client checks its copy before it sends one, so
 /// this is a client that's broken or changed.
@@ -135,7 +145,8 @@ pub enum Work {
     Create { name: String },
     /// Delete this character, with the word they typed: a DeleteCharacter.
     Delete { uuid: String, typed: String },
-    /// Put this character back at 0, 0, 0: a CharacterRequestResetHome.
+    /// Put this character back at its spawn point: a
+    /// CharacterRequestResetHome.
     ResetHome { uuid: String },
     /// Load this character and offer the map: a UserPressPlay.
     Play { uuid: String },
@@ -266,14 +277,24 @@ fn list(account: &str, ask: u32) -> Vec<u8> {
 }
 
 /// A new character: the name checked, the Character template with the
-/// name as its short name saved as Lua, and the row made in the account's
-/// first empty slot.
+/// name as its short name, standing at the spawn point, saved as Lua, and
+/// the row made in the account's first empty slot.
 fn create(account: &str, ask: u32, name: &str) -> Vec<u8> {
     if characters::check_character_name(name).is_err() {
         return protocol::create_result(ask, CreateAnswer::NameNotAllowed);
     }
-    let save_lua = Save::of_blueprint(&gameobject::new_character(name)).to_lua();
-    let pending = match characters::create(account, name, save_lua) {
+    let place = match spawn_place() {
+        Ok(place) => place,
+        Err(why) => {
+            scribe::warn(Channel::Game, &format!("{account}'s new character {name} wasn't made: the spawn point \
+                can't be had ({why})."));
+            return protocol::create_result(ask, CreateAnswer::Unavailable);
+        }
+    };
+    let mut blueprint = gameobject::new_character(name);
+    stand_at(&mut blueprint, place);
+    let save_lua = Save::of_blueprint(&blueprint).to_lua();
+    let pending = match characters::create(account, name, save_lua, place) {
         Ok(pending) => pending,
         Err(e) => {
             scribe::error(Channel::Game, &format!("Fingerprinter couldn't make a UUID for {account}'s new \
@@ -321,11 +342,11 @@ fn delete(account: &str, ask: u32, uuid: &str, typed: &str) -> Vec<u8> {
     }
 }
 
-/// Puts one of the account's characters back at 0, 0, 0.  The save holds
-/// the position too, so the save is read back, made into the character,
-/// moved, and saved again whole, with the position columns beside it.  A
-/// save that won't load makes the character unplayable, the same as it
-/// would at the spawn.
+/// Puts one of the account's characters back at its spawn point, on top of
+/// the highest block there.  The save holds the position too, so the save
+/// is read back, made into the character, moved, and saved again whole,
+/// with the position columns beside it.  A save that won't load makes the
+/// character unplayable, the same as it would at the spawn.
 fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
     let loaded = match characters::load(account, uuid).wait_for(DATABASE_WAIT) {
         Some(Ok(Some(loaded))) => loaded,
@@ -345,27 +366,49 @@ fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
         return protocol::command_refused(ask, CANT_BE_LOADED);
     };
 
-    // Only the position changes: the way it faces and its size stay.
-    let home = Vector3::new(0.0, 0.0, 0.0);
-    let mut moved = match blueprint.get(Kind::Transform) {
-        Some(Component::Transform(transform)) => *transform,
-        _ => Transform::default(),
+    let home = match spawn_place() {
+        Ok(place) => place,
+        Err(why) => {
+            scribe::warn(Channel::Game, &format!("{} wasn't reset home: the spawn point can't be had ({why}).",
+                                                 character.name()));
+            return protocol::command_refused(ask, RESET_UNAVAILABLE);
+        }
     };
-    moved.position = home;
-    blueprint.set(Component::Transform(moved));
+    stand_at(&mut blueprint, home);
     let save_lua = Save::of_blueprint(&blueprint).to_lua();
-    match characters::save(character.id(), [home.x, home.y, home.z], save_lua).wait_for(DATABASE_WAIT) {
+    let [x, y, z] = home;
+    match characters::save(character.id(), home, save_lua).wait_for(DATABASE_WAIT) {
         Some(Ok(0)) => protocol::command_refused(ask, NO_SUCH_CHARACTER),
         Some(Ok(_)) => {
-            scribe::info(Channel::Game, &format!("{account} reset {} home to 0, 0, 0.", character.name()));
+            scribe::info(Channel::Game, &format!("{account} reset {} home to {x}, {y}, {z}.", character.name()));
             protocol::command_accepted(ask)
         }
         Some(Err(e)) => {
-            scribe::warn(Channel::Game, &format!("{} couldn't be saved at 0, 0, 0: {e}.", character.name()));
+            scribe::warn(Channel::Game, &format!("{} couldn't be saved at {x}, {y}, {z}: {e}.",
+                                                 character.name()));
             protocol::command_refused(ask, RESET_UNAVAILABLE)
         }
         None => protocol::command_refused(ask, RESET_UNAVAILABLE),
     }
+}
+
+/// Where a character goes when it's made or reset home: on top of the
+/// spawn point's highest block, in the middle of it.  There's one spawn
+/// point today; which of them a character gets is for when there are more.
+fn spawn_place() -> Result<[f32; 3], String> {
+    let (x, z) = SPAWN_POINTS[0];
+    spawn::place_at(x, z, SPAWN_WAIT)
+}
+
+/// Moves a character to `place`.  Only the position changes: the way it
+/// faces and its size stay.
+fn stand_at(blueprint: &mut Blueprint, place: [f32; 3]) {
+    let mut moved = match blueprint.get(Kind::Transform) {
+        Some(Component::Transform(transform)) => *transform,
+        _ => Transform::default(),
+    };
+    moved.position = Vector3::new(place[0], place[1], place[2]);
+    blueprint.set(Component::Transform(moved));
 }
 
 /// Plays one of the account's characters: loads it, holds it on the

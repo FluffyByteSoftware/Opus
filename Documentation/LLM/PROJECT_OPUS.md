@@ -143,6 +143,7 @@ Opus/
 │       │       ├── overworld.rs       # simple_overworld.map: the world's rough shape for the client's distance
 │       │       │                      #   (SIMPLE_OVERWORLD_MAP.md is its contract)
 │       │       ├── squeeze.rs         # a chunk squeezed for sending (runs) and back; PROTOCOL.md has the layout
+│       │       ├── spawn.rs           # spawn points (columns), and the top of one's column to stand on
 │       │       ├── terrain.rs         # Terrain: the chunks in memory, held by the GameClock's thread
 │       │       └── bytes.rs           # reading the binary files a number at a time, little-endian
 │       ├── gameclock/                 # lib, conductor-gameclock -- the GameClock, the game loop; a server piece
