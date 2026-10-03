@@ -164,7 +164,9 @@ will stand and how many chunks it sees; the client pulls the chunks and draws th
 `map_cooldown_seconds`, the test client's `--save-map` and `--wrong-map-hash`, Ensemble's `MapDownload.cs`
 and `SimpleOverworldMap.cs` (deleted from git by the session, with their `.meta`s), and
 SIMPLE_OVERWORLD_MAP.md.  A refused or unanswered PlayerReady sends the player back to the launcher with
-the server's words.  The files left on disk are Jacob's to delete by hand.
+the server's words.  The files left on disk are Jacob's to delete by hand.  Built by Jacob (his `git meta`
+carried `Cargo.lock`); Conductor at **905.8 MB** at idle afterwards, against 918 with the map (the map was
+16 MB in GameWorld and its pieces about as much again in networking).
 
 ---
 
