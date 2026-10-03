@@ -34,7 +34,9 @@ namespace Opus.Net
         public int Have { get; private set; }
         public long Received { get; private set; }
 
-        // When the last new piece came, on GameConnection's clock.
+        // When the offer came, and when the last new piece came, on
+        // GameConnection's clock.
+        public readonly long Started;
         public long LastNew { get; private set; }
 
         // The offer's numbers.  Throws ProtocolException for an offer that
@@ -53,6 +55,7 @@ namespace Opus.Net
             Hash = hash;
             bytes = new byte[size];
             have = new bool[count];
+            Started = now;
             LastNew = now;
         }
 

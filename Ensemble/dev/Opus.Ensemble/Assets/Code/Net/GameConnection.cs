@@ -503,15 +503,18 @@ namespace Opus.Net
             long received;
             uint size;
             byte[] whole = null;
+            long tookMs = 0;
             lock (gate)
             {
-                if (map == null || !map.Take(number, bytes, clock.ElapsedMilliseconds))
+                long now = clock.ElapsedMilliseconds;
+                if (map == null || !map.Take(number, bytes, now))
                     return;
                 received = map.Received;
                 size = map.Size;
                 if (map.Done)
                 {
                     whole = map.Whole();
+                    tookMs = now - map.Started;
                     map = null;
                 }
                 else if (map.AskedAllIn)
@@ -525,7 +528,9 @@ namespace Opus.Net
             int percent = (int)(received * 100 / size);
             if (whole != null)
             {
-                Debug.Log("Game: the world's map is in, " + size + " bytes.");
+                double seconds = System.Math.Max(tookMs, 1) / 1000.0;
+                Debug.Log("Game: the world's map is in, " + size + " bytes in " + seconds.ToString("0.00") + " s ("
+                          + (size / seconds / 1000000.0).ToString("0.0") + " MB/s).");
                 MainThread.Post(() => Session.MapArrived(this, whole));
             }
             else if (percent != mapPercentSaid)
