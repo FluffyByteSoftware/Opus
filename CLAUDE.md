@@ -441,7 +441,7 @@ When I say we're wrapping up:
   build two crates that name each other, so the lower one keeps the types
   both need and a `set_*()` for a plain function, and the launcher fills it:
   `conductor_player_commands::wire()` fills networking's runner and the
-  GameClock's chat and `/who list` senders.  **What a player types is
+  GameClock's chat and `/who` senders.  **What a player types is
   `conductor-player-commands`**: a table of commands, one file each, with
   the anti-flood in the one lookup; a new command is a new file and a new
   line.  Admin commands, when they come, are "a permissions difference but

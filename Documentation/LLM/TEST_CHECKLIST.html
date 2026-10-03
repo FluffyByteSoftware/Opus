@@ -197,6 +197,42 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>/who a line a character, EverQuest's way (2026-10-03, session 8)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The build and the tests pass with <code>/who</code> going through the GameClock, protocol version 13.
+    </span></label>
+    <pre class="cmd">cargo build</pre>
+    <pre class="cmd">cargo test</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The test client's <code>/who</code>: a line a character, <code>Name is at [x, y, z] [... online]</code>, a
+      blank line, "There is 1 Legend online." and the time it ran in this computer's time zone.  A
+      <code>/who list</code> gets "Try /who."
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Tester --type '/who' --type '/who list' testuser123 'Testpass123!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Two in the world: with Tester still in, Chatter comes in from a second terminal and types
+      <code>/who</code>.  Tester (in first) is on top, Chatter under it, and the footer says "There are 2
+      Legends online."  Tester's time reads "1 minute" and so on once it's been a minute, never "0 hours"
+      or seconds, and Chatter's "under a minute".
+    </span></label>
+    <pre class="cmd">python3 networking/test_client.py --host 10.0.0.84 --play Chatter --type '/who' testuser456 'Testpass1!'</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Soundcheck builds clean at version 13, and Ensemble in the editor (Soundcheck's <code>--debug</code>)
+      shows the same lines in the chat window; made narrow, a long line wraps rather than being cut.
+    </span></label>
+    <pre class="cmd">dotnet build /opt/storage/Coding/Opus/Soundcheck/dev</pre>
+    <pre class="cmd">dotnet run --project /opt/storage/Coding/Opus/Soundcheck/dev -- --debug</pre>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">
@@ -215,7 +251,7 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
   <li class="check">
     <label><input type="checkbox"><span class="words">
-      Spans for real: a <code>/who list</code> with thirty-odd characters in the world goes out in pieces and
+      Spans for real: a <code>/who</code> with forty-odd characters in the world goes out in pieces and
       comes back whole.  <code>cargo test</code> covers it until there are that many players.
     </span></label>
   </li>

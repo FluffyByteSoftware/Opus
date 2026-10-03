@@ -13,8 +13,11 @@ launcher (`Soundcheck/dev/Net/`), speaks the login over TCP, and Ensemble (`Asse
 UDP, from the Connect the launcher's ticket earns it (2026-10-02); when any of them disagrees with this
 document, it is the code that gets fixed.
 
-Protocol version **12**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 12 (2026-10-03)
+Protocol version **13**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 13 (2026-10-03)
+made `/who` a line a character, EverQuest's way: WhoDelivery lost its list byte (`/who list` went into
+`/who`), and every character in it carries where it stands and its seconds online, the one in the world
+longest first (below, "/who").  Version 12 (2026-10-03)
 added the chunks around the player, pulled by the client: ChunkRequest (`0x43`), ChunkPiece (`0x44`) and
 ChunkRefused (`0x45`), each chunk squeezed as runs (below, "The chunks around the player"); and the
 OverworldMapOffer now ends with where the character will stand and how many chunks each way it sees, so the
@@ -133,7 +136,7 @@ ground, over UDP: the simple overworld map at PLAY, and the chunks around the pl
 | `0x36` | CommandRefused | server to client | u32 ask, string why                                      |
 | `0x37` | PlayerCommand  | client to server | u32 ask, string the line as typed                        |
 | `0x38` | ChatDelivery   | server to client | u8 count, then that many strings, each a finished line   |
-| `0x39` | WhoDelivery    | server to client | u32 ask, u32 seconds since midnight UTC, u8 list, u16 count, then each: string name, and with a list i32 x, y, z |
+| `0x39` | WhoDelivery    | server to client | u32 ask, u32 seconds since midnight UTC, u16 count, then each: string name, i32 x, y, z, u32 seconds online |
 | `0x3A` | Span           | server to client | u32 ask, u8 piece, u8 pieces, then the piece's bytes     |
 | `0x3B` | PleaseWait     | server to client | u32 ask, string words                                    |
 | `0x40` | OverworldMapOffer | server to client | u32 ask, u32 size, u16 piece bytes, u32 pieces, string SHA-256, f32 x, y, z, u8 view |
@@ -590,40 +593,37 @@ A `/chat` as ask 4, and what everybody gets:
 
 ### /who
 
-**`/who`** asks who's in the world, and **`/who list`** where each of them stands.  Only characters in
-the world count (players at character select don't), and only the one who asked gets the answer, a
-**WhoDelivery** carrying the ask number, so it's sent again for a resend like any answer:
+**`/who`** asks who's in the world and where each of them stands (version 13; `/who list` was the
+second half until then, and went into `/who`).  Only characters in the world count (players at character
+select don't), and only the one who asked gets the answer, a **WhoDelivery** carrying the ask number, so
+it's sent again for a resend like any answer:
 
 - the time it ran, in **seconds since midnight UTC** (0 to 86,399), a u32;
-- whether it's a list: `0` for `/who`, `1` for `/who list`;
-- a u16 count, then each character, A to Z whatever the capitals: its name, and in a list its x, y and z,
-  each an i32 in **whole blocks**, rounded down (1.5 is block 1, -1.5 is block -2).
+- a u16 count, then each character, **the one in the world longest first** and the newest last: its
+  name; its x, y and z, each an i32 in **whole blocks**, rounded down (1.5 is block 1, -1.5 is block -2);
+  and its **seconds online**, a u32, counted from when it came into the world (PlayerReady), not from the
+  login.
 
-`/who list` waits for the next game cycle, so its answer comes up to 250 ms later.  Anything else after
-`/who` gets a **CommandRefused**, "Try /who, or /who list.", and "Who Unavailable" means the server can't
-right now.
+`/who` waits for the next game cycle, since where everybody stands is the GameClock's, so its answer comes
+up to 250 ms later.  Anything after `/who` (`/who list` included) gets a **CommandRefused**, "Try
+/who.", and "Who Unavailable" means the server can't right now.
 
-The client draws the rest, in the player's own time zone (the date from its own clock, the time from the
-packet) and to the width of its chat box, the count written out (Ensemble's `Translator.NumberToWords()`).
-Jacob's old MUD's box, at 79 wide:
-
-```text
------------------------======] Forgotten Legends [======-----------------------
-                          Fri Oct  2 03:53:24 2026
-----------------------------------] Players [----------------------------------
-Aldric   Bujin    Eetius   Guesty   Kriket   Malachy  Trzk     Zeleya
------------------> There are eight legends currently online. <-----------------
-```
-
-The names in columns as wide as the longest name and two spaces, as many to a row as fit.  For one:
-"There is one legend currently online."  A `/who list` has a line each in place of the columns:
+The client draws the rest, EverQuest's way (Jacob, 2026-10-03, "since the chat window is scaleable"): a
+plain line a character, so nothing is laid out to the chat box's width and a long line just wraps; a blank
+line; the count in digits; and the time it ran, in the player's own time zone (the date from its own
+clock, the time from the packet).  Time online is days, hours and minutes, the ones that are 0 left out,
+"1 minute" for one, and "under a minute" before the first; seconds never show.
 
 ```text
-[Aldric] is currently at [0, 0, 0]
-[Jacob] is currently at [1, 0, -2]
+Chatter is at [0, 0, 0] [16 days, 12 minutes online]
+Seliris is at [15, 1, 20] [3 hours, 4 minutes online]
+
+There are 2 Legends online.
+Sat Oct  3 03:53:24 2026
 ```
 
-A `/who` as ask 5 at 03:53:24 UTC (14,004 seconds, `0x36B4`), with Aldric and Jacob in the world:
+For one: "There is 1 Legend online."  A `/who` as ask 5 at 03:53:24 UTC (14,004 seconds, `0x36B4`), with
+Aldric in the world for 16 days and 12 minutes (1,383,120 seconds, `0x151AD0`) and Jacob for 90 seconds:
 
 ```text
 37                                            PlayerCommand
@@ -633,10 +633,13 @@ A `/who` as ask 5 at 03:53:24 UTC (14,004 seconds, `0x36B4`), with Aldric and Ja
 39                                            WhoDelivery
 05 00 00 00                                   ask 5
 B4 36 00 00                                   14,004 seconds after midnight UTC
-00                                            names only
 02 00                                         2 characters
 06 00 00 00  41 6C 64 72 69 63                "Aldric"
+00 00 00 00  00 00 00 00  00 00 00 00         at 0, 0, 0
+D0 1A 15 00                                   1,383,120 seconds online
 05 00 00 00  4A 61 63 6F 62                   "Jacob"
+01 00 00 00  00 00 00 00  FE FF FF FF         at 1, 0, -2
+5A 00 00 00                                   90 seconds online
 ```
 
 ## One moment
@@ -655,7 +658,7 @@ UserPressPlay for a character locked for a moment gets one; any ask that will ta
 
 ## Answers in pieces
 
-An answer bigger than 1200 bytes (a `/who list` of more than about thirty characters) goes out as
+An answer bigger than 1200 bytes (a `/who` of more than about forty characters) goes out as
 **Spans**: each one the ask number, which piece it is (from 1), how many pieces there are, and a piece of
 the answer's bytes, 1193 at most.  The pieces' bytes put back together in order are the answer, type byte
 and all, which the client then reads as if it had come whole.  An answer that fits goes as it is, never

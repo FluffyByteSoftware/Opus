@@ -62,7 +62,7 @@ networking/
     │                    map), take_loading(), fetching_map(), entered(), leave_world(), lock_for_loading(),
     │                    turn_away(), leave(), kick() (with the kicked character's row id),
     │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), in_world(),
-    │                    names_in_world(), may_command(),
+    │                    may_command(),
     │                    drop_where();
     │                    with_book(), which asks the GameClock to take out whoever left
     ├── ledger.rs      the door's ledger: every connection since START SERVER; Stage, End, Gone, Connection
@@ -369,7 +369,43 @@ all nine checks passed.
 ## /who (2026-10-02)
 
 Jacob's ask, protocol version 9: "a /who that shows all connected players".  PROTOCOL.md has the bytes and
-the box.  Built and tested on Linux, every check passed.
+the lines.  The first shape (below the next section) was built and tested on Linux, every check passed.
+
+### One line a character, EverQuest's way (2026-10-03, protocol version 13)
+
+Jacob: "since the chat window is "scaleable" we need to redesign it to I think more of an EverQUest style
+but we're gonna sort in single file by time since log on", with
+
+```text
+Chatter is at [0, 0, 0] [16 days, 12 minutes online]
+Seliris is at [15, 1, 20]
+
+There are 2 Legends online.
+```
+
+and straight after, "sorry": `Chatter is at [0, 0, 0] [16 days, 12 minutes online]`.  His answers, in his
+words:
+
+- **`/who list` goes into `/who`**: "Yeah just mutate them into who".  `/who` is every character with its
+  block and its time online; anything after the word is refused, "Try /who."
+- **The order**: "Oldest log in goes at the top, newest at the bottom".
+- **Log on is entering the world**: "When character _entered_ the world", PlayerReady, not the login.  The
+  GameClock notes the moment it spawns the character (`players.rs`), so it's the GameClock's clock, and
+  `standing()` hands the list back in that order with each one's time online.
+- **Time online**: days, hours and minutes, the zeros left out ("yeah I agree with this no zeros and that
+  format"), "1 minute" for one, "under a minute" before the first.  The packet carries whole seconds; the
+  client writes the words.
+- **The footer**: "Capital L Legends, and yes for one player there is 1 Legend online. yes on blank line".
+  Digits, no longer `Translator.NumberToWords()`.
+- **The stamp**: "Put a stamp at the bottom with the time yeah": the time it ran, under the count, in the
+  player's own time zone, the old box's `Sat Oct  3 03:53:24 2026`.  The banner and the box are gone.
+
+So **every `/who` goes through the GameClock** now: the book no longer answers one, and
+`names_in_world()` went with it.  `player-commands/src/who.rs` leaves the ask with
+`conductor_gameclock::who()`, and the broadcast check calls `who::send()` with everybody standing, in
+order.  A WhoDelivery entry is 16 bytes and the name, so Spans start at about forty characters.
+
+### The first shape (2026-10-02, protocol version 9 to 12)
 
 - **Characters in the world only** ("I agree characters in the world only"), A to Z, to the one who asked.
 - **`/who` is the names; `/who list` each with its block**: "A but if they do /who list It shows [Aldric]
@@ -422,7 +458,7 @@ needs longer".  Built and tested on Linux, every check passed.
   and the GameClock, and networking never names it: `typed.rs` keeps `Asker`, `Outcome` and a slot
   (`set_runner()`), which `conductor_player_commands::wire()` fills, with the GameClock's two senders,
   from the launcher's `start_server()`, after the GameClock starts.  `lib.rs` re-exports what the commands
-  need of the book and the UDP side (`may_command`, `in_world`, `names_in_world`, `finish_ask`,
+  need of the book and the UDP side (`may_command`, `in_world`, `finish_ask`,
   `tell_all`, `tell_answer`); the modules stay private.  With nothing in the slot, a line is refused with
   "Commands Unavailable" and the first is a Warn.  No thread, no service, nothing to stop.  Admin commands:
   "its a permissions difference but the commands will otherwise be the same".

@@ -152,7 +152,7 @@ Opus/
 │       │       ├── lib.rs             # start(), stop(), ready(); five checks of 50 ms to a 250 ms cycle; the Game
 │       │       ├── checks.rs          # the five checks in order; only housekeeping runs until the ground is in
 │       │       ├── chat.rs            # the chat's mailbox; the broadcast check sends it through networking
-│       │       ├── who.rs             # /who list's mailbox; the broadcast check answers it through networking
+│       │       ├── who.rs             # /who's mailbox; the broadcast check answers it through networking
 │       │       ├── players.rs         # the mailbox (enter(), leave()) and the players' characters in the world
 │       │       └── saving.rs          # the world save every world_save_seconds; the saves on their way
 │       ├── player-commands/           # lib, conductor-player-commands -- what a player types in the world
@@ -161,7 +161,7 @@ Opus/
 │       │   └── src/
 │       │       ├── lib.rs             # the table of commands (name, wait, run), the anti-flood, wire()
 │       │       ├── chat.rs            # /chat: the line into the GameClock's chat mailbox, and out to everybody
-│       │       └── who.rs             # /who from the book, /who list through the GameClock
+│       │       └── who.rs             # /who, answered through the GameClock
 │       ├── wgui/                      # lib
 │       │   ├── Cargo.toml             # depends on conductor-tools, -accounts, -monitor and -networking
 │       │   └── src/
@@ -199,7 +199,7 @@ Opus/
 │           │   │   ├── WidgetFrame.cs # a HUD widget moved, resized (chat) and locked; its flashing border
 │           │   │   ├── WidgetMenu.cs  # a HUD widget's right-click menu: LOCK / UNLOCK, chat's font size
 │           │   │   ├── HudPointer.cs  # the pointer over the HUD: normal, Jacob's move one or his grip one
-│           │   │   ├── WhoBox.cs      # /who's answer drawn as the MUD's box, to the chat window's width
+│           │   │   ├── WhoLines.cs    # /who's answer: a line a character, the count, the time
 │           │   │   ├── GameFocus.cs   # the game's place-holder for the keyboard's focus on the HUD
 │           │   │   └── Widgets/       # the HUD's health and minimap (placeholders) and the chat window; the
 │           │   │                      #   start screen's three (background, logo, the card: the line, QUIT,
@@ -369,7 +369,7 @@ Where each one lives is in the tree above.  "Tested" means built and checked by 
 | conductor-primlib    | Lib: the game library, an ECS.                          | Tested; players' characters spawn|
 | conductor-gameworld  | Lib: GameWorld, the ground.                             | Part one tested; world_size      |
 | conductor-gameclock  | Lib: the GameClock, the game loop.                      | Tested; input, broadcast (chat,  |
-|                      |                                                         | /who list), housekeeping         |
+|                      |                                                         | /who), housekeeping              |
 | conductor-player-    | Lib: what a player types in the world: the table of     | Tested; /chat and /who through   |
 |   commands           | commands and the anti-flood.                            | it                               |
 | conductor-wgui       | Lib: the web admin on 127.0.0.1.                        | Tested                           |

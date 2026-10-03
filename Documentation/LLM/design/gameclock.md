@@ -32,10 +32,10 @@ gameclock/
 ├── Cargo.toml     depends on conductor-tools, conductor-primlib, conductor-gameworld and conductor-accounts
 └── src/
     ├── chat.rs    the chat's mailbox: chat(line), set_chat_sender(send); broadcast(), for the broadcast check
-    ├── who.rs     /who list's mailbox: who_list(WhoAsked), set_who_sender(send), Standing; answer(), for
+    ├── who.rs     /who's mailbox: who(WhoAsked), set_who_sender(send), Standing; answer(), for
     │                the broadcast check; block_of()
     ├── lib.rs     start(), stop(), ready(); enter() and leave() handed on from players.rs, chat() and
-    │                set_chat_sender() from chat.rs, who_list() and set_who_sender() from who.rs; Game (the world, the
+    │                set_chat_sender() from chat.rs, who() and set_who_sender() from who.rs; Game (the world, the
     │                terrain, the players, the world save, the saves on their way); the GameClock's thread, the
     │                schedule, the tallies, the Warn; save_world()
     ├── checks.rs  the five checks, in order, each a function that gets the Game
@@ -148,13 +148,17 @@ The mailbox is open only while the GameClock runs, and STOP SERVER drops what's 
 chat costs a lock.  The sending is one UDP send per player in the world per cycle that has chat, on the
 GameClock's thread; a guess, not measured.  `design/conductor-networking.md` has the rest.
 
-## /who list (2026-10-02)
+## /who (2026-10-02; every /who since 2026-10-03)
 
-The broadcast check answers `/who list` too: networking leaves each ask (who asked, from where, its ask
-number) with `who_list()`, and the check reads every player's character's `ShortName` and the block its
-`Transform` stands in (`standing()`, each axis rounded down) once, however many asked that cycle, and hands
-them with each ask to the commands crate's `send_list()`, in the slot `wire()` fills (`set_who_sender()`).
-Same shape as the chat, same reason.  `design/conductor-networking.md` has the rest.
+The broadcast check answers `/who` too: networking leaves each ask (who asked, from where, its ask
+number) with `who()`, and the check reads every player's character's `ShortName`, the block its
+`Transform` stands in (each axis rounded down) and how long since it came into the world (`standing()`)
+once, however many asked that cycle, and hands them with each ask to the commands crate's `send()`, in the
+slot `wire()` fills (`set_who_sender()`).  Same shape as the chat, same reason.  `Players` notes the
+`Instant` each character was spawned beside its entity, and `standing()` hands them back in that order,
+the one in longest first (Jacob: "Oldest log in goes at the top, newest at the bottom").  Until
+2026-10-03 this was `/who list` only, and a plain `/who` was answered from networking's book.
+`design/conductor-networking.md` has the rest.
 
 ## Open
 

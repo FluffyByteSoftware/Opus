@@ -24,7 +24,7 @@ ends it starts Soundcheck again with why, and closes; with no ticket (started by
 shows the start screen, which in the editor is dev mode, watching for the ticket Soundcheck's `--debug`
 SUBMIT writes.  Admin mode (`--admin`) publishes a platform's build into the web folder.  Conductor has no
 part in the patcher.  **The game's name is Forgotten Legends**; the project, its folders and code stay Opus.
-**Everything speaks protocol version 12** (session 3).  CLAUDE.md's "Client rules" and "Launcher rules" have
+**Everything speaks protocol version 13** (session 8, `/who` a line a character; 12 was session 3).  CLAUDE.md's "Client rules" and "Launcher rules" have
 the detail.
 
 **The world to the client** (0.0.13 on WAYPOINTS.md): **Conductor's side is whole**.  The bulk:

@@ -228,10 +228,12 @@ entry has his answers in his words.
   `Assets/Purchased/`, so it's never committed and is dragged on by hand.  Set on every piece of text in the
   box, the way the login's font is, and changeable in Play mode.  The sizes are in `hud.uss` (the header
   28 px, the lines and the field 24 px).
-- **`/who`'s box** is `Assets/Code/Hud/WhoBox.cs`, to the chat box's width in letters: the lines' width over
-  one letter's, measured in the chat's font by a hidden ruler of ten Ms, less one so a full-width line
-  never wraps on a rounding.  A footer longer than the box ("There are seven legends currently online.")
-  wraps.
+- **`/who`'s lines** are `Assets/Code/Hud/WhoLines.cs` (2026-10-03, EverQuest's way, since the chat box
+  resizes): a plain line a character, `Chatter is at [0, 0, 0] [16 days, 12 minutes online]`, the one in
+  longest first, then a blank line, "There are 2 Legends online." and the time it ran in the player's own
+  time zone.  Nothing is laid out to a width, so a long line just wraps.  It was `WhoBox.cs` until then,
+  the old MUD's box drawn to the chat box's width in letters, measured by a hidden ruler of ten Ms; the
+  ruler went with it.  `design/conductor-networking.md`'s "/who" has Jacob's words.
 
 ## Moving, resizing and locking (2026-10-03, session 7, built; Jacob's checks under way)
 
