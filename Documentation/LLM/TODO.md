@@ -261,9 +261,15 @@ Windows.  What's left, a step each:
 - **The chunks streamed** (session 3, 2026-10-03, being talked through): Conductor first, "prepare
   conductor for 'streaming' the world around the player in its chunk data and voxel data... we essentially
   want to copy minecraft."  The simple overworld map is "a 'broad outline'... we're gonna use to draw at a
-  distance for the client"; the stream "is meant to give the high resolution details".  Open: whether the
-  server pushes chunks (Minecraft's way) or the client pulls them (the map's way), what's needed before
-  PlayerReady, squeezing, and how far.
+  distance for the client"; the stream "is meant to give the high resolution details".  His answers:
+  **the client pulls** (the map's way, the session's lean), the server checking each chunk is in the
+  player's view and answering from a cache, keeping no list per player; **what comes before PlayerReady is
+  the client's call**, "but I think we are gonna want to wait till most of the scene is filled"; **squeezed
+  by hand** ("yes absolutely"), a chunk's kinds listed and its blocks as runs, and he asked whether zipping
+  on the fly on top would make a difference (talked through below); **Ensemble gets its own sessions
+  later** "to bring it in line with these server changes", so this session is Conductor and the test
+  client.  He asked how far a player sees with `view_chunks` 4: 128 to 159 blocks ahead, by where in its
+  chunk the player stands, every row up and down.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
