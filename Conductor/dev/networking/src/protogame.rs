@@ -36,6 +36,13 @@
 //! the wait is his too (2026-10-02), after a second login's PLAY inside
 //! the first one's second got the Kicked.
 //!
+//! A character saved inside the ground (the ground changed under it, or it
+//! was saved before spawn points) is moved before the offer: on top of its
+//! column, or to the spawn point if that's too high, and told so in its
+//! chat once it's in (Jacob, 2026-10-03, session 9).  If GameWorld can't
+//! say in time, PLAY is refused and the character is moved to the spawn
+//! point's last known place and saved there, for the next PLAY to check.
+//!
 //! A PLAY inside the account's map cooldown (`map_cooldown_seconds`,
 //! counted from the last time it was sent the map's offer) is refused
 //! before any of that, saying how long is left: Jacob's DDOS protection,
@@ -64,8 +71,8 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::Duration;
 
-use conductor_accounts::characters::{self, CharacterCreated, CharacterSave};
-use conductor_gameworld::spawn::{self, SPAWN_POINTS};
+use conductor_accounts::characters::{self, CharacterCreated, CharacterSave, CharacterSnapshot};
+use conductor_gameworld::spawn::{self, Footing, SPAWN_POINTS};
 use conductor_primlib::gameobject;
 use conductor_primlib::{Blueprint, Component, Kind, Save, Transform, Vector3};
 use conductor_tools::scribe::{self, Channel};
@@ -135,6 +142,16 @@ fn cooling_down_words(left: Duration) -> String {
 const NO_SUCH_CHARACTER: &str = "There's no such character on this account.";
 const CANT_BE_LOADED: &str = "That character can't be loaded.  The admin has been told.";
 const UNPLAYABLE: &str = "That character can't be played until the admin has looked at it.";
+
+/// What a player whose character was moved out of the ground at PLAY is
+/// told in their chat once it's in.  The first is Jacob's words.
+const MOVED_ON_TOP: &str = "You were inside the ground, and have been moved on top of it.";
+const MOVED_TO_SPAWN: &str = "You were inside the ground, and have been moved to the spawn point.";
+
+/// What a player hears when GameWorld couldn't say whether their character
+/// can stand where it was saved, and it's been moved to the spawn point.
+const COULDNT_CHECK: &str = "The server couldn't check where your character stands, so it's been moved to the \
+    spawn point.  Press PLAY again.";
 
 /// What a player asked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -482,7 +499,7 @@ fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str, map_cooldown: Dur
 /// The player's client has the map: puts their loaded character in the
 /// world and tells them where it stands, or tells them why not.
 fn ready(from: SocketAddr, account: &str, ask: u32, hash: &str) {
-    let (character, answer) = match put_in(from, account, ask, hash) {
+    let (character, answer, told) = match put_in(from, account, ask, hash) {
         Ok(entered) => entered,
         Err(refused) => {
             if sessions::finish_ask(from, account, ask, &refused) {
@@ -495,6 +512,10 @@ fn ready(from: SocketAddr, account: &str, ask: u32, hash: &str) {
     let (id, character_uuid) = (character.id, character.uuid.clone());
     if sessions::entered(from, account, ask, character, &answer) {
         udp::tell(from, &answer);
+        // Moved out of the ground: told in their chat, after they're in.
+        if let Some(line) = told {
+            udp::tell_all(&[from], &protocol::chat_deliveries(&[line.to_string()]));
+        }
         scribe::info(Channel::Security, &format!("{account} is in the world as {name}, from {from}."));
     } else {
         // They left while it was being brought in.  Nobody is there to
@@ -523,18 +544,81 @@ fn load(account: &str, ask: u32, uuid: &str) -> Result<Loading, Vec<u8>> {
     if character.unplayable() {
         return Err(protocol::command_refused(ask, UNPLAYABLE));
     }
-    let Some(blueprint) = from_save(&loaded) else {
+    let Some(mut blueprint) = from_save(&loaded) else {
         return Err(protocol::command_refused(ask, CANT_BE_LOADED));
     };
 
-    // Where it stands is where its save left it.
-    let position = match blueprint.get(Kind::Transform) {
+    // Where it stands is where its save left it, unless that's in the
+    // ground now.
+    let saved_at = match blueprint.get(Kind::Transform) {
         Some(Component::Transform(transform)) => transform.position,
         _ => Vector3::default(),
     };
+    let saved_at = [saved_at.x, saved_at.y, saved_at.z];
+    let (position, told) = match out_of_the_ground(character.name(), saved_at) {
+        Ok(Some((place, told))) => {
+            stand_at(&mut blueprint, place);
+            (place, Some(told))
+        }
+        Ok(None) => (saved_at, None),
+        Err(why) => return Err(sent_to_spawn(ask, character, &mut blueprint, &why)),
+    };
     let in_world = InWorld { id: character.id(), uuid: character.uuid().to_string(),
                              name: character.name().to_string() };
-    Ok(Loading { character: in_world, blueprint, position: [position.x, position.y, position.z] })
+    Ok(Loading { character: in_world, blueprint, position, told })
+}
+
+/// Where a character saved at `saved_at` stands if that's inside the ground
+/// now, and what its player is told: on top of its column, or at the spawn
+/// point if that's too high.  `None` when where it was is clear.  An error
+/// if GameWorld couldn't say.
+fn out_of_the_ground(name: &str, saved_at: [f32; 3]) -> Result<Option<([f32; 3], &'static str)>, String> {
+    let [x, y, z] = saved_at;
+    match spawn::footing(saved_at, SPAWN_WAIT)? {
+        Footing::Clear => Ok(None),
+        Footing::OnTop(place) => {
+            let [to_x, to_y, to_z] = place;
+            scribe::debug(Channel::Game, &format!("{name} was saved inside the ground at {x}, {y}, {z}.  Stood on \
+                top of it, at {to_x}, {to_y}, {to_z}."));
+            Ok(Some((place, MOVED_ON_TOP)))
+        }
+        Footing::TooHigh => {
+            let place = spawn_place()?;
+            let [to_x, to_y, to_z] = place;
+            scribe::debug(Channel::Game, &format!("{name} was saved inside the ground at {x}, {y}, {z}, under a \
+                column too high to stand on.  Sent to the spawn point, {to_x}, {to_y}, {to_z}."));
+            Ok(Some((place, MOVED_TO_SPAWN)))
+        }
+    }
+}
+
+/// GameWorld couldn't say where a character can stand (Jacob's "b"): it's
+/// moved to the spawn point's last known place and saved there, and PLAY
+/// is refused, for the next PLAY to check again.  The refusal to send.
+fn sent_to_spawn(ask: u32, character: &CharacterSnapshot, blueprint: &mut Blueprint, why: &str) -> Vec<u8> {
+    let (x, z) = SPAWN_POINTS[0];
+    let Some(home) = spawn::last_known(x, z) else {
+        scribe::warn(Channel::Game, &format!("{} couldn't be checked for ground at PLAY ({why}), and the spawn \
+            point's place isn't known.  PLAY refused, nothing changed.", character.name()));
+        return protocol::command_refused(ask, PLAY_UNAVAILABLE);
+    };
+    stand_at(blueprint, home);
+    let save_lua = Save::of_blueprint(blueprint).to_lua();
+    let [to_x, to_y, to_z] = home;
+    match characters::save(character.id(), home, save_lua).wait_for(DATABASE_WAIT) {
+        Some(Ok(rows)) if rows > 0 => {
+            scribe::warn(Channel::Game, &format!("{} couldn't be checked for ground at PLAY ({why}).  Moved to \
+                the spawn point's last known place, {to_x}, {to_y}, {to_z}, and PLAY refused.", character.name()));
+            protocol::command_refused(ask, COULDNT_CHECK)
+        }
+        Some(Ok(_)) => protocol::command_refused(ask, NO_SUCH_CHARACTER),
+        Some(Err(e)) => {
+            scribe::warn(Channel::Game, &format!("{} couldn't be checked for ground at PLAY ({why}), and couldn't \
+                be saved at the spawn point either: {e}.", character.name()));
+            protocol::command_refused(ask, PLAY_UNAVAILABLE)
+        }
+        None => protocol::command_refused(ask, PLAY_UNAVAILABLE),
+    }
 }
 
 /// The quick part, on PlayerReady: the hash checked against the map's,
@@ -542,7 +626,8 @@ fn load(account: &str, ask: u32, uuid: &str) -> Result<Loading, Vec<u8>> {
 /// character and the CharacterEnteredWorld to send, or the CommandRefused
 /// saying why not.  A character that can't go in is let go, and the player
 /// is back at character select, free to press PLAY again.
-fn put_in(from: SocketAddr, account: &str, ask: u32, hash: &str) -> Result<(InWorld, Vec<u8>), Vec<u8>> {
+fn put_in(from: SocketAddr, account: &str, ask: u32, hash: &str)
+    -> Result<(InWorld, Vec<u8>, Option<&'static str>), Vec<u8>> {
     let Some(map) = overworld::current() else {
         return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
     };
@@ -563,7 +648,7 @@ fn put_in(from: SocketAddr, account: &str, ask: u32, hash: &str) -> Result<(InWo
     };
     let entered = EnteredCharacter { uuid: loading.character.uuid.clone(), name: loading.character.name.clone(),
                                      position: loading.position, object };
-    Ok((loading.character, protocol::entered_world(ask, &entered)))
+    Ok((loading.character, protocol::entered_world(ask, &entered), loading.told))
 }
 
 /// A loaded character's save, read back through lua-parser and laid over

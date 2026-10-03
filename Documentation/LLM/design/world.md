@@ -366,6 +366,17 @@ height, then it puts them at reset position or a spawn point again".**  Put to h
   spawn point, written in the code, so there's no next one and nothing to delete yet: TODO.md, for when spawn
   points are generated with the world.
 
+**As written** (session 9; not yet built): `gameworld/src/spawn.rs` has `footing()` (GameWorld's `Footing` job:
+the blocks at the character's feet and head, in the block its saved spot is in, and the column's top if
+either isn't AIR; above the world counts as air, below it as floor) and `last_known()` (every spawn point's
+place, worked out once as GameWorld starts and again on every `place_at()`).  Protogame's `load()` asks at
+PLAY: clear, it's as saved; `OnTop`, it stands there and its player's chat gets "You were inside the
+ground, and have been moved on top of it." once it's in; `TooHigh`, the spawn point, and "...moved to the
+spawn point."; GameWorld not answering, `sent_to_spawn()`: the spawn point's last known place, saved to
+the row, PLAY refused with "The server couldn't check where your character stands, so it's been moved to
+the spawn point.  Press PLAY again." (a Warn on the bell, since GameWorld not answering is wrong).  A move is
+a Debug line in the log.
+
 ## Still open
 
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a

@@ -197,6 +197,34 @@ button on its own.  Pulls nothing from the internet, like the web admin.
 <div class="layout">
 <div class="checks-column">
 
+<h2>A saved character inside the ground (2026-10-03, session 9)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The build and the tests pass, the new spawn tests among them (Asdf inside the GOLD stood on top in the
+      middle, a head in the ground moved too, a column too high, above and below the world).
+    </span></label>
+    <pre class="cmd">cargo build</pre>
+    <pre class="cmd">cargo test</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Sink Asdf into the ground by hand with this SQL (in DataGrip, with Conductor stopped or Asdf out of the
+      world), then play it: the test client's CharacterEnteredWorld says 0.5, 1, 0.5, the log has a Debug line
+      "Asdf was saved inside the ground at 0, 0, 0.  Stood on top of it...", and the test client prints the
+      ChatDelivery "You were inside the ground, and have been moved on top of it."  In the editor the line is
+      in the chat window.
+    </span></label>
+    <pre class="cmd">UPDATE player_characters SET save_lua = regexp_replace(save_lua, 'position = \{[^}]*\}', 'position = { x = 0, y = 0, z = 0 }'), position_x = 0, position_y = 0, position_z = 0 WHERE character_name = 'Asdf';</pre>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      A character standing where it should comes in with no line in its chat and no Debug line about the
+      ground.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

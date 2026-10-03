@@ -96,6 +96,9 @@ enum Job {
     /// The y of the highest block in column x, z that isn't AIR, for a
     /// spawn point (`spawn.rs`), sent back on `reply`.
     Top { x: i32, z: i32, reply: Sender<Result<i32, String>> },
+    /// Whether a character whose feet are in `block` can stand there, and
+    /// where it stands if not (`spawn.rs`), sent back on `reply`.
+    Footing { block: [i32; 3], reply: Sender<Result<spawn::Footing, String>> },
 }
 
 /// The chunks squeezed for players, and the ones on their way.
@@ -308,6 +311,16 @@ fn ask_top(x: i32, z: i32, reply: Sender<Result<i32, String>>) -> bool {
     }
 }
 
+/// Asks GameWorld whether a character whose feet are in `block` can stand
+/// there, to be sent back on `reply`.  Comes straight back.  False if
+/// GameWorld isn't running.
+fn ask_footing(block: [i32; 3], reply: Sender<Result<spawn::Footing, String>>) -> bool {
+    match lock(&MAILBOX).as_ref() {
+        Some(mailbox) => mailbox.send(Job::Footing { block, reply }).is_ok(),
+        None => false,
+    }
+}
+
 /// True once `stop()` has been called, for the long jobs to look at.
 fn stopping() -> bool {
     STOPPING.load(Ordering::SeqCst)
@@ -387,6 +400,18 @@ fn run(jobs: Receiver<Job>) {
 
     let mut handed = 0u64;
     let mut from_files = 0u64;
+
+    // Every spawn point's place, worked out once now, so a PLAY that can't
+    // wait on GameWorld later still knows where to send a character.
+    if let Some(shape) = &shape {
+        for &(x, z) in spawn::SPAWN_POINTS.iter() {
+            match spawn::top_of(x, z, |pos| load(shape, pos, &mut from_files)) {
+                Ok(top) => spawn::remember(x, z, spawn::on_top(x, z, top)),
+                Err(why) => scribe::warn(Channel::Game, &format!("The spawn point at {x}, {z} can't be had: {why}.")),
+            }
+        }
+    }
+
     loop {
         match jobs.recv_timeout(CHECK_IN_EVERY) {
             Ok(Job::Load { pos, reply }) => {
@@ -424,6 +449,13 @@ fn run(jobs: Receiver<Job>) {
                 };
                 // Nobody left to take it is fine: the asker gave up waiting.
                 let _ = reply.send(top);
+            }
+            Ok(Job::Footing { block, reply }) => {
+                let footing = match &shape {
+                    Some(shape) => spawn::footing_of(block, |pos| load(shape, pos, &mut from_files)),
+                    None => Err("GameWorld couldn't read the world".to_string()),
+                };
+                let _ = reply.send(footing);
             }
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,

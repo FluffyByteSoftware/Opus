@@ -186,6 +186,9 @@ pub struct Loading {
     pub blueprint: Blueprint,
     /// Where it stands, x, y and z, for the CharacterEnteredWorld.
     pub position: [f32; 3],
+    /// A line for the player's chat once it's in, if there's something to
+    /// tell them: that it was moved out of the ground.
+    pub told: Option<&'static str>,
 }
 
 /// Where an account is right now.
@@ -1103,7 +1106,7 @@ mod tests {
     /// Jacob's character loaded and held, the way Protogame parks it.
     fn jacob_loading() -> Loading {
         Loading { character: jacob(), blueprint: conductor_primlib::gameobject::new_character("Jacob"),
-                  position: [1.5, 0.0, -2.0] }
+                  position: [1.5, 0.0, -2.0], told: None }
     }
 
     #[test]
