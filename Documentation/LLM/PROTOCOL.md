@@ -269,13 +269,13 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
 - **UserPressPlay** with a character's uuid loads it, where its last save left it, and gets an
   **OverworldMapOffer** (version 11): the character is waiting, and this is the map to fetch before it
   comes in (below, "The map at PLAY").  Or a **CommandRefused** saying why not: no such character on the
-  account, the character is unplayable, its save won't load (it's marked unplayable then, and the admin
-  told), the server can't right now, or the account was sent the map too recently: "You are temporarily
-  cooling down from download for DDOS protection. You have 214 seconds remaining." (the seconds rounded
-  up; `map_cooldown_seconds` in `networking.cfg`, 300 by default, counted from the last offer the account
-  was sent, whichever address it came from).  Then **PlayerReady** brings it into the world and gets a
-  **CharacterEnteredWorld**: its uuid and name, and where it stands, x, y and z (y up).  Before version 11
-  the CharacterEnteredWorld answered UserPressPlay itself.
+  account, the character is unplayable, its save won't load (it's marked unplayable then, and the admin told),
+  the server can't right now, or the account was sent the map too recently: "You are temporarily cooling down
+  from download for DDOS protection. You have 214 seconds remaining." (the seconds rounded up;
+  `map_cooldown_seconds` in `networking.cfg`, 5 by default (300 until 2026-10-03), counted from the last offer
+  the account was sent, whichever address it came from).  Then **PlayerReady** brings it into the world and
+  gets a **CharacterEnteredWorld**: its uuid and name, and where it stands, x, y and z (y up).  Before version
+  11 the CharacterEnteredWorld answered UserPressPlay itself.
 - **A character is locked for a moment** whenever it moves between the database and the world: for 1
   second from the moment the server starts loading it, and for 1 second after it leaves the world, longer
   if its save from leaving hasn't reached the database yet.  A UserPressPlay for a locked character isn't

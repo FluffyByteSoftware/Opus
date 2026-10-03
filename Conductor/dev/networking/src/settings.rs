@@ -150,7 +150,7 @@ mod tests {
         assert_eq!(settings.max_waiting_logins, 64);
         assert_eq!(settings.token_deadline, Duration::from_secs(30));
         assert_eq!(settings.udp_timeout, Duration::from_secs(40));
-        assert_eq!(settings.map_cooldown, Duration::from_secs(300));
+        assert_eq!(settings.map_cooldown, Duration::from_secs(5));
         assert_eq!(settings.access_list, Mode::Off);
         assert!(settings.whitelist_file.ends_with("cfg/whitelist.cfg"));
         assert!(settings.blacklist_file.ends_with("cfg/blacklist.cfg"));

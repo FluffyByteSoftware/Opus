@@ -316,7 +316,7 @@ pub static NETWORKING: ConfigFile = ConfigFile {
         Setting {
             key: "map_cooldown_seconds",
             kind: Kind::Number { low: 0, high: 3600 },
-            default: "300",
+            default: "5",
             about: "How long an account waits, after the server sends it the world's map\n\
                     at PLAY, before it may be sent the map again.  A PLAY inside the\n\
                     wait is refused, saying how many seconds are left: DDOS protection,\n\

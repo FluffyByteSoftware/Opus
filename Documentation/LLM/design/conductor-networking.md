@@ -274,11 +274,13 @@ session before (`design/gameclock.md`).
 - **The map's cooldown** (2026-10-03, Jacob's DDOS protection: "server puts a cooldown ... must wait 5
   minutes before it can attempt a download again", then "By Account I guess", "its more for DDOS protection
   I think").  The book keeps when each account was last sent the offer (`offered`, set in `parked()`), and
-  Protogame refuses a PLAY inside `map_cooldown_seconds` (`networking.cfg`, 300, 0 to 3600, 0 is off)
+  Protogame refuses a PLAY inside `map_cooldown_seconds` (`networking.cfg`, 5, 0 to 3600, 0 is off)
   before it locks or reads anything, with his words: "You are temporarily cooling down from download for
   DDOS protection. You have <X> seconds remaining."  By account, so two players at one address don't share
-  it; kept past the player's leaving, gone at STOP SERVER.  So a log out and back in inside the five
-  minutes can't PLAY until they're up: every PLAY is the whole map.  The stuck PLAY (a new PLAY while the
+  it; kept past the player's leaving, gone at STOP SERVER.  So a log out and back in inside the wait
+  can't PLAY until it's up: every PLAY is the whole map.  **Down to 5 seconds** (Jacob, 2026-10-03, after
+  it turned his own second PLAY away in testing: "well our DDOS protection works xD I think we need to set
+  this way down to like 5 seconds"); it was 300.  The stuck PLAY (a new PLAY while the
   character waits on the map is refused until the session ends) was left as it is: re-offering would be a
   second download, which is what the cooldown is for (Jacob: "leave it out").
 - **The character goes on the player in the book only after `enter()`** (`sessions::entered()`, with the

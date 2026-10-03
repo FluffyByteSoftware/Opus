@@ -31,7 +31,7 @@ the detail.
 GameWorld writes `simple_overworld.map`, the world's rough shape for the distance, before the door opens
 (session 1), and **every PLAY sends it** over UDP behind a red loading bar, checked by its SHA-256 and kept
 in the player's folder, before PlayerReady puts the character in the world (session 2; PROTOCOL.md's "The
-map at PLAY").  An account waits `map_cooldown_seconds` (300) between maps.  The detail: **the client pulls
+map at PLAY").  An account waits `map_cooldown_seconds` (5, down from 300) between maps.  The detail: **the client pulls
 the chunks around its character** (session 3; PROTOCOL.md's "The chunks around the player"), up to 64 at a
 time, each squeezed as runs, out of a cache GameWorld's thread fills; the offer at PLAY now says where the
 character will stand and how many chunks it sees.  **Ensemble's side is the map's download and nothing
