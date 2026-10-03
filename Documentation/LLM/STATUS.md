@@ -192,8 +192,9 @@ begin implementation of this system."**  His to change.
 Session 12 (2026-10-03) opened on it: **"We begin implementing smooth voxels, stage 1"**.  His answers: surface
 nets; the simple overworld map "we are dropping it... we don't need it anymore"; "DIRT & STONE are terrain.
 WOOD will be structure (i'll make it look like planks).  Drop gold.  Add in MASONED_STONE"; BEDROCK
-"Probably terrain".  After step 1 his pick was "drop the overworld map"; then **"wrap up this
-conversation"**, no pick named for next.  His to change.
+"Probably terrain".  After step 1 his pick was "drop the overworld map"; then "wrap up this
+conversation", and at the hand-off: **"next session we bring in movement on the client (Ensemble)"**.  His
+to change.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -294,22 +295,50 @@ settled in a separate chat and written in (`design/smooth-voxels.md`); Opus.Treb
 
 ## Where the next session starts
 
-**No pick named** ("wrap up this conversation").  Everything is built and tested; nothing to expect compile
-fixes from.  `unstable` and `testing` are level.
+**Jacob's pick: movement on the client, Ensemble** ("next session we bring in movement on the client
+(Ensemble)").  Everything is built and tested, so nothing waits on compile fixes; `unstable` and `testing`
+are level.  Start by reading `design/ensemble-world.md`'s "Movement" (his five rounds of answers, in his
+words), PROTOCOL.md's "Movement", `design/gameclock.md`'s "Movement" (how the server judges a move), and
+`design/ensemble-networking.md` for the net code it plugs into.
 
-What's next in smooth voxels, stage 1, a step each (`design/smooth-voxels.md`, "Stage 1, as settled" and
-"As written"):
-- **Densities on the wire**: a squeezed chunk's first byte says how it's packed, so a 2 could be "runs, with
-  densities", no new packet; protocol 18, all four programs; Ensemble's `Chunk` keeps them.
-- **Making the world from a 3D density**: heights and carving (caves, catacombs, one way in), the strip of 1
-  to 5 voxels where one kind turns into another, in place of Alpha and Omega's step.
-- **Ensemble's surface-nets mesher** beside the cube one, its colliders, and the Shader Graph fade (where
-  the `.shadergraph` lives and who makes it is Jacob's to say).
-- **The server's move checks on the density**: inside the ground, the height between two densities, the
-  45-degree slope.
+**What's settled for Ensemble's half** (session 10, all his):
+- **EverQuest's way**: the client walks its own character at once and says where it went (PlayerMoved:
+  the move's number, the last pull-back had, position, rotation, velocity); the server takes it or pulls
+  it back (MoveCorrection: the pull-back's number, position, rotation), and only a MoveCorrection moves the
+  player's own character.  The server already does all of this (session 10, tested in session 12).
+- **Project Zomboid's keys**: a key is a direction on the screen; the character turns to face it, at
+  `player.cfg`'s 450 degrees a second, and walks faster the more it faces it, up to 4 blocks a second
+  (both come in CharacterEnteredWorld; the walk is fixed in code, the turn is the server's setting).  The
+  camera stays fixed (Cinemachine on `CameraAnchor`); first person maybe later.
+- **A player anchor** in the scene with the controller on it: "the prefab is just a skin we make the shell
+  wear".  The anchor is Jacob's to set up in the editor.
+- **The ground**: walking follows it, a step up of one block is free, falling off edges, a wall two blocks
+  high stops it.  Jumping later.  **Gravity is the client's**: the server only pulls back a character
+  that hangs in the air 2 s without coming down a block.  (A character saved on the old GOLD comes in a
+  block or more over Omega's ground at 0,0, and should just fall.)
+- **Colliders**: a mesh collider a chunk (the cube mesh for now; smooth voxels' surface-nets mesh will
+  replace it), capsules on characters, 1 by 2, from the Hydrate's collider.
+- **Check-ins every half second** while walking, hard-coded, and a move whenever the input changes.
+- **Everybody else** is still drawn where the server says, gliding along the velocity in their
+  ObjectsMoved.
+- Round two is all that: the anchor and its controller, the chunks' colliders, sending moves, taking
+  pull-backs, others gliding.  **Round three** is Ensemble pulling new chunks as it walks and letting the
+  far ones go (the server already lets a player have one chunk more each way than the view, following
+  their character).
 
-Also waiting from session 10 and 11: **(b)**, moves passed on at once (its four questions at the end of
-`design/ensemble-world.md`); Ensemble walking (rounds two and three); the world asleep and awake.
+**To put to Jacob before building**: CharacterController (Unity's own, steps and slopes built in) or a
+Rigidbody; which keys (WASD and the arrows?); how a pull-back looks on screen (a snap, or a quick slide);
+whether rounds two and three are one session or two; the cost of a mesh collider a chunk, timed in the
+Console line the meshing already prints.  **Separate and waiting**: **(b)**, others hearing a move the
+moment it lands (its four questions at the end of `design/ensemble-world.md`): round two works without
+it, watchers just hear moves up to a cycle late.
+
+A new script is a `.meta` round: the pull, Unity's focus, then `git meta`.  Ensemble is tested in the editor
+with Soundcheck's `--debug` until a fresh build.
+
+**Smooth voxels, stage 1**, the rest waiting its turn (`design/smooth-voxels.md`): densities on the wire,
+the world from a 3D density, Ensemble's surface-nets mesher, the server's move checks on the density.  The
+mesher and movement both touch the chunks' colliders: whichever comes second builds on the first.
 
 Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy); `testuser` /
 `Testpass123!` (Asdf), for a second player beside the first.
