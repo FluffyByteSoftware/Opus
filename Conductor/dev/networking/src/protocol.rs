@@ -71,10 +71,19 @@
 //! world, answered with the CharacterEnteredWorld that used to answer
 //! UserPressPlay.  Jacob: "it doesn't show them or spawn them in the
 //! physical world until they're ready".
+//!
+//! Version 12 (2026-10-03) is the chunks around the player, pulled by the
+//! client (Jacob: "Pull"): ChunkRequest asks for up to 64 chunks by place,
+//! and each comes back squeezed as ChunkPieces, or as a ChunkRefused
+//! saying why not.  The OverworldMapOffer now says where the character
+//! will stand and how far it sees (`view_chunks`), so the client knows
+//! which chunks to ask for before PlayerReady.
+
+use conductor_gameworld::ChunkPos;
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 11;
+pub const PROTOCOL_VERSION: u8 = 12;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -101,12 +110,24 @@ pub const MAP_PIECE_BYTES: usize = 1024;
 /// receive buffer holds with room to spare.
 pub const MAP_PIECES_AT_ONCE: u8 = 64;
 
+/// The most chunks one ChunkRequest may ask for (version 12).  Five bytes
+/// a chunk, so a full one is 322 bytes.
+pub const CHUNKS_AT_ONCE: u8 = 64;
+
+/// What goes in front of a ChunkPiece's bytes: its type, the chunk's x and
+/// z (i16 each), its row, the piece's number and how many pieces.
+const CHUNK_PIECE_HEADER: usize = 1 + 2 + 2 + 1 + 1 + 1;
+
+/// How much of a squeezed chunk one ChunkPiece carries, the last piece
+/// less: whatever MAX_UDP_BYTES leaves, 1,192.  Most chunks are one piece.
+pub const CHUNK_PIECE_BYTES: usize = MAX_UDP_BYTES - CHUNK_PIECE_HEADER;
+
 /// Every packet type there is.  The high four bits say the group and the
 /// low four which one in it: 0x1_ is the login, over TCP; 0x2_ is
 /// character select, between the login and the world, over UDP (version
 /// 5, 2026-09-30); 0x3_ is the game, over UDP; and 0x4_ is the ground,
-/// over UDP (version 11, 2026-10-03), the simple overworld map today and
-/// the chunks one day.
+/// over UDP (version 11, 2026-10-03), the simple overworld map and, since
+/// version 12, the chunks.
 // Rust note: `repr(u8)` stores the enum as one byte, and `as u8` turns a
 // value back into its number, the same as a C# `enum : byte`.
 #[repr(u8)]
@@ -227,8 +248,10 @@ pub enum PacketType {
     /// Server to client, the answer to a UserPressPlay (version 11): the
     /// character is loaded and waiting, and here's the map to fetch
     /// first.  The ask number, the map's size in bytes (u32), how much a
-    /// piece carries (u16, MAP_PIECE_BYTES), how many pieces (u32), then
-    /// its SHA-256 (a string, 64 lowercase hex).
+    /// piece carries (u16, MAP_PIECE_BYTES), how many pieces (u32), its
+    /// SHA-256 (a string, 64 lowercase hex), then where the character will
+    /// stand, x, y and z (f32 each), and how many chunks it sees each way
+    /// (u8, `view_chunks`; both version 12).
     OverworldMapOffer = 0x40,
     /// Client to server: send me these pieces of the map.  The first
     /// piece's number (u32, from 0), then how many (u8, 1 to
@@ -239,6 +262,20 @@ pub enum PacketType {
     /// Server to client: one piece of the map.  Its number (u32), then its
     /// bytes, MAP_PIECE_BYTES of them but for the last.  Version 11.
     OverworldMapPiece = 0x42,
+    /// Client to server: send me these chunks.  How many (u8, 1 to
+    /// CHUNKS_AT_ONCE), then each one's place: x and z (i16, counted in
+    /// chunks), and its row (u8, 0 to 10).  No ask number, like the
+    /// map's: asking twice is harmless.  Only a player whose character is
+    /// waiting on the map or in the world gets an answer.  Version 12.
+    ChunkRequest = 0x43,
+    /// Server to client: a piece of a squeezed chunk.  Its x, z and row,
+    /// which piece (u8, from 1) and how many (u8), then the bytes,
+    /// CHUNK_PIECE_BYTES of them but for the last.  The pieces' bytes put
+    /// together in order are the chunk, squeezed.  Version 12.
+    ChunkPiece = 0x44,
+    /// Server to client: a chunk asked for that isn't sent.  Its x, z and
+    /// row, then a ChunkRefusal byte saying why.  Version 12.
+    ChunkRefused = 0x45,
 }
 
 impl PacketType {
@@ -277,6 +314,9 @@ impl PacketType {
             0x40 => Some(PacketType::OverworldMapOffer),
             0x41 => Some(PacketType::OverworldMapRequest),
             0x42 => Some(PacketType::OverworldMapPiece),
+            0x43 => Some(PacketType::ChunkRequest),
+            0x44 => Some(PacketType::ChunkPiece),
+            0x45 => Some(PacketType::ChunkRefused),
             _ => None,
         }
     }
@@ -368,6 +408,21 @@ pub enum KickReason {
     /// Nothing is wrong: they log in again.  Version 6 of the protocol,
     /// 2026-10-01.
     CharacterLocked = 6,
+}
+
+/// Why a chunk asked for isn't sent: the last byte of a ChunkRefused.
+/// Version 12.
+#[repr(u8)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChunkRefusal {
+    /// Outside the player's view (`view_chunks` around where their
+    /// character stands), or outside the world.  Asking again won't help.
+    OutOfView = 1,
+    /// Being read or built: ask again in a moment.
+    NotYet = 2,
+    /// Not to be had this run: its file doesn't read right, or the world
+    /// couldn't be read.  Asking again won't help.
+    Unavailable = 3,
 }
 
 /// What became of a CreateCharacter: the first byte of a
@@ -692,15 +747,21 @@ pub fn delete_result(ask: u32, answer: DeleteAnswer, message: &str) -> Vec<u8> {
 }
 
 /// The answer to a UserPressPlay: the character is loaded, and this is
-/// the map to fetch before it comes in.  The map's numbers are worked out
-/// once a START SERVER (`overworld.rs`).
-pub fn overworld_map_offer(ask: u32, size: u32, pieces: u32, hash: &str) -> Vec<u8> {
+/// the map to fetch before it comes in, where it will stand, and how many
+/// chunks each way it sees.  The map's numbers are worked out once a
+/// START SERVER (`overworld.rs`).
+pub fn overworld_map_offer(ask: u32, size: u32, pieces: u32, hash: &str, position: [f32; 3], view: u8)
+    -> Vec<u8> {
     let mut bytes = vec![PacketType::OverworldMapOffer as u8];
     bytes.extend_from_slice(&ask.to_le_bytes());
     bytes.extend_from_slice(&size.to_le_bytes());
     bytes.extend_from_slice(&(MAP_PIECE_BYTES as u16).to_le_bytes());
     bytes.extend_from_slice(&pieces.to_le_bytes());
     put_string(&mut bytes, hash);
+    for axis in position {
+        bytes.extend_from_slice(&axis.to_le_bytes());
+    }
+    bytes.push(view);
     bytes
 }
 
@@ -712,6 +773,42 @@ pub fn overworld_map_piece(index: u32, bytes: &[u8]) -> Vec<u8> {
     packet.extend_from_slice(&index.to_le_bytes());
     packet.extend_from_slice(bytes);
     packet
+}
+
+/// A chunk's place as it goes on the wire: x and z as i16, then the row.
+/// An i16 holds every chunk there is: at `world_size` 32, the most, the
+/// world is 1024 chunks across, -512 to 511.
+fn put_chunk_pos(bytes: &mut Vec<u8>, pos: ChunkPos) {
+    bytes.extend_from_slice(&(pos.x as i16).to_le_bytes());
+    bytes.extend_from_slice(&(pos.z as i16).to_le_bytes());
+    bytes.push(pos.row);
+}
+
+/// A squeezed chunk as its ChunkPieces, CHUNK_PIECE_BYTES at a time.
+/// Empty for no bytes, or for more than 255 pieces' worth (304,960
+/// bytes), which no chunk squeezes to: its worst is about 164 KB.
+pub fn chunk_pieces(pos: ChunkPos, squeezed: &[u8]) -> Vec<Vec<u8>> {
+    let count = squeezed.len().div_ceil(CHUNK_PIECE_BYTES);
+    if count == 0 || count > u8::MAX as usize {
+        return Vec::new();
+    }
+    squeezed.chunks(CHUNK_PIECE_BYTES).enumerate().map(|(index, piece)| {
+        let mut bytes = Vec::with_capacity(CHUNK_PIECE_HEADER + piece.len());
+        bytes.push(PacketType::ChunkPiece as u8);
+        put_chunk_pos(&mut bytes, pos);
+        bytes.push(index as u8 + 1);
+        bytes.push(count as u8);
+        bytes.extend_from_slice(piece);
+        bytes
+    }).collect()
+}
+
+/// A chunk asked for that isn't sent, and why.
+pub fn chunk_refused(pos: ChunkPos, why: ChunkRefusal) -> Vec<u8> {
+    let mut bytes = vec![PacketType::ChunkRefused as u8];
+    put_chunk_pos(&mut bytes, pos);
+    bytes.push(why as u8);
+    bytes
 }
 
 /// The character is in the world, and where: the answer to a PlayerReady
@@ -923,6 +1020,27 @@ pub fn read_overworld_map_request(payload: &[u8]) -> Result<(u32, u8), String> {
         return Err(format!("a map request for {count} pieces, and it's 1 to {MAP_PIECES_AT_ONCE}"));
     }
     Ok((first, count))
+}
+
+/// The payload of a ChunkRequest: the chunks asked for, 1 to
+/// CHUNKS_AT_ONCE, in the order asked.  Whether the player may have them
+/// is the caller's to say.  A row past the top is left for the caller
+/// too: it's outside the world, like an x or z past the edge.
+pub fn read_chunk_request(payload: &[u8]) -> Result<Vec<ChunkPos>, String> {
+    let Some((&count, places)) = payload.split_first() else {
+        return Err("an empty chunk request".to_string());
+    };
+    if count == 0 || count > CHUNKS_AT_ONCE {
+        return Err(format!("a chunk request for {count} chunks, and it's 1 to {CHUNKS_AT_ONCE}"));
+    }
+    if places.len() != count as usize * 5 {
+        return Err(format!("a chunk request for {count} chunks with {} bytes of places", places.len()));
+    }
+    Ok(places.chunks(5).map(|place| ChunkPos {
+        x: i16::from_le_bytes([place[0], place[1]]) as i32,
+        z: i16::from_le_bytes([place[2], place[3]]) as i32,
+        row: place[4],
+    }).collect())
 }
 
 /// The payload of a PlayerCommand: the ask number and the line as typed.
@@ -1141,7 +1259,8 @@ mod tests {
                      PacketType::UserPressPlay, PacketType::CharacterEnteredWorld, PacketType::PlayerCommand,
                      PacketType::ChatDelivery, PacketType::WhoDelivery, PacketType::Span, PacketType::PleaseWait,
                      PacketType::PlayerReady, PacketType::OverworldMapOffer, PacketType::OverworldMapRequest,
-                     PacketType::OverworldMapPiece];
+                     PacketType::OverworldMapPiece, PacketType::ChunkRequest, PacketType::ChunkPiece,
+                     PacketType::ChunkRefused];
         for kind in every {
             assert_eq!(PacketType::from_byte(kind as u8), Some(kind));
         }
@@ -1149,17 +1268,19 @@ mod tests {
         assert_eq!(PacketType::from_byte(0x16), None);
         assert_eq!(PacketType::from_byte(0x2A), None);
         assert_eq!(PacketType::from_byte(0x3C), None);
-        assert_eq!(PacketType::from_byte(0x43), None);
+        assert_eq!(PacketType::from_byte(0x46), None);
     }
 
     #[test]
     fn the_map_at_play_in_bytes() {
         // PROTOCOL.md's example: a map of 4,194,332 bytes (world_size 16),
-        // 0x0040001C, in 4,097 pieces, 0x1001, of 1,024, 0x0400.
+        // 0x0040001C, in 4,097 pieces, 0x1001, of 1,024, 0x0400, for a
+        // character at 1.5, 0, -2 that sees 4 chunks each way.
         let hash = "ab".repeat(32);
         let mut expected = vec![0x40, 3, 0, 0, 0, 0x1C, 0x00, 0x40, 0x00, 0x00, 0x04, 0x01, 0x10, 0, 0, 64, 0, 0, 0];
         expected.extend_from_slice(hash.as_bytes());
-        assert_eq!(overworld_map_offer(3, 4_194_332, 4_097, &hash), expected);
+        expected.extend_from_slice(&[0x00, 0x00, 0xC0, 0x3F, 0, 0, 0, 0, 0x00, 0x00, 0x00, 0xC0, 4]);
+        assert_eq!(overworld_map_offer(3, 4_194_332, 4_097, &hash, [1.5, 0.0, -2.0], 4), expected);
 
         // The last piece: number 4,096, 0x1000, the 28 bytes left.
         let mut expected = vec![0x42, 0x00, 0x10, 0, 0];
@@ -1183,6 +1304,60 @@ mod tests {
         assert!(read_overworld_map_request(&[0, 0, 0, 0, 65]).is_err());
         assert!(read_overworld_map_request(&[0, 0, 0, 0]).is_err());
         assert!(read_overworld_map_request(&[0, 0, 0, 0, 1, 1]).is_err());
+    }
+
+    #[test]
+    fn the_chunks_in_bytes() {
+        // PROTOCOL.md's example: chunk -1,0 row 1, Alpha's ground just
+        // west of the GOLD, squeezed to 13 bytes.
+        let pos = ChunkPos { x: -1, z: 0, row: 1 };
+        let squeezed = [1, 2, 0, 1, 0, 0, 0, 0xFF, 0x07, 0, 0xFF, 0xF7, 1];
+        let pieces = chunk_pieces(pos, &squeezed);
+        let mut expected = vec![0x44, 0xFF, 0xFF, 0x00, 0x00, 0x01, 1, 1];
+        expected.extend_from_slice(&squeezed);
+        assert_eq!(pieces, vec![expected]);
+
+        assert_eq!(chunk_refused(ChunkPos { x: 300, z: -2, row: 10 }, ChunkRefusal::NotYet),
+                   vec![0x45, 0x2C, 0x01, 0xFE, 0xFF, 10, 2]);
+
+        // Two whole pieces and 5 bytes: three pieces, each under the cap,
+        // that put together are the chunk.
+        let big: Vec<u8> = (0..CHUNK_PIECE_BYTES * 2 + 5).map(|n| n as u8).collect();
+        let pieces = chunk_pieces(pos, &big);
+        assert_eq!(pieces.len(), 3);
+        let mut joined = Vec::new();
+        for (index, piece) in pieces.iter().enumerate() {
+            assert!(piece.len() <= MAX_UDP_BYTES);
+            assert_eq!(piece[6], index as u8 + 1);
+            assert_eq!(piece[7], 3);
+            joined.extend_from_slice(&piece[CHUNK_PIECE_HEADER..]);
+        }
+        assert_eq!(joined, big);
+        assert_eq!(pieces[0].len(), MAX_UDP_BYTES);
+
+        // Nothing, or more than 255 pieces, can't be sent.
+        assert!(chunk_pieces(pos, &[]).is_empty());
+        assert!(chunk_pieces(pos, &vec![0; CHUNK_PIECE_BYTES * 255]).len() == 255);
+        assert!(chunk_pieces(pos, &vec![0; CHUNK_PIECE_BYTES * 255 + 1]).is_empty());
+    }
+
+    #[test]
+    fn a_chunk_request_is_one_to_sixty_four_places() {
+        // Chunk -1,0 row 1, and 300,-2 row 10.
+        assert_eq!(read_chunk_request(&[2, 0xFF, 0xFF, 0, 0, 1, 0x2C, 0x01, 0xFE, 0xFF, 10]),
+                   Ok(vec![ChunkPos { x: -1, z: 0, row: 1 }, ChunkPos { x: 300, z: -2, row: 10 }]));
+        let mut full = vec![CHUNKS_AT_ONCE];
+        full.extend(vec![0; CHUNKS_AT_ONCE as usize * 5]);
+        assert_eq!(read_chunk_request(&full).map(|places| places.len()), Ok(64));
+
+        assert!(read_chunk_request(&[]).is_err());
+        assert!(read_chunk_request(&[0]).is_err());
+        let mut too_many = vec![CHUNKS_AT_ONCE + 1];
+        too_many.extend(vec![0; (CHUNKS_AT_ONCE as usize + 1) * 5]);
+        assert!(read_chunk_request(&too_many).is_err());
+        // A place cut short, and a byte too many.
+        assert!(read_chunk_request(&[1, 0, 0, 0, 0]).is_err());
+        assert!(read_chunk_request(&[1, 0, 0, 0, 0, 1, 0]).is_err());
     }
 
     #[test]

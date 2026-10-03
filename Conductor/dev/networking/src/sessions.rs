@@ -73,6 +73,12 @@
 //! behind: the character was never in the world, so there's nothing to
 //! save, and the held copy goes with the player.
 //!
+//! Since protocol version 12 the book also keeps where each player's
+//! character stands, as the column of chunks it's in (`standing()`), from
+//! PLAY on: the chunks a player may ask for are the ones within
+//! `view_chunks` of it.  Nobody moves yet, so it's set once, from the
+//! character's save, and movement will keep it up to date.
+//!
 //! The book also keeps when each account was last sent the map's offer,
 //! for its cooldown (`cooling_down()`, `map_cooldown_seconds`): Jacob's
 //! DDOS protection, by account, "its more for DDOS protection I think".
@@ -155,6 +161,9 @@ struct Player {
     /// When their last command went through, and how long it makes them
     /// wait before the next (`may_command()`).  `None` before their first.
     last_command: Option<(Instant, Duration)>,
+    /// The column of chunks their character stands in, x and z counted in
+    /// chunks, from PLAY on (version 12).  `None` at character select.
+    standing: Option<(i32, i32)>,
 }
 
 /// A player's character in the world.
@@ -481,6 +490,15 @@ pub fn fetching_map(from: SocketAddr) -> bool {
     fetching_map_in(&mut book(), from, Instant::now())
 }
 
+/// The column of chunks the character of the player at `from` stands in,
+/// x and z counted in chunks: for which chunks they may be sent.  Only a
+/// player whose character is waiting on the map or in the world has one;
+/// a stranger, or a player at character select, gets `None`.  It counts
+/// as hearing from them.
+pub fn standing(from: SocketAddr) -> Option<(i32, i32)> {
+    standing_in(&mut book(), from, Instant::now())
+}
+
 /// Takes a character out of the world that no player in the book holds:
 /// the one whose player left while it was being brought in.  It's locked
 /// on the way out all the same.
@@ -696,7 +714,8 @@ fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> C
     }
     book.players.insert(from, Player { account: name.clone(), token: token.to_string(), last_heard: now,
                                        connected_at: now, connected: Utc::now(), door, asking: None,
-                                       answered: None, character: None, loading: None, last_command: None });
+                                       answered: None, character: None, loading: None, last_command: None,
+                                       standing: None });
     book.accounts.insert(name.clone(), Whereabouts::Playing(from));
     Connected::Accepted(name)
 }
@@ -760,9 +779,26 @@ fn parked_in(book: &mut Book, from: SocketAddr, account: &str, ask: u32, loading
     }
     player.asking = None;
     player.answered = Some((ask, answer.to_vec()));
+    player.standing = Some(column_of(loading.position));
     player.loading = Some(loading);
     book.offered.insert(account.to_string(), now);
     true
+}
+
+/// The column of chunks a position is in.  A block is 1 m, so a position
+/// rounded down is its block, and the block's column is the chunk's.
+fn column_of(position: [f32; 3]) -> (i32, i32) {
+    let side = conductor_gameworld::chunk::SIDE;
+    ((position[0].floor() as i32).div_euclid(side), (position[2].floor() as i32).div_euclid(side))
+}
+
+fn standing_in(book: &mut Book, from: SocketAddr, now: Instant) -> Option<(i32, i32)> {
+    let player = book.players.get_mut(&from)?;
+    player.last_heard = now;
+    if player.loading.is_none() && player.character.is_none() {
+        return None;
+    }
+    player.standing
 }
 
 fn cooling_down_in(book: &Book, account: &str, cooldown: Duration, now: Instant) -> Option<Duration> {
@@ -1072,6 +1108,9 @@ mod tests {
         assert!(!fetching_map_in(&mut book, home, now));
         assert!(!fetching_map_in(&mut book, stranger, now));
 
+        // At character select, no chunks either.
+        assert_eq!(standing_in(&mut book, home, now), None);
+
         // PLAY: held only on the player who asked.
         assert_eq!(begin_ask_in(&mut book, home, 1, now), Ask::New("jacob".to_string()));
         assert!(!parked_in(&mut book, home, "brother", 1, jacob_loading(), b"offer", now));
@@ -1079,6 +1118,9 @@ mod tests {
         assert!(parked_in(&mut book, home, "jacob", 1, jacob_loading(), b"offer", now));
         assert!(fetching_map_in(&mut book, home, now));
         assert!(!fetching_map_in(&mut book, stranger, now));
+        // Standing at 1.5, 0, -2: block 1, -2, in chunk 0, -1.
+        assert_eq!(standing_in(&mut book, home, now), Some((0, -1)));
+        assert_eq!(standing_in(&mut book, stranger, now), None);
 
         // Not in the world yet: no chat for them, nothing on the page.
         assert!(in_world_in(&book).is_empty());
@@ -1096,6 +1138,16 @@ mod tests {
 
         assert!(entered_in(&mut book, home, "jacob", 2, held.character, b"in"));
         assert_eq!(in_world_in(&book), vec![home]);
+        // In the world, still standing where it was.
+        assert_eq!(standing_in(&mut book, home, now), Some((0, -1)));
+    }
+
+    #[test]
+    fn a_column_is_counted_in_chunks_rounding_down() {
+        assert_eq!(column_of([0.0, 0.0, 0.0]), (0, 0));
+        assert_eq!(column_of([31.9, 5.0, 32.0]), (0, 1));
+        assert_eq!(column_of([-0.5, 0.0, -32.0]), (-1, -1));
+        assert_eq!(column_of([-32.5, 0.0, 8191.5]), (-2, 255));
     }
 
     #[test]

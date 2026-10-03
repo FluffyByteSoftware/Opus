@@ -12,7 +12,7 @@ namespace Opus.Net
     {
         // The version this client speaks.  The server says its own in the
         // Hello, and a client built against another stops right there.
-        public const byte Version = 11;
+        public const byte Version = 12;
 
         // The biggest UDP packet the server takes.  (The TCP frame's cap is
         // the launcher's business.)
@@ -64,6 +64,9 @@ namespace Opus.Net
         public const byte OverworldMapOffer = 0x40;
         public const byte OverworldMapRequest = 0x41;
         public const byte OverworldMapPiece = 0x42;
+        public const byte ChunkRequest = 0x43;
+        public const byte ChunkPiece = 0x44;
+        public const byte ChunkRefused = 0x45;
 
         // ---------------------------------------------------------------
         // What's inside them
@@ -134,6 +137,9 @@ namespace Opus.Net
                 case OverworldMapOffer: return "OverworldMapOffer";
                 case OverworldMapRequest: return "OverworldMapRequest";
                 case OverworldMapPiece: return "OverworldMapPiece";
+                case ChunkRequest: return "ChunkRequest";
+                case ChunkPiece: return "ChunkPiece";
+                case ChunkRefused: return "ChunkRefused";
                 default: return "0x" + kind.ToString("X2");
             }
         }

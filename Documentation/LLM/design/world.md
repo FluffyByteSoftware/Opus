@@ -40,6 +40,11 @@ through the 19 seconds: nobody gets in before there's a voxel to step on (TCP an
 `simple_overworld.map` on START SERVER when it's missing or another world's, before the first chunk goes
 out, so the door waits on it too (under "The simple overworld map" below).
 
+**The chunks streamed** (2026-10-03, session 3, **written, not built by Jacob yet**): the client pulls the
+chunks around its character, and GameWorld's thread squeezes each chunk once and keeps it for networking
+to send (under "The chunks streamed" below).  Conductor's half and the test client; Ensemble's half is to
+come.
+
 **Part two is saving** (under "Saving" below).  Nothing changes a chunk yet, so it comes with the first thing
 that does (digging, or a way to set a block for testing).
 
@@ -264,7 +269,51 @@ bulk.
 - **It's written again** at the world save, once blocks can change, when a top block has.  Today only a
   new world changes it.
 
+### The chunks streamed
+
+Designed with Jacob on 2026-10-03, session 3, every quote his.  "prepare conductor for 'streaming' the
+world around the player in its chunk data and voxel data I think... we essentially want to copy minecraft."
+The simple overworld map is "a 'broad outline' map... we're gonna use to draw at a distance for the
+client"; the stream "is meant to give the high resolution details".  PROTOCOL.md has the packets ("The
+chunks around the player", protocol version 12).
+
+- **The client pulls** ("Pull your preference"), not Minecraft's push.  It works out which chunks it hasn't
+  got around where its character stands and asks for up to 64 at a time; the server checks each is in the
+  player's view and answers from a cache, keeping no list per player, so a lost one is just asked for again.
+  Minecraft's server pushes: it keeps what each player has, sends nearest first and resends what's lost.
+- **How far: every row of the chunks within `view_chunks` of the character's column** ("keep view_chunks
+  4"): a 9 by 9 square, 891 chunks, 128 to 159 blocks ahead by where in its chunk the player stands
+  (Minecraft's server sends 10 chunks of 16 blocks by default, about 160).  Past that the simple overworld
+  map draws the distance.  The offer at PLAY says where the character will stand and the view, so the
+  client can ask before PlayerReady.
+- **Before PlayerReady is the client's call**: "it can be the clients call but I think we are gonna want to
+  wait till most of the scene is filled?".  The server lets a character waiting on the map have its chunks,
+  and only checks the map's hash.
+- **Squeezed by hand, runs only** ("yes absolutely", then "runs only for now"): a chunk's kinds of block
+  listed once, then its blocks as runs of one kind (`squeeze.rs`; PROTOCOL.md, "A chunk, squeezed").  8 bytes
+  for an all-air chunk, 13 for a flat one, against 64 KB as it is.  Zipping on top (Minecraft zips every
+  packet over 256 bytes) was talked through: it might halve what's left, mostly Omega's hills, and matters
+  more once the ground is busier, but it's a crate on Conductor's side.  So it's left for later: the first
+  byte of a squeezed chunk says how it's squeezed, so zipping can come as another kind without new packets.
+  How big Omega's chunks come out is `squeezed_view_sizes` to run (guessed at 200 to 300 KB a player in all).
+- **Squeezed once, on GameWorld's thread, and shared**: every chunk GameWorld reads or builds for the
+  GameClock is squeezed as it goes and kept until STOP SERVER (`squeezed()`); a chunk a player asks for
+  that nobody has loaded is read or built for that alone, and refused "not yet" meanwhile.  Every player is
+  sent the same bytes, and none of the work is on the GameClock.  The chunks in memory are still the
+  GameClock's; when blocks can change, a changed chunk's copy comes back to GameWorld to be saved and
+  squeezed again, the same path.
+- **Hidden things**: as for the map, sent ahead, and `may_see()` in networking's `chunks.rs` is the one
+  place that could hold something back one day.
+- **Ensemble gets its own sessions** "to bring it in line with these server changes": asking, reading the
+  squeezed chunks, and putting blocks on screen.
+
 ## Still open
 
 - What a zone does in the game beyond its name: what grows and what spawns there, and whatever else a
   biome decides.
+- **The chunks streamed, what's left**: Ensemble's half (asking, when to send PlayerReady, the reader,
+  blocks on screen); a stamp on a chunk's pieces once blocks can change, so pieces of two versions never
+  mix; forgetting the squeezed chunks nobody is near, once players move (today they're kept until STOP
+  SERVER, a few KB each); the GameClock loading around a player who isn't at 0,0,0 (a chunk a player asks
+  for is read or built for them, but the GameClock only holds the ground around 0,0,0); zipping, if the
+  sizes call for it.

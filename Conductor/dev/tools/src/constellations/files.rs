@@ -376,9 +376,10 @@ pub static GAME: ConfigFile = ConfigFile {
             key: "view_chunks",
             kind: Kind::Number { low: 1, high: 16 },
             default: "4",
-            about: "How many chunks each way around a player the server loads.  A chunk\n\
-                    is 32 m, so 4 is 128 m.  Every player starts at 0,0,0 for now, so\n\
-                    today it's the chunks around there.",
+            about: "How many chunks each way around a player the server loads, and the\n\
+                    player's client may ask for.  A chunk is 32 m, so 4 is 128 m.  Every\n\
+                    player starts at 0,0,0 for now, so today the server loads the chunks\n\
+                    around there.",
         },
         Setting {
             key: "world_save_seconds",

@@ -33,8 +33,17 @@
 //!   kept in memory until STOP SERVER (`overworld_map()`), for networking
 //!   to send each player at PLAY.
 //!
+//! The thread also squeezes every chunk it hands over (`squeeze.rs`) and
+//! keeps it, squeezed, for networking to send players (protocol version
+//! 12, `squeezed()`).  A chunk a player asks for that nobody has asked
+//! for yet is read or built here for that alone.  The squeezed chunks are
+//! kept until STOP SERVER, and every player is sent the same bytes: each
+//! one is squeezed once a run, never once a player.
+//!
 //! Saving changed chunks, on STOP SERVER and every so often, isn't built:
 //! it comes with the first thing that changes one (`design/world.md`).
+//! When it does, the GameClock's copy of a changed chunk comes back here
+//! and is squeezed again, so what players are sent keeps up with it.
 
 pub mod block;
 mod build;
@@ -45,8 +54,10 @@ mod make;
 pub mod noise;
 pub mod overworld;
 pub mod regionmap;
+pub mod squeeze;
 pub mod terrain;
 
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -67,6 +78,8 @@ pub use block::Block;
 pub use chunk::{Chunk, ChunkPos};
 pub use terrain::{Loaded, Terrain};
 
+use regionmap::CHUNKS_PER_SIZE;
+
 /// Where every player starts, for now (Jacob, 2026-09-30): the GOLD block,
 /// in the middle of the world.
 pub const SPAWN: (i32, i32, i32) = (0, 0, 0);
@@ -79,6 +92,32 @@ const CHECK_IN_EVERY: Duration = Duration::from_secs(1);
 enum Job {
     /// Read or build the chunk at `pos`, and send it back on `reply`.
     Load { pos: ChunkPos, reply: Sender<Loaded> },
+    /// Read or build the chunk at `pos` and squeeze it, for a player who
+    /// asked for it before anything else did.
+    Squeeze { pos: ChunkPos },
+}
+
+/// The chunks squeezed for players, and the ones on their way.
+struct Squeezed {
+    /// Ready to send, by place.
+    ready: HashMap<ChunkPos, Arc<Vec<u8>>>,
+    /// In GameWorld's mailbox, so a second ask doesn't put it there twice.
+    coming: HashSet<ChunkPos>,
+    /// Couldn't be had this run (a bad file, the world unread), so nobody
+    /// asks GameWorld again.
+    missing: HashSet<ChunkPos>,
+}
+
+/// What `squeezed()` has for a chunk.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Sendable {
+    /// The chunk, squeezed (`squeeze.rs`).
+    Ready(Arc<Vec<u8>>),
+    /// On its way: ask again in a moment.
+    Coming,
+    /// Not this run: outside the world, a file that doesn't read right,
+    /// or no world at all.  GameWorld has said why in the log.
+    Missing,
 }
 
 // The mailbox the jobs go in.  Dropping the Sender is the signal to stop,
@@ -95,6 +134,12 @@ static STOPPING: AtomicBool = AtomicBool::new(false);
 /// Networking sends it to every player at PLAY (protocol version 11).
 static OVERWORLD_MAP: Mutex<Option<Arc<Vec<u8>>>> = Mutex::new(None);
 
+/// The squeezed chunks, from START SERVER to STOP SERVER.  `None` while
+/// GameWorld is stopped.
+// Rust note: a HashMap can't be made before the program starts, so the
+// lot starts as `None` and `start()` puts an empty one in.
+static SQUEEZED: Mutex<Option<Squeezed>> = Mutex::new(None);
+
 /// Reads `game.cfg` and starts GameWorld's thread.  It comes straight back;
 /// the world is read (or made) on the thread.  The launcher calls this on
 /// every START SERVER, before the GameClock, so the GameClock has somebody
@@ -110,6 +155,7 @@ pub fn start() {
     STOPPING.store(false, Ordering::SeqCst);
     // Last run's map may be another world's.
     lock(&OVERWORLD_MAP).take();
+    *lock(&SQUEEZED) = Some(Squeezed { ready: HashMap::new(), coming: HashSet::new(), missing: HashSet::new() });
     services::set(services::GAMEWORLD, State::Starting, "Reading the world.");
 
     let (mailbox, jobs) = mpsc::channel();
@@ -140,6 +186,7 @@ pub fn stop() {
         }
     }
     lock(&OVERWORLD_MAP).take();
+    lock(&SQUEEZED).take();
 }
 
 /// The simple overworld map's bytes, the whole file, once GameWorld has
@@ -151,6 +198,81 @@ pub fn stop() {
 // to the same 16 MB, and it's let go when the last one is done with it.
 pub fn overworld_map() -> Option<Arc<Vec<u8>>> {
     lock(&OVERWORLD_MAP).clone()
+}
+
+/// The chunk at `pos`, squeezed for sending to a player, if it's ready.
+/// Comes straight back: one that isn't ready yet is put in GameWorld's
+/// mailbox (once, however often it's asked for) and is `Coming`, to be
+/// asked for again in a moment.  Networking calls this from its UDP
+/// thread, once it has checked the player may see that chunk.
+pub fn squeezed(pos: ChunkPos) -> Sendable {
+    if !in_world(pos) {
+        return Sendable::Missing;
+    }
+    let mut squeezed = lock(&SQUEEZED);
+    let Some(squeezed) = squeezed.as_mut() else {
+        return Sendable::Missing;
+    };
+    if let Some(bytes) = squeezed.ready.get(&pos) {
+        return Sendable::Ready(bytes.clone());
+    }
+    if squeezed.missing.contains(&pos) {
+        return Sendable::Missing;
+    }
+    if squeezed.coming.contains(&pos) {
+        return Sendable::Coming;
+    }
+    let asked = match lock(&MAILBOX).as_ref() {
+        Some(mailbox) => mailbox.send(Job::Squeeze { pos }).is_ok(),
+        None => false,
+    };
+    if !asked {
+        return Sendable::Missing;
+    }
+    squeezed.coming.insert(pos);
+    Sendable::Coming
+}
+
+/// Whether `pos` is inside the world: `world_size` from `game.cfg`, the
+/// same shape `RegionMap::first()` makes, and a row from 0 to 10.  A
+/// player near the edge of the world has chunks in their view that
+/// aren't in it.
+pub fn in_world(pos: ChunkPos) -> bool {
+    let across = world_size() * CHUNKS_PER_SIZE;
+    let west = -across / 2;
+    (west..west + across).contains(&pos.x) && (west..west + across).contains(&pos.z) && pos.row < chunk::ROWS
+}
+
+/// Keeps a chunk squeezed for players, or notes it can't be had.  On
+/// GameWorld's thread, as each chunk is read or built.
+fn keep_squeezed(pos: ChunkPos, chunk: &Result<Chunk, String>) {
+    // The squeezing is done before the lock is taken, so a player's ask
+    // never waits on it.
+    let bytes = chunk.as_ref().ok().map(|chunk| Arc::new(squeeze::squeeze(chunk)));
+    let mut squeezed = lock(&SQUEEZED);
+    let Some(squeezed) = squeezed.as_mut() else {
+        return;
+    };
+    squeezed.coming.remove(&pos);
+    match bytes {
+        Some(bytes) => {
+            squeezed.ready.insert(pos, bytes);
+        }
+        None => {
+            squeezed.missing.insert(pos);
+        }
+    }
+}
+
+/// Whether the chunk at `pos` is already squeezed, so a player's ask that
+/// came in behind the GameClock's doesn't read it twice.
+fn already_squeezed(pos: ChunkPos) -> bool {
+    lock(&SQUEEZED).as_ref().is_some_and(|squeezed| squeezed.ready.contains_key(&pos))
+}
+
+/// How many chunks are squeezed for players, for the Services tab.
+fn how_many_squeezed() -> usize {
+    lock(&SQUEEZED).as_ref().map_or(0, |squeezed| squeezed.ready.len())
 }
 
 /// How many chunks each way around a player the server loads and sends:
@@ -265,14 +387,26 @@ fn run(jobs: Receiver<Job>) {
                 if chunk.is_ok() {
                     handed += 1;
                 }
+                keep_squeezed(pos, &chunk);
                 // Nobody left to take it is fine: the GameClock stopped
                 // first.
                 let _ = reply.send(Loaded { pos, chunk });
                 if shape.is_some() {
-                    services::set(services::GAMEWORLD, State::Running, &format!("{handed} chunks handed over since \
-                        START SERVER, {from_files} of them from their own files."));
+                    say_how_many(handed, from_files);
                 }
             }
+            // One the GameClock's ask got to first is squeezed already.
+            Ok(Job::Squeeze { pos }) if !already_squeezed(pos) => {
+                let chunk = match &shape {
+                    Some(shape) => load(shape, pos, &mut from_files),
+                    None => Err("GameWorld couldn't read the world".to_string()),
+                };
+                keep_squeezed(pos, &chunk);
+                if shape.is_some() {
+                    say_how_many(handed, from_files);
+                }
+            }
+            Ok(Job::Squeeze { .. }) => {}
             Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => break,
         }
@@ -281,6 +415,12 @@ fn run(jobs: Receiver<Job>) {
 
     scribe::info(Channel::Game, &format!("GameWorld has stopped, after handing over {handed} chunks."));
     services::set(services::GAMEWORLD, State::Stopped, "Shut down.");
+}
+
+/// What the Services tab says while GameWorld is answering asks.
+fn say_how_many(handed: u64, from_files: u64) {
+    services::set(services::GAMEWORLD, State::Running, &format!("{handed} chunks handed over since START SERVER, \
+        {from_files} read from their own files; {} squeezed for players.", how_many_squeezed()));
 }
 
 /// Makes sure the simple overworld map is there before the first chunk

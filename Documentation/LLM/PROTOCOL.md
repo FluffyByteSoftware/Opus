@@ -13,8 +13,12 @@ launcher (`Soundcheck/dev/Net/`), speaks the login over TCP, and Ensemble (`Asse
 UDP, from the Connect the launcher's ticket earns it (2026-10-02); when any of them disagrees with this
 document, it is the code that gets fixed.
 
-Protocol version **11**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 11 (2026-10-03)
+Protocol version **12**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 12 (2026-10-03)
+added the chunks around the player, pulled by the client: ChunkRequest (`0x43`), ChunkPiece (`0x44`) and
+ChunkRefused (`0x45`), each chunk squeezed as runs (below, "The chunks around the player"); and the
+OverworldMapOffer now ends with where the character will stand and how many chunks each way it sees, so the
+client knows which chunks to ask for before PlayerReady.  Version 11 (2026-10-03)
 added the simple overworld map at PLAY, and the group `0x4_`, the ground: UserPressPlay is answered with an
 OverworldMapOffer (`0x40`) instead of the character going straight in, the client fetches the map with
 OverworldMapRequests (`0x41`) and OverworldMapPieces (`0x42`), and **PlayerReady** (`0x29`) puts the
@@ -100,7 +104,7 @@ The largest UDP packet the server takes is 1200 bytes.  A larger one is dropped 
 
 The high four bits are the group, the low four which one in it.  `0x1_` is the login, over TCP.  `0x2_` is
 character select, between the login and the world, over UDP.  `0x3_` is the game, over UDP.  `0x4_` is the
-ground, over UDP: the simple overworld map at PLAY today, the chunks one day.
+ground, over UDP: the simple overworld map at PLAY, and the chunks around the player.
 
 | Type   | Name           | Way              | Payload                                                  |
 |--------|----------------|------------------|----------------------------------------------------------|
@@ -132,9 +136,12 @@ ground, over UDP: the simple overworld map at PLAY today, the chunks one day.
 | `0x39` | WhoDelivery    | server to client | u32 ask, u32 seconds since midnight UTC, u8 list, u16 count, then each: string name, and with a list i32 x, y, z |
 | `0x3A` | Span           | server to client | u32 ask, u8 piece, u8 pieces, then the piece's bytes     |
 | `0x3B` | PleaseWait     | server to client | u32 ask, string words                                    |
-| `0x40` | OverworldMapOffer | server to client | u32 ask, u32 size, u16 piece bytes, u32 pieces, string SHA-256 |
+| `0x40` | OverworldMapOffer | server to client | u32 ask, u32 size, u16 piece bytes, u32 pieces, string SHA-256, f32 x, y, z, u8 view |
 | `0x41` | OverworldMapRequest | client to server | u32 first piece, u8 how many (1 to 64)               |
 | `0x42` | OverworldMapPiece | server to client | u32 piece, then the piece's bytes                     |
+| `0x43` | ChunkRequest   | client to server | u8 how many (1 to 64), then each: i16 x, i16 z, u8 row   |
+| `0x44` | ChunkPiece     | server to client | i16 x, i16 z, u8 row, u8 piece, u8 pieces, then the piece's bytes |
+| `0x45` | ChunkRefused   | server to client | i16 x, i16 z, u8 row, u8 why                             |
 
 ## The login, over TCP
 
@@ -321,8 +328,10 @@ client had (Jacob: "we're just gonna write over whatever the client already has 
 1. The client sends **UserPressPlay** (an ask).  The server loads the character and holds it, and answers
    with an **OverworldMapOffer** under the same ask number: the map's size in bytes, how many bytes a
    piece carries (1,024), how many pieces there are (the size over 1,024, rounded up: 4,097 at
-   `world_size` 16), and the map's **SHA-256** as 64 lowercase hex.  A lost offer is sent again for the ask
-   sent again, like any answer.
+   `world_size` 16), the map's **SHA-256** as 64 lowercase hex, then where the character will stand, x, y
+   and z, and how many chunks each way it sees, `view_chunks` (4 by default; version 12), so the client can
+   ask for the chunks around it (below, "The chunks around the player").  A lost offer is sent again for
+   the ask sent again, like any answer.
 2. The client asks for the pieces with **OverworldMapRequest**: the first piece's number (from 0) and how
    many, 1 to 64.  The server sends an **OverworldMapPiece** for each one that's in the map (one past the
    end is left out): its number, then its bytes, 1,024 of them but for the last.  A request carries no ask
@@ -358,6 +367,8 @@ shown short (64):
 00 04                                         1,024 a piece
 01 10 00 00                                   4,097 pieces
 40 00 00 00  61 62 61 62 ...                  the SHA-256, 64 characters
+00 00 C0 3F  00 00 00 00  00 00 00 C0         Jacob will stand at 1.5, 0, -2
+04                                            and sees 4 chunks each way
 ```
 
 The first request, the first piece, and the last (4,096, `0x1000`, the 28 bytes left):
@@ -390,6 +401,127 @@ Then, for Jacob standing at 1.5, 0, -2:
 00 00 C0 3F                                   x 1.5
 00 00 00 00                                   y 0
 00 00 00 C0                                   z -2
+```
+
+## The chunks around the player
+
+Version 12 (2026-10-03).  The simple overworld map is the world's rough shape for drawing the distance; the
+chunks are the real ground near the player, block by block, and win over the map wherever they reach.
+**The client pulls them** (Jacob: "Pull"): it works out which chunks it hasn't got around where its
+character stands, and asks for them.  The server keeps no list of who has what; it checks each chunk asked
+for and sends it, or says why not.
+
+**Which chunks.**  A chunk is a cube of 32 blocks a side (a block is 1 m), placed by x and z, counted in
+chunks east and north from 0,0 (chunk 0,0 has its south-west corner at block 0,0, and block -1 is in chunk
+-1), and its **row**, 0 to 10 from the bottom: row 0 is blocks -32 to -1, row 1 is 0 to 31, row 10 is 288
+to 319.  A player may have every chunk within the offer's **view** of the column their character stands in,
+east, west, north and south, every row: at 4, a square 9 chunks across, 11 rows, 891 chunks.  The column of
+a position is its x and z rounded down, then divided by 32 rounded down (1.5, 0, -2 is block 1, -2, in
+column 0, -1).  Nobody moves yet, so the column is the one in the offer.
+
+1. The client sends a **ChunkRequest**: how many chunks, 1 to 64, then each one's x, z and row.  No ask
+   number, like the map's: asking for a chunk twice is harmless.  Only a player whose character is waiting
+   on the map or is in the world gets an answer; anybody else, nothing.
+2. For each chunk asked for, the server sends its **ChunkPieces**: the chunk's x, z and row, which piece
+   (from 1) and how many, then up to 1,192 bytes of the chunk, squeezed (below).  The pieces' bytes put
+   together in order are the squeezed chunk.  Most chunks are one piece.  Or a **ChunkRefused** with the
+   chunk's place and why:
+   - `1` outside the view: not within the view of the character's column, or past the edge of the world.
+     Asking again won't help.
+   - `2` not yet: the server is reading or building it.  Ask again in a moment.
+   - `3` unavailable: it can't be had this run (its file on the server doesn't read right).  Asking again
+     won't help.
+3. The client asks again, after a moment, for whatever hasn't come whole and wasn't refused for good.
+
+Ensemble's half isn't written yet.  The test client asks for the nearest first (by the larger of how far
+east-west and north-south, then by how far its row is from the character's), the first 64 not yet in,
+waits for them or a quarter of a second, and asks again; it gives up with no new chunk in 10 seconds.
+**When the client has enough to send PlayerReady is its own call** (Jacob: "it can be the clients call but
+I think we are gonna want to wait till most of the scene is filled"): the server only checks the map's
+hash.
+
+### A chunk, squeezed
+
+A chunk is 32,768 blocks, two bytes each, 64 KB as it is.  It's sent as **runs** instead: the kinds of
+block in it, listed once, then "this many of that one", in the same order as the chunk's file on the
+server: the bottom layer first; in a layer, the south row first; in a row, west to east.  So block x, y, z
+inside the chunk (each 0 to 31) is number `(y * 32 + z) * 32 + x`.  Every number is little-endian.
+
+```text
+u8           how it's squeezed: 1, runs.  The only one there is; a client that gets another can't read it.
+u16          how many kinds of block, 1 to 32,768
+u16 x kinds  the kinds, by their block numbers, in the order they first turn up
+then runs, until all 32,768 blocks are covered:
+  the run's length less one, 0 to 32,767: one byte for 0 to 127; for more, the low 7 bits with
+    the top bit set (0x80), then the rest (the number shifted right 7) in a second byte
+  which kind, as its place in the list from 0: a u8 when the list has 256 kinds or fewer, a u16
+    when it has more
+```
+
+Nothing is left over after the last run, and the runs never come to more than 32,768 blocks.  The block
+numbers are the world's: AIR 0, DIRT 1, STONE 2, WOOD 3, GOLD 4, BEDROCK 5; a number never changes once it's
+out there.  An all-air chunk is 8 bytes, a flat one 13; a chunk of Omega's hills, a few hundred to a few
+thousand (`squeezed_view_sizes` in `gameworld/src/squeeze.rs` measures them).  The worst there is, every
+block different, is 163,843 bytes, 138 pieces.
+
+### A worked example
+
+Chunk -1, 0, row 1 is Alpha's flat ground just west of the GOLD: one layer of DIRT at y 0, AIR over it.
+Asked for with the chunk 300, -2 row 10 (outside the view of a character at 1.5, 0, -2):
+
+```text
+43                                            ChunkRequest
+02                                            2 chunks
+FF FF  00 00  01                              -1, 0, row 1
+2C 01  FE FF  0A                              300, -2, row 10
+
+44                                            ChunkPiece
+FF FF  00 00  01                              -1, 0, row 1
+01 01                                         piece 1 of 1
+01                                            squeezed as runs
+02 00                                         2 kinds
+01 00  00 00                                  DIRT, AIR
+FF 07  00                                     1,024 less one is 1,023 (0x3FF): FF 07, of DIRT
+FF F7  01                                     31,744 less one is 31,743 (0x7BFF): FF F7, of AIR
+
+45                                            ChunkRefused
+2C 01  FE FF  0A                              300, -2, row 10
+01                                            outside the view
+```
+
+A C# reader for the squeezed bytes, for Ensemble:
+
+```csharp
+// The blocks of a squeezed chunk, in the file's order: (y * 32 + z) * 32 + x.
+static ushort[] Unsqueeze(byte[] bytes)
+{
+    const int Blocks = 32 * 32 * 32;
+    using var reader = new BinaryReader(new MemoryStream(bytes));
+    if (reader.ReadByte() != 1)
+        throw new InvalidDataException("not squeezed as runs");
+    int count = reader.ReadUInt16();
+    if (count < 1 || count > Blocks)
+        throw new InvalidDataException(count + " kinds");
+    var kinds = new ushort[count];
+    for (int i = 0; i < count; i++)
+        kinds[i] = reader.ReadUInt16();
+
+    var blocks = new ushort[Blocks];
+    int at = 0;
+    while (at < Blocks)
+    {
+        int first = reader.ReadByte();
+        int length = first < 128 ? first + 1 : ((reader.ReadByte() << 7) | (first & 0x7F)) + 1;
+        int place = count > 256 ? reader.ReadUInt16() : reader.ReadByte();
+        if (place >= count || at + length > Blocks)
+            throw new InvalidDataException("a bad run");
+        Array.Fill(blocks, kinds[place], at, length);
+        at += length;
+    }
+    if (reader.BaseStream.Position != bytes.Length)
+        throw new InvalidDataException("bytes left over");
+    return blocks;
+}
 ```
 
 ## In the world, over UDP

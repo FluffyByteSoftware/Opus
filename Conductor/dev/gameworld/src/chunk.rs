@@ -124,8 +124,20 @@ impl Chunk {
         Chunk { pos, blocks: vec![block; BLOCKS] }
     }
 
+    /// A chunk from its blocks, in the file's order.  The caller makes
+    /// sure there are `BLOCKS` of them.
+    pub(crate) fn from_blocks(pos: ChunkPos, blocks: Vec<Block>) -> Chunk {
+        Chunk { pos, blocks }
+    }
+
     pub fn pos(&self) -> ChunkPos {
         self.pos
+    }
+
+    /// Every block, in the file's order: bottom layer first, the south row
+    /// first in a layer, west to east in a row.
+    pub(crate) fn blocks(&self) -> &[Block] {
+        &self.blocks
     }
 
     /// The block at x,y,z inside the chunk, each 0 to 31.

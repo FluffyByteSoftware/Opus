@@ -424,6 +424,31 @@ needs longer".  Built and tested on Linux, every check passed.
   "Commands Unavailable" and the first is a Warn.  No thread, no service, nothing to stop.  Admin commands:
   "its a permissions difference but the commands will otherwise be the same".
 
+## The chunks around the player (2026-10-03, session 3)
+
+Protocol version 12.  Jacob: "prepare conductor for 'streaming' the world around the player in its chunk
+data and voxel data... we essentially want to copy minecraft"; the simple overworld map is "a 'broad
+outline'" for the distance, and the stream "is meant to give the high resolution details".  `design/
+world.md` has the whole of what was settled; this is networking's half.
+
+- **The client pulls** (Jacob: "Pull"), the map's way rather than Minecraft's push: a **ChunkRequest** names
+  up to 64 chunks, and each one comes back as its **ChunkPieces** or a **ChunkRefused** (outside the view,
+  not yet, unavailable).  No ask number and no list of who has what on the server: asking twice is
+  harmless, and a lost chunk is just asked for again.
+- **What a player may be sent is one function**, `chunks.rs`'s `may_see()`: every chunk within
+  `view_chunks` of the column their character stands in, every row.  It's where holding something back
+  would go one day ("a flexibility to add more security").
+- **Where the character stands** is on the player in the book from PLAY on (`standing()`, the column of
+  chunks, set in `parked()` from the save's position).  Only a player whose character is waiting on the map
+  or in the world gets chunks; anybody else hears nothing, for the map's reason (a big answer to a small
+  ask from a stranger is a flood).  Nobody moves yet, so it's set once; movement keeps it up to date.
+- **The offer says where and how far**: the OverworldMapOffer ends with the character's x, y, z and the
+  view, so the client can ask for the chunks around it before PlayerReady.  When it sends PlayerReady is
+  its own call (Jacob: "I think we are gonna want to wait till most of the scene is filled").
+- **The bytes come from GameWorld** (`conductor_gameworld::squeezed()`), squeezed once a run on its thread
+  and shared by every player; the UDP thread cuts them into pieces and sends them, never waiting.  A chunk
+  not squeezed yet is put in GameWorld's mailbox and refused "not yet".
+
 ## What's open
 
 - **Client management** is all TODO: a player limit ("The server is full."), reconnecting with a token
@@ -433,5 +458,9 @@ needs longer".  Built and tested on Linux, every check passed.
 - **Windows**: it builds there (2026-09-30) but hasn't run networking yet (no world made, no certificate,
   no database).  The OS-specific parts are the three `dns/` files and the `ConnectionReset` line in
   `udp.rs`, Windows telling us about a bounced packet.  macOS gets no DNS names until there's a Mac.
-- **What the client is sent after CharacterEnteredWorld**: the chat (above), and nothing else yet.  The
-  world around it (chunks, `region.map`), other players and movement are the game's packets, to come.
+- **What the client is sent after CharacterEnteredWorld**: the chat (above), and the chunks it asks for.
+  Other players and movement are the game's packets, to come.
+- **A faked address.**  A player is their address, so a packet with a player's address forged on it gets
+  that player sent the answer: 64 chunks, or 64 of the map's pieces, for a packet of a few hundred bytes.
+  The answer only ever goes to somebody in the book, but it could be used to flood them.  A session id in
+  each UDP packet (as for NAT rebinding, above) would close it.

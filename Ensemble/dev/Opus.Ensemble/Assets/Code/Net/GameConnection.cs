@@ -603,6 +603,13 @@ namespace Opus.Net
                     ushort pieceBytes = packet.U16();
                     uint count = packet.U32();
                     string hash = packet.String();
+                    // Where the character will stand and how many chunks
+                    // each way it sees (version 12), for asking for the
+                    // chunks around it.  Not used yet.
+                    packet.F32();
+                    packet.F32();
+                    packet.F32();
+                    packet.U8();
                     packet.End();
                     Debug.Log("Game: the world's map is " + size + " bytes in " + count + " pieces, SHA-256 " + hash
                               + ".");

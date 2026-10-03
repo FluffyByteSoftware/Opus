@@ -12,7 +12,10 @@
 # makes, deletes or resets home the ones the flags name, and with --play
 # brings one into the world and stays there.  PLAY fetches the simple
 # overworld map first, the way Ensemble does (protocol version 11): the
-# offer, the pieces 64 at a time, the SHA-256 checked, then PlayerReady.  Once it's there, a line
+# offer, the pieces 64 at a time, the SHA-256 checked, then PlayerReady.
+# With --chunks it also pulls every chunk in the character's view before
+# PlayerReady (protocol version 12), 64 at a time, nearest first, and
+# squeezes them back out.  Once it's there, a line
 # typed in the terminal and sent with Enter goes out the way the chat
 # window would send it.  With --type it types lines
 # there, the way a player types in the chat window (`/chat Yo yo yo!`,
@@ -46,6 +49,8 @@
 #   python3 networking/test_client.py --play Jacob ...   (fetches the map, then brings Jacob into the world)
 #   python3 networking/test_client.py --play Jacob --save-map /tmp/map ...   (keeps the map it fetched, for a cmp)
 #   python3 networking/test_client.py --play Jacob --wrong-map-hash ...   (says the wrong hash: refused)
+#   python3 networking/test_client.py --play Jacob --chunks ...   (pulls the chunks around Jacob before PlayerReady)
+#   python3 networking/test_client.py --play Jacob --chunks --chunk-outside ...   (asks for one out of view too)
 #   python3 networking/test_client.py --play Jacob --type '/chat Yo yo yo!' ...   (says it to everybody)
 #   python3 networking/test_client.py --play Jacob --type '/who' --type '/who list' ...
 #   python3 networking/test_client.py --play Jacob --type '/chat 1' --type '/chat 2' --type-gap 0 ...
@@ -65,7 +70,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-PROTOCOL_VERSION = 11
+PROTOCOL_VERSION = 12
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -104,6 +109,9 @@ PLEASE_WAIT = 0x3B
 OVERWORLD_MAP_OFFER = 0x40
 OVERWORLD_MAP_REQUEST = 0x41
 OVERWORLD_MAP_PIECE = 0x42
+CHUNK_REQUEST = 0x43
+CHUNK_PIECE = 0x44
+CHUNK_REFUSED = 0x45
 
 NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "LoginResult",
          SESSION_CHOICE: "SessionChoice", TICKET: "Ticket", CONNECT: "Connect", CONNECT_RESULT: "ConnectResult",
@@ -116,11 +124,13 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          CHARACTER_ENTERED_WORLD: "CharacterEnteredWorld", PLAYER_COMMAND: "PlayerCommand",
          CHAT_DELIVERY: "ChatDelivery", WHO_DELIVERY: "WhoDelivery", SPAN: "Span", PLEASE_WAIT: "PleaseWait",
          PLAYER_READY: "PlayerReady", OVERWORLD_MAP_OFFER: "OverworldMapOffer",
-         OVERWORLD_MAP_REQUEST: "OverworldMapRequest", OVERWORLD_MAP_PIECE: "OverworldMapPiece"}
+         OVERWORLD_MAP_REQUEST: "OverworldMapRequest", OVERWORLD_MAP_PIECE: "OverworldMapPiece",
+         CHUNK_REQUEST: "ChunkRequest", CHUNK_PIECE: "ChunkPiece", CHUNK_REFUSED: "ChunkRefused"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
 DELETE_ANSWERS = {0: "approved", 1: "denied"}
+CHUNK_REFUSALS = {1: "outside the view", 2: "not yet", 3: "unavailable"}
 KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin",
                 5: "ACCOUNT TERMINATED", 6: "character locked for a moment; log in again"}
 
@@ -189,6 +199,56 @@ SPAN_WAIT = 2.0
 MAP_PIECES_AT_ONCE = 64
 MAP_ASK_AGAIN = 0.25
 MAP_STALL = 10.0
+
+# The chunks (protocol version 12): asked for 64 at a time, the same
+# waits as the map.
+CHUNKS_AT_ONCE = 64
+CHUNK_SIDE = 32
+CHUNK_BLOCKS = CHUNK_SIDE * CHUNK_SIDE * CHUNK_SIDE
+CHUNK_ROWS = 11
+BLOCK_NAMES = {0: "AIR", 1: "DIRT", 2: "STONE", 3: "WOOD", 4: "GOLD", 5: "BEDROCK"}
+
+
+def unsqueeze(data):
+    """A squeezed chunk (PROTOCOL.md, "The chunks around the player") back
+    as its 32,768 block numbers, bottom layer first, the south row first
+    in a layer, west to east in a row.  Raises ValueError if it's wrong."""
+    if not data or data[0] != 1:
+        raise ValueError("not squeezed as runs")
+    (count,) = struct.unpack_from("<H", data, 1)
+    if count < 1 or count > CHUNK_BLOCKS:
+        raise ValueError("%d kinds" % count)
+    at = 3
+    kinds = list(struct.unpack_from("<%dH" % count, data, at))
+    at += 2 * count
+    wide = count > 256
+    blocks = []
+    while len(blocks) < CHUNK_BLOCKS:
+        first = data[at]
+        at += 1
+        if first < 128:
+            length = first + 1
+        else:
+            length = ((data[at] << 7) | (first & 0x7F)) + 1
+            at += 1
+        if wide:
+            (place,) = struct.unpack_from("<H", data, at)
+            at += 2
+        else:
+            place = data[at]
+            at += 1
+        if place >= count or len(blocks) + length > CHUNK_BLOCKS:
+            raise ValueError("a bad run")
+        blocks.extend([kinds[place]] * length)
+    if at != len(data):
+        raise ValueError("%d bytes left over" % (len(data) - at))
+    return blocks
+
+
+def chunk_place(data, at):
+    """A chunk's x, z and row off the wire."""
+    x, z, row = struct.unpack_from("<hhB", data, at)
+    return (x, z, row)
 
 
 def centred(text, fill):
@@ -364,9 +424,11 @@ class CharacterSelect:
         self.server = server
         self.last_ask = 0
         self.characters = []
-        # --save-map and --wrong-map-hash.
+        # --save-map, --wrong-map-hash, --chunks and --chunk-outside.
         self.save_map = None
         self.wrong_map_hash = False
+        self.chunks = False
+        self.chunk_outside = False
 
     def ask(self, kind, rest, detail):
         """Sends one ask and hands back (answer type, the answer after its
@@ -506,8 +568,11 @@ class CharacterSelect:
         if kind != OVERWORLD_MAP_OFFER:
             return None
         size, piece_bytes, count = struct.unpack_from("<IHI", data, 5)
-        expected, _ = take_string(data, 15)
-        say("<-", kind, "%d bytes in %d pieces of %d, SHA-256 %s" % (size, count, piece_bytes, expected), data[1:])
+        expected, at = take_string(data, 15)
+        x, y, z = struct.unpack_from("<fff", data, at)
+        view = data[at + 12]
+        say("<-", kind, "%d bytes in %d pieces of %d, SHA-256 %s; %s will stand at %g, %g, %g and see %d chunks "
+            "each way" % (size, count, piece_bytes, expected, name, x, y, z, view), data[1:])
 
         got = self.fetch_map(size, count)
         if got is None:
@@ -522,6 +587,9 @@ class CharacterSelect:
         if self.wrong_map_hash:
             hash_got = "0" * 64
             print("   --wrong-map-hash: saying %s instead." % hash_got)
+
+        if self.chunks:
+            self.fetch_chunks((x, y, z), view)
 
         kind, data = self.ask(PLAYER_READY, put_string(hash_got), "the map is in")
         if kind == CHARACTER_ENTERED_WORLD:
@@ -600,6 +668,131 @@ class CharacterSelect:
                  "the same" if len(got) == size else "DIFFERENT"))
         return got
 
+    def fetch_chunks(self, position, view):
+        """Every chunk within `view` chunks of the character's column, every
+        row, nearest first, the way Ensemble will: 64 at a time from the
+        first not yet in, and asked again after a quarter second for what
+        didn't come.  A "not yet" is asked again; "outside the view" and
+        "unavailable" are the end of that chunk.  Gives up with no new
+        chunk in MAP_STALL seconds.  Prints what came, how big and how
+        long, and checks the GOLD at 0,0,0 if that chunk came."""
+        column = (int(position[0] // CHUNK_SIDE), int(position[2] // CHUNK_SIDE))
+        stand_row = int((position[1] + 32) // CHUNK_SIDE)
+        wanted = [(column[0] + dx, column[1] + dz, row)
+                  for dz in range(-view, view + 1) for dx in range(-view, view + 1) for row in range(CHUNK_ROWS)]
+        wanted.sort(key=lambda place: (max(abs(place[0] - column[0]), abs(place[1] - column[1])),
+                                       abs(place[2] - stand_row)))
+        if self.chunk_outside:
+            # One past the view's east edge, at the end, to see it refused.
+            wanted.append((column[0] + view + 1, column[1], 1))
+        print("   The chunks: %d around column %d, %d (%d each way, every row)."
+              % (len(wanted), column[0], column[1], view), flush=True)
+
+        squeezed = {}
+        refused = {}
+        pieces = {}
+        not_yet = 0
+        packets = 0
+        requests = 0
+        started = time.monotonic()
+        last_new = started
+        next_tenth = 1
+        self.udp.settimeout(0.05)
+        try:
+            while True:
+                left = [place for place in wanted if place not in squeezed and place not in refused]
+                if not left:
+                    break
+                if time.monotonic() - last_new > MAP_STALL:
+                    print("No new chunk in %g seconds: %d of %d in." % (MAP_STALL, len(squeezed), len(wanted)))
+                    return
+                asked = left[:CHUNKS_AT_ONCE]
+                request = bytes([CHUNK_REQUEST, len(asked)]) + b"".join(struct.pack("<hhB", *place)
+                                                                         for place in asked)
+                self.udp.sendto(request, self.server)
+                requests += 1
+                if requests == 1:
+                    say("->", CHUNK_REQUEST, "%d chunks, the first %d,%d row %d" % ((len(asked),) + asked[0]),
+                        request[1:17])
+                deadline = time.monotonic() + MAP_ASK_AGAIN
+                while time.monotonic() < deadline and any(p not in squeezed and p not in refused for p in asked):
+                    try:
+                        data, _ = self.udp.recvfrom(2048)
+                    except socket.timeout:
+                        continue
+                    if not data:
+                        continue
+                    if data[0] == CHUNK_PIECE and len(data) >= 8:
+                        place = chunk_place(data, 1)
+                        part, parts = data[6], data[7]
+                        packets += 1
+                        if place in squeezed:
+                            continue
+                        if not squeezed and not pieces:
+                            say("<-", CHUNK_PIECE, "%d,%d row %d, piece %d of %d, %d bytes"
+                                % (place + (part, parts, len(data) - 8)), data[1:24])
+                        got = pieces.setdefault(place, {})
+                        got[part] = data[8:]
+                        if all(number in got for number in range(1, parts + 1)):
+                            squeezed[place] = b"".join(got[number] for number in range(1, parts + 1))
+                            del pieces[place]
+                            last_new = time.monotonic()
+                    elif data[0] == CHUNK_REFUSED and len(data) == 7:
+                        place = chunk_place(data, 1)
+                        why = data[6]
+                        if why == 2:
+                            not_yet += 1
+                        elif place not in refused:
+                            refused[place] = why
+                            last_new = time.monotonic()
+                            say("<-", CHUNK_REFUSED, "%d,%d row %d: %s" % (place + (CHUNK_REFUSALS.get(why, why),)),
+                                data[1:])
+                    elif data[0] == KICKED:
+                        (reason,) = struct.unpack("<I", data[1:5])
+                        say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
+                        raise Kicked()
+                    elif data[0] == CHAT_DELIVERY:
+                        show_chat(data)
+                    elif data[0] != KEEP_ALIVE:
+                        say("<-", data[0], "", data[1:])
+                while next_tenth <= 10 and (len(squeezed) + len(refused)) * 10 >= len(wanted) * next_tenth:
+                    print("   %d%%: %d of %d chunks." % (next_tenth * 10, len(squeezed) + len(refused), len(wanted)),
+                          flush=True)
+                    next_tenth += 1
+        finally:
+            self.udp.settimeout(0.5)
+        took = time.monotonic() - started
+
+        total = sum(len(data) for data in squeezed.values())
+        kinds = {}
+        bad = 0
+        gold = None
+        for place, data in squeezed.items():
+            try:
+                blocks = unsqueeze(data)
+            except (ValueError, IndexError, struct.error) as e:
+                print("   %d,%d row %d doesn't unsqueeze: %s" % (place + (e,)))
+                bad += 1
+                continue
+            for block in blocks:
+                kinds[block] = kinds.get(block, 0) + 1
+            if place == (0, 0, 1):
+                gold = BLOCK_NAMES.get(blocks[0], blocks[0])
+        biggest = max(squeezed.items(), key=lambda item: len(item[1]), default=None)
+        print("   The chunks: %d in, %d refused, in %.2f s; %d bytes squeezed (%.1f KB, %.0f MB as they are), "
+              "%d packets, %d requests, %d \"not yet\"s."
+              % (len(squeezed), len(refused), took, total, total / 1024, len(squeezed) * CHUNK_BLOCKS * 2 / 1048576,
+                 packets, requests, not_yet))
+        if biggest:
+            print("   The biggest: %d,%d row %d, %d bytes." % (biggest[0] + (len(biggest[1]),)))
+        print("   Blocks: %s.  %d didn't unsqueeze." % (", ".join("%s %d" % (BLOCK_NAMES.get(kind, kind), count)
+                                                             for kind, count in sorted(kinds.items())), bad))
+        if gold is not None:
+            print("   The block at 0,0,0: %s." % gold)
+        for why in sorted(set(refused.values())):
+            print("   Refused, %s: %d." % (CHUNK_REFUSALS.get(why, why),
+                                          sum(1 for reason in refused.values() if reason == why)))
+
     def type_line(self, line):
         """A line typed in the chat window, sent as it was typed."""
         kind, data = self.ask(PLAYER_COMMAND, put_string(line), repr(line))
@@ -619,6 +812,8 @@ def character_select(args, udp, server):
     select = CharacterSelect(udp, server)
     select.save_map = args.save_map
     select.wrong_map_hash = args.wrong_map_hash
+    select.chunks = args.chunks
+    select.chunk_outside = args.chunk_outside
     playing = None
     try:
         select.list()
@@ -796,6 +991,10 @@ def main():
                         help="with --play, write the map fetched at PLAY to this file, to compare with the server's")
     parser.add_argument("--wrong-map-hash", action="store_true",
                         help="with --play, say the wrong hash in PlayerReady, to see the server refuse it")
+    parser.add_argument("--chunks", action="store_true",
+                        help="with --play, pull every chunk in the character's view before PlayerReady")
+    parser.add_argument("--chunk-outside", action="store_true",
+                        help="with --chunks, ask for one chunk just past the view too, to see it refused")
     parser.add_argument("--type", metavar="LINE", action="append",
                         help="type this line in the chat window once at character select is done, after --play "
                              "('/chat Yo yo yo!'); give it more than once for more lines")

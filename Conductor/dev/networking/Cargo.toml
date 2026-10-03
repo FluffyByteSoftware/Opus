@@ -13,7 +13,8 @@
 # conductor-gameclock is where a picked character goes into the world,
 # and is taken out of it again when its player leaves.
 # conductor-gameworld holds the simple overworld map, which every player
-# is sent at PLAY (protocol version 11), and sha2 makes the map's SHA-256,
+# is sent at PLAY (protocol version 11), and the chunks squeezed for the
+# players who ask for them (version 12); sha2 makes the map's SHA-256,
 # the one the client checks its copy against.  sha2 was in the build
 # already, through conductor-tools (Jacob, 2026-10-03: "ok").
 #

@@ -57,6 +57,11 @@
 //! `overworld.rs` built once, to a player who's been offered the map and
 //! nobody else.  Their PlayerReady goes to Protogame, which puts the
 //! character in the world.
+//!
+//! The chunks around a player (protocol version 12) are answered from
+//! here too, out of GameWorld's squeezed chunks, to a player whose
+//! character is waiting on the map or in the world, for the chunks
+//! `chunks.rs` says they may see.
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
@@ -70,6 +75,7 @@ use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
+use crate::chunks;
 use crate::overworld;
 use crate::typed::{self, Asker, Outcome};
 use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
@@ -380,6 +386,13 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 sessions::heard(from);
             }
         },
+        // The chunks around the player (version 12).
+        Some(PacketType::ChunkRequest) => match protocol::read_chunk_request(payload) {
+            Ok(places) => chunk_request(socket, from, &places),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
         Some(PacketType::PlayerReady) => match protocol::read_player_ready(payload) {
             Ok((ask, hash)) => player_ready(socket, from, ask, hash),
             Err(_) => {
@@ -477,6 +490,19 @@ fn map_pieces(socket: &UdpSocket, from: SocketAddr, first: u32, count: u8) {
     };
     for piece in map.pieces(first, count) {
         send(socket, from, piece);
+    }
+}
+
+/// Chunks, for a player whose character is waiting on the map or in the
+/// world.  Anybody else hears nothing, for the same reason as the map: a
+/// big answer to a small ask from a stranger is how a server gets used to
+/// flood somebody.
+fn chunk_request(socket: &UdpSocket, from: SocketAddr, places: &[conductor_gameworld::ChunkPos]) {
+    let Some(standing) = sessions::standing(from) else {
+        return;
+    };
+    for packet in chunks::answer(standing, places) {
+        send(socket, from, &packet);
     }
 }
 
@@ -598,6 +624,10 @@ mod tests {
         let mut ready = vec![PacketType::PlayerReady as u8, 4, 0, 0, 0, 64, 0, 0, 0];
         ready.extend_from_slice("ab".repeat(32).as_bytes());
         heard(&ours, &ready, from);
+        assert!(stranger.recv_from(&mut buffer).is_err());
+
+        // Chunks from a stranger: silence too.
+        heard(&ours, &[PacketType::ChunkRequest as u8, 1, 0, 0, 0, 0, 1], from);
         assert!(stranger.recv_from(&mut buffer).is_err());
     }
 

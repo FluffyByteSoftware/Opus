@@ -406,7 +406,11 @@ fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str, map_cooldown: Dur
     }
 
     let loaded = load(account, ask, uuid).and_then(|loading| match overworld::current() {
-        Some(map) => Ok((loading, map.offer(ask))),
+        Some(map) => {
+            // `view_chunks` is 1 to 16 (game.cfg), so it fits in the byte.
+            let offer = map.offer(ask, loading.position, conductor_gameworld::view_chunks() as u8);
+            Ok((loading, offer))
+        }
         // The door's open only with the map ready, so this is the server
         // stopping under them.
         None => Err(protocol::command_refused(ask, PLAY_UNAVAILABLE)),

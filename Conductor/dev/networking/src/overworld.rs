@@ -91,9 +91,10 @@ impl Map {
         &self.hash
     }
 
-    /// The answer to a UserPressPlay numbered `ask`.
-    pub fn offer(&self, ask: u32) -> Vec<u8> {
-        protocol::overworld_map_offer(ask, self.size, self.pieces.len() as u32, &self.hash)
+    /// The answer to a UserPressPlay numbered `ask`, for a character that
+    /// will stand at `position` and see `view` chunks each way.
+    pub fn offer(&self, ask: u32, position: [f32; 3], view: u8) -> Vec<u8> {
+        protocol::overworld_map_offer(ask, self.size, self.pieces.len() as u32, &self.hash, position, view)
     }
 
     /// The pieces numbered `first` and the `count - 1` after it, as their
@@ -142,9 +143,10 @@ mod tests {
         assert_eq!(map.pieces[2].len(), 5 + 28);
 
         // The offer says what the map is.
-        let offer = map.offer(9);
+        let offer = map.offer(9, [0.0, 0.0, 0.0], 4);
         assert_eq!(&offer[..15], &[0x40, 9, 0, 0, 0, 0x1C, 0x08, 0, 0, 0x00, 0x04, 3, 0, 0, 0]);
-        assert!(offer.ends_with(map.hash().as_bytes()));
+        assert!(offer[..offer.len() - 13].ends_with(map.hash().as_bytes()));
+        assert_eq!(offer.last(), Some(&4));
     }
 
     #[test]

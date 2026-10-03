@@ -36,6 +36,7 @@ use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 
 mod access;
+mod chunks;
 mod dns;
 mod ledger;
 mod overworld;
