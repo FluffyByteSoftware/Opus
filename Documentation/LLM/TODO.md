@@ -52,6 +52,11 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   chatting your movement keys just go to the chat when its focused... everything does its gotten me killed
   a few times before I realized I was chatting".  So no key is ever both; the game never moves you while
   you're typing.  Part of movement.
+- **A resizable chat window** (session 7, 2026-10-03, Jacob's pick: "Resizable chat window").  Being
+  talked through.  What's there: the catalog already says chat is `Resizable` (min 320 x 160), but
+  nothing in the game lets a player change a size, and nothing writes the player's `hud_layout.json`
+  (only the web editor was to, Phase 3).  A widget never sizes its own box (`Widget.cs`), so a grip
+  would be HudBuilder's, not ChatWidget's.
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;
