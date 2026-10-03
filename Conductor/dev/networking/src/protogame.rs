@@ -10,15 +10,22 @@
 //! the last step, playing one (protocol version 6).
 //!
 //! Playing one is the spawn's slow part, done here so the GameClock never
-//! waits on it: the row and the save are read, the save is laid over the
-//! Character template, and the finished blueprint goes in the GameClock's
-//! mailbox (`conductor_gameclock::enter()`).  Only then is the character
-//! written on the player in the book, so a player who left while it was
-//! being brought in leaves nothing standing: their character is taken
-//! straight back out.  Before any of it the character is locked for a
-//! second (`sessions::lock_for_loading()`), and one that's locked already
-//! (loading, just out of the world, or its save still on its way) isn't
-//! read until the lock clears: the player is told to wait (PleaseWait)
+//! waits on it: the row and the save are read, and the save is laid over
+//! the Character template.  Since protocol version 11 the finished
+//! character isn't put in the world at once: it's held on the player in
+//! the book (`sessions::parked()`), and the answer to PLAY is the offer of
+//! the simple overworld map, which the client fetches straight from the
+//! UDP thread.  Its PlayerReady, with the map's hash, comes back here, and
+//! only then does the character go in the GameClock's mailbox
+//! (`conductor_gameclock::enter()`) and get written on the player as in
+//! the world (Jacob: "it doesn't show them or spawn them in the physical
+//! world until they're ready").  So a player who left while it was being
+//! brought in leaves nothing standing: their character is taken straight
+//! back out, or, still loading, was never in.  Before any of it the
+//! character is locked for a second (`sessions::lock_for_loading()`),
+//! and one that's locked already (loading, just out of the world, or its
+//! save still on its way) isn't read until the lock clears: the player is
+//! told to wait (PleaseWait)
 //! and the lock is waited out, up to `LOCK_WAIT`; past that they're sent
 //! back to the login to try again.  Jacob's lock, 2026-10-01, so no
 //! character is brought in twice at once or on the save before its last;
@@ -55,8 +62,9 @@ use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
+use crate::overworld;
 use crate::protocol::{self, CreateAnswer, DeleteAnswer, EnteredCharacter, KickReason, ListedCharacter};
-use crate::sessions::{self, InWorld};
+use crate::sessions::{self, InWorld, Loading};
 use crate::udp;
 
 /// How long Protogame waits on the database for one ask.  Past that the
@@ -92,6 +100,12 @@ const DELETE_UNAVAILABLE: &str = "Character Deletion Unavailable";
 const RESET_UNAVAILABLE: &str = "Reset Home Unavailable";
 const PLAY_UNAVAILABLE: &str = "World Unavailable";
 
+/// What the player hears for a PlayerReady whose hash isn't the map's
+/// (version 11).  Their client checks its copy before it sends one, so
+/// this is a client that's broken or changed.
+const MAP_DOES_NOT_MATCH: &str = "Your copy of the world's map doesn't match the server's.  Log in and try \
+    again.";
+
 /// What the player hears for a character that isn't on their account,
 /// and for one whose save won't load or that's been marked unplayable.
 const NO_SUCH_CHARACTER: &str = "There's no such character on this account.";
@@ -109,8 +123,11 @@ pub enum Work {
     Delete { uuid: String, typed: String },
     /// Put this character back at 0, 0, 0: a CharacterRequestResetHome.
     ResetHome { uuid: String },
-    /// Bring this character into the world: a UserPressPlay.
+    /// Load this character and offer the map: a UserPressPlay.
     Play { uuid: String },
+    /// The client has the map, with this hash: put the loaded character
+    /// in the world.  A PlayerReady (version 11).
+    Ready { hash: String },
 }
 
 /// One ask in the mailbox.
@@ -176,7 +193,7 @@ fn unavailable(ask: u32, work: &Work) -> Vec<u8> {
         Work::Create { .. } => protocol::create_result(ask, CreateAnswer::Unavailable),
         Work::Delete { .. } => protocol::delete_result(ask, DeleteAnswer::Denied, DELETE_UNAVAILABLE),
         Work::ResetHome { .. } => protocol::command_refused(ask, RESET_UNAVAILABLE),
-        Work::Play { .. } => protocol::command_refused(ask, PLAY_UNAVAILABLE),
+        Work::Play { .. } | Work::Ready { .. } => protocol::command_refused(ask, PLAY_UNAVAILABLE),
     }
 }
 
@@ -197,7 +214,7 @@ fn work(mailbox: Receiver<Job>) {
 
 /// Works one ask out, keeps the answer in the book, and sends it, if the
 /// player who asked is still there.  Playing a character has its own way
-/// through (`play()`), since it changes more than the answer.
+/// through (`play()` and `ready()`), since it changes more than the answer.
 fn answer(job: Job) {
     let answer = match &job.work {
         Work::List => list(&job.account, job.ask),
@@ -205,6 +222,7 @@ fn answer(job: Job) {
         Work::Delete { uuid, typed } => delete(&job.account, job.ask, uuid, typed),
         Work::ResetHome { uuid } => reset_home(&job.account, job.ask, uuid),
         Work::Play { uuid } => return play(job.from, &job.account, job.ask, uuid),
+        Work::Ready { hash } => return ready(job.from, &job.account, job.ask, hash),
     };
     if sessions::finish_ask(job.from, &job.account, job.ask, &answer) {
         udp::tell(job.from, &answer);
@@ -334,10 +352,10 @@ fn reset_home(account: &str, ask: u32, uuid: &str) -> Vec<u8> {
     }
 }
 
-/// Plays one of the account's characters: brings it into the world and
-/// tells the player where it stands, or tells them why not.  A locked
-/// character sends the player back to the login instead, with nothing
-/// read.
+/// Plays one of the account's characters: loads it, holds it on the
+/// player, and offers them the map to fetch before it comes in, or tells
+/// them why not.  A character still locked after `LOCK_WAIT` sends the
+/// player back to the login instead, with nothing read.
 fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str) {
     // Before the row is read: the point is not to read it while another
     // copy is being brought in, or before the last session's save is in it.
@@ -359,7 +377,37 @@ fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str) {
         }
     }
 
-    let (character, answer) = match bring_in(account, ask, uuid) {
+    let loaded = load(account, ask, uuid).and_then(|loading| match overworld::current() {
+        Some(map) => Ok((loading, map.offer(ask))),
+        // The door's open only with the map ready, so this is the server
+        // stopping under them.
+        None => Err(protocol::command_refused(ask, PLAY_UNAVAILABLE)),
+    });
+    let (loading, offer) = match loaded {
+        Ok(loaded) => loaded,
+        Err(refused) => {
+            if sessions::finish_ask(from, account, ask, &refused) {
+                udp::tell(from, &refused);
+            }
+            return;
+        }
+    };
+    let name = loading.character.name.clone();
+    if sessions::parked(from, account, ask, loading, &offer) {
+        udp::tell(from, &offer);
+        scribe::debug(Channel::Game, &format!("{account} at {from} is fetching the world's map before {name} comes \
+            in."));
+    } else {
+        // They left while it was being loaded.  It was never in the
+        // world, so there's nothing to take out.
+        scribe::debug(Channel::Game, &format!("{account} left before {name} was loaded."));
+    }
+}
+
+/// The player's client has the map: puts their loaded character in the
+/// world and tells them where it stands, or tells them why not.
+fn ready(from: SocketAddr, account: &str, ask: u32, hash: &str) {
+    let (character, answer) = match put_in(from, account, ask, hash) {
         Ok(entered) => entered,
         Err(refused) => {
             if sessions::finish_ask(from, account, ask, &refused) {
@@ -382,10 +430,10 @@ fn play(from: SocketAddr, account: &str, ask: u32, uuid: &str) {
     }
 }
 
-/// The slow part of playing a character: its row and save read, made
-/// into the character, and handed to the GameClock.  The character and the
-/// CharacterEnteredWorld to send, or the CommandRefused saying why not.
-fn bring_in(account: &str, ask: u32, uuid: &str) -> Result<(InWorld, Vec<u8>), Vec<u8>> {
+/// The slow part of playing a character: its row and save read, and made
+/// into the character, to be held on the player while they fetch the map.
+/// Or the CommandRefused saying why not.
+fn load(account: &str, ask: u32, uuid: &str) -> Result<Loading, Vec<u8>> {
     let loaded = match characters::load(account, uuid).wait_for(DATABASE_WAIT) {
         Some(Ok(Some(loaded))) => loaded,
         Some(Ok(None)) => return Err(protocol::command_refused(ask, NO_SUCH_CHARACTER)),
@@ -409,15 +457,35 @@ fn bring_in(account: &str, ask: u32, uuid: &str) -> Result<(InWorld, Vec<u8>), V
         Some(Component::Transform(transform)) => transform.position,
         _ => Vector3::default(),
     };
-    if let Err(why) = conductor_gameclock::enter(blueprint) {
-        scribe::warn(Channel::Game, &format!("{} couldn't be put in the world: {why}.", character.name()));
+    let in_world = InWorld { id: character.id(), uuid: character.uuid().to_string(),
+                             name: character.name().to_string() };
+    Ok(Loading { character: in_world, blueprint, position: [position.x, position.y, position.z] })
+}
+
+/// The quick part, on PlayerReady: the hash checked against the map's,
+/// and the character held on the player handed to the GameClock.  The
+/// character and the CharacterEnteredWorld to send, or the CommandRefused
+/// saying why not.  A character that can't go in is let go, and the player
+/// is back at character select, free to press PLAY again.
+fn put_in(from: SocketAddr, account: &str, ask: u32, hash: &str) -> Result<(InWorld, Vec<u8>), Vec<u8>> {
+    let Some(map) = overworld::current() else {
+        return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
+    };
+    if !hash.eq_ignore_ascii_case(map.hash()) {
+        scribe::debug(Channel::Game, &format!("{account} at {from} says it has the map, and its hash isn't the \
+            map's.  Not let in."));
+        return Err(protocol::command_refused(ask, MAP_DOES_NOT_MATCH));
+    }
+    let Some(loading) = sessions::take_loading(from, account) else {
+        return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
+    };
+    if let Err(why) = conductor_gameclock::enter(loading.blueprint) {
+        scribe::warn(Channel::Game, &format!("{} couldn't be put in the world: {why}.", loading.character.name));
         return Err(protocol::command_refused(ask, PLAY_UNAVAILABLE));
     }
-
-    let entered = EnteredCharacter { uuid: character.uuid().to_string(), name: character.name().to_string(),
-                                     position: [position.x, position.y, position.z] };
-    let answer = protocol::entered_world(ask, &entered);
-    Ok((InWorld { id: character.id(), uuid: entered.uuid, name: entered.name }, answer))
+    let entered = EnteredCharacter { uuid: loading.character.uuid.clone(), name: loading.character.name.clone(),
+                                     position: loading.position };
+    Ok((loading.character, protocol::entered_world(ask, &entered)))
 }
 
 /// A loaded character's save, read back through lua-parser and laid over

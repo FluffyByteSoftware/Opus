@@ -13,8 +13,13 @@ launcher (`Soundcheck/dev/Net/`), speaks the login over TCP, and Ensemble (`Asse
 UDP, from the Connect the launcher's ticket earns it (2026-10-02); when any of them disagrees with this
 document, it is the code that gets fixed.
 
-Protocol version **10**.  The number goes up when a packet changes, and the server says it in the first
-thing it sends, so a client built against another version can stop right there.  Version 10 (2026-10-02)
+Protocol version **11**.  The number goes up when a packet changes, and the server says it in the first
+thing it sends, so a client built against another version can stop right there.  Version 11 (2026-10-03)
+added the simple overworld map at PLAY, and the group `0x4_`, the ground: UserPressPlay is answered with an
+OverworldMapOffer (`0x40`) instead of the character going straight in, the client fetches the map with
+OverworldMapRequests (`0x41`) and OverworldMapPieces (`0x42`), and **PlayerReady** (`0x29`) puts the
+character in the world, answered with the CharacterEnteredWorld that used to answer UserPressPlay (below,
+"The map at PLAY").  Version 10 (2026-10-02)
 added PleaseWait (`0x3B`): the server is working on an ask and says it'll take a moment, with the words to
 show; the answer follows under the same ask number.  A UserPressPlay for a character locked for a moment
 gets one, and the lock is waited out, where before it got a Kicked.  Version 9 (2026-10-02)
@@ -40,8 +45,8 @@ A session is two halves, over two transports.
    server closes the connection.  Nothing else ever goes over TCP.
 2. **UDP is the game.**  The client sends the Ticket's token to the UDP port in a Connect, the server
    answers with a ConnectResult, and from then on everything goes over UDP: a KeepAlive each way once a
-   second, character select, the character picked coming into the world, and the game's packets as they
-   come.
+   second, character select, the world's map fetched at PLAY, the character picked coming into the world,
+   and the game's packets as they come.
 
 When the UDP session ends, for any reason, the player is gone.  There is no reconnect: the client goes back
 to the login screen and starts over from TCP.  The reasons it ends: the client sent a Goodbye, the client
@@ -94,7 +99,8 @@ The largest UDP packet the server takes is 1200 bytes.  A larger one is dropped 
 ### Packet types
 
 The high four bits are the group, the low four which one in it.  `0x1_` is the login, over TCP.  `0x2_` is
-character select, between the login and the world, over UDP.  `0x3_` is the game, over UDP.
+character select, between the login and the world, over UDP.  `0x3_` is the game, over UDP.  `0x4_` is the
+ground, over UDP: the simple overworld map at PLAY today, the chunks one day.
 
 | Type   | Name           | Way              | Payload                                                  |
 |--------|----------------|------------------|----------------------------------------------------------|
@@ -113,6 +119,7 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 | `0x26` | CharacterRequestResetHome | client to server | u32 ask, string uuid                          |
 | `0x27` | UserPressPlay  | client to server | u32 ask, string uuid                                     |
 | `0x28` | CharacterEnteredWorld | server to client | u32 ask, string uuid, string name, f32 x, y, z  |
+| `0x29` | PlayerReady    | client to server | u32 ask, string the map's SHA-256 as the client has it   |
 | `0x30` | Connect        | client to server | string token                                             |
 | `0x31` | ConnectResult  | server to client | u8 answer, string message                                |
 | `0x32` | KeepAlive      | both ways        | nothing                                                  |
@@ -125,6 +132,9 @@ character select, between the login and the world, over UDP.  `0x3_` is the game
 | `0x39` | WhoDelivery    | server to client | u32 ask, u32 seconds since midnight UTC, u8 list, u16 count, then each: string name, and with a list i32 x, y, z |
 | `0x3A` | Span           | server to client | u32 ask, u8 piece, u8 pieces, then the piece's bytes     |
 | `0x3B` | PleaseWait     | server to client | u32 ask, string words                                    |
+| `0x40` | OverworldMapOffer | server to client | u32 ask, u32 size, u16 piece bytes, u32 pieces, string SHA-256 |
+| `0x41` | OverworldMapRequest | client to server | u32 first piece, u8 how many (1 to 64)               |
+| `0x42` | OverworldMapPiece | server to client | u32 piece, then the piece's bytes                     |
 
 ## The login, over TCP
 
@@ -249,19 +259,25 @@ an old one, and the client ignores it.  One that can't be read gets no answer.
   **CommandAccepted**, or a **CommandRefused** saying why not (no such character on the account, the
   character is unplayable, its save won't load, or the server can't right now).
 
-- **UserPressPlay** with a character's uuid brings it into the world, where its last save left it, and gets
-  a **CharacterEnteredWorld**: its uuid and name, and where it stands, x, y and z (y up).  Or a
-  **CommandRefused** saying why not: no such character on the account, the character is unplayable, its
-  save won't load (it's marked unplayable then, and the admin told), or the server can't right now.
+- **UserPressPlay** with a character's uuid loads it, where its last save left it, and gets an
+  **OverworldMapOffer** (version 11): the character is waiting, and this is the map to fetch before it
+  comes in (below, "The map at PLAY").  Or a **CommandRefused** saying why not: no such character on the
+  account, the character is unplayable, its save won't load (it's marked unplayable then, and the admin
+  told), or the server can't right now.  Then **PlayerReady** brings it into the world and gets a
+  **CharacterEnteredWorld**: its uuid and name, and where it stands, x, y and z (y up).  Before version 11
+  the CharacterEnteredWorld answered UserPressPlay itself.
 - **A character is locked for a moment** whenever it moves between the database and the world: for 1
   second from the moment the server starts loading it, and for 1 second after it leaves the world, longer
   if its save from leaving hasn't reached the database yet.  A UserPressPlay for a locked character isn't
   read until the lock clears: the client gets a **PleaseWait** (version 10) with the words to show, "Your
   character is still being saved from its last session. One moment.", the server waits the lock out, and
-  the CharacterEnteredWorld (or a CommandRefused) follows under the same ask number.  The client keeps
+  the OverworldMapOffer (or a CommandRefused) follows under the same ask number.  The client keeps
   resending the ask meanwhile, as for any ask, and the server drops the resends.  If the lock is still
   held after 5 seconds the client gets a **Kicked** with reason `6` instead, and logs in again.  So one
   character is never brought in twice at once, or on the save before its last.
+- **While the character waits on the map**, any other ask from character select gets a **CommandRefused**,
+  "Your character is on its way into the world.", and a PlayerCommand gets "Commands work once your
+  character is in the world."
 - **Once the character is in the world, character select is behind the player.**  Any of the asks above
   gets a **CommandRefused**, "Your character is in the world.  Log out to get back to character select."
   The way back is logging out, to the login screen, every time (Jacob: "you log out back to log in screen
@@ -288,16 +304,84 @@ and the answer, "Your character has been made." being 29 bytes:
 1D 00 00 00  59 6F 75 72 20 ...               "Your character has been made."
 ```
 
-A UserPressPlay as ask 3, and the answer for Jacob standing at 1.5, 0, -2 (the uuid shown short; it's 36
-characters):
+A UserPressPlay as ask 3 is below, under "The map at PLAY", with the rest of the way into the world.
+
+## The map at PLAY
+
+Version 11 (2026-10-03).  Before a character comes into the world, the player's client fetches the
+**simple overworld map**, the world's rough shape for drawing the distance: `simple_overworld.map`, laid out
+byte for byte in `SIMPLE_OVERWORLD_MAP.md`, 4,194,332 bytes at `world_size` 16 and 16,777,244 at 32.  The
+character isn't in the world until the client says it has it (Jacob: "it doesn't show them or spawn them in
+the physical world until they're ready").  **Every PLAY fetches the whole map**, over whatever copy the
+client had (Jacob: "we're just gonna write over whatever the client already has every time").
+
+1. The client sends **UserPressPlay** (an ask).  The server loads the character and holds it, and answers
+   with an **OverworldMapOffer** under the same ask number: the map's size in bytes, how many bytes a
+   piece carries (1,024), how many pieces there are (the size over 1,024, rounded up: 4,097 at
+   `world_size` 16), and the map's **SHA-256** as 64 lowercase hex.  A lost offer is sent again for the ask
+   sent again, like any answer.
+2. The client asks for the pieces with **OverworldMapRequest**: the first piece's number (from 0) and how
+   many, 1 to 64.  The server sends an **OverworldMapPiece** for each one that's in the map (one past the
+   end is left out): its number, then its bytes, 1,024 of them but for the last.  A request carries no ask
+   number and doesn't take the player's one ask: asking for a piece twice is harmless, so a client asks
+   again for whatever didn't come.  Only a player whose character is waiting on the map gets pieces; a
+   request from anybody else gets no answer.  Ensemble asks for the lowest 64 pieces it doesn't have, waits
+   for them or a quarter of a second, and asks again; with no new piece in 10 seconds it gives up.
+3. The pieces' bytes, in number order, are the map.  The client checks its SHA-256 against the offer's,
+   keeps it (Ensemble: `simple_overworld.map` in the player's folder), and sends **PlayerReady** (a new ask)
+   with the SHA-256 of what it has.
+4. The server checks the hash and puts the character in the world, and answers with
+   **CharacterEnteredWorld**.  Or a **CommandRefused**: "Your copy of the world's map doesn't match the
+   server's.  Log in and try again." for a hash that isn't the map's (the character stays waiting), "World
+   Unavailable" when the server can't, "There's no character waiting to come into the world.  Press PLAY
+   first." with no UserPressPlay before it, "Your character is already in the world." after one went in.
+
+A client that can't get the map (no new piece in its wait, a hash that doesn't match, a file it can't
+write) tells the player so and starts over: Ensemble goes back to the launcher with "Couldn't get the
+world's map." and where the file is, to delete it, or the game, and try again.  Leaving while the character
+waits on the map leaves nothing behind: it was never in the world, so there's nothing to save.
+
+A UserPressPlay as ask 3 at `world_size` 16, the uuid shown short (it's 36 characters), and the SHA-256
+shown short (64):
 
 ```text
 27                                            UserPressPlay
 03 00 00 00                                   ask 3
 24 00 00 00  30 31 39 39 ...                  the uuid, 36 bytes
 
-28                                            CharacterEnteredWorld
+40                                            OverworldMapOffer
 03 00 00 00                                   ask 3
+1C 00 40 00                                   4,194,332 bytes
+00 04                                         1,024 a piece
+01 10 00 00                                   4,097 pieces
+40 00 00 00  61 62 61 62 ...                  the SHA-256, 64 characters
+```
+
+The first request, the first piece, and the last (4,096, `0x1000`, the 28 bytes left):
+
+```text
+41                                            OverworldMapRequest
+00 00 00 00                                   from piece 0
+40                                            64 of them
+
+42                                            OverworldMapPiece
+00 00 00 00                                   piece 0
+4F 50 55 53 4F 56 57 4D 01 00 ...             1,024 bytes: the map's own first bytes, "OPUSOVWM", version 1
+
+42                                            OverworldMapPiece
+00 10 00 00                                   piece 4,096
+...                                           28 bytes
+```
+
+Then, for Jacob standing at 1.5, 0, -2:
+
+```text
+29                                            PlayerReady
+04 00 00 00                                   ask 4
+40 00 00 00  61 62 61 62 ...                  the SHA-256 of what came
+
+28                                            CharacterEnteredWorld
+04 00 00 00                                   ask 4
 24 00 00 00  30 31 39 39 ...                  the uuid
 05 00 00 00  4A 61 63 6F 62                   "Jacob"
 00 00 C0 3F                                   x 1.5

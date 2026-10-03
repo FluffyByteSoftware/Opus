@@ -10,7 +10,9 @@
 # or --leave-after runs out.  In
 # between, at character select, it asks for the account's characters,
 # makes, deletes or resets home the ones the flags name, and with --play
-# brings one into the world and stays there.  Once it's there, a line
+# brings one into the world and stays there.  PLAY fetches the simple
+# overworld map first, the way Ensemble does (protocol version 11): the
+# offer, the pieces 64 at a time, the SHA-256 checked, then PlayerReady.  Once it's there, a line
 # typed in the terminal and sent with Enter goes out the way the chat
 # window would send it.  With --type it types lines
 # there, the way a player types in the chat window (`/chat Yo yo yo!`,
@@ -41,7 +43,9 @@
 #   python3 networking/test_client.py --create Jacob ...   (makes a character, then lists again)
 #   python3 networking/test_client.py --delete Jacob ...   (types DELETE; --delete-word to type another)
 #   python3 networking/test_client.py --reset-home Jacob ...   (puts it back at 0, 0, 0)
-#   python3 networking/test_client.py --play Jacob ...   (brings Jacob into the world)
+#   python3 networking/test_client.py --play Jacob ...   (fetches the map, then brings Jacob into the world)
+#   python3 networking/test_client.py --play Jacob --save-map /tmp/map ...   (keeps the map it fetched, for a cmp)
+#   python3 networking/test_client.py --play Jacob --wrong-map-hash ...   (says the wrong hash: refused)
 #   python3 networking/test_client.py --play Jacob --type '/chat Yo yo yo!' ...   (says it to everybody)
 #   python3 networking/test_client.py --play Jacob --type '/who' --type '/who list' ...
 #   python3 networking/test_client.py --play Jacob --type '/chat 1' --type '/chat 2' --type-gap 0 ...
@@ -61,7 +65,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-PROTOCOL_VERSION = 10
+PROTOCOL_VERSION = 11
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -84,6 +88,7 @@ CHARACTER_DELETE_RESULT = 0x25
 CHARACTER_REQUEST_RESET_HOME = 0x26
 USER_PRESS_PLAY = 0x27
 CHARACTER_ENTERED_WORLD = 0x28
+PLAYER_READY = 0x29
 CONNECT = 0x30
 CONNECT_RESULT = 0x31
 KEEP_ALIVE = 0x32
@@ -96,6 +101,9 @@ CHAT_DELIVERY = 0x38
 WHO_DELIVERY = 0x39
 SPAN = 0x3A
 PLEASE_WAIT = 0x3B
+OVERWORLD_MAP_OFFER = 0x40
+OVERWORLD_MAP_REQUEST = 0x41
+OVERWORLD_MAP_PIECE = 0x42
 
 NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "LoginResult",
          SESSION_CHOICE: "SessionChoice", TICKET: "Ticket", CONNECT: "Connect", CONNECT_RESULT: "ConnectResult",
@@ -106,7 +114,9 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          CHARACTER_REQUEST_RESET_HOME: "CharacterRequestResetHome", COMMAND_ACCEPTED: "CommandAccepted",
          COMMAND_REFUSED: "CommandRefused", USER_PRESS_PLAY: "UserPressPlay",
          CHARACTER_ENTERED_WORLD: "CharacterEnteredWorld", PLAYER_COMMAND: "PlayerCommand",
-         CHAT_DELIVERY: "ChatDelivery", WHO_DELIVERY: "WhoDelivery", SPAN: "Span", PLEASE_WAIT: "PleaseWait"}
+         CHAT_DELIVERY: "ChatDelivery", WHO_DELIVERY: "WhoDelivery", SPAN: "Span", PLEASE_WAIT: "PleaseWait",
+         PLAYER_READY: "PlayerReady", OVERWORLD_MAP_OFFER: "OverworldMapOffer",
+         OVERWORLD_MAP_REQUEST: "OverworldMapRequest", OVERWORLD_MAP_PIECE: "OverworldMapPiece"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
@@ -172,6 +182,13 @@ WHO_WIDTH = 79
 
 # How long to wait for every piece of an answer in Spans before giving up.
 SPAN_WAIT = 2.0
+
+# The map at PLAY: the most pieces one request asks for, how long to wait
+# on them before asking again for what's missing, and how long without a
+# new piece before giving up.  The same as Ensemble's.
+MAP_PIECES_AT_ONCE = 64
+MAP_ASK_AGAIN = 0.25
+MAP_STALL = 10.0
 
 
 def centred(text, fill):
@@ -347,6 +364,9 @@ class CharacterSelect:
         self.server = server
         self.last_ask = 0
         self.characters = []
+        # --save-map and --wrong-map-hash.
+        self.save_map = None
+        self.wrong_map_hash = False
 
     def ask(self, kind, rest, detail):
         """Sends one ask and hands back (answer type, the answer after its
@@ -402,7 +422,7 @@ class CharacterSelect:
                         continue
                 if data[0] in (CHARACTER_LIST_DELIVERY, CHARACTER_CREATE_RESULT, CHARACTER_DELETE_RESULT,
                                COMMAND_ACCEPTED, COMMAND_REFUSED, CHARACTER_ENTERED_WORLD,
-                               WHO_DELIVERY) and len(data) >= 5:
+                               WHO_DELIVERY, OVERWORLD_MAP_OFFER) and len(data) >= 5:
                     (answered,) = struct.unpack_from("<I", data, 1)
                     if answered == ask:
                         return data[0], data
@@ -473,12 +493,37 @@ class CharacterSelect:
             say("<-", kind, repr(message), data[1:])
 
     def play(self, name):
-        """Brings the character into the world.  Its name if it's in, None
-        if it was refused."""
+        """Fetches the map and brings the character into the world.  Its
+        name if it's in, None if it was refused."""
         uuid = self.uuid_of(name)
         if uuid is None:
             return None
         kind, data = self.ask(USER_PRESS_PLAY, put_string(uuid), name)
+        if kind == COMMAND_REFUSED:
+            message, _ = take_string(data, 5)
+            say("<-", kind, repr(message), data[1:])
+            return None
+        if kind != OVERWORLD_MAP_OFFER:
+            return None
+        size, piece_bytes, count = struct.unpack_from("<IHI", data, 5)
+        expected, _ = take_string(data, 15)
+        say("<-", kind, "%d bytes in %d pieces of %d, SHA-256 %s" % (size, count, piece_bytes, expected), data[1:])
+
+        got = self.fetch_map(size, count)
+        if got is None:
+            print("Couldn't get the world's map.  Ensemble sends the player back to the launcher here.")
+            return None
+        hash_got = hashlib.sha256(got).hexdigest()
+        print("   SHA-256 of what came: %s, %s." % (hash_got, "the same" if hash_got == expected else "DIFFERENT"))
+        if self.save_map:
+            with open(self.save_map, "wb") as out:
+                out.write(got)
+            print("   Saved to %s." % self.save_map)
+        if self.wrong_map_hash:
+            hash_got = "0" * 64
+            print("   --wrong-map-hash: saying %s instead." % hash_got)
+
+        kind, data = self.ask(PLAYER_READY, put_string(hash_got), "the map is in")
         if kind == CHARACTER_ENTERED_WORLD:
             entered_uuid, at = take_string(data, 5)
             entered_name, at = take_string(data, at)
@@ -490,6 +535,70 @@ class CharacterSelect:
             message, _ = take_string(data, 5)
             say("<-", kind, repr(message), data[1:])
         return None
+
+    def fetch_map(self, size, count):
+        """The map's pieces, asked for 64 at a time from the lowest one
+        missing, and asked again after a quarter second for what didn't
+        come.  The whole map's bytes, or None if no new piece came in
+        MAP_STALL seconds.  Only the first request and piece are printed
+        with their bytes; after that, a line every tenth of the way."""
+        pieces = {}
+        lowest_missing = 0
+        started = time.monotonic()
+        last_new = started
+        next_tenth = 1
+        requests = 0
+        self.udp.settimeout(0.05)
+        try:
+            while lowest_missing < count:
+                if time.monotonic() - last_new > MAP_STALL:
+                    print("No new piece in %g seconds: %d of %d in." % (MAP_STALL, len(pieces), count))
+                    return None
+                ask_for = min(MAP_PIECES_AT_ONCE, count - lowest_missing)
+                request = bytes([OVERWORLD_MAP_REQUEST]) + struct.pack("<IB", lowest_missing, ask_for)
+                self.udp.sendto(request, self.server)
+                requests += 1
+                if requests == 1:
+                    say("->", OVERWORLD_MAP_REQUEST, "pieces %d to %d" % (lowest_missing, lowest_missing + ask_for - 1),
+                        request[1:])
+                wanted = range(lowest_missing, lowest_missing + ask_for)
+                deadline = time.monotonic() + MAP_ASK_AGAIN
+                while time.monotonic() < deadline and not all(number in pieces for number in wanted):
+                    try:
+                        data, _ = self.udp.recvfrom(2048)
+                    except socket.timeout:
+                        continue
+                    if not data:
+                        continue
+                    if data[0] == OVERWORLD_MAP_PIECE and len(data) >= 5:
+                        (number,) = struct.unpack_from("<I", data, 1)
+                        if number < count and number not in pieces:
+                            if not pieces:
+                                say("<-", OVERWORLD_MAP_PIECE, "piece %d, %d bytes" % (number, len(data) - 5),
+                                    data[1:17])
+                            pieces[number] = data[5:]
+                            last_new = time.monotonic()
+                    elif data[0] == KICKED:
+                        (reason,) = struct.unpack("<I", data[1:5])
+                        say("<-", KICKED, KICK_REASONS.get(reason, reason), data[1:])
+                        raise Kicked()
+                    elif data[0] == CHAT_DELIVERY:
+                        show_chat(data)
+                    elif data[0] != KEEP_ALIVE:
+                        say("<-", data[0], "", data[1:])
+                while lowest_missing < count and lowest_missing in pieces:
+                    lowest_missing += 1
+                while next_tenth <= 10 and len(pieces) * 10 >= count * next_tenth:
+                    print("   %d%%: %d of %d pieces." % (next_tenth * 10, len(pieces), count), flush=True)
+                    next_tenth += 1
+        finally:
+            self.udp.settimeout(0.5)
+        took = time.monotonic() - started
+        got = b"".join(pieces[number] for number in range(count))
+        print("   The map: %d bytes in %.2f s (%.1f MB/s), %d requests.  The offer said %d bytes: %s."
+              % (len(got), took, len(got) / max(took, 0.001) / 1e6, requests, size,
+                 "the same" if len(got) == size else "DIFFERENT"))
+        return got
 
     def type_line(self, line):
         """A line typed in the chat window, sent as it was typed."""
@@ -508,6 +617,8 @@ def character_select(args, udp, server):
     again, then --play, then the --type lines.  Hands back (still connected, the name of the
     character in the world or None, and the asks, for lines typed after)."""
     select = CharacterSelect(udp, server)
+    select.save_map = args.save_map
+    select.wrong_map_hash = args.wrong_map_hash
     playing = None
     try:
         select.list()
@@ -681,6 +792,10 @@ def main():
     parser.add_argument("--reset-home", metavar="NAME", help="put the account's character with this name at 0, 0, 0")
     parser.add_argument("--play", metavar="NAME",
                         help="bring the account's character with this name into the world, after the other flags")
+    parser.add_argument("--save-map", metavar="PATH",
+                        help="with --play, write the map fetched at PLAY to this file, to compare with the server's")
+    parser.add_argument("--wrong-map-hash", action="store_true",
+                        help="with --play, say the wrong hash in PlayerReady, to see the server refuse it")
     parser.add_argument("--type", metavar="LINE", action="append",
                         help="type this line in the chat window once at character select is done, after --play "
                              "('/chat Yo yo yo!'); give it more than once for more lines")

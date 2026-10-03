@@ -29,7 +29,9 @@
 //!   ground it was built from.
 //! - `simple_overworld.map`: the world's rough shape, for the client to
 //!   draw the distance with (`overworld.rs`).  Written before the first
-//!   chunk goes out, so the door doesn't open without it.
+//!   chunk goes out, so the door doesn't open without it.  Its bytes are
+//!   kept in memory until STOP SERVER (`overworld_map()`), for networking
+//!   to send each player at PLAY.
 //!
 //! Saving changed chunks, on STOP SERVER and every so often, isn't built:
 //! it comes with the first thing that changes one (`design/world.md`).
@@ -49,7 +51,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
@@ -88,6 +90,11 @@ static GAMEWORLD: Mutex<Option<JoinHandle<()>>> = Mutex::new(None);
 /// stop wait for the rest of it.
 static STOPPING: AtomicBool = AtomicBool::new(false);
 
+/// The simple overworld map's bytes, as they are on the disk, once the
+/// thread has made sure of it, until STOP SERVER.  `None` before then.
+/// Networking sends it to every player at PLAY (protocol version 11).
+static OVERWORLD_MAP: Mutex<Option<Arc<Vec<u8>>>> = Mutex::new(None);
+
 /// Reads `game.cfg` and starts GameWorld's thread.  It comes straight back;
 /// the world is read (or made) on the thread.  The launcher calls this on
 /// every START SERVER, before the GameClock, so the GameClock has somebody
@@ -101,6 +108,8 @@ pub fn start() {
 
     constellations::load(&GAME);
     STOPPING.store(false, Ordering::SeqCst);
+    // Last run's map may be another world's.
+    lock(&OVERWORLD_MAP).take();
     services::set(services::GAMEWORLD, State::Starting, "Reading the world.");
 
     let (mailbox, jobs) = mpsc::channel();
@@ -130,6 +139,18 @@ pub fn stop() {
             scribe::error(Channel::Game, "GameWorld's thread had already died.");
         }
     }
+    lock(&OVERWORLD_MAP).take();
+}
+
+/// The simple overworld map's bytes, the whole file, once GameWorld has
+/// made sure of it on START SERVER.  `None` until then, and after STOP
+/// SERVER.  It's always there by the time the door opens: the GameClock is
+/// never ready without GameWorld's chunks, and GameWorld hands out none
+/// before the map is in.
+// Rust note: an `Arc` is shared, not copied: every caller gets a pointer
+// to the same 16 MB, and it's let go when the last one is done with it.
+pub fn overworld_map() -> Option<Arc<Vec<u8>>> {
+    lock(&OVERWORLD_MAP).clone()
 }
 
 /// How many chunks each way around a player the server loads and sends:
@@ -263,13 +284,14 @@ fn run(jobs: Receiver<Job>) {
 }
 
 /// Makes sure the simple overworld map is there before the first chunk
-/// goes out, and hands the world back.  Without it there's nothing to send
-/// a player at PLAY, so it's the same as no world: every ask is turned
-/// away and the door stays shut (Jacob, 2026-10-03: "keep the door shut").
-/// The Error tells the admin which file to delete.  Telling a player whose
-/// client can't get the map to start over is Ensemble's half.
+/// goes out, keeps its bytes for `overworld_map()`, and hands the world
+/// back.  Without it there's nothing to send a player at PLAY, so it's the
+/// same as no world: every ask is turned away and the door stays shut
+/// (Jacob, 2026-10-03: "keep the door shut").  The Error tells the admin
+/// which file to delete.  Telling a player whose client can't get the map
+/// to start over is Ensemble's half.
 fn with_overworld(shape: Shape) -> Result<Shape, String> {
-    overworld::ensure(&shape.map, &shape.heights).map_err(|why| {
+    let bytes = overworld::ensure(&shape.map, &shape.heights).map_err(|why| {
         // A stop part way is no fault: the next START SERVER makes it.
         if stopping() {
             return why;
@@ -277,6 +299,7 @@ fn with_overworld(shape: Shape) -> Result<Shape, String> {
         format!("the simple overworld map isn't ready ({why}).  The door stays shut this run.  Delete {} if it's \
             there, then STOP SERVER and START SERVER", overworld_path().display())
     })?;
+    *lock(&OVERWORLD_MAP) = Some(bytes);
     Ok(shape)
 }
 

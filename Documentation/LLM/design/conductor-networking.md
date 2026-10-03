@@ -35,24 +35,31 @@ networking/
     │                    timed_out(), wake_address()
     ├── settings.rs    networking.cfg as networking reads it: struct Settings, load()
     ├── tls.rs         server_config(settings) -> Arc<ServerConfig>; make_pair(), the openssl command
-    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 10: PacketType, LoginAnswer, ConnectAnswer,
+    ├── protocol.rs    the packets, byte for byte, PROTOCOL_VERSION 11: PacketType, LoginAnswer, ConnectAnswer,
     │                    KickReason, Choice, CreateAnswer, DeleteAnswer, ListedCharacter, EnteredCharacter;
     │                    frame(), take_packet(), take_datagram(); hello(), in_line(), login_result(), ticket(),
     │                    connect_result(), keep_alive(), kicked(), command_accepted(), command_refused(),
-    │                    please_wait(), character_list(), create_result(), delete_result(), entered_world(),
+    │                    please_wait(), character_list(), create_result(), delete_result(),
+    │                    overworld_map_offer(), overworld_map_piece(), entered_world(),
     │                    chat_deliveries(), who_delivery(), spans(); WhoEntry; read_login(),
     │                    read_session_choice(), read_connect(),
     │                    read_list_request(), read_create(), read_delete(), read_reset_home(),
-    │                    read_user_press_play(), read_player_command()
+    │                    read_user_press_play(), read_player_ready(), read_overworld_map_request(),
+    │                    read_player_command(); MAP_PIECE_BYTES, MAP_PIECES_AT_ONCE
     ├── typed.rs       a line a player typed: Asker, Outcome (Answer, or Later for the GameClock to
     │                    answer), set_runner() (the slot conductor-player-commands' wire() fills), run()
     ├── protogame.rs   Protogame, thread protogame: start(), stop(), hand_in(from, account, ask, Work) -> the
     │                    answer at once if it isn't running; enum Work { List, Create, Delete, ResetHome,
-    │                    Play }; play() and bring_in(), the spawn's slow part
+    │                    Play, Ready }; play() and load(), the spawn's slow part, which holds the character
+    │                    and offers the map; ready() and put_in(), which put it in the world on PlayerReady
+    ├── overworld.rs   the simple overworld map as players are sent it: load() at start from GameWorld,
+    │                    unload(), current() -> Map (its SHA-256, offer(ask), pieces(first, count), every
+    │                    piece built once as its packet)
     ├── sessions.rs    the book: tickets by token, players by address, each account's whereabouts
     │                    and each player's character in the world (InWorld), the one-second lockout
     │                    and each character's lock (Lock, LOCK_FOR); playing(), issue(), connect(), heard(),
-    │                    begin_ask() -> Ask, finish_ask(), entered(), leave_world(), lock_for_loading(),
+    │                    begin_ask() -> Ask, finish_ask(), parked() (Loading, a character waiting on the
+    │                    map), take_loading(), fetching_map(), entered(), leave_world(), lock_for_loading(),
     │                    turn_away(), leave(), kick() (with the kicked character's row id),
     │                    terminate(), kick_login(), sweep(), clear(), counts(), players(), in_world(),
     │                    names_in_world(), may_command(),
@@ -248,11 +255,22 @@ and **CharacterEnteredWorld** (`0x28`, the ask, the uuid, the name, and x, y, z 
 be played gets a CommandRefused.  The GameClock's half (`enter()`, `leave()`, the world save) was built the
 session before (`design/gameclock.md`).
 
-- **Protogame does the slow part** (`play()`, `bring_in()`): the row and the save read through
+- **Protogame does the slow part** (`play()`, `load()`): the row and the save read through
   conductor-accounts, an unplayable character turned away, the save read back through lua-parser and laid
   over the Character template (a save that won't load marks it unplayable, the Error on the bell, the same
-  as a reset home), and the finished blueprint handed to `conductor_gameclock::enter()`.  The answer says
-  where the character stands, from its save's Transform.
+  as a reset home).  The answer says where the character stands, from its save's Transform.
+- **The map comes first** (protocol version 11, 2026-10-03, Jacob: "it doesn't show them or spawn them in
+  the physical world until they're ready").  The loaded character isn't handed to the GameClock at once:
+  it's held on the player in the book (`sessions::parked()`, a `Loading`), and the answer to UserPressPlay
+  is the OverworldMapOffer.  The client asks for the map's pieces, 64 at a time, and the UDP thread sends
+  them straight out of `overworld.rs`, where each piece was built once as its packet when the door opened
+  (the map's size again in memory, to spend no CPU on a PLAY; only a player waiting on the map gets
+  pieces).  Its PlayerReady, with the map's SHA-256, goes to Protogame (`ready()`, `put_in()`): the hash
+  checked, the character taken off the player (`take_loading()`) and handed to
+  `conductor_gameclock::enter()`.  A player who leaves while loading leaves nothing behind: it was never in
+  the world.  While loading, character select's asks are refused ("Your character is on its way into the
+  world.").  If the map can't be had, the door stays shut: `overworld::load()` fails `start()` the same way
+  a missing certificate does.  `sha2` makes the hash (Jacob: "ok"; it was in the build through the tools).
 - **The character goes on the player in the book only after `enter()`** (`sessions::entered()`, with the
   answer kept for a repeat, like any ask).  If the player left while it was being brought in, `entered()`
   says so and Protogame takes it straight back out (`leave_world()`): the GameClock's mailbox is in order,

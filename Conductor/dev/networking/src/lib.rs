@@ -38,6 +38,7 @@ use conductor_tools::services::{self, State};
 mod access;
 mod dns;
 mod ledger;
+mod overworld;
 pub mod protocol;
 mod protogame;
 mod sessions;
@@ -128,6 +129,17 @@ pub fn start() {
         }
     };
 
+    // The map every player is sent at PLAY (protocol version 11), with its
+    // hash worked out and its pieces built.  Without it nobody gets into
+    // the world, so the door stays shut.
+    if let Err(why) = overworld::load() {
+        services::set(services::NETWORK_TCP, State::Trouble, &why);
+        services::set(services::NETWORK_UDP, State::Stopped, "Not started: there's no map to send players.");
+        services::set(services::PROTOGAME, State::Stopped, "Not started: there's no map to send players.");
+        scribe::error(Channel::Network, &format!("NOBODY CAN LOG IN.  {why}"));
+        return;
+    }
+
     // The lists are built again from disk on every start, before the
     // door opens, so the first connection is checked too.
     access::start(settings.access_list, &settings.whitelist_file, &settings.blacklist_file);
@@ -192,6 +204,7 @@ pub fn stop() {
     // to nobody, since the players are gone.
     protogame::stop();
     access::stop();
+    overworld::unload();
     if never_opened {
         services::set(services::NETWORK_TCP, State::Stopped, "Stopped.  The door never opened this run.");
         services::set(services::NETWORK_UDP, State::Stopped, "Stopped.  The door never opened this run.");

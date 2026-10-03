@@ -33,9 +33,11 @@ real chunks come from the server and win over it.  Not squeezed ("no squeezing c
   world's (another seed or size), before the first chunk goes out.  So the door doesn't open without it.
   If it can't be written, the door stays shut that run, with an Error on the bell.  It's made from the
   ground's rules, never from anybody's digging, so it's always safe to write over.
-- **Who reads it**: Ensemble, once it's built: Conductor sends it over UDP at PLAY, in pieces, behind a
-  loading bar, and Ensemble keeps it in `Application.persistentDataPath`.  Those packets aren't designed
-  yet (TODO.md, "The world's dump").
+- **Who reads it**: Ensemble.  Conductor sends it over UDP at every PLAY, in pieces of 1,024 bytes, behind
+  a loading bar, with its SHA-256 (PROTOCOL.md, "The map at PLAY", protocol version 11), and Ensemble keeps
+  it as `simple_overworld.map` in the player's folder (`PlayerFiles.PathOf()`), written over every time.
+  GameWorld keeps the file's bytes in memory until STOP SERVER (`conductor_gameworld::overworld_map()`),
+  and networking sends them as they are.
 - **When it changes**: today, only with a new world.  Once blocks can change, the one world save
   (`world_save_seconds`) will write it again when a top block has changed.
 

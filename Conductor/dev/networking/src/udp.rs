@@ -50,6 +50,13 @@
 //! list` from the GameClock's broadcast check through `tell_answer()`.
 //! An answer too big for one packet goes out in Spans (protocol version
 //! 9).
+//!
+//! PLAY (protocol version 11) is answered with the offer of the simple
+//! overworld map, and the player's client asks for its pieces 64 at a
+//! time.  Those are answered from here, straight out of the packets
+//! `overworld.rs` built once, to a player who's been offered the map and
+//! nobody else.  Their PlayerReady goes to Protogame, which puts the
+//! character in the world.
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
@@ -63,6 +70,7 @@ use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
 use crate::access::{self, Verdict};
+use crate::overworld;
 use crate::typed::{self, Asker, Outcome};
 use crate::protocol::{self, ConnectAnswer, KickReason, PacketType};
 use crate::protogame::{self, Work};
@@ -79,6 +87,14 @@ const CHARACTER_SELECT_IS_BEHIND: &str = "Your character is in the world.  Log o
 
 /// What a player at character select hears for a command.
 const NOT_IN_THE_WORLD: &str = "Commands work once your character is in the world.";
+
+/// What a player whose character is loaded and waiting on the map hears
+/// for an ask from character select.
+const ON_ITS_WAY: &str = "Your character is on its way into the world.";
+
+/// What a PlayerReady hears with no character waiting on it.
+const NOTHING_WAITING: &str = "There's no character waiting to come into the world.  Press PLAY first.";
+const ALREADY_IN: &str = "Your character is already in the world.";
 
 /// How much we read in one go.  Bigger than MAX_UDP_BYTES on purpose: a
 /// packet that doesn't fit the buffer gets cut to fit without a word, and
@@ -356,6 +372,20 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
                 sessions::heard(from);
             }
         },
+        // The map at PLAY (version 11): pieces of it, and the client
+        // saying it has it all.
+        Some(PacketType::OverworldMapRequest) => match protocol::read_overworld_map_request(payload) {
+            Ok((first, count)) => map_pieces(socket, from, first, count),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
+        Some(PacketType::PlayerReady) => match protocol::read_player_ready(payload) {
+            Ok((ask, hash)) => player_ready(socket, from, ask, hash),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
         // A line the player typed: a command (`/chat`, `/who`, ...).
         Some(PacketType::PlayerCommand) => match protocol::read_player_command(payload) {
             Ok((ask, line)) => player_command(socket, from, ask, &line),
@@ -385,6 +415,12 @@ fn ask_protogame(socket: &UdpSocket, from: SocketAddr, ask: u32, work: Work) {
                 send(socket, from, &answer);
             }
         }
+        Ask::Loading(account) => {
+            let answer = protocol::command_refused(ask, ON_ITS_WAY);
+            if sessions::finish_ask(from, &account, ask, &answer) {
+                send(socket, from, &answer);
+            }
+        }
         Ask::New(account) => {
             // Protogame isn't running (which shouldn't happen while this
             // thread is): the answer is that it's unavailable, kept like
@@ -410,7 +446,7 @@ fn player_command(socket: &UdpSocket, from: SocketAddr, ask: u32, line: &str) {
             send_answer(socket, from, ask, &answer);
             return;
         }
-        Ask::New(account) => {
+        Ask::New(account) | Ask::Loading(account) => {
             let answer = protocol::command_refused(ask, NOT_IN_THE_WORLD);
             (account, answer)
         }
@@ -425,6 +461,46 @@ fn player_command(socket: &UdpSocket, from: SocketAddr, ask: u32, line: &str) {
     };
     if sessions::finish_ask(from, &account, ask, &answer) {
         send_answer(socket, from, ask, &answer);
+    }
+}
+
+/// Pieces of the map, for a player who's been offered it.  Anybody else
+/// hears nothing: the map goes only to somebody about to play, and a big
+/// answer to a small ask from a stranger is how a server gets used to
+/// flood somebody.
+fn map_pieces(socket: &UdpSocket, from: SocketAddr, first: u32, count: u8) {
+    if !sessions::fetching_map(from) {
+        return;
+    }
+    let Some(map) = overworld::current() else {
+        return;
+    };
+    for piece in map.pieces(first, count) {
+        send(socket, from, piece);
+    }
+}
+
+/// The client has the map.  Only a player whose character is loaded and
+/// waiting has anything to put in the world: theirs goes to Protogame,
+/// which answers it.  Anybody else is refused here, a stranger or a
+/// player whose last ask is still being worked on hears nothing, and one
+/// asked again gets the answer it missed.
+fn player_ready(socket: &UdpSocket, from: SocketAddr, ask: u32, hash: String) {
+    let (account, answer) = match sessions::begin_ask(from, ask) {
+        Ask::Stranger | Ask::Busy => return,
+        Ask::Again(answer) => {
+            send_answer(socket, from, ask, &answer);
+            return;
+        }
+        Ask::Loading(account) => match protogame::hand_in(from, account.clone(), ask, Work::Ready { hash }) {
+            Ok(()) => return,
+            Err(answer) => (account, answer),
+        },
+        Ask::New(account) => (account, protocol::command_refused(ask, NOTHING_WAITING)),
+        Ask::InWorld(account, _) => (account, protocol::command_refused(ask, ALREADY_IN)),
+    };
+    if sessions::finish_ask(from, &account, ask, &answer) {
+        send(socket, from, &answer);
     }
 }
 
@@ -515,6 +591,13 @@ mod tests {
         let mut said = vec![PacketType::PlayerCommand as u8, 3, 0, 0, 0, 9, 0, 0, 0];
         said.extend_from_slice(b"/chat Yo!");
         heard(&ours, &said, from);
+        assert!(stranger.recv_from(&mut buffer).is_err());
+
+        // The map's pieces and PlayerReady from a stranger: silence too.
+        heard(&ours, &[PacketType::OverworldMapRequest as u8, 0, 0, 0, 0, 64], from);
+        let mut ready = vec![PacketType::PlayerReady as u8, 4, 0, 0, 0, 64, 0, 0, 0];
+        ready.extend_from_slice("ab".repeat(32).as_bytes());
+        heard(&ours, &ready, from);
         assert!(stranger.recv_from(&mut buffer).is_err());
     }
 

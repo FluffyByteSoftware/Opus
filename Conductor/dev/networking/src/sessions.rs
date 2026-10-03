@@ -64,6 +64,15 @@
 //! book notes it, and `with_book()` asks the GameClock to save it and take
 //! it out once the lock is let go.
 //!
+//! Since protocol version 11 there's a step between: the character picked
+//! is loaded and held on the player here (`parked()`), not put in the
+//! world, while the client fetches the simple overworld map, and only
+//! PlayerReady puts it in (`take_loading()`, then `entered()`).  Jacob:
+//! "it doesn't show them or spawn them in the physical world until
+//! they're ready".  A player who leaves while loading leaves nothing
+//! behind: the character was never in the world, so there's nothing to
+//! save, and the held copy goes with the player.
+//!
 //! A character is locked for a second (`LOCK_FOR`) whenever it moves
 //! between the database and the world: when Protogame starts loading it
 //! (`lock_for_loading()`), and when it leaves.  One that left stays locked
@@ -90,6 +99,7 @@ use std::sync::{LazyLock, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use conductor_primlib::Blueprint;
 use conductor_tools::clock::Utc;
 use conductor_tools::fingerprinter;
 use conductor_tools::scribe::{self, Channel};
@@ -130,8 +140,12 @@ struct Player {
     /// ask comes in again.
     answered: Option<(u32, Vec<u8>)>,
     /// Their character in the world, once they've picked one.  `None`
-    /// at character select.
+    /// at character select, and while it's loading.
     character: Option<InWorld>,
+    /// The character they picked, loaded and waiting for their client to
+    /// have the map (protocol version 11).  `None` at character select,
+    /// and once it's in the world.
+    loading: Option<Loading>,
     /// When their last command went through, and how long it makes them
     /// wait before the next (`may_command()`).  `None` before their first.
     last_command: Option<(Instant, Duration)>,
@@ -145,6 +159,18 @@ pub struct InWorld {
     pub id: i64,
     pub uuid: String,
     pub name: String,
+}
+
+/// A character loaded for a player and held until their client says it
+/// has the map: PlayerReady puts it in the world.
+pub struct Loading {
+    /// What it'll be on the player once it's in.
+    pub character: InWorld,
+    /// The character itself, from its row and its save, for the
+    /// GameClock's mailbox.
+    pub blueprint: Blueprint,
+    /// Where it stands, x, y and z, for the CharacterEnteredWorld.
+    pub position: [f32; 3],
 }
 
 /// Where an account is right now.
@@ -264,6 +290,10 @@ pub enum Ask {
     /// theirs to be done.  The player's account, and their character's
     /// name.
     InWorld(String, String),
+    /// A new ask from a player whose character is loaded and waiting on
+    /// the map (version 11).  A PlayerReady is theirs to be worked; any
+    /// other ask is answered with a refusal.  The player's account.
+    Loading(String),
 }
 
 /// What the admin's kick of a login's row found in the book.
@@ -405,6 +435,33 @@ pub fn finish_ask(from: SocketAddr, account: &str, ask: u32, answer: &[u8]) -> b
 /// (`leave_world()`), since there's nobody left to play it.
 pub fn entered(from: SocketAddr, account: &str, ask: u32, character: InWorld, answer: &[u8]) -> bool {
     entered_in(&mut book(), from, account, ask, character, answer)
+}
+
+/// A player's picked character is loaded and held, waiting on their
+/// client to fetch the map: Protogame loaded it, for the ask `ask`, and
+/// `answer` is the OverworldMapOffer to keep for a repeat.  True if it's
+/// held on the player and the answer should go out.  False if the player
+/// at `from` has left (or somebody else is there now), and then the
+/// caller just drops it: it was never in the world.
+pub fn parked(from: SocketAddr, account: &str, ask: u32, loading: Loading, answer: &[u8]) -> bool {
+    parked_in(&mut book(), from, account, ask, loading, answer)
+}
+
+/// Takes the held character off the player at `from`, for Protogame to
+/// put in the world on their PlayerReady.  `None` if there's none, or the
+/// player there isn't `account`.  The player is back at character select
+/// until `entered()` says otherwise, so if the character can't go in,
+/// they can press PLAY again.
+pub fn take_loading(from: SocketAddr, account: &str) -> Option<Loading> {
+    take_loading_in(&mut book(), from, account)
+}
+
+/// Whether the player at `from` may have pieces of the map: they've been
+/// offered it, and their character is waiting on it.  It counts as
+/// hearing from them.  A stranger, and a player anywhere else, gets no
+/// pieces, so the map can't be pulled by anybody not about to play.
+pub fn fetching_map(from: SocketAddr) -> bool {
+    fetching_map_in(&mut book(), from, Instant::now())
 }
 
 /// Takes a character out of the world that no player in the book holds:
@@ -622,7 +679,7 @@ fn connect_in(book: &mut Book, token: &str, from: SocketAddr, now: Instant) -> C
     }
     book.players.insert(from, Player { account: name.clone(), token: token.to_string(), last_heard: now,
                                        connected_at: now, connected: Utc::now(), door, asking: None,
-                                       answered: None, character: None, last_command: None });
+                                       answered: None, character: None, loading: None, last_command: None });
     book.accounts.insert(name.clone(), Whereabouts::Playing(from));
     Connected::Accepted(name)
 }
@@ -643,6 +700,9 @@ fn begin_ask_in(book: &mut Book, from: SocketAddr, ask: u32, now: Instant) -> As
     player.asking = Some(ask);
     if let Some(character) = &player.character {
         return Ask::InWorld(player.account.clone(), character.name.clone());
+    }
+    if player.loading.is_some() {
+        return Ask::Loading(player.account.clone());
     }
     Ask::New(player.account.clone())
 }
@@ -671,6 +731,38 @@ fn entered_in(book: &mut Book, from: SocketAddr, account: &str, ask: u32, charac
     player.answered = Some((ask, answer.to_vec()));
     player.character = Some(character);
     true
+}
+
+fn parked_in(book: &mut Book, from: SocketAddr, account: &str, ask: u32, loading: Loading, answer: &[u8])
+    -> bool {
+    let Some(player) = book.players.get_mut(&from) else {
+        return false;
+    };
+    if player.account != account || player.asking != Some(ask) {
+        return false;
+    }
+    player.asking = None;
+    player.answered = Some((ask, answer.to_vec()));
+    player.loading = Some(loading);
+    true
+}
+
+fn take_loading_in(book: &mut Book, from: SocketAddr, account: &str) -> Option<Loading> {
+    let player = book.players.get_mut(&from)?;
+    if player.account != account {
+        return None;
+    }
+    player.loading.take()
+}
+
+fn fetching_map_in(book: &mut Book, from: SocketAddr, now: Instant) -> bool {
+    match book.players.get_mut(&from) {
+        Some(player) => {
+            player.last_heard = now;
+            player.loading.is_some()
+        }
+        None => false,
+    }
 }
 
 /// Starts a character's loading lock.  A leaving lock it already has
@@ -931,6 +1023,66 @@ mod tests {
 
         // The answer is kept like any other, for a lost one.
         assert_eq!(begin_ask_in(&mut book, home, 3, now), Ask::Again(b"in".to_vec()));
+    }
+
+    /// Jacob's character loaded and held, the way Protogame parks it.
+    fn jacob_loading() -> Loading {
+        Loading { character: jacob(), blueprint: conductor_primlib::gameobject::new_character("Jacob"),
+                  position: [1.5, 0.0, -2.0] }
+    }
+
+    #[test]
+    fn a_loaded_character_waits_on_the_player_until_ready() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        let stranger = address("10.0.0.9:50000");
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
+        connect_in(&mut book, "abc", home, now);
+
+        // Not offered the map yet: no pieces for them, or a stranger.
+        assert!(!fetching_map_in(&mut book, home, now));
+        assert!(!fetching_map_in(&mut book, stranger, now));
+
+        // PLAY: held only on the player who asked.
+        assert_eq!(begin_ask_in(&mut book, home, 1, now), Ask::New("jacob".to_string()));
+        assert!(!parked_in(&mut book, home, "brother", 1, jacob_loading(), b"offer"));
+        assert!(!parked_in(&mut book, home, "jacob", 2, jacob_loading(), b"offer"));
+        assert!(parked_in(&mut book, home, "jacob", 1, jacob_loading(), b"offer"));
+        assert!(fetching_map_in(&mut book, home, now));
+        assert!(!fetching_map_in(&mut book, stranger, now));
+
+        // Not in the world yet: no chat for them, nothing on the page.
+        assert!(in_world_in(&book).is_empty());
+        assert!(names_in_world_in(&book).is_empty());
+        assert_eq!(players_in(&book, now)[0].character, None);
+
+        // A lost offer is sent again; a new ask is the PlayerReady's.
+        assert_eq!(begin_ask_in(&mut book, home, 1, now), Ask::Again(b"offer".to_vec()));
+        assert_eq!(begin_ask_in(&mut book, home, 2, now), Ask::Loading("jacob".to_string()));
+        assert!(take_loading_in(&mut book, home, "brother").is_none());
+        let held = take_loading_in(&mut book, home, "jacob").unwrap();
+        assert_eq!(held.character, jacob());
+        assert_eq!(held.position, [1.5, 0.0, -2.0]);
+        assert!(!fetching_map_in(&mut book, home, now));
+
+        assert!(entered_in(&mut book, home, "jacob", 2, held.character, b"in"));
+        assert_eq!(in_world_in(&book), vec![home]);
+    }
+
+    #[test]
+    fn a_player_who_leaves_while_loading_leaves_nothing_in_the_world() {
+        let mut book = Book::new();
+        let now = Instant::now();
+        let home = address("10.0.0.5:50000");
+        issue_in(&mut book, "jacob", "abc", 1, now).unwrap();
+        connect_in(&mut book, "abc", home, now);
+        begin_ask_in(&mut book, home, 1, now);
+        assert!(parked_in(&mut book, home, "jacob", 1, jacob_loading(), b"offer"));
+
+        assert_eq!(remove_player_in(&mut book, home, Gone::SaidGoodbye), Some("jacob".to_string()));
+        assert!(book.leaving.is_empty());
+        assert!(book.locks.is_empty());
     }
 
     #[test]

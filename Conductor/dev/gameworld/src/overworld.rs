@@ -40,6 +40,8 @@
 //! ground's rules, never from somebody's digging, so it's always safe to
 //! write over: unlike a chunk file, it's never the only copy of anything.
 
+use std::sync::Arc;
+
 use conductor_tools::diskman;
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
@@ -224,15 +226,17 @@ fn commonest(kinds: &[(Block, u32)]) -> Block {
 
 /// Makes sure `simple_overworld.map` is there and is this world's, writing
 /// it if it isn't, and waits on DiskMan to say it's on the disk (this is
-/// GameWorld's own thread, so the waiting costs nobody).  An error means
-/// there's no map to send players, and the door stays shut.
-pub fn ensure(map: &RegionMap, heights: &[Option<Heights>]) -> Result<(), String> {
+/// GameWorld's own thread, so the waiting costs nobody).  Hands back the
+/// file's bytes, which GameWorld keeps for networking to send players at
+/// PLAY.  An error means there's no map to send them, and the door stays
+/// shut.
+pub fn ensure(map: &RegionMap, heights: &[Option<Heights>]) -> Result<Arc<Vec<u8>>, String> {
     let path = crate::overworld_path();
     match diskman::read(&path).wait() {
         Ok(bytes) => match Overworld::from_bytes(&bytes) {
             Ok(found) if found.fits(map) => {
                 scribe::debug(Channel::Game, &format!("GameWorld read {}: it's this world's.", path.display()));
-                return Ok(());
+                return Ok(bytes);
             }
             Ok(_) => scribe::info(Channel::Game, &format!("{} is another world's.  GameWorld is making it again for \
                 this one.", path.display())),
@@ -260,19 +264,21 @@ pub fn ensure(map: &RegionMap, heights: &[Option<Heights>]) -> Result<(), String
         !crate::stopping()
     })?;
 
+    // Rust note: DiskMan takes the bytes it writes, so it gets a copy and
+    // the bytes themselves come back to the caller.  16 MB at the most,
+    // once a world.
     let bytes = overworld.to_bytes();
     let size = bytes.len();
-    diskman::write(&path, bytes).wait()
+    diskman::write(&path, bytes.clone()).wait()
         .map_err(|e| format!("{} couldn't be written: {e}", path.display()))?;
     scribe::debug(Channel::Game, &format!("GameWorld wrote {} ({size} bytes) in {:.1} s.", path.display(),
                                           started.elapsed().as_secs_f64()));
-    Ok(())
+    Ok(Arc::new(bytes))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
 
     /// A heights file for the box west, south, width by depth, with the
     /// height in each column from `height`, made by hand so a test can

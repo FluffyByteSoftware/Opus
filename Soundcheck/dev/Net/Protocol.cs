@@ -13,7 +13,7 @@ namespace Opus.Net
     {
         // The version this client speaks.  The server says its own in the
         // Hello, and a client built against another stops right there.
-        public const byte Version = 10;
+        public const byte Version = 11;
 
         // What a client has to say with its login.  Not a secret from
         // anybody with a copy of the client; it turns port scanners away
@@ -25,7 +25,8 @@ namespace Opus.Net
 
         // ---------------------------------------------------------------
         // Packet types.  The high four bits are the group: 0x1_ the login
-        // over TCP, 0x2_ character select over UDP, 0x3_ the game over UDP.
+        // over TCP, 0x2_ character select over UDP, 0x3_ the game over UDP,
+        // 0x4_ the ground over UDP.
         // ---------------------------------------------------------------
 
         public const byte Hello = 0x10;
@@ -44,6 +45,7 @@ namespace Opus.Net
         public const byte CharacterRequestResetHome = 0x26;
         public const byte UserPressPlay = 0x27;
         public const byte CharacterEnteredWorld = 0x28;
+        public const byte PlayerReady = 0x29;
 
         public const byte Connect = 0x30;
         public const byte ConnectResult = 0x31;
@@ -57,6 +59,10 @@ namespace Opus.Net
         public const byte WhoDelivery = 0x39;
         public const byte Span = 0x3A;
         public const byte PleaseWait = 0x3B;
+
+        public const byte OverworldMapOffer = 0x40;
+        public const byte OverworldMapRequest = 0x41;
+        public const byte OverworldMapPiece = 0x42;
 
         // ---------------------------------------------------------------
         // What's inside them
@@ -92,6 +98,7 @@ namespace Opus.Net
                 case CharacterRequestResetHome: return "CharacterRequestResetHome";
                 case UserPressPlay: return "UserPressPlay";
                 case CharacterEnteredWorld: return "CharacterEnteredWorld";
+                case PlayerReady: return "PlayerReady";
                 case Connect: return "Connect";
                 case ConnectResult: return "ConnectResult";
                 case KeepAlive: return "KeepAlive";
@@ -104,6 +111,9 @@ namespace Opus.Net
                 case WhoDelivery: return "WhoDelivery";
                 case Span: return "Span";
                 case PleaseWait: return "PleaseWait";
+                case OverworldMapOffer: return "OverworldMapOffer";
+                case OverworldMapRequest: return "OverworldMapRequest";
+                case OverworldMapPiece: return "OverworldMapPiece";
                 default: return "0x" + kind.ToString("X2");
             }
         }
