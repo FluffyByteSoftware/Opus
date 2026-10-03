@@ -289,6 +289,10 @@ Windows.  What's left, a step each:
   ("keeping as 8"); the default stays 4.  At the hand-off: "prepare next conversation for wiring up
   ensemble to receive the streams and the map and the hardest part - rendering it" (STATUS.md has what's
   to settle).
+- **The spawn's height** (session 5): a block at x, y, z fills x to x+1 each way and a character's y is its
+  feet, so a character at 0, 0, 0 stands in the GOLD, one block into Alpha's ground (the DIRT layer is y 0
+  to 1).  Whether the spawn (and RESET HOME) should be y 1, or the server should put a character on top of
+  whatever is under it, is Conductor's to settle.  Ensemble draws it where the server says.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
