@@ -325,7 +325,7 @@ decides how soon everybody else hears of it.  Taking moves in every 50 ms only h
 every 50 ms, five times the packets.  So **once a cycle**, in the input check, as built; one line to change
 if he says otherwise.
 
-### As written, round one: Conductor and the test client (session 10; not yet built)
+### As written, round one: Conductor and the test client (session 10; built and tested in session 12)
 
 Protocol version 15.  PROTOCOL.md ("Movement") has the packets; `design/gameclock.md` ("Movement") the
 judging and the ground following the players; `design/conductor-networking.md` ("Movement") networking's

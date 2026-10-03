@@ -22,7 +22,7 @@ count at 0, and a clean STOP SERVER and START SERVER).  Housekeeping takes in th
 saves the world; input brings players' characters in and out of the world through the mailbox; broadcast
 sends out the chat (2026-10-02, "Chat" below), answers `/who` and, since session 9, tells each player what
 they see of the world ("The view" below); since session 10 input judges every move a player's client sends
-and movement stops a walker gone quiet ("Movement" below, written, not yet built); AI is empty.
+and movement stops a walker gone quiet ("Movement" below, built and tested in session 12); AI is empty.
 
 **Ready for the spawn** (2026-10-01, built and tested, every check passed): the mailbox, the players' list,
 and the world save.  See "Players and the world save" below.
@@ -200,7 +200,7 @@ PROTOCOL.md ("The world's objects") the packets.  The GameClock's half, `view.rs
   place would fill the check.  If it ever matters, the first thing to try is keeping the objects by their
   column of chunks, so each player only looks at the squares near them instead of at everybody (TODO.md).
 
-## Movement (2026-10-03, session 10; written, not yet built)
+## Movement (2026-10-03, session 10; built and tested in session 12)
 
 Jacob's answers are in `design/ensemble-world.md` ("Movement"), in his words; PROTOCOL.md ("Movement") has
 the packets.  EverQuest's way: a player's client walks its own character and says where it went, and the

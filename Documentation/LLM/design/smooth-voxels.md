@@ -134,7 +134,7 @@ Put to him at the start of building, the four questions the hand-off left open.
 
 ### As written
 
-**Step 1, what a voxel holds** (session 12, 2026-10-03; Jacob's OK; **written, not built**).  Conductor's
+**Step 1, what a voxel holds** (session 12, 2026-10-03; Jacob's OK; **built and tested**, every check).  Conductor's
 `gameworld`, and the kinds in the other three.  No packet changes shape, but the kinds a chunk carries do,
 so **protocol version 16** (Jacob: "bump protocol version up"), all four programs together.
 - `block.rs`: `Density`, a byte, `EMPTY` 0, `HALF` 128, `FULL` 255, `is_solid()` at 128 and over, and
@@ -155,7 +155,7 @@ so **protocol version 16** (Jacob: "bump protocol version up"), all four program
   MASONED_STONE slot is new (empty until Jacob gives it a material; nothing makes it yet).
 - Version 16 in `protocol.rs`, `test_client.py`, Ensemble's and Soundcheck's `Protocol.cs`, PROTOCOL.md.
 
-**Step 2, the simple overworld map dropped** (session 12, 2026-10-03; Jacob's OK; **written, not built**).
+**Step 2, the simple overworld map dropped** (session 12, 2026-10-03; Jacob's OK; **built and tested**, every check).
 Protocol version 17, all four programs.  PLAY's answer is a **GroundOffer** (`0x40`): where the character
 will stand and how many chunks it sees; the client pulls the chunks and draws the nearest 99, and
 **PlayerReady** is its ask number only.  Gone: `overworld.rs` in `gameworld` and in `networking` (and

@@ -174,7 +174,7 @@ The server's side is PROTOCOL.md's "In the world"; the chat window is `design/en
 - **`Session.ReachedWorld`**: PLAY's answer, which ScreenRoot turns into the HUD (since version 11,
   PlayerReady's).
 
-## The GroundOffer at PLAY (2026-10-03, session 12, written, not built)
+## The GroundOffer at PLAY (2026-10-03, session 12, built and tested)
 
 Protocol version 17, PROTOCOL.md's "The way into the world": the simple overworld map is dropped (Jacob:
 "we are dropping it... we don't need it anymore").  **`GameConnection`** reads PLAY's answer, the

@@ -18,7 +18,7 @@ world's size became `world_size` in `game.cfg`, 16 to start, twice as wide as be
 **Smooth voxels, stage 1, is settled, and being built a step at a time from session 12**
 (`design/smooth-voxels.md`): 1 m voxels still, the terrain kinds smooth with a density each, structures
 cubes, caves and catacombs from a 3D density, -32 to +319 kept, buildings stamped from Treble's `.fbm`s, a
-45-degree slope.  **Session 12's step** (written, not built): every voxel holds a density beside its kind,
+45-degree slope.  **Session 12's step** (built and tested): every voxel holds a density beside its kind,
 the chunk file is version 3, GOLD is gone and MASONED_STONE is in (protocol version 16); the ground is
 still built from the kinds, every voxel full or empty, so it looks as it did.  What follows is the world
 as built, all cubes, until the rest lands.

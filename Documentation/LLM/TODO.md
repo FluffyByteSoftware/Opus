@@ -246,7 +246,7 @@ Windows.  What's left, a step each:
 
 - **The world's dump** (Jacob, 2026-10-02).  **Dropped in session 12** (2026-10-03, Jacob: "we are
   dropping it... we don't need it anymore"): with nothing drawn past the view, the simple overworld map
-  has no use left.  **Taken out in session 12** (protocol version 17, the GroundOffer; written, not built;
+  has no use left.  **Taken out in session 12** (protocol version 17, the GroundOffer; built and tested;
   `design/smooth-voxels.md`, "Settled in session 12").  What it was: Conductor dumps a portable world to
   `Content/`, "a general
   shape of the world but 'smoothed'", for the client to carry (region.map and the heights, the ground as
