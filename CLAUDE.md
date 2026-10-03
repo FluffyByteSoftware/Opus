@@ -43,7 +43,7 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 | Where things stand, what's waiting, his map  | `Documentation/LLM/STATUS.md`                             |
 | What's deferred, ideas, the clean-up list    | `Documentation/LLM/TODO.md`; big ones, `LONGTERM_TODO.md` |
 | Every folder and file, the named pieces      | `Documentation/LLM/PROJECT_OPUS.md`                       |
-| The front page, building and running it      | `README.md`; `Documentation/HowTo/` to install, release, Windows |
+| The front page, building and running it      | `README.md`; `Documentation/HowTo/` to install, release, Windows|
 | My voice, the file headers, line widths      | `Documentation/LLM/WRITINGSTYLE.md`                       |
 | What to check on `testing`                   | `Documentation/LLM/TEST_CHECKLIST.html`                   |
 | The packets, byte for byte                   | `Documentation/LLM/PROTOCOL.md`                           |
