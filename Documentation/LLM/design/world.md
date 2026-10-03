@@ -252,7 +252,10 @@ bulk.
   PLAY's answer is an offer (the size, the pieces, the SHA-256), the client pulls the pieces 64 at a time,
   and PlayerReady with the hash it has puts the character in the world; PROTOCOL.md has them.  **A fresh
   download every PLAY** ("we're just gonna write over whatever the client already has every time"), and a
-  client that can't get it goes back to the launcher with the message.
+  client that can't get it goes back to the launcher with the message.  **Measured** (Jacob, 2026-10-03, the
+  editor on his LAN, `world_size` 32): 16,777,244 bytes in 16,385 pieces in 0.16 s, 103.6 MB/s ("16 megs
+  isn't much :D").  Over the internet each 64 pieces waits a round trip, so at a 50 ms ping it's a guess of
+  about 1.3 MB/s, some 13 s for this map; unmeasured.
 - **Hidden things are sent ahead and hidden by the client** ("honestly with the way we're building this I
   am not too worried about cheating this isn't a serious game like that... not yet at least"), with room
   to tighten later ("make it so that we have the option I guess?  Like a flexibility to add more
