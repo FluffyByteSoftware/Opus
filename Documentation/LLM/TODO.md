@@ -59,7 +59,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **A major clean-up of code and documentation** (Jacob, 2026-10-02, at the chat window's hand-off: "Next
   conversation we're gonna do major clean up of code and documentation").  **Pass one of the docs is done**
   (2026-10-02): the facts the code had overtaken, the built history in this file, the doubles, and CLAUDE.md's
-  longer directions cut down; the stale words in the code went the day after.  Seen and left:
+  longer directions cut down; the stale words in the code went the day after, and CLAUDE.md became the
+  rules and a map (Jacob: the aim was "to reduce token overhead with obsolete instructions and drift", not
+  to trim for its own sake).  Seen and left:
   `ChatWidget`'s `Font` being a static set by ScreenRoot, which works but is the only slot handed over
   that way (the other screens' font goes through `ApplyText()`); `design/conductor-networking.md`'s "Chat"
   and "/who" sections, patched for the commands' move rather than rewritten; `design/ensemble-hud.md`'s

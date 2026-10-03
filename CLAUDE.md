@@ -206,8 +206,10 @@ When I say we're wrapping up:
    If the session's code hasn't been built by me yet, say so plainly, so the
    next session starts by expecting compile fixes.  **STATUS.md holds the
    last 24 hours of sessions as well** (2026-10-03, my "oh shit" fallback):
-   a line each, "we did X, Y, Z", with the session's number and date.  Older
-   than a day, a line comes out, unless it still bears on what's next.
+   a line each, "we did X, Y, Z", headed by the session's number and date.
+   **Sessions are numbered from 0** (2026-10-03, the docs clean-up), each the
+   one after; the number goes on the "Last session" heading too.  Older than
+   a day, a line comes out, unless it still bears on what's next.
 2. Update `TODO.md`, `PROJECT_OPUS.md` and the `design/` files the session
    changed, so they match reality.  Add the session's checks to
    `TEST_CHECKLIST.html`.  A check that passes is taken out, not struck

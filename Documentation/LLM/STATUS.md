@@ -63,9 +63,52 @@ Windows... I need to make sure soundcheck is set up properly to validate off the
 yet"**.  The check and the patch are built since; the Windows builds aren't (TODO.md, "Soundcheck").
 
 At the patcher's hand-off (2026-10-02): **"we got a bit more polish to do next session.  Then we're going to
-start working on the hard part getting the world to the client"**.  His to change.
+start working on the hard part getting the world to the client"**.  At the clean-up's (2026-10-03): **"I
+think we are going to have to figure out how to serve the world up to the client :)"**.  His to change.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
+
+## The last day
+
+A line a session, newest last, Jacob's "oh shit" fallback (2026-10-03): what each did, so a lost chat or a
+wrong turn can be seen at a glance.  A line older than a day comes out unless it still bears on what's next.
+**Sessions are numbered from 0**, which is 2026-10-03's docs clean-up (Jacob: "we're going to start tracking
+each session date and number starting from 0 on this one"); the next is 1, and so on.  The lines before it
+have no number.
+
+- **2026-10-02**: chat on the server (`/chat`, protocol version 8), `/who` and `/who list` (version 9),
+  Spans, the anti-flood for every command, the test client's Ctrl-C.  Built and tested.
+- **2026-10-02**: Ensemble's chat window, `/who`'s box and `/camp`; the commands moved into
+  `conductor-player-commands`; EverQuest's keys (Enter, `/`, Escape, `GameFocus`).  Built and tested.
+- **2026-10-02**: the 0.0.1 review's four bugs and seven risks fixed; PleaseWait (version 10); **0.0.1
+  released**: `main` to `testing`'s tip, the tag, the two packages, INSTALLATION_INSTRUCTIONS and RELEASE.
+- **2026-10-02**: Soundcheck's first step: the login over TLS 1.3, Remember Me, admin mode's manifest,
+  debug mode.  Built and tested.
+- **2026-10-02**: the login out of Ensemble; the start screen and dev mode; PLAY starts the game with the
+  ticket; the way back with the reason.  Built and tested; the old login's files deleted.
+- **2026-10-02**: two manifests from a web address, then Jacob's redesigns: the web folder, PUBLISH, the
+  check at start, the patch a file at a time.  Built and tested against the real web folder.
+- **2026-10-02**: REPORT.html, the easy version of how Opus hangs together, with diagrams.
+- **Session 0, 2026-10-03**: the docs clean-up, pass one: facts the code had overtaken, the built history out of
+  TODO.md, the doubles merged, Soundcheck's first design told as history; the stale words in the code (a
+  build to run); CLAUDE.md cut to the rules and a "where to look" map; this rolling day.
+
+## Last session -- session 0, 2026-10-03, the docs clean-up, pass one
+
+Jacob: "I'd like to go over our documentation and prune any out of date information or repeat information
+on the first pass.  Let's also see if theres any directions you can rephrase in fewer words."  What went:
+facts the code had overtaken (Ensemble's certificate copy, "four crates", "ten members", the GameClock's
+senders handed over "at networking's start", the design shapes Soundcheck went through written up as if
+live), TODO.md's built-and-tested history (the design files have it), and the doubles (CLAUDE.md's two
+player-commands bullets, its copy of the web admin's tabs, STATUS's crate list).  His answers after: trim
+CLAUDE.md down to the rules and pointers at the documents, so a session reads the one for the concern in
+front of it (done: a "Where to look" table, and each piece's detail left to its design file); STATUS.md
+keeps the last 24 hours of sessions as one-line summaries (done, above); the pass-two candidates
+(`ensemble-hud.md`'s login sections, networking's "Chat" and "/who", the launcher rules, REPORT.html) are
+left alone; the stale words in the code go now (done: comments, log lines and the Server tab's note, no
+behaviour changed; three checks in TEST_CHECKLIST.html, **not built by Jacob yet**).  At the hand-off: the
+session count starts at 0 here; CLAUDE.md's depth is right ("we don't need to trim that much... I just mostly
+wanted to reduce token overhead with obsolete instructions and drift"); and his pick for next, below.
 
 ## The session before -- 2026-10-02, the web folder: PUBLISH, the check at start, the patch
 
@@ -93,60 +136,22 @@ is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
 - **Nothing in Conductor changed**, and nothing of its half is left but the report up and
   `allow_debug_clients`, both open (TODO.md).
 
-## The last day
-
-A line a session, newest last, Jacob's "oh shit" fallback (2026-10-03): what each did, so a lost chat or a
-wrong turn can be seen at a glance.  A line older than a day comes out unless it still bears on what's next.
-The number is the session's place in its day.
-
-- **2026-10-02 #1**: chat on the server (`/chat`, protocol version 8), `/who` and `/who list` (version 9),
-  Spans, the anti-flood for every command, the test client's Ctrl-C.  Built and tested.
-- **2026-10-02 #2**: Ensemble's chat window, `/who`'s box and `/camp`; the commands moved into
-  `conductor-player-commands`; EverQuest's keys (Enter, `/`, Escape, `GameFocus`).  Built and tested.
-- **2026-10-02 #3**: the 0.0.1 review's four bugs and seven risks fixed; PleaseWait (version 10); **0.0.1
-  released**: `main` to `testing`'s tip, the tag, the two packages, INSTALLATION_INSTRUCTIONS and RELEASE.
-- **2026-10-02 #4**: Soundcheck's first step: the login over TLS 1.3, Remember Me, admin mode's manifest,
-  debug mode.  Built and tested.
-- **2026-10-02 #5**: the login out of Ensemble; the start screen and dev mode; PLAY starts the game with the
-  ticket; the way back with the reason.  Built and tested; the old login's files deleted.
-- **2026-10-02 #6**: two manifests from a web address, then Jacob's redesigns: the web folder, PUBLISH, the
-  check at start, the patch a file at a time.  Built and tested against the real web folder.
-- **2026-10-02 #7**: REPORT.html, the easy version of how Opus hangs together, with diagrams.
-- **2026-10-03 #1**: the docs clean-up, pass one: facts the code had overtaken, the built history out of
-  TODO.md, the doubles merged, Soundcheck's first design told as history; the stale words in the code (a
-  build to run); CLAUDE.md cut to the rules and a "where to look" map; this rolling day.
-
-## Last session -- 2026-10-03, the docs clean-up, pass one
-
-Jacob: "I'd like to go over our documentation and prune any out of date information or repeat information
-on the first pass.  Let's also see if theres any directions you can rephrase in fewer words."  What went:
-facts the code had overtaken (Ensemble's certificate copy, "four crates", "ten members", the GameClock's
-senders handed over "at networking's start", the design shapes Soundcheck went through written up as if
-live), TODO.md's built-and-tested history (the design files have it), and the doubles (CLAUDE.md's two
-player-commands bullets, its copy of the web admin's tabs, STATUS's crate list).  His answers after: trim
-CLAUDE.md down to the rules and pointers at the documents, so a session reads the one for the concern in
-front of it (done: a "Where to look" table, and each piece's detail left to its design file); STATUS.md
-keeps the last 24 hours of sessions as one-line summaries (done, above); the pass-two candidates
-(`ensemble-hud.md`'s login sections, networking's "Chat" and "/who", the launcher rules, REPORT.html) are
-left alone; the stale words in the code go now (done: comments, log lines and the Server tab's note, no
-behaviour changed; three checks in TEST_CHECKLIST.html, **not built by Jacob yet**).
-
 ## Where the next session starts
 
-**Jacob's pick**: "a bit more polish" on the patcher first, then "the hard part getting the world to the
-client".  What polish means is his to say when the session opens; the candidates are in TODO.md under
-"Soundcheck" (the Windows builds published as the Windows half, Soundcheck's log file for Windows, one
-package, `client_versions` and `tls12`).  The world to the client is `design/world.md`'s part two and the
-world's dump (TODO.md), and it starts with a plan.
+**Jacob's pick** (2026-10-03): "figure out how to serve the world up to the client".  It starts with a plan,
+talked through here with the docs at hand.  What's written so far: `design/world.md` ("Where it stands":
+part two, and "Saving"); LONGTERM_TODO.md, "The world" ("Sending chunks to a client: only the ones near it,
+since the server decides what each client sees.  A protocol change.  And how Ensemble gets `region.map`";
+"Loading around players who move"); TODO.md, "Soundcheck" ("The world's dump", Jacob's "broad stroke" world
+the client carries, shipped through the manifest, and "The world's files on the client",
+`Assets/StreamingAssets/World/`); REGION_MAP.md (the C# reader for Ensemble); `design/gameclock.md`'s open
+list (the positions in the broadcast, only what each player may see).  Nothing of it is designed past
+those lines: what a chunk packet is, how many go and when, what the client does with them and with the dump,
+and whether movement comes with it, are his to settle.
 
-The patcher is tested on Linux against the real web folder (above).  What the build taught, fixed the same
-evening: the CA1416 guard has to be `OperatingSystem.IsWindows()`; a worker's last progress message can land
-after the words that follow it, so each carries its phase; and the check wants the game's *folder*, not its
-program, or a deleted `Ensemble.x86_64` stops the check instead of being fetched.
-
-Unordered (TODO.md, "Soundcheck", has each): the world's dump (Conductor's, and its line in the
-manifest); the Windows builds of Ensemble and Soundcheck published as the Windows half; Soundcheck's log
-file for Windows; one package; the other person's server.
+The patcher's polish is still in TODO.md under "Soundcheck", for whenever he wants it.  **The stale-words
+build from session 0 hasn't been run**: `cargo build` and `cargo test` first, and the three checks in
+TEST_CHECKLIST.html.
 
 Accounts to log in with: `testuser123` / `Testpass1!` (Tester), and `testuser456` / `Testpass1!` (Chatter).
 
