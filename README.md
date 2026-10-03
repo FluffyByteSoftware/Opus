@@ -22,7 +22,8 @@ key before it's sent or kept, and starts Ensemble with the ticket; all of it bui
 none of it on Windows yet.  Things will change and things will break.
 
 **0.0.1 is released (2026-10-02): a player logs in, picks a character, and stands in the world chatting.**
-The next is 0.0.2, movement; the versions ahead are in `Documentation/LLM/WAYPOINTS.md`.
+The next is 0.0.13, the world served up to the client; the versions ahead are in
+`Documentation/LLM/WAYPOINTS.md`.
 
 ## Where it stands
 

@@ -53,9 +53,10 @@ the spawn, chat, Soundcheck's login and patcher) are in the design files with th
 
 **The 0.0.1 goal**: "get a player spawned in the world and able to chat."  **Done and released** (2026-10-02).
 
-On the versions ahead (2026-10-03): WAYPOINTS.md, his flow chart: 0.0.2 is "movement working and
-synchronzied over the network with other clients", 0.0.3 "primitive NPCs in the game", 0.0.4 "more
-complex world generation", "then I'm not sure from there".  (On 2026-10-02 movement was "0.0.0.12"; the
+On the versions ahead (2026-10-03): WAYPOINTS.md, his flow chart: 0.0.13 is the world served up to the
+client ("way points of its own we'll say 0.0.13"), 0.0.2 "movement working and synchronzied over the
+network with other clients", 0.0.3 "primitive NPCs in the game", 0.0.4 "more complex world generation",
+"then I'm not sure from there".  (On 2026-10-02 movement was "0.0.0.12"; the
 chart's numbers are the ones now.)
 
 On the world (2026-10-01): "we will test a mountain out after we get the client up".
@@ -140,7 +141,8 @@ is what's on `unstable` now, OKed by him ("yup") after the plan was read back.
 
 ## Where the next session starts
 
-**Jacob's pick** (2026-10-03): "figure out how to serve the world up to the client".  It starts with a plan,
+**Jacob's pick** (2026-10-03): "figure out how to serve the world up to the client", waypoint 0.0.13
+(WAYPOINTS.md).  It starts with a plan,
 talked through here with the docs at hand.  What's written so far: `design/world.md` ("Where it stands":
 part two, and "Saving"); LONGTERM_TODO.md, "The world" ("Sending chunks to a client: only the ones near it,
 since the server decides what each client sees.  A protocol change.  And how Ensemble gets `region.map`";

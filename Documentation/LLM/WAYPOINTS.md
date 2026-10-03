@@ -18,6 +18,9 @@ flowchart LR
     A["0.0.1 (reached 2026-10-02)
     a player logs in, picks a
     character and chats"]
+    W["0.0.13
+    the world served up
+    to the client"]
     B["0.0.2
     movement, synchronized over
     the network with other clients"]
@@ -26,14 +29,16 @@ flowchart LR
     D["0.0.4
     more complex world generation"]
     E["?"]
-    A --> B --> C --> D --> E
+    A --> W --> B --> C --> D --> E
     style A fill:#10b981,stroke:#0f172a,color:#ffffff
     style E stroke-dasharray: 5 5
 ```
 
 ```text
-0.0.1 ──► 0.0.2 ──► 0.0.3 ──► 0.0.4 ──► ?
-reached   movement  NPCs      world gen
+0.0.1 ──► 0.0.13 ──► 0.0.2 ──► 0.0.3 ──► 0.0.4 ──► ?
+reached   the world  movement  NPCs      world gen
+          to the
+          client
 ```
 
 ## 0.0.1 -- reached, 2026-10-02
@@ -42,13 +47,18 @@ A player logs in, picks a character, and stands in the world chatting with whoev
 Conductor with its web admin, accounts and characters, the world of blocks and the GameClock over it;
 Ensemble's screens; `/chat` and `/who`.  Soundcheck came right after and will ship with the next one.
 
+## 0.0.13 -- the world served up to the client
+
+Jacob's words (2026-10-03): "figure out how to serve the world up to the client", a waypoint of its own
+("way points of its own we'll say 0.0.13").  The world reaches Ensemble and is on screen: the ground
+around the player, drawn, with nothing walking on it yet.  STATUS.md's "Where the next session starts" has
+every line the docs hold on it, and it starts with a plan.
+
 ## 0.0.2 -- movement, synchronized over the network with other clients
 
 Jacob's words: "movement working and synchronized over the network with other clients".  So a player
-walks, the server has the say on where they are, and everybody near sees them move.  On the way to it
-(Jacob, 2026-10-03: "figure out how to serve the world up to the client"): the world reaches Ensemble and
-is on screen, since there's nothing to walk on until it is.  STATUS.md's "Where the next session starts"
-has every line the docs hold on that.
+walks on the world 0.0.13 put on screen, the server has the say on where they are, and everybody near sees
+them move.
 
 ## 0.0.3 -- primitive NPCs in the game
 

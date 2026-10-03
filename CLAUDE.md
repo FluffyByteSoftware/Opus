@@ -24,8 +24,8 @@ unless I explicitly ask. Their *workflow* carried over; their code did not.
 Project root: `/opt/storage/Coding/Opus`
 
 **0.0.1 is released** (2026-10-02): a player logs in, picks a character and
-chats.  The versions ahead are `Documentation/LLM/WAYPOINTS.md` (0.0.2 is
-movement); his map for the next one is in STATUS.md.
+chats.  The versions ahead are `Documentation/LLM/WAYPOINTS.md` (next, 0.0.13: the
+world to the client); his map for the next one is in STATUS.md.
 
 **This file is the rules and where to look.**  It holds what applies in every
 session (how we work, git, the code rules, and the rules a piece can't be
