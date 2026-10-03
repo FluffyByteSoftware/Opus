@@ -27,10 +27,29 @@ come in as `design/ensemble-networking.md` says ("The chunks, Ensemble's half") 
   **Fixed**: "I'm going for the zomboid style where you can walk towards the camera but the camera only
   zooms in and out.  It doesn't swivel or rotate."  Cinemachine (3, already in the project) is set up by
   Jacob in the editor, following a **stand-in** the code puts where the character stands: a box 1 block
-  wide and 2 tall, its feet at the server's y, its material a slot like the blocks'.  The other shape was
-  the code building the camera rig.
-- **The slots**: one material each for DIRT, STONE, WOOD, GOLD and BEDROCK, and one for the stand-in.  An
-  empty slot's faces aren't drawn, and the Console says so once.
+  wide and 2 tall, its feet at the server's y.  The other shape was the code building the camera rig.
+- **The slots**: one material each for DIRT, STONE, WOOD, GOLD and BEDROCK.  An empty slot's faces aren't
+  drawn, and the Console says so once.  (The stand-in was to have a slot too; as written it's a Cube in the
+  scene, so its material is the Cube's own.)
 - **Where the character stands**: a block at x, y, z fills x to x+1 each way, and the character's y is its
   feet, so a character at 0, 0, 0 stands in the GOLD, a block into Alpha's ground.  Drawn as it is; the
   spawn's height is a Conductor question in TODO.md.
+
+## As written (2026-10-03, session 5, not built yet)
+
+- **`Code/World/ChunkMesher.cs`**: a chunk and the six round it into lists (`ChunkMesh`): four corners and
+  a normal a face, two triangles, kept by block kind.  A face wherever a block that isn't air meets air;
+  over the top row is air, under the bottom row solid.  Plain C# but for `Vector3`, so it runs on a
+  worker.  Times itself.
+- **`Scripts/World/GroundView.cs`** (a new folder under `Scripts/`): the five material slots and
+  Meshes Per Frame (32).  It hears `Ground.Added` and sends a chunk to its worker thread ("Ground mesher")
+  once it and the six round it are in; an all-air chunk is never sent.  `Update()` makes Unity's Mesh from
+  up to 32 results a frame (32-bit indices only past 65,535 corners), a GameObject a chunk under
+  GroundView, named "Chunk x,z row r", at its corner in blocks.  `Ground.Cleared` throws it all away,
+  and a result for the old Ground is dropped when it comes back.  The Console's line when the worker runs
+  out: "World: N chunks meshed, F faces, in S s (the worker's share W s, M ms a chunk); D chunks drawn in
+  all."
+- **`Scripts/World/CharacterStandIn.cs`**: on a Cube in the scene, scaled 1 by 2 by 1.  Hidden until
+  `Session.ReachedWorld`, then moved so its bottom is at the character's feet (`Session.Standing`, new,
+  from CharacterEnteredWorld's x, y, z); hidden again at `SessionOver`.  The Cinemachine camera follows it.
+- **`Ground`** has `Added` and `Cleared`.

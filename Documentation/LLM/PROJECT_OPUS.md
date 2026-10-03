@@ -221,12 +221,18 @@ Opus/
 │           │   │   ├── SimpleOverworldMap.cs # simple_overworld.map's reader (SIMPLE_OVERWORLD_MAP.md), Current
 │           │   │   ├── Chunk.cs       # a chunk: its place, its blocks (or its one kind), Unsqueeze(); the block
 │           │   │   │                  #   numbers' names (Blocks)
-│           │   │   └── Ground.cs      # the chunks the game has, by place; BlockAt() in world blocks (not
-│           │   │                      #   "Terrain", which is Unity's own)
+│           │   │   ├── ChunkMesher.cs # a chunk and the six round it into a mesh's lists, faces only against
+│           │   │   │                  #   air, by block kind; runs on GroundView's worker
+│           │   │   └── Ground.cs      # the chunks the game has, by place; BlockAt() in world blocks; Added and
+│           │   │                      #   Cleared (not "Terrain", which is Unity's own)
 │           ├── Scripts/
-│           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the start screen, character
-│           │                          #   select, the HUD) and which is showing; takes the ticket at start; the
-│           │                          #   text colour and font; runs MainThread once a frame
+│           │   ├── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the start screen, character
+│           │   │                      #   select, the HUD) and which is showing; takes the ticket at start; the
+│           │   │                      #   text colour and font; runs MainThread once a frame
+│           │   └── World/             # the world on screen, namespace Opus.World (design/ensemble-world.md)
+│           │       ├── GroundView.cs  # draws the Ground: a GameObject a chunk, the block kinds' material
+│           │       │                  #   slots, the mesher's worker thread
+│           │       └── CharacterStandIn.cs # on a Cube: where the character stands, for Cinemachine to follow
 │           └── Data/                  # our own data files
 │               ├── Default_PanelSettings.asset # the UI Document's panel settings; ScreenRoot works on a copy
 │               ├── Layouts/hud_default.json # the HUD's default layout, 2560 x 1440

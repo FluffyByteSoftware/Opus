@@ -764,7 +764,8 @@ namespace Opus.Net
                     packet.End();
                     Debug.Log("Game: " + name + " (" + uuid + ") is in the world at " + x + ", " + y + ", " + z
                               + ".");
-                    MainThread.Post(() => Session.EnteredWorld(this, name));
+                    var standing = new UnityEngine.Vector3(x, y, z);
+                    MainThread.Post(() => Session.EnteredWorld(this, name, standing));
                     return;
                 }
 

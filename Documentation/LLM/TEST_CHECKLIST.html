@@ -207,6 +207,36 @@ button on its own.  Pulls nothing from the internet, like the web admin.
   </li>
 </ul>
 
+<h2>The ground on screen (2026-10-03, session 5)</h2>
+<ul class="checks">
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Unity compiles clean with the new files (<code>ChunkMesher.cs</code>, and <code>GroundView.cs</code>
+      and <code>CharacterStandIn.cs</code> in the new <code>Scripts/World/</code>), and <code>git meta</code>
+      commits their <code>.meta</code>s and the folder's.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      PLAY: the ground is drawn round the stand-in in the materials' colours, the Cinemachine camera
+      following it, the GOLD at 0,0,0 with the stand-in sunk a block into it, and the edge of the drawn
+      ground 7 chunks out (224 blocks) each way.  No warning about a missing material.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      The Console's "World: N chunks meshed, F faces, in S s (the worker's share ...)" line, pasted back:
+      the cost of meshing was a guess until this line.
+    </span></label>
+  </li>
+  <li class="check">
+    <label><input type="checkbox"><span class="words">
+      Stop Play mode while it's drawing, and Play again: no errors in the Console, and the ground comes
+      back drawn once.
+    </span></label>
+  </li>
+</ul>
+
 <h2>Parked</h2>
 <ul class="checks">
   <li class="check">

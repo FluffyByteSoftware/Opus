@@ -85,6 +85,11 @@ namespace Opus.Net
         // The character's name once it's in the world, or null.
         public static string InWorldAs { get; private set; }
 
+        // Where the character stood when it came into the world: x and z
+        // its middle, y its feet, in blocks (Unity's x east, y up, z north,
+        // the same as the server's).
+        public static Vector3 Standing { get; private set; }
+
         // The map at PLAY, while it comes: how many bytes are in, of how
         // many.  0 of 0 before the offer.
         public static long MapReceived { get; private set; }
@@ -706,13 +711,14 @@ namespace Opus.Net
         // PlayerReady's answer: the character is in the world.  Character
         // select is behind the player now; the way out is LOG OUT, to the
         // launcher.
-        internal static void EnteredWorld(GameConnection from, string name)
+        internal static void EnteredWorld(GameConnection from, string name, Vector3 standing)
         {
             if (from != game)
                 return;
             Asking = 0;
             Stage = SessionStage.InWorld;
             InWorldAs = name;
+            Standing = standing;
             SayHere("", false);
             Answered(Protocol.PlayerReady, true);
             if (ReachedWorld != null)
