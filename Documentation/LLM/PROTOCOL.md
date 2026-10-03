@@ -433,12 +433,13 @@ column 0, -1).  Nobody moves yet, so the column is the one in the offer.
      won't help.
 3. The client asks again, after a moment, for whatever hasn't come whole and wasn't refused for good.
 
-Ensemble's half isn't written yet.  The test client asks for the nearest first (by the larger of how far
-east-west and north-south, then by how far its row is from the character's), the first 64 not yet in,
-waits for them or a quarter of a second, and asks again; it gives up with no new chunk in 10 seconds.
+Ensemble and the test client ask the same way, once the map is in: the nearest first (by the larger of
+how far east-west and north-south, then by how far its row is from the character's), the first 64 not yet
+in, waits for them or a quarter of a second, and asks again; they give up with no new chunk in 10 seconds.
 **When the client has enough to send PlayerReady is its own call** (Jacob: "it can be the clients call but
 I think we are gonna want to wait till most of the scene is filled"): the server only checks the map's
-hash.
+hash.  Ensemble sends it once the nearest 99 are in, the 3 by 3 columns round the character's, every row
+(Jacob, 2026-10-03: Minecraft's way), and the rest keep coming with the character in the world.
 
 ### A chunk, squeezed
 

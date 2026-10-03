@@ -21,13 +21,16 @@ namespace Opus.Net
         // The most pieces of the map one OverworldMapRequest may ask for.
         public const int MapPiecesAtOnce = 64;
 
+        // The most chunks one ChunkRequest may ask for.
+        public const int ChunksAtOnce = 64;
+
         // ---------------------------------------------------------------
         // Packet types.  The high four bits are the group: 0x1_ the login
         // over TCP, 0x2_ character select over UDP, 0x3_ the game over UDP,
-        // 0x4_ the ground over UDP (the simple overworld map at PLAY).
-        // The login is the launcher's (Soundcheck), and the game never
-        // sends or reads a 0x1_ packet; they're listed so this file is the
-        // whole table, as PROTOCOL.md has it.
+        // 0x4_ the ground over UDP (the simple overworld map at PLAY, and
+        // the chunks).  The login is the launcher's (Soundcheck), and the
+        // game never sends or reads a 0x1_ packet; they're listed so this
+        // file is the whole table, as PROTOCOL.md has it.
         // ---------------------------------------------------------------
 
         public const byte Hello = 0x10;
@@ -74,6 +77,11 @@ namespace Opus.Net
 
         // ConnectResult's answer.
         public const byte Welcome = 0;
+
+        // ChunkRefused's why.  Only "not yet" is worth asking again.
+        public const byte ChunkOutsideView = 1;
+        public const byte ChunkNotYet = 2;
+        public const byte ChunkUnavailable = 3;
 
         // Every answer that carries an ask number first, so it can be
         // matched to the ask it's for.  A Span carries one too, but it's a

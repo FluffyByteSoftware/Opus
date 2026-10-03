@@ -235,3 +235,29 @@ there (session 2); this is the chunks, received and held, nothing drawn.
 - **Nothing drawn, so nothing to look at**: one line in the Console when the whole view is in, the test
   client's summary (how many, how many bytes, how long, the blocks by kind, the block at 0,0,0).  Drawing,
   plain colours or the purchased art (an atlas), is for when the chunks are drawn.
+
+### As written (2026-10-03, session 4, not built yet)
+
+- **`Code/Net/ChunkDownload.cs`**, the chunks' `MapDownload`: every chunk within the offer's view of the
+  character's column, every row, sorted nearest first the test client's way; which are done (in, refused
+  for good, or unreadable); the pieces of a chunk in more than one; `NextRequest()`, the first 64 not done;
+  the nearest 99 counted on their own (`NearCount`, `NearDone`); and the Console's summary.
+- **`Code/World/Chunk.cs`**: `ChunkPlace` (x, z, row), the block numbers' names (`Blocks`), and `Chunk`
+  with PROTOCOL.md's `Unsqueeze()`: one kind kept as `OnlyKind`, any other as 32,768 blocks, and how many
+  of each kind counted from the runs.  `BlockAt(x, y, z)` inside the chunk.
+- **`Code/World/Ground.cs`**: the chunks the game has, by place, main thread only, emptied with the
+  session; `BlockAt()` in world blocks.  **Not `Terrain`**, Conductor's word, because `UnityEngine.Terrain`
+  is Unity's own and a file with `using UnityEngine;` couldn't tell the two apart.
+- **`GameConnection`** keeps the offer's x, y, z and view; `FetchChunks()` starts the download (from
+  Session, once the map is kept).  The sender asks for the next 64 at once when the last 64 are done, and
+  every quarter second otherwise; no new chunk in 10 seconds is `Session.GroundFailed`.  The listener
+  unsqueezes each whole chunk itself and posts it; a chunk that won't unsqueeze, and one the server calls
+  unavailable, is a warning and left empty.
+- **`Session`**: `MapArrived` asks for the chunks instead of sending PlayerReady; `ChunkArrived` puts each
+  in the Ground; `NearGroundIn` sends PlayerReady; `GroundAllIn` writes the summary (with how many are held
+  as blocks, the MB, and the block at 0,0,0); `GroundFailed` goes back to the launcher with "Couldn't get
+  the ground around you."  `MapProgressed` became **`LoadingProgressed`**, with `GroundHave` and
+  `GroundNeed` beside `MapReceived` and `MapSize`.
+- **The bar** (`CharacterSelectForm.FillLoading()`): the map in MB, then from empty again, "Loading the
+  ground...  N of 99 chunks", then "The ground is in.  Entering the world...".
+- `PacketWriter.I16()` and `PacketReader.I16()`, and `Protocol.ChunksAtOnce` and the three refusals.

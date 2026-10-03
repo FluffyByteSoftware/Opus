@@ -37,6 +37,14 @@ namespace Opus.Net
             return this;
         }
 
+        // A signed 16-bit number: a chunk's x or z.
+        public PacketWriter I16(short value)
+        {
+            bytes.Add((byte)value);
+            bytes.Add((byte)(value >> 8));
+            return this;
+        }
+
         public PacketWriter U32(uint value)
         {
             bytes.Add((byte)value);
@@ -109,6 +117,12 @@ namespace Opus.Net
             ushort value = (ushort)(data[at] | data[at + 1] << 8);
             at += 2;
             return value;
+        }
+
+        // A signed 16-bit number, the same two bytes as a u16.
+        public short I16()
+        {
+            return unchecked((short)U16());
         }
 
         public uint U32()

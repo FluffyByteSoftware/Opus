@@ -142,14 +142,14 @@ namespace Opus.Hud
             StopListening();
             Session.CharacterSelectChanged += Fill;
             Session.AskAnswered += Answered;
-            Session.MapProgressed += FillLoading;
+            Session.LoadingProgressed += FillLoading;
         }
 
         public static void StopListening()
         {
             Session.CharacterSelectChanged -= Fill;
             Session.AskAnswered -= Answered;
-            Session.MapProgressed -= FillLoading;
+            Session.LoadingProgressed -= FillLoading;
         }
 
         // ---------------------------------------------------------------
@@ -390,8 +390,9 @@ namespace Opus.Hud
             button.SetEnabled(enabled);
         }
 
-        // The loading bar shows only while the map comes in (and while
-        // PlayerReady waits on its answer), filled as far as the map is.
+        // The loading bar shows only while the world loads after PLAY:
+        // filled as far as the map is, then from empty again as far as the
+        // nearest chunks are (and while PlayerReady waits on its answer).
         static void FillLoading()
         {
             if (loading == null)
@@ -401,12 +402,24 @@ namespace Opus.Hud
             if (!shown)
                 return;
 
+            int need = Session.GroundNeed;
+            if (need > 0)
+            {
+                int have = Session.GroundHave;
+                loadingFill.style.width = Length.Percent(100f * have / need);
+                if (have >= need)
+                    loadingLine.text = "The ground is in.  Entering the world...";
+                else
+                    loadingLine.text = "Loading the ground...  " + have + " of " + need + " chunks";
+                return;
+            }
+
             long size = Session.MapSize;
             long received = Session.MapReceived;
             float part = size > 0 ? (float)received / size : 0f;
             loadingFill.style.width = Length.Percent(part * 100f);
             if (size > 0 && received >= size)
-                loadingLine.text = "The world's map is in.  Entering the world...";
+                loadingLine.text = "The world's map is in.";
             else
                 loadingLine.text = "Loading the world's map...  " + Megabytes(received) + " of " + Megabytes(size)
                                    + " MB";

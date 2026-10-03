@@ -201,20 +201,28 @@ Opus/
 │           │   │                      #   and dev mode in the editor); character select's ten, and
 │           │   │                      #   CharacterSelectForm.cs, where they meet: the list and its pick,
 │           │   │                      #   PLAY, CREATE, DELETE, RESET HOME, the two cards, and the loading
-│           │   │                      #   bar over the list while the map comes (CharacterSelectLoadingWidget)
+│           │   │                      #   bar over the list while the map and the nearest chunks come
+│           │   │                      #   (CharacterSelectLoadingWidget)
 │           │   ├── Net/               # the client's net code, namespace Opus.Net (design/ensemble-networking.md)
 │           │   │   ├── Protocol.cs    # the version, the packet types, the answers, the Kicked reasons' words
 │           │   │   ├── Packets.cs     # PacketWriter and PacketReader: PROTOCOL.md's bytes
 │           │   │   ├── Ticket.cs      # the launcher's ticket out of the environment (OPUS_SERVER, OPUS_UDP_PORT,
 │           │   │   │                  #   OPUS_TOKEN, OPUS_SOUNDCHECK); in the editor, out of debug_ticket.json
-│           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks, the chat, Spans, the map's pieces;
-│           │   │   │                  #   Kicked and the quiet timer end it
+│           │   │   ├── GameConnection.cs # UDP: Connect, keep-alives, asks, the chat, Spans, the map's pieces,
+│           │   │   │                  #   the chunks' pieces (unsqueezed here); Kicked and the quiet timer end it
 │           │   │   ├── MapDownload.cs # the map coming in at PLAY: which pieces are in, the next 64 to ask for
+│           │   │   ├── ChunkDownload.cs # the chunks after the map: nearest first, the next 64, the nearest 99
+│           │   │   │                  #   PlayerReady waits on, the Console's summary
 │           │   │   ├── MainThread.cs  # what the threads hand to Unity's main thread, run once a frame
 │           │   │   └── Session.cs     # the flow from the ticket back to the launcher, character select's asks, a
-│           │   │                      #   line typed (/camp caught here), the events; the map checked and kept
+│           │   │                      #   line typed (/camp caught here), the events; the map checked and kept,
+│           │   │                      #   the chunks into the Ground, PlayerReady once the nearest are in
 │           │   ├── World/             # the world on the client, namespace Opus.World
-│           │   │   └── SimpleOverworldMap.cs # simple_overworld.map's reader (SIMPLE_OVERWORLD_MAP.md), Current
+│           │   │   ├── SimpleOverworldMap.cs # simple_overworld.map's reader (SIMPLE_OVERWORLD_MAP.md), Current
+│           │   │   ├── Chunk.cs       # a chunk: its place, its blocks (or its one kind), Unsqueeze(); the block
+│           │   │   │                  #   numbers' names (Blocks)
+│           │   │   └── Ground.cs      # the chunks the game has, by place; BlockAt() in world blocks (not
+│           │   │                      #   "Terrain", which is Unity's own)
 │           ├── Scripts/
 │           │   └── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the start screen, character
 │           │                          #   select, the HUD) and which is showing; takes the ticket at start; the

@@ -10,9 +10,12 @@
 // events.  PLAY fetches the simple overworld map first (protocol version
 // 11): the loading bar fills while it comes, it's checked against the
 // server's SHA-256 and kept in the player's folder, written over every
-// time, and only then does PlayerReady put the character in the world.  A
-// map that can't be had sends the player back to the launcher, told to
-// delete the file (or the game) and try again.  Main thread only: the connection's threads reach it through
+// time.  Then the chunks around the character (version 12) go into the
+// Ground as they come, and once the nearest 99 are in PlayerReady puts
+// the character in the world; the rest keep coming after.  A map that
+// can't be had sends the player back to the launcher, told to delete the
+// file (or the game) and try again; chunks that stop coming send them back
+// too.  Main thread only: the connection's threads reach it through
 // MainThread.Post, and every message from a connection that's already
 // been dropped is ignored.
 //
@@ -87,6 +90,11 @@ namespace Opus.Net
         public static long MapReceived { get; private set; }
         public static long MapSize { get; private set; }
 
+        // Then the nearest chunks: how many are in (or refused for good),
+        // of how many PlayerReady waits on.  0 of 0 before the map is in.
+        public static int GroundHave { get; private set; }
+        public static int GroundNeed { get; private set; }
+
         // Notice changed: the start screen's card redraws.
         public static event Action NoticeChanged;
 
@@ -106,8 +114,9 @@ namespace Opus.Net
         // back to the launcher instead.
         public static event Action<string, bool> SessionOver;
 
-        // More of the map came in: the loading bar fills.
-        public static event Action MapProgressed;
+        // More of the map, or of the nearest chunks, came in: the loading
+        // bar fills.
+        public static event Action LoadingProgressed;
 
         // PlayerReady's answer came: the character is in the world, and the
         // HUD takes over from character select.
@@ -586,15 +595,15 @@ namespace Opus.Net
                 return;
             MapReceived = received;
             MapSize = size;
-            if (MapProgressed != null)
-                MapProgressed();
+            if (LoadingProgressed != null)
+                LoadingProgressed();
         }
 
         // Every piece is in.  The map is checked against the offer's hash,
         // written over the player's copy, and read once to be sure of it;
-        // then PlayerReady, with the hash, puts the character in the world.
-        // Here on the main thread: a hash, a write and a read of a few MB,
-        // once a PLAY, behind a full loading bar.
+        // then the chunks around the character are asked for.  Here on the
+        // main thread: a hash, a write and a read of a few MB, once a PLAY,
+        // behind a full loading bar.
         internal static void MapArrived(GameConnection from, byte[] bytes)
         {
             if (from != game || Stage != SessionStage.LoadingWorld)
@@ -622,11 +631,11 @@ namespace Opus.Net
                       + MapPath() + ".");
 
             MapReceived = bytes.Length;
-            if (MapProgressed != null)
-                MapProgressed();
-            Asking = Protocol.PlayerReady;
-            game.Ask(Protocol.PlayerReady, hash);
-            Changed();
+            Ground.Clear();
+            GroundHave = 0;
+            GroundNeed = game.FetchChunks();
+            if (LoadingProgressed != null)
+                LoadingProgressed();
         }
 
         // The map couldn't be had: no new piece in the wait, or an offer
@@ -636,6 +645,62 @@ namespace Opus.Net
             if (from != game)
                 return;
             MapTrouble(why);
+        }
+
+        // A chunk, unsqueezed, for the Ground.  They keep coming once the
+        // character is in the world.
+        internal static void ChunkArrived(GameConnection from, Chunk chunk)
+        {
+            if (from != game)
+                return;
+            Ground.Put(chunk);
+        }
+
+        internal static void GroundProgress(GameConnection from, int have, int need)
+        {
+            if (from != game || Stage != SessionStage.LoadingWorld)
+                return;
+            GroundHave = have;
+            GroundNeed = need;
+            if (LoadingProgressed != null)
+                LoadingProgressed();
+        }
+
+        // The nearest chunks are all in (or refused for good): PlayerReady,
+        // with the map's hash, puts the character in the world.  The rest
+        // keep coming.
+        internal static void NearGroundIn(GameConnection from)
+        {
+            if (from != game || Stage != SessionStage.LoadingWorld || Asking == Protocol.PlayerReady)
+                return;
+            Debug.Log("Game: the nearest " + GroundNeed + " chunks are in.  PlayerReady.");
+            Asking = Protocol.PlayerReady;
+            game.Ask(Protocol.PlayerReady, mapHash);
+            Changed();
+        }
+
+        // Every chunk in the view is in, or refused for good: the summary
+        // in the Console, with what the Ground holds.
+        internal static void GroundAllIn(GameConnection from, string summary)
+        {
+            if (from != game)
+                return;
+            int asBlocks = Ground.HeldAsBlocks();
+            ushort? gold = Ground.BlockAt(0, 0, 0);
+            Debug.Log(summary + "  Held: " + asBlocks + " as blocks ("
+                      + (asBlocks * (double)Chunk.BlockCount * 2 / (1024 * 1024)).ToString("0.0") + " MB), "
+                      + (Ground.Count - asBlocks) + " all one kind.  The block at 0,0,0: "
+                      + (gold.HasValue ? Blocks.NameOf(gold.Value) : "not here") + ".");
+        }
+
+        // The chunks stopped coming, while loading or in the world.
+        internal static void GroundFailed(GameConnection from, string why)
+        {
+            if (from != game)
+                return;
+            Debug.LogWarning("Game: couldn't get the ground around the character: " + why + ".");
+            Drop();
+            Finish("Couldn't get the ground around you.", true);
         }
 
         // PlayerReady's answer: the character is in the world.  Character
@@ -736,6 +801,9 @@ namespace Opus.Net
             MapReceived = 0;
             MapSize = 0;
             mapHash = null;
+            GroundHave = 0;
+            GroundNeed = 0;
+            Ground.Clear();
         }
 
         // ---------------------------------------------------------------

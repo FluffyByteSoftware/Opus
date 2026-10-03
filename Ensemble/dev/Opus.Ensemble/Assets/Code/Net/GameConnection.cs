@@ -11,7 +11,10 @@
 // that came in Spans back together.  At PLAY it fetches the simple
 // overworld map (protocol version 11): the server's answer is the offer,
 // and the sender asks for the pieces 64 at a time, as soon as the last 64
-// are in or every quarter second, until they're all here.
+// are in or every quarter second, until they're all here.  Then the chunks
+// around the character (protocol version 12), the same way: 64 at a time,
+// nearest first, each unsqueezed on the listener before it goes to the
+// main thread.
 //
 // The session ends with a Kicked, with the server going quiet, or with
 // Close() (LOG OUT, quitting).  Whichever way, there's no reconnect: the
@@ -22,6 +25,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using Opus.World;
 using Debug = UnityEngine.Debug;
 
 namespace Opus.Net
@@ -53,6 +57,11 @@ namespace Opus.Net
         // quarter second, and with no new piece in 10 seconds it's given up.
         const long MapAskAgainMs = 250;
         const long MapStallMs = 10000;
+
+        // The chunks the same: asked again after a quarter second, and with
+        // no new chunk (in, or refused for good) in 10 seconds given up.
+        const long ChunkAskAgainMs = 250;
+        const long ChunkStallMs = 10000;
 
         readonly ushort port;
         readonly UdpClient udp;
@@ -89,6 +98,21 @@ namespace Opus.Net
         // How far along the map is, in whole percent, last time Session was
         // told, so it's told a hundred times and not four thousand.
         int mapPercentSaid;
+
+        // Where the character will stand and how many chunks each way it
+        // sees, from the offer (version 12).
+        float standX;
+        float standY;
+        float standZ;
+        int view;
+
+        // The chunks around it while they come in, or null, and when the
+        // next request is due.
+        ChunkDownload chunks;
+        long nextChunkAsk;
+
+        // How many of the nearest were in last time Session was told.
+        int nearDoneSaid;
 
         // Rung to wake the sender early: a new ask, the map's last pieces
         // in, or closing.
@@ -160,6 +184,27 @@ namespace Opus.Net
             }
             udp.Close();
             wake.Set();
+        }
+
+        // The map is in and kept: the chunks around where the character
+        // will stand, from the offer.  How many PlayerReady waits on, the
+        // nearest.  From the main thread.
+        public int FetchChunks()
+        {
+            int near;
+            lock (gate)
+            {
+                if (closed)
+                    return 0;
+                chunks = new ChunkDownload(standX, standY, standZ, view, clock.ElapsedMilliseconds);
+                nextChunkAsk = 0;
+                nearDoneSaid = 0;
+                near = chunks.NearCount;
+                Debug.Log("Game: asking for " + chunks.Count + " chunks around column " + chunks.ColumnX + ", "
+                          + chunks.ColumnZ + ", " + view + " each way, the nearest " + near + " first.");
+            }
+            wake.Set();
+            return near;
         }
 
         // ---------------------------------------------------------------
@@ -258,6 +303,27 @@ namespace Opus.Net
                                     nextMapAsk = now + MapAskAgainMs;
                                 }
                                 waitMs = Math.Min(waitMs, Math.Min(nextMapAsk, map.LastNew + MapStallMs) - now);
+                            }
+                        }
+
+                        if (chunks != null)
+                        {
+                            if (now - chunks.LastNew >= ChunkStallMs)
+                            {
+                                string why = "no new chunk in " + ChunkStallMs / 1000 + " s (" + chunks.Missing()
+                                             + ")";
+                                chunks = null;
+                                Debug.Log("Game: gave up on the chunks: " + why + ".");
+                                MainThread.Post(() => Session.GroundFailed(this, why));
+                            }
+                            else
+                            {
+                                if (now >= nextChunkAsk)
+                                {
+                                    SendNow(chunks.NextRequest());
+                                    nextChunkAsk = now + ChunkAskAgainMs;
+                                }
+                                waitMs = Math.Min(waitMs, Math.Min(nextChunkAsk, chunks.LastNew + ChunkStallMs) - now);
                             }
                         }
                     }
@@ -401,6 +467,14 @@ namespace Opus.Net
                 case Protocol.OverworldMapPiece:
                     MapPiece(packet);
                     return;
+
+                case Protocol.ChunkPiece:
+                    ChunkPieceCame(packet);
+                    return;
+
+                case Protocol.ChunkRefused:
+                    ChunkRefusedCame(packet);
+                    return;
             }
 
             if (!Protocol.CarriesAsk(packet.Kind))
@@ -540,6 +614,106 @@ namespace Opus.Net
             }
         }
 
+        // One piece of a chunk: its place, which piece of how many, then
+        // the bytes.  Once the chunk's all here it's unsqueezed, here on the
+        // listener, and goes to the main thread for the Ground.
+        void ChunkPieceCame(PacketReader packet)
+        {
+            var place = new ChunkPlace(packet.I16(), packet.I16(), packet.U8());
+            byte piece = packet.U8();
+            byte count = packet.U8();
+            byte[] bytes = packet.Rest();
+
+            byte[] squeezed;
+            lock (gate)
+            {
+                if (chunks == null)
+                    return;
+                squeezed = chunks.TakePiece(place, piece, count, bytes);
+            }
+            if (squeezed == null)
+                return;
+
+            Chunk chunk = null;
+            string trouble = null;
+            try
+            {
+                chunk = Chunk.Unsqueeze(place, squeezed);
+            }
+            catch (System.IO.InvalidDataException e)
+            {
+                trouble = e.Message;
+            }
+
+            lock (gate)
+            {
+                if (chunks == null)
+                    return;
+                long now = clock.ElapsedMilliseconds;
+                if (chunk != null)
+                {
+                    if (!chunks.Arrived(chunk, now))
+                        return;
+                    MainThread.Post(() => Session.ChunkArrived(this, chunk));
+                }
+                else
+                {
+                    if (!chunks.Unreadable(place, now))
+                        return;
+                    Debug.LogWarning("Game: chunk " + place + " didn't unsqueeze (" + trouble + ").  Left empty.");
+                }
+                ChunkDone(now);
+            }
+        }
+
+        // A chunk the server won't send, and why.  "Not yet" is asked
+        // again; the other two are the end of it.
+        void ChunkRefusedCame(PacketReader packet)
+        {
+            var place = new ChunkPlace(packet.I16(), packet.I16(), packet.U8());
+            byte why = packet.U8();
+            packet.End();
+            lock (gate)
+            {
+                if (chunks == null)
+                    return;
+                long now = clock.ElapsedMilliseconds;
+                if (!chunks.Refused(place, why, now))
+                    return;
+                if (why == Protocol.ChunkUnavailable)
+                    Debug.LogWarning("Game: the server can't send chunk " + place + " this run.  Left empty.");
+                ChunkDone(now);
+            }
+        }
+
+        // Holding the gate, after a chunk came in or was refused for good:
+        // how far along the nearest are, PlayerReady once they're all in,
+        // the summary once every chunk is, and the next 64 at once if the
+        // last 64 are done.
+        void ChunkDone(long now)
+        {
+            if (chunks.NearDone != nearDoneSaid)
+            {
+                nearDoneSaid = chunks.NearDone;
+                int have = chunks.NearDone;
+                int need = chunks.NearCount;
+                MainThread.Post(() => Session.GroundProgress(this, have, need));
+                if (chunks.NearAllDone)
+                    MainThread.Post(() => Session.NearGroundIn(this));
+            }
+            if (chunks.AllDone)
+            {
+                string summary = chunks.Summary(now);
+                chunks = null;
+                MainThread.Post(() => Session.GroundAllIn(this, summary));
+            }
+            else if (chunks.AskedAllIn)
+            {
+                nextChunkAsk = 0;
+                wake.Set();
+            }
+        }
+
         // The answer to the ask we were waiting on, its ask number read.
         void Answered(PacketReader packet)
         {
@@ -605,11 +779,11 @@ namespace Opus.Net
                     string hash = packet.String();
                     // Where the character will stand and how many chunks
                     // each way it sees (version 12), for asking for the
-                    // chunks around it.  Not used yet.
-                    packet.F32();
-                    packet.F32();
-                    packet.F32();
-                    packet.U8();
+                    // chunks around it once the map is in.
+                    float x = packet.F32();
+                    float y = packet.F32();
+                    float z = packet.F32();
+                    byte sees = packet.U8();
                     packet.End();
                     Debug.Log("Game: the world's map is " + size + " bytes in " + count + " pieces, SHA-256 " + hash
                               + ".");
@@ -620,6 +794,10 @@ namespace Opus.Net
                             map = new MapDownload(size, pieceBytes, count, hash, clock.ElapsedMilliseconds);
                             nextMapAsk = 0;
                             mapPercentSaid = 0;
+                            standX = x;
+                            standY = y;
+                            standZ = z;
+                            view = sees;
                         }
                     }
                     catch (ProtocolException e)
