@@ -13,7 +13,10 @@
 // time.  Then the chunks around the character (version 12) go into the
 // Ground as they come, and once the nearest 99 are in and drawn
 // PlayerReady puts the character in the world; the rest keep coming
-// after.  Drawing that doesn't finish in 10 s sends the player back.  A map that
+// after.  Drawing that doesn't finish in 10 s sends the player back.  In
+// the world, the objects the server says are in view go into
+// WorldObjects as they come (protocol version 14), the player's own
+// character among them.  A map that
 // can't be had sends the player back to the launcher, told to delete the
 // file (or the game) and try again; chunks that stop coming send them back
 // too.  Main thread only: the connection's threads reach it through
@@ -92,6 +95,11 @@ namespace Opus.Net
         // its middle, y its feet, in blocks (Unity's x east, y up, z north,
         // the same as the server's).
         public static Vector3 Standing { get; private set; }
+
+        // The number the player's own character goes by among the world's
+        // objects (version 14), from CharacterEnteredWorld; 0 when there's
+        // none.  The camera follows that one.
+        public static uint OwnObject { get; private set; }
 
         // The map at PLAY, while it comes: how many bytes are in, of how
         // many.  0 of 0 before the offer.
@@ -801,7 +809,7 @@ namespace Opus.Net
         // PlayerReady's answer: the character is in the world.  Character
         // select is behind the player now; the way out is LOG OUT, to the
         // launcher.
-        internal static void EnteredWorld(GameConnection from, string name, Vector3 standing)
+        internal static void EnteredWorld(GameConnection from, string name, Vector3 standing, uint own)
         {
             if (from != game)
                 return;
@@ -809,10 +817,47 @@ namespace Opus.Net
             Stage = SessionStage.InWorld;
             InWorldAs = name;
             Standing = standing;
+            OwnObject = own;
             SayHere("", false);
             Answered(Protocol.PlayerReady, true);
             if (ReachedWorld != null)
                 ReachedWorld();
+        }
+
+        // The world's objects (version 14), into WorldObjects as they come.
+        internal static void ObjectCame(GameConnection from, WorldObject whole)
+        {
+            if (from != game)
+                return;
+            WorldObjects.Put(whole);
+        }
+
+        internal static void ObjectsMovedCame(GameConnection from, ObjectMotion[] motions)
+        {
+            if (from != game)
+                return;
+            foreach (ObjectMotion motion in motions)
+                WorldObjects.Move(motion);
+        }
+
+        internal static void ObjectsGoneCame(GameConnection from, uint[] gone)
+        {
+            if (from != game)
+                return;
+            foreach (uint number in gone)
+                WorldObjects.Remove(number);
+        }
+
+        // A piece of a roll call.  Once it's all in, whatever it has that
+        // the client doesn't know is asked about.
+        internal static void RollCallCame(GameConnection from, uint roll, int piece, int pieces,
+                                          ObjectMotion[] motions)
+        {
+            if (from != game)
+                return;
+            List<uint> unknown = WorldObjects.RollCallPiece(roll, piece, pieces, motions);
+            if (unknown != null && unknown.Count > 0)
+                game.AskAbout(unknown);
         }
 
         // The chat, as it went out to everybody in the world.
@@ -894,6 +939,8 @@ namespace Opus.Net
             Said = "";
             SaidTrouble = false;
             InWorldAs = null;
+            OwnObject = 0;
+            WorldObjects.Clear();
             MapReceived = 0;
             MapSize = 0;
             mapHash = null;

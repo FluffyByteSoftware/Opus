@@ -228,8 +228,11 @@ Opus/
 │           │   │   │                  #   numbers' names (Blocks)
 │           │   │   ├── ChunkMesher.cs # a chunk and the six round it into a mesh's lists, faces only against
 │           │   │   │                  #   air, by block kind; runs on GroundView's worker
-│           │   │   └── Ground.cs      # the chunks the game has, by place; BlockAt() in world blocks; Added and
-│           │   │                      #   Cleared (not "Terrain", which is Unity's own)
+│           │   │   ├── Ground.cs      # the chunks the game has, by place; BlockAt() in world blocks; Added and
+│           │   │   │                  #   Cleared (not "Terrain", which is Unity's own)
+│           │   │   └── WorldObjects.cs # the world's objects the client knows (protocol version 14), by number:
+│           │   │                      #   WorldObject, ObjectMotion; Put(), Move(), Remove(), the roll call;
+│           │   │                      #   Added, Moved, Removed, Cleared
 │           ├── Scripts/
 │           │   ├── Hud/ScreenRoot.cs  # beside the UI Document: owns every screen (the start screen, character
 │           │   │                      #   select, the HUD) and which is showing; takes the ticket at start; the
@@ -237,7 +240,12 @@ Opus/
 │           │   └── World/             # the world on screen, namespace Opus.World (design/ensemble-world.md)
 │           │       ├── GroundView.cs  # draws the Ground: a GameObject a chunk, the block kinds' material
 │           │       │                  #   slots, the mesher's worker thread
-│           │       └── CharacterStandIn.cs # on a Cube: where the character stands, for Cinemachine to follow
+│           │       ├── WorldObjectsView.cs # draws the world's objects: a GameObject each with a
+│           │       │                  #   FluffyGameObject, an Actor for the Living, the fallback shape
+│           │       ├── FluffyGameObject.cs # on every drawn object: which it is, put where the server says
+│           │       ├── Actor.cs       # on top for anything Living: the short name over its head
+│           │       └── CameraAnchor.cs # on the old stand-in Cube: kept on the player's own, for Cinemachine
+│           │                          #   (CharacterStandIn.cs until session 9)
 │           └── Data/                  # our own data files
 │               ├── Default_PanelSettings.asset # the UI Document's panel settings; ScreenRoot works on a copy
 │               ├── Layouts/hud_default.json # the HUD's default layout, 2560 x 1440

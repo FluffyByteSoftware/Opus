@@ -195,5 +195,27 @@ Protocol version 14.  PROTOCOL.md's "The world's objects" has the packets byte f
 - **The test client** prints all of it, asks about what it doesn't know, and with `--miss-first-hydrate`
   drops one to see the roll call mend it.
 
-Round two, Ensemble's half (FluffyGameObject, Actor, the camera on the player's own), is to come.
+Built and tested: every check passed (session 9).
+
+### As written, round two: Ensemble (session 9; not yet built)
+
+- **`Code/World/WorldObjects.cs`**: what the client knows, by number (`WorldObject`, `ObjectMotion`).  A Hydrate
+  is `Put()`, ObjectsMoved `Move()`, ObjectsGone `Remove()`; `RollCallPiece()` puts a roll call's pieces
+  together and, once they're all in, drops what isn't on it, moves what is, and hands back the numbers it
+  doesn't know, which Session asks about (`GameConnection.AskAbout()`, an ObjectAsk).  `Added`, `Moved`,
+  `Removed`, `Cleared` for the screen.  The Console says each object coming into view and going.
+- **`Session.OwnObject`**, from the end of CharacterEnteredWorld; the session ending clears it all.
+- **`Scripts/World/WorldObjectsView.cs`**, on an empty GameObject in the scene: a GameObject under it for each
+  object, "Object N (Name)" (", yours" for the player's own), with a **FluffyGameObject** (its number, uuid and
+  what it's doing in the Inspector; `Place()` puts its feet at the position, turned to the rotation, and its
+  `Update()` moves it along the velocity), the fallback shape as a child with its bottom at the feet and no
+  collider, and an **Actor** for anything Living.  Slots: Name Font (Unity's own when empty), Name Size (a
+  capital's height in blocks, 0.3) and Name Gap (0.25 over the shape).  A model's uuid is noted once in the
+  Console and the shape drawn, until the model draw.
+- **`Scripts/World/Actor.cs`**: the short name over the head, a TextMesh (Unity's own, no package) turned to
+  face the camera every frame.  Its size is a guess until seen.
+- **`Scripts/World/CameraAnchor.cs`**, `CharacterStandIn.cs` renamed with its `.meta`, so the Cube in the scene
+  keeps it: never drawn (its renderers off for good), at CharacterEnteredWorld's spot at first and then on the
+  player's own object every frame, its middle as high over the feet as before, so the Cinemachine camera
+  frames the same.
 

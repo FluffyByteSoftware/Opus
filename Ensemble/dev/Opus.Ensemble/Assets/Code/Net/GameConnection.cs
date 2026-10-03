@@ -14,7 +14,11 @@
 // are in or every quarter second, until they're all here.  Then the chunks
 // around the character (protocol version 12), the same way: 64 at a time,
 // nearest first, each unsqueezed on the listener before it goes to the
-// main thread.
+// main thread.  Once the character is in the world it hears the world's
+// objects (protocol version 14): each one whole as it comes into view,
+// what moves, what's gone, and a roll call once a second, all handed to
+// the main thread as they come; it asks about a number the roll call has
+// and the client doesn't know.
 //
 // The session ends with a Kicked, with the server going quiet, or with
 // Close() (LOG OUT, quitting).  Whichever way, there's no reconnect: the
@@ -184,6 +188,27 @@ namespace Opus.Net
             }
             udp.Close();
             wake.Set();
+        }
+
+        // Objects a roll call had that the client doesn't know: an
+        // ObjectAsk, 64 at a time, sent once.  No ask number: asking twice
+        // is harmless, and the next roll call asks again if the answer got
+        // lost.  From the main thread.
+        public void AskAbout(System.Collections.Generic.List<uint> numbers)
+        {
+            lock (gate)
+            {
+                if (closed || !connected)
+                    return;
+                for (int start = 0; start < numbers.Count; start += Protocol.ObjectsAtOnce)
+                {
+                    int count = Math.Min(Protocol.ObjectsAtOnce, numbers.Count - start);
+                    var packet = new PacketWriter(Protocol.ObjectAsk).U8((byte)count);
+                    for (int i = start; i < start + count; i++)
+                        packet.U32(numbers[i]);
+                    SendNow(packet.ForUdp());
+                }
+            }
         }
 
         // The map is in and kept: the chunks around where the character
@@ -479,6 +504,65 @@ namespace Opus.Net
                 case Protocol.ChunkRefused:
                     ChunkRefusedCame(packet);
                     return;
+
+                // The world's objects (version 14).  None of them carries
+                // an ask number: the server sends them on its own.
+                case Protocol.Hydrate:
+                {
+                    var whole = new WorldObject();
+                    whole.Number = packet.U32();
+                    whole.Uuid = packet.String();
+                    whole.Living = packet.U8() == 1;
+                    whole.ShortName = packet.String();
+                    whole.Position = Vector(packet);
+                    whole.Rotation = Vector(packet);
+                    whole.Velocity = Vector(packet);
+                    whole.Scale = Vector(packet);
+                    whole.Model = packet.String();
+                    whole.Shape = packet.U8();
+                    whole.Doing = packet.String();
+                    packet.End();
+                    MainThread.Post(() => Session.ObjectCame(this, whole));
+                    return;
+                }
+
+                case Protocol.ObjectsMoved:
+                {
+                    byte count = packet.U8();
+                    var motions = new ObjectMotion[count];
+                    for (int i = 0; i < count; i++)
+                        motions[i] = Motion(packet);
+                    packet.End();
+                    MainThread.Post(() => Session.ObjectsMovedCame(this, motions));
+                    return;
+                }
+
+                case Protocol.ObjectsGone:
+                {
+                    ushort count = packet.U16();
+                    var gone = new uint[count];
+                    for (int i = 0; i < count; i++)
+                        gone[i] = packet.U32();
+                    packet.End();
+                    MainThread.Post(() => Session.ObjectsGoneCame(this, gone));
+                    return;
+                }
+
+                case Protocol.RollCall:
+                {
+                    uint roll = packet.U32();
+                    byte piece = packet.U8();
+                    byte pieces = packet.U8();
+                    byte count = packet.U8();
+                    var motions = new ObjectMotion[count];
+                    for (int i = 0; i < count; i++)
+                        motions[i] = Motion(packet);
+                    packet.End();
+                    if (piece == 0 || piece > pieces)
+                        throw new ProtocolException("a RollCall piece " + piece + " of " + pieces);
+                    MainThread.Post(() => Session.RollCallCame(this, roll, piece, pieces, motions));
+                    return;
+                }
             }
 
             if (!Protocol.CarriesAsk(packet.Kind))
@@ -765,11 +849,13 @@ namespace Opus.Net
                     float x = packet.F32();
                     float y = packet.F32();
                     float z = packet.F32();
+                    // The number its Hydrate comes under (version 14).
+                    uint own = packet.U32();
                     packet.End();
                     Debug.Log("Game: " + name + " (" + uuid + ") is in the world at " + x + ", " + y + ", " + z
-                              + ".");
+                              + ", object " + own + ".");
                     var standing = new UnityEngine.Vector3(x, y, z);
-                    MainThread.Post(() => Session.EnteredWorld(this, name, standing));
+                    MainThread.Post(() => Session.EnteredWorld(this, name, standing, own));
                     return;
                 }
 
@@ -864,6 +950,26 @@ namespace Opus.Net
                               + "client doesn't handle yet.");
                     return;
             }
+        }
+
+        // Three f32s: x, y and z.
+        static UnityEngine.Vector3 Vector(PacketReader packet)
+        {
+            float x = packet.F32();
+            float y = packet.F32();
+            float z = packet.F32();
+            return new UnityEngine.Vector3(x, y, z);
+        }
+
+        // One object's motion: its number, position, rotation and velocity.
+        static ObjectMotion Motion(PacketReader packet)
+        {
+            var motion = new ObjectMotion();
+            motion.Number = packet.U32();
+            motion.Position = Vector(packet);
+            motion.Rotation = Vector(packet);
+            motion.Velocity = Vector(packet);
+            return motion;
         }
 
         // ---------------------------------------------------------------

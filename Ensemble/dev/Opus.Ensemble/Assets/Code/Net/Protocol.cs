@@ -12,7 +12,7 @@ namespace Opus.Net
     {
         // The version this client speaks.  The server says its own in the
         // Hello, and a client built against another stops right there.
-        public const byte Version = 13;
+        public const byte Version = 14;
 
         // The biggest UDP packet the server takes.  (The TCP frame's cap is
         // the launcher's business.)
@@ -24,13 +24,17 @@ namespace Opus.Net
         // The most chunks one ChunkRequest may ask for.
         public const int ChunksAtOnce = 64;
 
+        // The most objects one ObjectAsk may ask about (version 14).
+        public const int ObjectsAtOnce = 64;
+
         // ---------------------------------------------------------------
         // Packet types.  The high four bits are the group: 0x1_ the login
         // over TCP, 0x2_ character select over UDP, 0x3_ the game over UDP,
         // 0x4_ the ground over UDP (the simple overworld map at PLAY, and
-        // the chunks).  The login is the launcher's (Soundcheck), and the
-        // game never sends or reads a 0x1_ packet; they're listed so this
-        // file is the whole table, as PROTOCOL.md has it.
+        // the chunks), 0x5_ the world's objects over UDP (version 14).
+        // The login is the launcher's (Soundcheck), and the game never
+        // sends or reads a 0x1_ packet; they're listed so this file is the
+        // whole table, as PROTOCOL.md has it.
         // ---------------------------------------------------------------
 
         public const byte Hello = 0x10;
@@ -70,6 +74,12 @@ namespace Opus.Net
         public const byte ChunkRequest = 0x43;
         public const byte ChunkPiece = 0x44;
         public const byte ChunkRefused = 0x45;
+
+        public const byte Hydrate = 0x50;
+        public const byte ObjectsMoved = 0x51;
+        public const byte ObjectsGone = 0x52;
+        public const byte RollCall = 0x53;
+        public const byte ObjectAsk = 0x54;
 
         // ---------------------------------------------------------------
         // What's inside them
@@ -148,6 +158,11 @@ namespace Opus.Net
                 case ChunkRequest: return "ChunkRequest";
                 case ChunkPiece: return "ChunkPiece";
                 case ChunkRefused: return "ChunkRefused";
+                case Hydrate: return "Hydrate";
+                case ObjectsMoved: return "ObjectsMoved";
+                case ObjectsGone: return "ObjectsGone";
+                case RollCall: return "RollCall";
+                case ObjectAsk: return "ObjectAsk";
                 default: return "0x" + kind.ToString("X2");
             }
         }

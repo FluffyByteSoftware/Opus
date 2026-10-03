@@ -209,6 +209,14 @@ it, just after the hash.  Asking for the chunks, holding them and drawing them a
 (Jacob: "to bring it in line with these server changes"); STATUS.md lists what's to settle first.  The test
 client's `fetch_chunks()` is a working pull to copy.
 
+## The world's objects (2026-10-03, session 9)
+
+Protocol version 14 (PROTOCOL.md, "The world's objects").  `GameConnection` reads the Hydrate, ObjectsMoved,
+ObjectsGone and RollCall on its listener and posts each to `Session`, which hands them to `WorldObjects`
+(`design/ensemble-world.md`, "The player in the world"); a roll call with numbers the client doesn't know is
+answered with `AskAbout()`, an ObjectAsk 64 at a time, sent once (the next roll call asks again if need be).
+CharacterEnteredWorld's last field is the player's own object number, `Session.OwnObject`.
+
 ## The chunks, Ensemble's half (2026-10-03, session 4)
 
 Jacob: "the Ensemble half first ... its ability to stream in the terrain data... then next session we're
