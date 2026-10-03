@@ -390,7 +390,8 @@ and straight after, "sorry": `Chatter is at [0, 0, 0] [16 days, 12 minutes onlin
 words:
 
 - **`/who list` goes into `/who`**: "Yeah just mutate them into who".  `/who` is every character with its
-  block and its time online; anything after the word is refused, "Try /who."
+  block and its time online; anything after the word is refused, "Try /who."  Kept for now: "no eventually
+  we're gonna make who able to do /who <character name> but not yet" (TODO.md).
 - **The order**: "Oldest log in goes at the top, newest at the bottom".
 - **Log on is entering the world**: "When character _entered_ the world", PlayerReady, not the login.  The
   GameClock notes the moment it spawns the character (`players.rs`), so it's the GameClock's clock, and

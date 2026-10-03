@@ -40,6 +40,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   - **Kicking a player who keeps flooding** (2026-10-02): today a command too soon is only refused.
     Whether enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's
     call.
+  - **`/who <character name>`** (Jacob, 2026-10-03): "eventually we're gonna make who able to do /who
+    <character name> but not yet".  Until then anything after `/who` (`/who list` included) gets "Try
+    /who.", which he kept.  What it shows for one character (the same line, or more) is open.
   - **`/help`** (2026-10-02): could list the table of commands.  Its own feature.
   - **Admin commands** (Jacob, 2026-10-02): "its a permissions difference but the commands will otherwise
     be the same".  So the same table, with who may run each; from where, still open.
