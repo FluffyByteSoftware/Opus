@@ -55,9 +55,9 @@ Services tab's line, Soundcheck and the editor at version 12.  **Measured**: the
 on the LAN (16.8 MB at `world_size` 32), a guess of some 13 s over the internet at a 50 ms ping; **a whole
 view of chunks at `view_chunks` 8 is 3,179 chunks, 88,746 bytes squeezed, 0.04 s on the LAN**, the biggest
 chunk 693 bytes, every chunk one packet; squeezing is 13 to 14 us a chunk; hashing the 655 MB build takes
-1.3 s at Soundcheck's start.  TEST_CHECKLIST.html has one check (the test client's summary, now quick) and
-two Parked: the launcher's own restart after a patch (needs Soundcheck shipped beside the game) and Spans
-for real.  **On Windows**: Conductor builds and runs, START SERVER included, without a database; nothing
+1.3 s at Soundcheck's start.  TEST_CHECKLIST.html has only its two Parked checks left (the test client's
+summary passed, 2026-10-03): the launcher's own restart after a patch (needs Soundcheck shipped beside the
+game) and Spans for real.  **On Windows**: Conductor builds and runs, START SERVER included, without a database; nothing
 since the world has been tried there (GitHub issue #10), and neither Soundcheck nor the new Ensemble has
 been built there at all.
 
@@ -151,7 +151,7 @@ Every answer is in `design/world.md` ("The chunks streamed") and TODO.md.
 - **Measured** (Jacob, Linux): Alpha's 891 chunks squeeze to 7,938 bytes, Omega's to 36,925; a view at 8,
   3,179 chunks, 88,746 bytes, the biggest 693, in 0.04 s on the LAN, against 199 MB as they are.
 - **A wrong turn in the testing**: the test client's `--chunk-outside` looked stuck after 100%: it was
-  counting 104 million blocks one at a time in Python.  It counts from the runs now (the one check left).
+  counting 104 million blocks one at a time in Python.  It counts from the runs now, and prints at once (passed).
 
 ## Where the next session starts
 
