@@ -200,6 +200,15 @@ Windows.  What's left, a step each:
   on the client; the stamp for Soundcheck goes.  Open: whether "the server" is the web folder over HTTP or
   Conductor over the game's own connection, and whether "every time" is a fresh download each PLAY or only
   when it changed.
+  **Settled** (Jacob, same session): **Conductor sends it over UDP**, "broken into smaller packets obviously",
+  and Ensemble keeps it in its own folder on the player's machine ("their userprefs folder").  **Every time
+  the player first connects** they get it, with "a loading bar while they download the world before it puts
+  them into the world".  New packets come of it; one Jacob named: **PlayerReady**, "verification from client
+  it streamed the terrain and is good to display".  **The file is `simple_overworld.map`.**  **Written before
+  connections are allowed** when it's missing ("yes should do this before we allow connections"), so a world
+  made before it gets one.  **The terrain save more often**, "at like 2.5 minutes maybe I don't know... i dont
+  know what numbers are gonna make this feel not like shit lol" (it was 15 minutes).  **No squeezing**: "no
+  squeezing concern".
 - **The world's files on the client** go in `Assets/StreamingAssets/World/`, a fifth folder of ours under
   `Assets/`, into the `.gitignore` with its `.meta` (Jacob, 2026-10-02: out of that pass).  A Unity build
   packs everything under `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as
