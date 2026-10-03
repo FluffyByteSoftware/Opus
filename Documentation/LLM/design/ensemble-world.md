@@ -109,7 +109,26 @@ the rule it's built on: **"The server will be the authority, always on where the
 world.  The client is just a dumb renderer."**  So the client draws a character where the server last said
 it is, its own character included, and never decides a position of its own.
 
-Open, put to him: whether every character in the world is drawn or only the player's own; how far a player
-sees others (everybody, or the chunks' view); how the server tells the client (a snapshot every cycle, or
-only what changed); what the client draws a character with (a model in a slot, or a model a name); facing
-and names over heads.
+Put to him: whether every character in the world is drawn or only the player's own; how far a player sees
+others (everybody, or the chunks' view); how the server tells the client (a snapshot every cycle, or only
+what changed); what the client draws a character with (a model in a slot, or a model a name); facing and
+names over heads.
+
+**His answers** (session 9):
+- **Who**: "Every character in the world, if they're within your visible range", the player's own included.
+- **How far**: the chunks' view, `view_chunks` of them each way of the player's own column (8 in his
+  `game.cfg`), so nobody is shown standing on ground the client hasn't got.
+- **How the server tells**: **only what changed**, not a snapshot every cycle: "so the client knows
+  character Chacko is coming into view heading towards 3, 1, 3 at 1 voxel per second or something like
+  that.  It can render that and then if it updates the server can just notify the client?"  He wondered
+  whether the GameClock would have to check every 50 ms "to keep animations smooth".  (The other shape
+  was the whole view every 250 ms cycle, a lost packet mended by the next.)
+- **What's drawn**: "I think we may as well define an Actor in the client as well?"  And: "we need to come
+  up with a way to like send a simple datagram that the client can use to hydrate an actor with or an
+  inanimate game object".  So one packet describes any object the client is to draw, from its components,
+  and the client builds an Actor (or a plain object) from it.
+- **Facing**: "full rotation if possible", the `Transform`'s whole rotation.
+- **Over the head**: the short name.
+
+Still open, put to him: how a lost "came into view" or "left" is mended; a heading and speed, or a
+velocity; what an Actor is on the client; how a model's name finds a model.
