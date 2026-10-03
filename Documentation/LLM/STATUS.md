@@ -343,8 +343,6 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
   12, unanswered, not in TODO.md yet.
 - **Smooth voxels**, stage 1: steps 1 and 2 built (session 12), the rest above; **Opus.Treble** and the
   `.fbm` (LONGTERM_TODO.md).
-- **`AGENTS.md`** sits untracked at the root of Jacob's clone (his `git meta` showed it, session 12): his, or
-  a `.gitignore` line?  Asked, unanswered.
 - **The world asleep and awake**: cold, warm and hot chunks, zone managers, wakers, the dragon; a region,
   a biome and a zone split (LONGTERM_TODO.md, five questions open).
 - **The model draw** (session 9's pick): `design/ensemble-world.md`, "The player in the world".
