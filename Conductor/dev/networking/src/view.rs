@@ -13,13 +13,22 @@
 //! An ObjectAsk (the client doesn't know a number on a roll call) comes
 //! in on the UDP thread and goes to the GameClock's mailbox
 //! (`conductor_gameclock::ask_about()`); the next broadcast answers it.
+//!
+//! Since movement (protocol version 15) a PlayerMoved, the client saying
+//! where it walked its own character, comes in here too and goes to the
+//! GameClock's mailbox (`conductor_gameclock::moved()`), stamped with
+//! when it came; the next input check judges it.  A pull-back goes out
+//! with the player's news as a MoveCorrection, and the column their
+//! character is in, when it changes, goes into the book for the chunks
+//! they may have.
 
 use std::net::SocketAddr;
+use std::time::Instant;
 
-use conductor_gameclock::News;
+use conductor_gameclock::{Moved, News};
 use conductor_tools::scribe::{self, Channel};
 
-use crate::protocol;
+use crate::protocol::{self, PlayerMove};
 use crate::sessions;
 use crate::udp;
 
@@ -29,24 +38,33 @@ pub fn wire() {
     conductor_gameclock::set_view_sender(send_out);
 }
 
-/// A cycle's news, sent: each player's packets to their address.  A
-/// player not in the book any more (they left this very cycle) is
-/// skipped; the GameClock forgets them next cycle.
+/// A cycle's news, sent: each player's packets to their address, and
+/// their column into the book when it's changed.  A player not in the
+/// book any more (they left this very cycle) is skipped; the GameClock
+/// forgets them next cycle.
 fn send_out(news: &[News]) {
     let addresses = sessions::in_world_by_character();
     for one in news {
         let Some(&address) = addresses.get(&one.viewer) else {
             continue;
         };
+        if let Some(column) = one.standing {
+            sessions::stands_in(address, column);
+        }
         udp::tell_all(&[address], &packets(one, address));
     }
 }
 
-/// One player's news as the packets that carry it: the objects gone
-/// first, then the ones come whole, the moves, and the roll call last,
-/// so it lands after everything else this cycle said.
+/// One player's news as the packets that carry it: a pull-back first, so
+/// the client is back where it should be before anything else lands; the
+/// objects gone, then the ones come whole, the moves, and the roll call
+/// last, so it lands after everything else this cycle said.
 fn packets(news: &News, to: SocketAddr) -> Vec<Vec<u8>> {
-    let mut packets = protocol::objects_gone(&news.gone);
+    let mut packets = Vec::new();
+    if let Some(pull_back) = &news.pull_back {
+        packets.push(protocol::move_correction(pull_back));
+    }
+    packets.extend(protocol::objects_gone(&news.gone));
     for object in &news.hydrates {
         let packet = protocol::hydrate(object);
         // Only a uuid, a name and three short strings: nothing we make
@@ -78,18 +96,34 @@ pub fn asked(from: SocketAddr, objects: Vec<u32>) {
     }
 }
 
+/// A PlayerMoved from `from`: the move goes to the GameClock, stamped with
+/// now, if their character is in the world.  A stranger, or a player at
+/// character select, hears nothing.
+pub fn moved(from: SocketAddr, walked: PlayerMove) {
+    let heard = Instant::now();
+    let Some(character_id) = sessions::character_in_world(from) else {
+        return;
+    };
+    let moved = Moved { character_id, number: walked.number, pull_backs_had: walked.pull_backs_had,
+                        position: walked.position, rotation: walked.rotation, velocity: walked.velocity, heard };
+    if let Err(why) = conductor_gameclock::moved(moved) {
+        scribe::debug(Channel::Network, &format!("A move from {from} went nowhere: {why}."));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use conductor_gameclock::Motion;
+    use conductor_gameclock::{Motion, PullBack};
 
     #[test]
-    fn gone_first_and_the_roll_call_last() {
+    fn a_pull_back_first_and_the_roll_call_last() {
         let motion = Motion { object: 3, position: [0.5, 1.0, 0.5], rotation: [0.0; 3], velocity: [0.0; 3] };
-        let news = News { viewer: 42, hydrates: Vec::new(), moved: vec![motion], gone: vec![9],
-                          roll_call: Some((1, vec![motion])) };
+        let pull_back = PullBack { number: 1, position: [0.5, 1.0, 0.5], rotation: [0.0; 3] };
+        let news = News { viewer: 42, moved: vec![motion], gone: vec![9], roll_call: Some((1, vec![motion])),
+                          pull_back: Some(pull_back), ..News::default() };
         let to = "10.0.0.5:50000".parse().unwrap();
         let kinds: Vec<u8> = packets(&news, to).iter().map(|packet| packet[0]).collect();
-        assert_eq!(kinds, vec![0x52, 0x51, 0x53]);
+        assert_eq!(kinds, vec![0x56, 0x52, 0x51, 0x53]);
     }
 }

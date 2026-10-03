@@ -520,6 +520,9 @@ namespace Opus.Net
                     whole.Scale = Vector(packet);
                     whole.Model = packet.String();
                     whole.Shape = packet.U8();
+                    // The room it takes up (version 15).
+                    whole.Collider = packet.U8();
+                    whole.ColliderSize = Vector(packet);
                     whole.Doing = packet.String();
                     packet.End();
                     MainThread.Post(() => Session.ObjectCame(this, whole));
@@ -851,9 +854,14 @@ namespace Opus.Net
                     float z = packet.F32();
                     // The number its Hydrate comes under (version 14).
                     uint own = packet.U32();
+                    // How fast it walks and turns (version 15), the
+                    // server's numbers.  Nothing walks it yet.
+                    float walk = packet.F32();
+                    float turn = packet.F32();
                     packet.End();
                     Debug.Log("Game: " + name + " (" + uuid + ") is in the world at " + x + ", " + y + ", " + z
-                              + ", object " + own + ".");
+                              + ", object " + own + ".  It walks " + walk + " blocks a second and turns " + turn
+                              + " degrees a second.");
                     var standing = new UnityEngine.Vector3(x, y, z);
                     MainThread.Post(() => Session.EnteredWorld(this, name, standing, own));
                     return;

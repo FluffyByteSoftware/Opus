@@ -33,13 +33,18 @@
 //! (`chat.rs`) and goes out to everybody in the world from the broadcast
 //! check, once a cycle, and so does the answer to a `/who`
 //! (`who.rs`), and what each player sees of the world around them
-//! (`view.rs`).  Primlib's other copies aren't saved yet
-//! (design/primlib.md).  The terrain starts empty, and the GameClock asks
-//! GameWorld for the chunks around 0,0,0, where every player starts for
-//! now.  They come in over the first cycles, in housekeeping.
+//! (`view.rs`).  Players walk their own characters, and the GameClock
+//! judges every move their clients send (`movement.rs`, protocol version
+//! 15).  Primlib's other copies aren't saved yet (design/primlib.md).  The
+//! terrain starts empty, and the GameClock asks GameWorld for the chunks
+//! around the spawn point, where every new character comes in.  They come
+//! in over the first cycles, in housekeeping, and from then on the ground
+//! follows the players as they walk (`ground.rs`).
 
 mod chat;
 mod checks;
+mod ground;
+mod movement;
 mod players;
 mod saving;
 mod view;
@@ -53,10 +58,13 @@ use std::time::{Duration, Instant};
 
 use conductor_gameworld::{SPAWN_POINTS, Terrain};
 use conductor_primlib::World;
+use conductor_tools::constellations::{self, PLAYER};
 use conductor_tools::scribe::{self, Channel};
 use conductor_tools::services::{self, State};
 use conductor_tools::threads;
 
+use ground::Ground;
+use movement::Movement;
 use players::Players;
 use saving::{WorldSave, Writes};
 use view::View;
@@ -64,6 +72,7 @@ use view::View;
 // Rust note: `pub use` hands these on, so networking can write
 // `conductor_gameclock::enter(...)`.
 pub use chat::{chat, set_chat_sender};
+pub use movement::{Moved, PullBack, WALK_BLOCKS_PER_SECOND, moved, turn_degrees_per_second};
 pub use players::{enter, leave, saving, wait_until_saved};
 pub use view::{Hydrate, Motion, News, ask_about, set_view_sender};
 pub use who::{Standing, WhoAsked, set_who_sender, who};
@@ -97,8 +106,9 @@ static READY: AtomicBool = AtomicBool::new(false);
 
 /// Everything the checks work on, owned by the GameClock's thread: the
 /// world, the terrain, the players' characters in the world, when the
-/// next world save is due, the saves on their way to the database, and
-/// what each player's client has been told.
+/// next world save is due, the saves on their way to the database, what
+/// each player's client has been told, how each character is walking, and
+/// where the ground follows them.
 pub(crate) struct Game {
     pub(crate) world: World,
     pub(crate) terrain: Terrain,
@@ -106,6 +116,8 @@ pub(crate) struct Game {
     pub(crate) world_save: WorldSave,
     pub(crate) writes: Writes,
     pub(crate) view: View,
+    pub(crate) movement: Movement,
+    pub(crate) ground: Ground,
 }
 
 /// Starts the GameClock's thread, with a fresh world.  It comes straight
@@ -119,10 +131,14 @@ pub fn start() {
     }
 
     READY.store(false, Ordering::SeqCst);
+    // How a character handles: read here, on every START SERVER, so
+    // networking finds it read by the time anybody comes in.
+    constellations::load(&PLAYER);
     players::forget_saving();
     chat::open();
     who::open();
     view::open();
+    movement::open();
     services::set(services::GAMECLOCK, State::Starting, "Making a fresh world.");
     let (stop, stopped) = mpsc::channel();
     let notes = players::open_mailbox();
@@ -137,6 +153,7 @@ pub fn start() {
             chat::close();
             who::close();
             view::close();
+            movement::close();
             scribe::error_with(Channel::Game, &e, "The GameClock couldn't start its thread.  \
                 Nothing in the world moves this run.");
             services::set(services::GAMECLOCK, State::Stopped, &format!("Couldn't start its thread: {e}"));
@@ -155,6 +172,7 @@ pub fn stop() {
     chat::close();
     who::close();
     view::close();
+    movement::close();
     lock(&STOP).take();
 
     let handle = lock(&GAMECLOCK).take();
@@ -189,6 +207,8 @@ fn run(stopped: Receiver<()>, notes: Receiver<players::Note>) {
         world_save: WorldSave::new(saving::world_save_every()),
         writes: Writes::new(),
         view: View::new(),
+        movement: Movement::new(),
+        ground: Ground::new(),
     };
     game.terrain.ask_around(SPAWN_POINTS[0].0, SPAWN_POINTS[0].1, conductor_gameworld::view_chunks());
 
@@ -335,10 +355,13 @@ fn may_warn(last_warn: Option<Instant>, now: Instant) -> bool {
 
 /// How the terrain is doing, for the Services tab.
 fn chunks(terrain: &Terrain) -> String {
-    let mut words = format!("{} of the {} chunks around 0,0,0 are in.", terrain.held(), terrain.asked());
-    if !ready() {
-        words.push_str("  Until they all are, only housekeeping runs.");
-    }
+    let mut words = if ready() {
+        format!("{} chunks in memory around the spawn point and the players, {} on their way.", terrain.held(),
+                terrain.coming())
+    } else {
+        format!("{} of the {} chunks around 0,0,0 are in.  Until they all are, only housekeeping runs.",
+                terrain.held(), terrain.asked())
+    };
     if terrain.failed() > 0 {
         words.push_str(&format!("  {} couldn't be had (the log says why).", terrain.failed()));
     }

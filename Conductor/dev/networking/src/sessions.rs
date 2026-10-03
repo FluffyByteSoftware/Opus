@@ -76,8 +76,9 @@
 //! Since protocol version 12 the book also keeps where each player's
 //! character stands, as the column of chunks it's in (`standing()`), from
 //! PLAY on: the chunks a player may ask for are the ones within
-//! `view_chunks` of it.  Nobody moves yet, so it's set once, from the
-//! character's save, and movement will keep it up to date.
+//! `view_chunks` of it.  It's set at PLAY from the character's save, and
+//! kept up to date by the GameClock as the character walks
+//! (`stands_in()`, protocol version 15).
 //!
 //! The book also keeps when each account was last sent the map's offer,
 //! for its cooldown (`cooling_down()`, `map_cooldown_seconds`): Jacob's
@@ -500,6 +501,15 @@ pub fn fetching_map(from: SocketAddr) -> bool {
 /// as hearing from them.
 pub fn standing(from: SocketAddr) -> Option<(i32, i32)> {
     standing_in(&mut book(), from, Instant::now())
+}
+
+/// The character of the player at `from` has walked into column `column`
+/// (movement, protocol version 15): the GameClock's broadcast says so when
+/// it changes, and the chunks they may have follow it.
+pub fn stands_in(from: SocketAddr, column: (i32, i32)) {
+    if let Some(player) = book().players.get_mut(&from) {
+        player.standing = Some(column);
+    }
 }
 
 /// Takes a character out of the world that no player in the book holds:

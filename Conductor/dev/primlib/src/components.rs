@@ -6,7 +6,8 @@
 //! from my sample NPC, with its position, rotation and scale made into one
 //! Transform the way Unity has it, then what the client draws: a Model, a
 //! PrimitiveShape to fall back on, and an Animator.  `PlayerCharacter`
-//! says a player steers it.  `Kind` names a kind of component (for a
+//! says a player steers it.  A `Collider` is the room it takes up in the
+//! world (2026-10-03, movement).  `Kind` names a kind of component (for a
 //! template's list, a script, or the log), and `Component` is one of them
 //! with its value, which is how a template or blueprint holds them.
 //!
@@ -44,21 +45,36 @@ impl Vector3 {
 /// yet; if it ever has to, this is the one place that changes.
 ///
 /// No parent yet: every transform is in the world's own terms.
+///
+/// The velocity isn't Unity's (its Transform has none): it's where the
+/// object is going, in blocks a second, which every client that sees it
+/// is sent so it can carry the object along between one word from the
+/// server and the next (movement, 2026-10-03).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Transform {
     pub position: Vector3,
     pub rotation: Vector3,
     /// 1, 1, 1 is as the model was made.
     pub scale: Vector3,
+    /// Blocks a second along x, y and z.  0, 0, 0 is standing still.
+    pub velocity: Vector3,
 }
 
 impl Transform {
-    /// At `position`, facing the way the model was made, at its own size.
+    /// At `position`, facing the way the model was made, at its own size,
+    /// standing still.
     pub fn at(position: Vector3) -> Transform {
-        Transform { position, rotation: Vector3::default(), scale: Vector3::new(1.0, 1.0, 1.0) }
+        Transform { position, rotation: Vector3::default(), scale: Vector3::new(1.0, 1.0, 1.0),
+                    velocity: Vector3::default() }
     }
 
-    /// Saved: where it is, which way it faces, and how big it is.
+    /// Whether it's standing still.
+    pub fn is_still(&self) -> bool {
+        self.velocity == Vector3::default()
+    }
+
+    /// Saved: where it is, which way it faces, and how big it is.  Not
+    /// the velocity: a character comes back into the world standing still.
     pub fn saved(&self, out: &mut Fields) {
         out.put_vector3("position", self.position);
         out.put_vector3("rotation", self.rotation);
@@ -124,6 +140,63 @@ impl PrimitiveShape {
 
     pub fn load(&mut self, _from: &Fields) -> Result<(), String> {
         Ok(())
+    }
+}
+
+/// The room an object takes up in the world, for bumping into things: a
+/// capsule, a cylinder or a box, standing with its bottom at the object's
+/// position (a character's feet), the same as the shape the client draws.
+/// Jacob, 2026-10-03: "we're gonna design in our game library collider
+/// primitives capsule/cylinder, and cube that should cover our needs for
+/// this.  This will have to be our representative of the player in the
+/// servers memory."  The client builds its own collider from these
+/// numbers, so the two sides agree on how big a character is.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Collider {
+    /// A capsule `height` tall, `radius` round, its ends rounded.
+    Capsule { radius: f32, height: f32 },
+    /// A cylinder `height` tall, `radius` round, flat at both ends.
+    Cylinder { radius: f32, height: f32 },
+    /// A box `size` across, x, y and z.
+    Cube { size: Vector3 },
+}
+
+impl Collider {
+    /// A character's: a capsule 1 block wide and 2 tall, the shape it's
+    /// drawn as (Jacob, 2026-10-03: "our current shape").
+    pub const CHARACTER: Collider = Collider::Capsule { radius: 0.5, height: 2.0 };
+
+    /// How far it reaches out from its middle, flat on the ground: the
+    /// radius, or half the box's wider side.
+    pub fn reach(&self) -> f32 {
+        match *self {
+            Collider::Capsule { radius, .. } | Collider::Cylinder { radius, .. } => radius,
+            Collider::Cube { size } => size.x.max(size.z) / 2.0,
+        }
+    }
+
+    /// How tall it is.
+    pub fn height(&self) -> f32 {
+        match *self {
+            Collider::Capsule { height, .. } | Collider::Cylinder { height, .. } => height,
+            Collider::Cube { size } => size.y,
+        }
+    }
+
+    /// Nothing saved: the collider is what the template says.
+    pub fn saved(&self, _out: &mut Fields) {}
+
+    pub fn load(&mut self, _from: &Fields) -> Result<(), String> {
+        Ok(())
+    }
+}
+
+// Rust note: written out by hand, since an enum whose choices carry data
+// can't just mark one `#[default]` with its numbers.  A box one block a
+// side, the same as the cube drawn by default.
+impl Default for Collider {
+    fn default() -> Collider {
+        Collider::Cube { size: Vector3::new(1.0, 1.0, 1.0) }
     }
 }
 
@@ -358,11 +431,12 @@ pub enum Kind {
     Endurance,
     Mana,
     PlayerCharacter,
+    Collider,
 }
 
 impl Kind {
     /// Every kind, in the order they're listed here.
-    pub const ALL: [Kind; 11] = [
+    pub const ALL: [Kind; 12] = [
         Kind::Transform,
         Kind::Model,
         Kind::PrimitiveShape,
@@ -374,6 +448,7 @@ impl Kind {
         Kind::Endurance,
         Kind::Mana,
         Kind::PlayerCharacter,
+        Kind::Collider,
     ];
 
     /// The kind's name, as a script or the log would write it.
@@ -390,6 +465,7 @@ impl Kind {
             Kind::Endurance => "Endurance",
             Kind::Mana => "Mana",
             Kind::PlayerCharacter => "PlayerCharacter",
+            Kind::Collider => "Collider",
         }
     }
 
@@ -416,6 +492,7 @@ pub enum Component {
     Endurance(Pool),
     Mana(Pool),
     PlayerCharacter(PlayerCharacter),
+    Collider(Collider),
 }
 
 impl Component {
@@ -433,14 +510,15 @@ impl Component {
             Component::Endurance(_) => Kind::Endurance,
             Component::Mana(_) => Kind::Mana,
             Component::PlayerCharacter(_) => Kind::PlayerCharacter,
+            Component::Collider(_) => Kind::Collider,
         }
     }
 
     /// The kind with its default value: a transform at 0, 0, 0 facing the
     /// way its model was made at its own size, no model path, a cube, an
-    /// animator playing nothing, empty names and titles, pools of 0, and a
-    /// player character belonging to nobody.  A template sets its own where
-    /// these won't do.
+    /// animator playing nothing, empty names and titles, pools of 0, a
+    /// player character belonging to nobody, and a box one block a side.  A
+    /// template sets its own where these won't do.
     pub fn default_of(kind: Kind) -> Component {
         match kind {
             Kind::Transform => Component::Transform(Transform::default()),
@@ -454,6 +532,7 @@ impl Component {
             Kind::Endurance => Component::Endurance(Pool::default()),
             Kind::Mana => Component::Mana(Pool::default()),
             Kind::PlayerCharacter => Component::PlayerCharacter(PlayerCharacter::default()),
+            Kind::Collider => Component::Collider(Collider::default()),
         }
     }
 
@@ -472,6 +551,7 @@ impl Component {
             Component::Endurance(value) => value.saved(out),
             Component::Mana(value) => value.saved(out),
             Component::PlayerCharacter(value) => value.saved(out),
+            Component::Collider(value) => value.saved(out),
         }
     }
 
@@ -489,6 +569,7 @@ impl Component {
             Component::Endurance(value) => value.load(from),
             Component::Mana(value) => value.load(from),
             Component::PlayerCharacter(value) => value.load(from),
+            Component::Collider(value) => value.load(from),
         }
     }
 }
@@ -543,6 +624,29 @@ mod tests {
         assert_eq!(transform.position, Vector3::new(0.0, 0.0, 0.0));
         assert_eq!(transform.rotation, Vector3::new(0.0, 0.0, 0.0));
         assert_eq!(transform.scale, Vector3::new(1.0, 1.0, 1.0));
+        assert!(transform.is_still());
+    }
+
+    #[test]
+    fn the_velocity_is_never_saved() {
+        let mut transform = Transform::at(Vector3::new(1.0, 2.0, 3.0));
+        transform.velocity = Vector3::new(4.0, 0.0, 0.0);
+        let mut saved = Fields::new();
+        transform.saved(&mut saved);
+        assert!(saved.get("velocity").is_none());
+        let mut back = Transform::default();
+        assert_eq!(back.load(&saved), Ok(()));
+        assert!(back.is_still(), "a character comes back standing still");
+        assert_eq!(back.position, Vector3::new(1.0, 2.0, 3.0));
+    }
+
+    #[test]
+    fn a_character_takes_up_a_capsule_one_wide_and_two_tall() {
+        assert_eq!(Collider::CHARACTER.reach(), 0.5);
+        assert_eq!(Collider::CHARACTER.height(), 2.0);
+        let crate_box = Collider::Cube { size: Vector3::new(2.0, 1.0, 3.0) };
+        assert_eq!(crate_box.reach(), 1.5);
+        assert_eq!(crate_box.height(), 1.0);
     }
 
     #[test]

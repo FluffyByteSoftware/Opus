@@ -12,7 +12,10 @@
 //!
 //! **This is the one place that says what chunks a player may be sent**
 //! (`may_see()`).  Today that's every chunk within `view_chunks` of the
-//! column their character stands in, every row, so 891 at 4.  Hidden
+//! column their character stands in, every row, so 891 at 4, and one
+//! chunk more each way since movement (2026-10-03): a walking client works
+//! out its view from where its own screen has it, which can be a column
+//! ahead of where the server last took it.  Hidden
 //! things are sent ahead and hidden by the client for now (Jacob: "I am
 //! not too worried about cheating"), and holding something back one day
 //! starts here ("a flexibility to add more security").
@@ -21,11 +24,15 @@ use conductor_gameworld::{ChunkPos, Sendable};
 
 use crate::protocol::{self, ChunkRefusal};
 
+/// How many chunks past the view a player may have, for a client a
+/// column ahead of the server while it walks.
+const WALKING_AHEAD: i32 = 1;
+
 /// The packets that answer a request for the chunks at `places` from a
 /// player whose character stands in `standing`, the column x and z in
 /// chunks: each chunk's pieces, or its ChunkRefused.
 pub fn answer(standing: (i32, i32), places: &[ChunkPos]) -> Vec<Vec<u8>> {
-    let reach = conductor_gameworld::view_chunks();
+    let reach = conductor_gameworld::view_chunks() + WALKING_AHEAD;
     let mut packets = Vec::new();
     for &pos in places {
         if !may_see(standing, pos, reach) {

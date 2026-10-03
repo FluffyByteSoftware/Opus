@@ -275,6 +275,19 @@ impl Players {
         }).collect()
     }
 
+    /// The entity of the character whose row's id is `character_id`, if
+    /// it's in the world.
+    pub fn entity_of(&self, character_id: i64) -> Option<Entity> {
+        self.in_world.get(&character_id).map(|character| character.entity)
+    }
+
+    /// Every player's character in the world, its row's id and its
+    /// entity, in row id order.  Borrowed, not copied, for the checks that
+    /// go through everybody (`movement.rs`, `ground.rs`).
+    pub fn characters(&self) -> impl Iterator<Item = (i64, Entity)> + '_ {
+        self.in_world.iter().map(|(&id, character)| (id, character.entity))
+    }
+
     /// Every player's character in the world, for what the clients are
     /// told (`view.rs`): its row's id, its entity, its number and its uuid,
     /// in row id order.

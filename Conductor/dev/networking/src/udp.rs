@@ -66,7 +66,8 @@
 //! What a player sees of the world (protocol version 14) goes out from
 //! the GameClock's broadcast check (`view.rs`).  An ObjectAsk, the client
 //! asking about a number it doesn't know, comes in here and goes to the
-//! GameClock's mailbox.
+//! GameClock's mailbox, and so does a PlayerMoved (version 15), the
+//! client saying where it walked its own character.
 
 use std::io;
 use std::net::{SocketAddr, UdpSocket};
@@ -415,6 +416,13 @@ fn heard(socket: &UdpSocket, bytes: &[u8], from: SocketAddr) {
         // The world's objects (version 14): the client doesn't know these.
         Some(PacketType::ObjectAsk) => match protocol::read_object_ask(payload) {
             Ok(objects) => view::asked(from, objects),
+            Err(_) => {
+                sessions::heard(from);
+            }
+        },
+        // Movement (version 15): where the player walked their character.
+        Some(PacketType::PlayerMoved) => match protocol::read_player_moved(payload) {
+            Ok(walked) => view::moved(from, walked),
             Err(_) => {
                 sessions::heard(from);
             }

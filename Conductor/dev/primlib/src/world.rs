@@ -13,7 +13,8 @@
 //! everything else asks it.
 
 use crate::components::{
-    Animator, Component, Kind, LongName, Model, PlayerCharacter, Pool, PrimitiveShape, ShortName, Titles, Transform,
+    Animator, Collider, Component, Kind, LongName, Model, PlayerCharacter, Pool, PrimitiveShape, ShortName, Titles,
+    Transform,
 };
 use crate::entity::{Entities, Entity};
 use crate::store::Store;
@@ -32,6 +33,7 @@ pub struct World {
     endurance: Store<Pool>,
     mana: Store<Pool>,
     player_character: Store<PlayerCharacter>,
+    collider: Store<Collider>,
     /// The templates each entity was made from, its own template's first.
     /// Not a component: nothing adds or takes one away after the spawn.
     templates: Store<Vec<String>>,
@@ -53,6 +55,7 @@ impl World {
             endurance: Store::new(),
             mana: Store::new(),
             player_character: Store::new(),
+            collider: Store::new(),
             templates: Store::new(),
         }
     }
@@ -144,6 +147,7 @@ impl World {
             Component::Endurance(value) => self.endurance.insert(slot, value),
             Component::Mana(value) => self.mana.insert(slot, value),
             Component::PlayerCharacter(value) => self.player_character.insert(slot, value),
+            Component::Collider(value) => self.collider.insert(slot, value),
         }
         true
     }
@@ -166,6 +170,7 @@ impl World {
             Kind::Endurance => self.endurance.remove(slot).is_some(),
             Kind::Mana => self.mana.remove(slot).is_some(),
             Kind::PlayerCharacter => self.player_character.remove(slot).is_some(),
+            Kind::Collider => self.collider.remove(slot).is_some(),
         }
     }
 
@@ -186,6 +191,7 @@ impl World {
             Kind::Endurance => self.endurance.has(slot),
             Kind::Mana => self.mana.has(slot),
             Kind::PlayerCharacter => self.player_character.has(slot),
+            Kind::Collider => self.collider.has(slot),
         }
     }
 
@@ -214,6 +220,7 @@ impl World {
             Kind::Endurance => self.endurance.get(slot).copied().map(Component::Endurance),
             Kind::Mana => self.mana.get(slot).copied().map(Component::Mana),
             Kind::PlayerCharacter => self.player_character.get(slot).copied().map(Component::PlayerCharacter),
+            Kind::Collider => self.collider.get(slot).copied().map(Component::Collider),
         }
     }
 
@@ -317,6 +324,15 @@ impl World {
     pub fn player_character_mut(&mut self, entity: Entity) -> Option<&mut PlayerCharacter> {
         let slot = self.slot(entity)?;
         self.player_character.get_mut(slot)
+    }
+
+    pub fn collider(&self, entity: Entity) -> Option<&Collider> {
+        self.collider.get(self.slot(entity)?)
+    }
+
+    pub fn collider_mut(&mut self, entity: Entity) -> Option<&mut Collider> {
+        let slot = self.slot(entity)?;
+        self.collider.get_mut(slot)
     }
 }
 

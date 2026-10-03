@@ -39,6 +39,12 @@ namespace Opus.World
         public string Model;
         // 0 cube, 1 sphere, 2 capsule, 3 cylinder, 4 plane, 5 quad.
         public byte Shape;
+        // The room it takes up (version 15): 0 none, 1 capsule, 2
+        // cylinder, 3 box.  For a capsule or a cylinder, ColliderSize is
+        // its radius, its height and 0; for a box, its size along x, y and
+        // z.  Its bottom is at the position, like the shape's.
+        public byte Collider;
+        public Vector3 ColliderSize;
         // What the model is doing ("idle"), empty for nothing.
         public string Doing;
     }

@@ -13,12 +13,14 @@
 //! is a requirement.
 //!
 //! `Character` is a player's character: Living, a place in the world, a
-//! capsule to draw until there are models, and the `PlayerCharacter` that
-//! says whose it is.  A new one starts with 10 health, 10 endurance and 10
-//! mana, and the name the player picked as its short name.  Its long name
-//! is left empty: that's the player's to set in game (Jacob, 2026-09-30).
+//! capsule to draw until there are models, the `PlayerCharacter` that
+//! says whose it is, and a capsule's room in the world, 1 block wide and
+//! 2 tall, the same as it's drawn (`Collider`).  A new one starts with 10
+//! health, 10 endurance and 10 mana, and the name the player picked as
+//! its short name.  Its long name is left empty: that's the player's to
+//! set in game (Jacob, 2026-09-30).
 
-use crate::components::{Component, Kind, PlayerCharacter, Pool, PrimitiveShape, ShortName};
+use crate::components::{Collider, Component, Kind, PlayerCharacter, Pool, PrimitiveShape, ShortName};
 use crate::save::Save;
 use crate::template::{Blueprint, Template};
 
@@ -42,8 +44,8 @@ pub const STARTING_POOLS: u32 = 10;
 
 /// Character: Living with its pools full at `STARTING_POOLS`, plus a
 /// `Transform` (at 0, 0, 0, where everybody starts for now), a capsule,
-/// and a `PlayerCharacter` belonging to nobody until one is made from a
-/// save.
+/// a `PlayerCharacter` belonging to nobody until one is made from a save,
+/// and a capsule's `Collider`.
 pub fn character_template() -> Template {
     let mut character = Template::new(CHARACTER);
     character.take_in(&living_template());
@@ -53,6 +55,7 @@ pub fn character_template() -> Template {
     character.add_default(Kind::Transform);
     character.add(Component::PrimitiveShape(PrimitiveShape::Capsule));
     character.add_default(Kind::PlayerCharacter);
+    character.add(Component::Collider(Collider::CHARACTER));
     character
 }
 
@@ -136,9 +139,10 @@ mod tests {
         let kinds: Vec<Kind> = character.components().iter().map(|component| component.kind()).collect();
         assert_eq!(kinds, vec![
             Kind::ShortName, Kind::LongName, Kind::Health, Kind::Endurance, Kind::Mana,
-            Kind::Transform, Kind::PrimitiveShape, Kind::PlayerCharacter,
+            Kind::Transform, Kind::PrimitiveShape, Kind::PlayerCharacter, Kind::Collider,
         ]);
         assert!(character.components().contains(&Component::PrimitiveShape(PrimitiveShape::Capsule)));
+        assert!(character.components().contains(&Component::Collider(Collider::CHARACTER)));
         for pool in [Component::Health(Pool::full(10)), Component::Endurance(Pool::full(10)),
                      Component::Mana(Pool::full(10))] {
             assert!(character.components().contains(&pool), "a new character starts with 10 of each");

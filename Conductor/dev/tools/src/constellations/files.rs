@@ -390,12 +390,48 @@ pub static GAME: ConfigFile = ConfigFile {
                     loop.  The first comes this long after the ground is in.  30 seconds\n\
                     to 30 minutes.  Leaving the world and STOP SERVER save too.",
         },
+        Setting {
+            key: "movement_tolerance_blocks",
+            kind: Kind::Number { low: 1, high: 256 },
+            default: "16",
+            about: "How far past where a character could have walked a player's client\n\
+                    may put it before the server pulls it back to its last good spot, in\n\
+                    blocks.  Under 1 block is let go.  From 1 block up to this, the move\n\
+                    stands and the bell gets a Warn; past it, the character is pulled\n\
+                    back, with a Warn.  1 to 256.",
+        },
+    ],
+};
+
+/// `Content/cfg/player.cfg`: how a player's character handles (2026-10-03,
+/// movement).  The GameClock reads it on every START SERVER, and each
+/// player's client is told at PLAY, so it's soft.  Jacob: "server
+/// player.cfg file that holds the turn speed in it.  Clients should never
+/// determine this.  They can cheat by hacking it but the server will force
+/// them back."
+pub static PLAYER: ConfigFile = ConfigFile {
+    name: "player.cfg",
+    reboot: Reboot::Soft,
+    channel: Channel::Game,
+    about: "How a player's character handles.  One \"key = value\" a line, and \"#\"\n\
+            starts a comment.  Each player's client is told these as its character\n\
+            comes into the world, and the server holds a character to them.",
+    settings: &[
+        Setting {
+            key: "turn_degrees_per_second",
+            kind: Kind::Number { low: 90, high: 3600 },
+            default: "450",
+            about: "How fast a character turns to face the way its player is walking it,\n\
+                    in degrees a second.  450 is a half turn in 0.4 seconds.  A client\n\
+                    that turns its character more than 90 degrees past this is pulled\n\
+                    back, with a Warn.  90 to 3600.",
+        },
     ],
 };
 
 /// Every config file, in the order the page lists them.  A new file goes
 /// here and nowhere else.
-pub static FILES: [&ConfigFile; 5] = [&GLOBALS, &WGUI, &POSTGRES, &NETWORKING, &GAME];
+pub static FILES: [&ConfigFile; 6] = [&GLOBALS, &WGUI, &POSTGRES, &NETWORKING, &GAME, &PLAYER];
 
 #[cfg(test)]
 mod tests {

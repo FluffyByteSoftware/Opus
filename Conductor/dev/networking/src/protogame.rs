@@ -647,7 +647,9 @@ fn put_in(from: SocketAddr, account: &str, ask: u32, hash: &str)
         }
     };
     let entered = EnteredCharacter { uuid: loading.character.uuid.clone(), name: loading.character.name.clone(),
-                                     position: loading.position, object };
+                                     position: loading.position, object,
+                                     walk: conductor_gameclock::WALK_BLOCKS_PER_SECOND,
+                                     turn: conductor_gameclock::turn_degrees_per_second() };
     Ok((loading.character, protocol::entered_world(ask, &entered), loading.told))
 }
 

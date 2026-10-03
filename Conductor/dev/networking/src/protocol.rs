@@ -93,13 +93,21 @@
 //! everything the player is believed to know; the client asks about a
 //! number it doesn't know with an ObjectAsk.  CharacterEnteredWorld now
 //! ends with the number of the player's own character.
+//!
+//! Version 15 (2026-10-03) is movement, EverQuest's way: a player's client
+//! walks its own character and says where it went with a PlayerMoved
+//! (0x55), and the server takes each move or pulls the character back to
+//! its last good spot with a MoveCorrection (0x56).  CharacterEnteredWorld
+//! ends with how fast a character walks and turns, the Hydrate carries
+//! the room an object takes up (its collider), and a player is no longer
+//! sent their own character's moves.
 
-use conductor_gameclock::{Hydrate, Motion};
+use conductor_gameclock::{Hydrate, Motion, PullBack};
 use conductor_gameworld::ChunkPos;
 
 /// Which protocol this is.  The Hello says it, so a client built against
 /// a different one can stop right there.  Goes up when a packet changes.
-pub const PROTOCOL_VERSION: u8 = 14;
+pub const PROTOCOL_VERSION: u8 = 15;
 
 /// The biggest length a TCP frame may claim.  Plenty for a login, and it
 /// stops somebody claiming a 4 GB packet and making us wait for it.
@@ -160,13 +168,18 @@ pub const ROLL_CALL_AT_ONCE: usize = (MAX_UDP_BYTES - ROLL_CALL_HEADER) / MOTION
 /// The most numbers one ObjectAsk may carry.
 pub const ASKS_AT_ONCE: u8 = 64;
 
+/// A PlayerMoved's payload (version 15): the move's number, the last
+/// pull-back the client had, then nine f32s, its position, rotation and
+/// velocity.
+const PLAYER_MOVED_BYTES: usize = 4 + 4 + 9 * 4;
+
 /// Every packet type there is.  The high four bits say the group and the
 /// low four which one in it: 0x1_ is the login, over TCP; 0x2_ is
 /// character select, between the login and the world, over UDP (version
 /// 5, 2026-09-30); 0x3_ is the game, over UDP; and 0x4_ is the ground,
 /// over UDP (version 11, 2026-10-03), the simple overworld map and, since
 /// version 12, the chunks; and 0x5_ is the world's objects, over UDP
-/// (version 14, 2026-10-03).
+/// (version 14, 2026-10-03), and movement since version 15.
 // Rust note: `repr(u8)` stores the enum as one byte, and `as u8` turns a
 // value back into its number, the same as a C# `enum : byte`.
 #[repr(u8)]
@@ -347,6 +360,19 @@ pub enum PacketType {
     /// broadcast, a Hydrate for each one in view and an ObjectsGone for
     /// the rest.  Version 14.
     ObjectAsk = 0x54,
+    /// Client to server: where the player walked their own character.
+    /// The move's number (u32, one higher each time), the number of the
+    /// last MoveCorrection the client had (u32, 0 for none), then nine
+    /// f32s: position, rotation in degrees and velocity in blocks a
+    /// second.  Sent whenever which way it walks or faces changes, and
+    /// every half second while it walks.  No answer unless it's pulled
+    /// back.  Version 15.
+    PlayerMoved = 0x55,
+    /// Server to client: your character is pulled back to its last good
+    /// spot, standing still.  The pull-back's number (u32, from 1), then
+    /// six f32s, its position and rotation.  The client's moves after
+    /// this carry its number.  Version 15.
+    MoveCorrection = 0x56,
 }
 
 impl PacketType {
@@ -393,6 +419,8 @@ impl PacketType {
             0x52 => Some(PacketType::ObjectsGone),
             0x53 => Some(PacketType::RollCall),
             0x54 => Some(PacketType::ObjectAsk),
+            0x55 => Some(PacketType::PlayerMoved),
+            0x56 => Some(PacketType::MoveCorrection),
             _ => None,
         }
     }
@@ -570,6 +598,11 @@ pub struct EnteredCharacter {
     /// The number its client knows it by among the world's objects
     /// (version 14), so the camera knows which one to follow.
     pub object: u32,
+    /// How fast it walks, in blocks a second, and turns, in degrees a
+    /// second (version 15): the server's numbers, which its moves are
+    /// held to.
+    pub walk: f32,
+    pub turn: f32,
 }
 
 /// One character in a WhoDelivery: its name, the block it stands in, and
@@ -900,6 +933,7 @@ pub fn entered_world(ask: u32, character: &EnteredCharacter) -> Vec<u8> {
     put_string(&mut bytes, &character.name);
     put_floats(&mut bytes, &character.position);
     bytes.extend_from_slice(&character.object.to_le_bytes());
+    put_floats(&mut bytes, &[character.walk, character.turn]);
     bytes
 }
 
@@ -1013,7 +1047,18 @@ pub fn hydrate(object: &Hydrate) -> Vec<u8> {
     put_floats(&mut bytes, &object.scale);
     put_string(&mut bytes, &object.model);
     bytes.push(object.shape);
+    bytes.push(object.collider);
+    put_floats(&mut bytes, &object.collider_size);
     put_string(&mut bytes, &object.track);
+    bytes
+}
+
+/// A player's character pulled back to its last good spot (version 15).
+pub fn move_correction(pull_back: &PullBack) -> Vec<u8> {
+    let mut bytes = vec![PacketType::MoveCorrection as u8];
+    bytes.extend_from_slice(&pull_back.number.to_le_bytes());
+    put_floats(&mut bytes, &pull_back.position);
+    put_floats(&mut bytes, &pull_back.rotation);
     bytes
 }
 
@@ -1212,6 +1257,30 @@ pub fn read_player_command(payload: &[u8]) -> Result<(u32, String), String> {
     let line = take_string(payload, &mut at)?;
     finished(payload, at)?;
     Ok((ask, line))
+}
+
+/// What a PlayerMoved says: the move's number, the last pull-back its
+/// client had, and the character's position, rotation and velocity.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PlayerMove {
+    pub number: u32,
+    pub pull_backs_had: u32,
+    pub position: [f32; 3],
+    pub rotation: [f32; 3],
+    pub velocity: [f32; 3],
+}
+
+/// The payload of a PlayerMoved (version 15).  Whether the numbers make
+/// sense (a NaN, a place too far) is the GameClock's to say.
+pub fn read_player_moved(payload: &[u8]) -> Result<PlayerMove, String> {
+    if payload.len() != PLAYER_MOVED_BYTES {
+        return Err(format!("a move of {} bytes, and it should be {PLAYER_MOVED_BYTES}", payload.len()));
+    }
+    let number = |at: usize| u32::from_le_bytes([payload[at], payload[at + 1], payload[at + 2], payload[at + 3]]);
+    let float = |at: usize| f32::from_le_bytes([payload[at], payload[at + 1], payload[at + 2], payload[at + 3]]);
+    let three = |at: usize| [float(at), float(at + 4), float(at + 8)];
+    Ok(PlayerMove { number: number(0), pull_backs_had: number(4), position: three(8), rotation: three(20),
+                    velocity: three(32) })
 }
 
 /// The payload of an ObjectAsk: the numbers asked about, 1 to
@@ -1439,7 +1508,8 @@ mod tests {
                      PacketType::PlayerReady, PacketType::OverworldMapOffer, PacketType::OverworldMapRequest,
                      PacketType::OverworldMapPiece, PacketType::ChunkRequest, PacketType::ChunkPiece,
                      PacketType::ChunkRefused, PacketType::Hydrate, PacketType::ObjectsMoved,
-                     PacketType::ObjectsGone, PacketType::RollCall, PacketType::ObjectAsk];
+                     PacketType::ObjectsGone, PacketType::RollCall, PacketType::ObjectAsk,
+                     PacketType::PlayerMoved, PacketType::MoveCorrection];
         for kind in every {
             assert_eq!(PacketType::from_byte(kind as u8), Some(kind));
         }
@@ -1448,7 +1518,7 @@ mod tests {
         assert_eq!(PacketType::from_byte(0x2A), None);
         assert_eq!(PacketType::from_byte(0x3C), None);
         assert_eq!(PacketType::from_byte(0x46), None);
-        assert_eq!(PacketType::from_byte(0x55), None);
+        assert_eq!(PacketType::from_byte(0x57), None);
     }
 
     #[test]
@@ -1623,7 +1693,7 @@ mod tests {
         // 1.5 is 0x3FC00000 as an f32, and -2.0 is 0xC0000000, lowest
         // byte first.
         let jacob = EnteredCharacter { uuid: "u-1".to_string(), name: "Jacob".to_string(),
-                                       position: [1.5, 0.0, -2.0], object: 7 };
+                                       position: [1.5, 0.0, -2.0], object: 7, walk: 4.0, turn: 450.0 };
         let mut expected = vec![0x28, 12, 0, 0, 0];
         expected.extend_from_slice(&[3, 0, 0, 0]);
         expected.extend_from_slice(b"u-1");
@@ -1633,6 +1703,9 @@ mod tests {
         expected.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
         expected.extend_from_slice(&[0x00, 0x00, 0x00, 0xC0]);
         expected.extend_from_slice(&[7, 0, 0, 0]);
+        // 4.0 is 0x40800000 and 450.0 0x43E10000.
+        expected.extend_from_slice(&[0x00, 0x00, 0x80, 0x40]);
+        expected.extend_from_slice(&[0x00, 0x00, 0xE1, 0x43]);
         assert_eq!(entered_world(12, &jacob), expected);
     }
 
@@ -1748,6 +1821,8 @@ mod tests {
             scale: [1.0; 3],
             model: String::new(),
             shape: 2,
+            collider: 1,
+            collider_size: [0.5, 2.0, 0.0],
             track: String::new(),
         }
     }
@@ -1768,8 +1843,30 @@ mod tests {
         expected.extend_from_slice(&[0, 0, 0x80, 0x3F, 0, 0, 0x80, 0x3F, 0, 0, 0x80, 0x3F]);
         expected.extend_from_slice(&[0, 0, 0, 0]);
         expected.push(2);
+        // A capsule collider, 0.5 round (0x3F000000) and 2 tall
+        // (0x40000000).
+        expected.push(1);
+        expected.extend_from_slice(&[0, 0, 0, 0x3F, 0, 0, 0, 0x40, 0, 0, 0, 0]);
         expected.extend_from_slice(&[0, 0, 0, 0]);
         assert_eq!(hydrate(&jacob_whole()), expected);
+    }
+
+    #[test]
+    fn a_move_reads_back_and_a_pull_back_in_bytes() {
+        let mut payload = 12u32.to_le_bytes().to_vec();
+        payload.extend_from_slice(&1u32.to_le_bytes());
+        put_floats(&mut payload, &[0.5, 1.0, 0.5, 0.0, 90.0, 0.0, 4.0, 0.0, 0.0]);
+        assert_eq!(read_player_moved(&payload), Ok(PlayerMove { number: 12, pull_backs_had: 1,
+            position: [0.5, 1.0, 0.5], rotation: [0.0, 90.0, 0.0], velocity: [4.0, 0.0, 0.0] }));
+        assert!(read_player_moved(&payload[..43]).is_err());
+        payload.push(0);
+        assert!(read_player_moved(&payload).is_err());
+
+        let pull_back = PullBack { number: 2, position: [0.5, 1.0, 0.5], rotation: [0.0, 90.0, 0.0] };
+        let mut expected = vec![0x56, 2, 0, 0, 0];
+        expected.extend_from_slice(&[0, 0, 0, 0x3F, 0, 0, 0x80, 0x3F, 0, 0, 0, 0x3F]);
+        expected.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0xB4, 0x42, 0, 0, 0, 0]);
+        assert_eq!(move_correction(&pull_back), expected);
     }
 
     #[test]

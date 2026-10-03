@@ -26,7 +26,12 @@
 # whole as it comes into view (a Hydrate), what moves, what's gone, and a
 # roll call once a second, printed only when it finds something to mend
 # (--show-roll-calls prints them all); a number on a roll call it doesn't
-# know, it asks about with an ObjectAsk, the way Ensemble does.  Every
+# know, it asks about with an ObjectAsk, the way Ensemble does.  With
+# --walk it walks its character west over Alpha's flat ground the way
+# Ensemble will (protocol version 15): a PlayerMoved when it starts, one
+# every half second while it walks, and one when it stops; --jump and
+# --spin first try a move too far and a turn too fast, to see the server
+# pull it back with a MoveCorrection and ring the bell.  Every
 # packet in and out is printed, meaning first and raw bytes under it.  The
 # bytes are the ones in Documentation/LLM/PROTOCOL.md; when this and the
 # document disagree, the document wins.  To try "already logged in", leave
@@ -57,6 +62,8 @@
 #   python3 networking/test_client.py --play Jacob --chunks ...   (pulls the chunks around Jacob before PlayerReady)
 #   python3 networking/test_client.py --play Jacob --chunks --chunk-outside ...   (asks for one out of view too)
 #   python3 networking/test_client.py --play Jacob --miss-first-hydrate ...   (drops one, to see the roll call mend it)
+#   python3 networking/test_client.py --play Jacob --walk 3 ...   (walks west for 3 seconds, then stops)
+#   python3 networking/test_client.py --play Jacob --jump 30 --spin ...   (too far, then too fast: pulled back)
 #   python3 networking/test_client.py --play Jacob --type '/chat Yo yo yo!' ...   (says it to everybody)
 #   python3 networking/test_client.py --play Jacob --type '/who' ...
 #   python3 networking/test_client.py --play Jacob --type '/chat 1' --type '/chat 2' --type-gap 0 ...
@@ -76,7 +83,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-PROTOCOL_VERSION = 14
+PROTOCOL_VERSION = 15
 
 # The password's key.  Changing any of these locks out every account; the
 # server and Ensemble make it the same way.
@@ -123,6 +130,8 @@ OBJECTS_MOVED = 0x51
 OBJECTS_GONE = 0x52
 ROLL_CALL = 0x53
 OBJECT_ASK = 0x54
+PLAYER_MOVED = 0x55
+MOVE_CORRECTION = 0x56
 OBJECT_PACKETS = (HYDRATE, OBJECTS_MOVED, OBJECTS_GONE, ROLL_CALL)
 
 NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "LoginResult",
@@ -139,13 +148,14 @@ NAMES = {HELLO: "Hello", LOGIN: "Login", IN_LINE: "InLine", LOGIN_RESULT: "Login
          OVERWORLD_MAP_REQUEST: "OverworldMapRequest", OVERWORLD_MAP_PIECE: "OverworldMapPiece",
          CHUNK_REQUEST: "ChunkRequest", CHUNK_PIECE: "ChunkPiece", CHUNK_REFUSED: "ChunkRefused",
          HYDRATE: "Hydrate", OBJECTS_MOVED: "ObjectsMoved", OBJECTS_GONE: "ObjectsGone", ROLL_CALL: "RollCall",
-         OBJECT_ASK: "ObjectAsk"}
+         OBJECT_ASK: "ObjectAsk", PLAYER_MOVED: "PlayerMoved", MOVE_CORRECTION: "MoveCorrection"}
 
 LOGIN_ANSWERS = {1: "failed", 2: "already logged in", 3: "outdated client", 4: "unavailable"}
 CREATE_ANSWERS = {0: "made", 1: "name not allowed", 2: "name taken", 3: "slots full", 4: "unavailable"}
 DELETE_ANSWERS = {0: "approved", 1: "denied"}
 CHUNK_REFUSALS = {1: "outside the view", 2: "not yet", 3: "unavailable"}
 SHAPES = {0: "a cube", 1: "a sphere", 2: "a capsule", 3: "a cylinder", 4: "a plane", 5: "a quad"}
+COLLIDERS = {0: "no collider", 1: "a capsule", 2: "a cylinder", 3: "a box"}
 KICK_REASONS = {1: "logged in elsewhere", 2: "server stopping", 3: "banned", 4: "kicked by the admin",
                 5: "ACCOUNT TERMINATED", 6: "character locked for a moment; log in again"}
 
@@ -383,7 +393,9 @@ class Objects:
         at += 48
         model, at = take_string(data, at)
         shape = data[at]
-        track, at = take_string(data, at + 1)
+        collider = data[at + 1]
+        collider_size = struct.unpack_from("<3f", data, at + 2)
+        track, at = take_string(data, at + 14)
         if self.miss_first_hydrate:
             self.miss_first_hydrate = False
             say("<-", HYDRATE, "object %d: --miss-first-hydrate, so it's dropped as if it never came" % number)
@@ -396,6 +408,13 @@ class Objects:
         print("   model %s, drawn as %s; doing %s" % (repr(model) if model else "none",
                                                      SHAPES.get(shape, "shape %d" % shape),
                                                      repr(track) if track else "nothing"))
+        if collider in (1, 2):
+            room = "%g round, %g tall" % (collider_size[0], collider_size[1])
+        elif collider == 3:
+            room = "%s across" % numbers(collider_size)
+        else:
+            room = ""
+        print("   takes up %s%s" % (COLLIDERS.get(collider, "collider %d" % collider), ", " + room if room else ""))
 
     def roll_call(self, data):
         (roll,) = struct.unpack_from("<I", data, 1)
@@ -425,6 +444,119 @@ class Objects:
                 say("->", OBJECT_ASK, ", ".join(str(number) for number in some), packet[1:])
         elif self.show_roll_calls and not missing:
             print("   Roll call %d: all %d known, nothing to mend." % (roll, len(listed)))
+
+
+class Walker:
+    """Walks the player's own character the way Ensemble will (protocol
+    version 15), EverQuest's way: it moves on this side at once, and every
+    move goes to the server as a PlayerMoved, numbered, with the number of
+    the last MoveCorrection it had.  With --jump it first says the
+    character went that many blocks west in no time, and with --spin that
+    it turned right round in no time: both are pulled back, and the bell
+    rings.  With --walk it then walks west for that many seconds, over
+    Alpha's flat ground, at the speed the server gave, with a move when it
+    starts, one every half second, and one when it stops."""
+
+    # Facing west: Unity turns about y clockwise from +z (north), so west,
+    # -x, is 270.
+    WEST = 270.0
+
+    def __init__(self, udp, server):
+        self.udp = udp
+        self.server = server
+        self.walk_for = 0.0
+        self.jump = 0.0
+        self.spin = False
+        # Set at CharacterEnteredWorld.
+        self.position = None
+        self.facing = 0.0
+        self.walk = 0.0
+        self.number = 0
+        self.pull_backs_had = 0
+        # The steps still to do, each (seconds after entering, what).
+        self.steps = []
+        self.entered_at = None
+        self.walking_since = None
+        self.start_x = 0.0
+        self.last_sent = None
+
+    def entered(self, position, walk, turn):
+        self.position = list(position)
+        self.walk = walk
+        print("   It walks %g blocks a second and turns %g degrees a second, the server's numbers." % (walk, turn))
+        self.entered_at = time.monotonic()
+        at = 0.5
+        if self.jump:
+            self.steps.append((at, "jump"))
+            at += 1.0
+        if self.spin:
+            self.steps.append((at, "spin"))
+            at += 1.0
+        if self.walk_for:
+            self.steps.append((at, "walk"))
+            self.steps.append((at + self.walk_for, "stop"))
+
+    def send(self, velocity, why):
+        self.number += 1
+        floats = self.position + [0.0, self.facing, 0.0] + velocity
+        packet = bytes([PLAYER_MOVED]) + struct.pack("<II9f", self.number, self.pull_backs_had, *floats)
+        self.udp.sendto(packet, self.server)
+        say("->", PLAYER_MOVED, "move %d (had pull-back %d): at %s facing %g, moving %s; %s" %
+            (self.number, self.pull_backs_had, numbers(self.position), self.facing, numbers(velocity), why),
+            packet[1:])
+
+    def tick(self):
+        """Called often: does whatever step is due, and walks on."""
+        if self.position is None:
+            return
+        now = time.monotonic()
+        if self.walking_since is not None:
+            self.position[0] = self.start_x - self.walk * (now - self.walking_since)
+            if now - self.last_sent >= 0.5:
+                self.last_sent = now
+                self.send([-self.walk, 0.0, 0.0], "still walking (the half-second check-in)")
+        while self.steps and now - self.entered_at >= self.steps[0][0]:
+            _, step = self.steps.pop(0)
+            if step == "jump":
+                self.position[0] -= self.jump
+                self.send([0.0, 0.0, 0.0], "--jump: %g blocks west in no time" % self.jump)
+            elif step == "spin":
+                # Standing still first, so the server's clock starts from
+                # now, then right round straight after it.
+                self.send([0.0, 0.0, 0.0], "--spin: standing still, first")
+                self.facing = (self.facing + 180.0) % 360.0
+                self.send([0.0, 0.0, 0.0], "--spin: right round in no time")
+            elif step == "walk":
+                self.facing = self.WEST
+                self.start_walking(now)
+                self.send([-self.walk, 0.0, 0.0], "--walk: setting off west")
+            elif step == "stop":
+                self.walking_since = None
+                self.send([0.0, 0.0, 0.0], "stopped")
+
+    def start_walking(self, now):
+        self.walking_since = now
+        self.start_x = self.position[0]
+        self.last_sent = now
+
+    def corrected(self, data):
+        """A MoveCorrection: back where the server says, and every move
+        after this says it was had."""
+        (number,) = struct.unpack_from("<I", data, 1)
+        floats = struct.unpack_from("<6f", data, 5)
+        say("<-", MOVE_CORRECTION, "pull-back %d: back to %s facing %g" % (number, numbers(floats[0:3]), floats[4]),
+            data[1:])
+        if number <= self.pull_backs_had:
+            print("   Had that one already.  Nothing to do.")
+            return
+        self.pull_backs_had = number
+        self.position = list(floats[0:3])
+        self.facing = floats[4]
+        if self.walking_since is not None:
+            # Walking on from where it was put, with a move to say so.
+            now = time.monotonic()
+            self.start_walking(now)
+            self.send([-self.walk, 0.0, 0.0], "walking on from where the server put it")
 
 
 class Tcp:
@@ -557,6 +689,8 @@ class CharacterSelect:
         self.chunk_outside = False
         # The world's objects (protocol version 14).
         self.objects = Objects(udp, server)
+        # Walking (protocol version 15).
+        self.walker = Walker(udp, server)
 
     def ask(self, kind, rest, detail):
         """Sends one ask and hands back (answer type, the answer after its
@@ -621,6 +755,8 @@ class CharacterSelect:
                     show_chat(data)
                 elif data[0] in OBJECT_PACKETS:
                     self.objects.heard(data)
+                elif data[0] == MOVE_CORRECTION:
+                    self.walker.corrected(data)
                 elif data[0] != KEEP_ALIVE:
                     say("<-", data[0], "", data[1:])
         print("No answer to ask %d in 10 seconds." % ask)
@@ -725,10 +861,11 @@ class CharacterSelect:
         if kind == CHARACTER_ENTERED_WORLD:
             entered_uuid, at = take_string(data, 5)
             entered_name, at = take_string(data, at)
-            x, y, z, own = struct.unpack_from("<fffI", data, at)
+            x, y, z, own, walk, turn = struct.unpack_from("<fffIff", data, at)
             self.objects.own = own
             say("<-", kind, "%s (%s) is in the world at %g, %g, %g, object %d" %
                 (entered_name, entered_uuid, x, y, z, own), data[1:])
+            self.walker.entered((x, y, z), walk, turn)
             return entered_name
         if kind == COMMAND_REFUSED:
             message, _ = take_string(data, 5)
@@ -948,6 +1085,9 @@ def character_select(args, udp, server):
     select.chunk_outside = args.chunk_outside
     select.objects.miss_first_hydrate = args.miss_first_hydrate
     select.objects.show_roll_calls = args.show_roll_calls
+    select.walker.walk_for = args.walk
+    select.walker.jump = args.jump
+    select.walker.spin = args.spin
     playing = None
     try:
         select.list()
@@ -1060,6 +1200,7 @@ def session(args, token, udp, server):
         deadline = time.monotonic() + 1.0
         answered = False
         while time.monotonic() < deadline:
+            select.walker.tick()
             while not typed.empty():
                 line = typed.get()
                 if line.strip():
@@ -1085,6 +1226,8 @@ def session(args, token, udp, server):
                 show_chat(data)
             elif data[0] in OBJECT_PACKETS:
                 select.objects.heard(data)
+            elif data[0] == MOVE_CORRECTION:
+                select.walker.corrected(data)
             else:
                 say("<-", data[0])
         if args.show_keepalives or not answered:
@@ -1140,6 +1283,13 @@ def main():
                              "to see the server refuse the lines that come too soon")
     parser.add_argument("--miss-first-hydrate", action="store_true",
                         help="with --play, drop the first Hydrate as if it was lost, to see the roll call mend it")
+    parser.add_argument("--walk", type=float, default=0, metavar="SECONDS",
+                        help="with --play, walk the character west for this many seconds, then stop")
+    parser.add_argument("--jump", type=float, default=0, metavar="BLOCKS",
+                        help="with --play, first say the character went this many blocks west in no time "
+                             "(past 16 and the server pulls it back)")
+    parser.add_argument("--spin", action="store_true",
+                        help="with --play, first say the character turned right round in no time (pulled back)")
     parser.add_argument("--show-roll-calls", action="store_true",
                         help="print every roll call, not just the ones that find something to mend")
     parser.add_argument("--show-keepalives", action="store_true",

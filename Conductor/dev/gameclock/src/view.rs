@@ -6,8 +6,15 @@
 //! (protocol version 14).  Jacob, 2026-10-03: "The server will be the
 //! authority, always on where the object actually is in the world.  The
 //! client is just a dumb renderer."  So the client draws an object where
-//! this says it is, its own character included, and never decides a
-//! place of its own.
+//! this says it is, and never decides a place of its own, with one
+//! exception since movement (protocol version 15): a player walks their
+//! own character on their own screen, and the server judges each move
+//! (`movement.rs`).  So a player is never sent their own character's
+//! moves, which would only be where it was a moment ago, and their client
+//! doesn't take its own place from the roll call; a pull-back is what
+//! moves it.  Each player's news carries their pull-back, if they have
+//! one, and the column of chunks their character is in when it changes,
+//! so networking knows which chunks they may have.
 //!
 //! A player sees every object within `view_chunks` of the column of
 //! chunks their character stands in, the same reach as the chunks
@@ -33,8 +40,9 @@
 //! comes into the world (`next_object_number()`) and never used again in
 //! the run, so the packets after the Hydrate carry four bytes instead of
 //! its uuid.  Today the objects are players' characters; NPCs join them
-//! when they're spawned (0.0.3 on WAYPOINTS.md).  Nothing moves yet, so
-//! every velocity is 0 until movement gives it a place to live.
+//! when they're spawned (0.0.3 on WAYPOINTS.md).  An object's velocity is
+//! its `Transform`'s, so a walking character is carried along on every
+//! screen between one word and the next, and only a change is sent.
 //!
 //! The cost: every player against every object, every cycle.  A guess
 //! until the timing test below is run (`view_of_five_hundred`).
@@ -45,9 +53,10 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use conductor_gameworld::chunk::SIDE;
-use conductor_primlib::{Entity, PrimitiveShape, World};
+use conductor_primlib::{Collider, Entity, PrimitiveShape, World};
 
 use crate::Game;
+use crate::movement::PullBack;
 use crate::players::Players;
 
 /// How many cycles between two roll calls: every 4th, so once a second.
@@ -79,7 +88,6 @@ pub struct Motion {
     pub rotation: [f32; 3],
     /// Blocks a second along x, y and z (Jacob: WASD, so a velocity).
     /// The client moves it along this every frame until told otherwise.
-    /// Always 0 until movement.
     pub velocity: [f32; 3],
 }
 
@@ -104,6 +112,13 @@ pub struct Hydrate {
     /// The shape drawn without a model: 0 cube, 1 sphere, 2 capsule, 3
     /// cylinder, 4 plane, 5 quad (`shape_byte()`).
     pub shape: u8,
+    /// The room it takes up, for the client to build its collider from
+    /// (protocol version 15): 0 none, 1 capsule, 2 cylinder, 3 box
+    /// (`collider_of()`).
+    pub collider: u8,
+    /// For a capsule or a cylinder its radius, its height and 0; for a
+    /// box its size along x, y and z; for none, 0s.
+    pub collider_size: [f32; 3],
     /// What the model is doing ("idle"), empty for nothing.
     pub track: String,
 }
@@ -123,11 +138,20 @@ pub struct News {
     /// On a roll call: its number, and every object the player is
     /// believed to know, where it is now.
     pub roll_call: Option<(u32, Vec<Motion>)>,
+    /// Their character pulled back to its last good spot (`movement.rs`),
+    /// for a MoveCorrection.
+    pub pull_back: Option<PullBack>,
+    /// The column of chunks their character is in, x and z, when it's
+    /// changed since the last time they were told (and the first time).
+    /// Not sent to the client: networking keeps it, for which chunks they
+    /// may have.
+    pub standing: Option<(i32, i32)>,
 }
 
 impl News {
     fn is_empty(&self) -> bool {
         self.hydrates.is_empty() && self.moved.is_empty() && self.gone.is_empty() && self.roll_call.is_none()
+            && self.pull_back.is_none() && self.standing.is_none()
     }
 }
 
@@ -174,19 +198,32 @@ pub fn set_view_sender(send: fn(&[News])) {
 }
 
 /// The broadcast check's part: what every player is to be told this
-/// cycle, worked out and handed to networking to send.
+/// cycle, worked out and handed to networking to send, each pull-back
+/// with it.
 pub(crate) fn broadcast(game: &mut Game) {
     let asked = match crate::lock(&ASKED).as_mut() {
         Some(asked) => mem::take(asked),
         None => Vec::new(),
     };
-    let news = game.view.news(&game.world, &game.players, &asked, conductor_gameworld::view_chunks());
+    let mut news = game.view.news(&game.world, &game.players, &asked, conductor_gameworld::view_chunks());
+    with_pull_backs(&mut news, game.movement.take_pull_backs());
     if news.is_empty() {
         return;
     }
     let send = *crate::lock(&SENDER);
     if let Some(send) = send {
         send(&news);
+    }
+}
+
+/// Puts each pull-back in its player's news, starting news for a player
+/// who had nothing else this cycle.
+fn with_pull_backs(news: &mut Vec<News>, pull_backs: HashMap<i64, PullBack>) {
+    for (viewer, pull_back) in pull_backs {
+        match news.iter_mut().find(|one| one.viewer == viewer) {
+            Some(one) => one.pull_back = Some(pull_back),
+            None => news.push(News { viewer, pull_back: Some(pull_back), ..News::default() }),
+        }
     }
 }
 
@@ -197,6 +234,9 @@ pub(crate) struct View {
     known: HashMap<i64, BTreeSet<u32>>,
     /// Where each object was last cycle, so only what changed goes out.
     last: HashMap<u32, Motion>,
+    /// The column of chunks each player was last told their character is
+    /// in, by its row's id.
+    columns: HashMap<i64, (i32, i32)>,
     /// Cycles counted, for the roll call.
     cycles: u64,
     /// The last roll call's number.
@@ -216,7 +256,7 @@ struct Seen {
 
 impl View {
     pub(crate) fn new() -> View {
-        View { known: HashMap::new(), last: HashMap::new(), cycles: 0, rolls: 0 }
+        View { known: HashMap::new(), last: HashMap::new(), columns: HashMap::new(), cycles: 0, rolls: 0 }
     }
 
     /// What every player is to be told this cycle, with `asked` (who asked
@@ -251,6 +291,9 @@ impl View {
         for viewer in &seen {
             let known = self.known.entry(viewer.character_id).or_default();
             let mut news = News { viewer: viewer.character_id, ..News::default() };
+            if self.columns.insert(viewer.character_id, viewer.column) != Some(viewer.column) {
+                news.standing = Some(viewer.column);
+            }
             let mut gone = BTreeSet::new();
             let sees = |object: &Seen| in_view(viewer.column, object.column, reach);
 
@@ -267,9 +310,12 @@ impl View {
             for object in seen.iter().filter(|object| sees(*object)) {
                 let number = object.motion.object;
                 in_view_now.insert(number);
+                // A player's own character moves on their own screen first;
+                // its move from here would only be where it was a moment ago.
+                let own = object.character_id == viewer.character_id;
                 if known.insert(number) {
                     news.hydrates.push(hydrate(world, object));
-                } else if moved.contains(&number) {
+                } else if moved.contains(&number) && !own {
                     news.moved.push(object.motion);
                 }
             }
@@ -294,21 +340,20 @@ impl View {
         // any more, and starts from nothing if they come back.
         let viewers: HashSet<i64> = seen.iter().map(|object| object.character_id).collect();
         self.known.retain(|viewer, _| viewers.contains(viewer));
+        self.columns.retain(|viewer, _| viewers.contains(viewer));
         everybody
     }
 }
 
 /// Where an object is, which way it faces, and where it's going.
 fn motion_of(world: &World, entity: Entity, number: u32) -> Motion {
-    let (position, rotation) = match world.transform(entity) {
-        Some(transform) => (transform.position, transform.rotation),
-        None => Default::default(),
-    };
+    let transform = world.transform(entity).copied().unwrap_or_default();
+    let (position, rotation, velocity) = (transform.position, transform.rotation, transform.velocity);
     Motion {
         object: number,
         position: [position.x, position.y, position.z],
         rotation: [rotation.x, rotation.y, rotation.z],
-        velocity: [0.0; 3],
+        velocity: [velocity.x, velocity.y, velocity.z],
     }
 }
 
@@ -318,6 +363,7 @@ fn hydrate(world: &World, object: &Seen) -> Hydrate {
     let scale = world.transform(entity).map(|transform| transform.scale)
         .map(|scale| [scale.x, scale.y, scale.z])
         .unwrap_or([1.0; 3]);
+    let collider = collider_of(world.collider(entity).copied());
     Hydrate {
         motion: object.motion,
         uuid: object.uuid.clone(),
@@ -326,6 +372,8 @@ fn hydrate(world: &World, object: &Seen) -> Hydrate {
         scale,
         model: world.model(entity).map(|model| model.path.clone()).unwrap_or_default(),
         shape: shape_byte(world.primitive_shape(entity).copied().unwrap_or_default()),
+        collider: collider.0,
+        collider_size: collider.1,
         track: world.animator(entity).map(|animator| animator.current_track.clone()).unwrap_or_default(),
     }
 }
@@ -340,6 +388,18 @@ fn shape_byte(shape: PrimitiveShape) -> u8 {
         PrimitiveShape::Cylinder => 3,
         PrimitiveShape::Plane => 4,
         PrimitiveShape::Quad => 5,
+    }
+}
+
+/// A collider's byte on the wire and its three numbers: 0 none, 1
+/// capsule, 2 cylinder, 3 box.  Written out for the same reason as the
+/// shapes.
+fn collider_of(collider: Option<Collider>) -> (u8, [f32; 3]) {
+    match collider {
+        None => (0, [0.0; 3]),
+        Some(Collider::Capsule { radius, height }) => (1, [radius, height, 0.0]),
+        Some(Collider::Cylinder { radius, height }) => (2, [radius, height, 0.0]),
+        Some(Collider::Cube { size }) => (3, [size.x, size.y, size.z]),
     }
 }
 
@@ -417,25 +477,64 @@ mod tests {
         assert_eq!(jacob.shape, 2, "a character is a capsule");
         assert_eq!(jacob.scale, [1.0; 3]);
         assert_eq!(jacob.model, "");
+        assert_eq!((jacob.collider, jacob.collider_size), (1, [0.5, 2.0, 0.0]), "a capsule 1 wide and 2 tall");
 
         // Nothing changed, and it isn't a roll call: nobody is told anything.
         assert!(view.news(&world, &players, &[], 8).is_empty());
     }
 
     #[test]
-    fn a_move_goes_out_to_whoever_sees_it() {
+    fn a_move_goes_out_to_whoever_sees_it_but_its_own_player() {
         let (_mailbox, players, mut world) = world_of(&[1, 2]);
         let mut view = View::new();
         view.news(&world, &players, &[], 8);
 
         move_to(&mut world, &players, 2, 5.5, -3.0);
         let news = view.news(&world, &players, &[], 8);
-        for viewer in [1, 2] {
-            let moved = &news_for(&news, viewer).unwrap().moved;
-            assert_eq!(moved.len(), 1);
-            assert_eq!(moved[0].object, 2);
-            assert_eq!(moved[0].position, [5.5, 1.0, -3.0]);
+        let moved = &news_for(&news, 1).unwrap().moved;
+        assert_eq!(moved.len(), 1);
+        assert_eq!(moved[0].object, 2);
+        assert_eq!(moved[0].position, [5.5, 1.0, -3.0]);
+        assert!(news_for(&news, 2).is_none_or(|news| news.moved.is_empty()), "2 walked it there itself");
+    }
+
+    #[test]
+    fn a_velocity_goes_out_with_the_move() {
+        let (_mailbox, players, mut world) = world_of(&[1, 2]);
+        let mut view = View::new();
+        view.news(&world, &players, &[], 8);
+
+        let entity = players.objects().into_iter().find(|object| object.0 == 2).map(|object| object.1);
+        if let Some(transform) = entity.and_then(|entity| world.transform_mut(entity)) {
+            transform.velocity = Vector3::new(4.0, 0.0, 0.0);
         }
+        let news = view.news(&world, &players, &[], 8);
+        assert_eq!(news_for(&news, 1).unwrap().moved[0].velocity, [4.0, 0.0, 0.0]);
+    }
+
+    #[test]
+    fn each_player_hears_their_column_when_it_changes() {
+        let (_mailbox, players, mut world) = world_of(&[1]);
+        let mut view = View::new();
+        let first = view.news(&world, &players, &[], 8);
+        assert_eq!(news_for(&first, 1).unwrap().standing, Some((0, 0)));
+
+        move_to(&mut world, &players, 1, 5.5, 0.5);
+        let same = view.news(&world, &players, &[], 8);
+        assert!(news_for(&same, 1).is_none_or(|news| news.standing.is_none()), "still in column 0, 0");
+
+        move_to(&mut world, &players, 1, 40.0, -1.0);
+        let next = view.news(&world, &players, &[], 8);
+        assert_eq!(news_for(&next, 1).unwrap().standing, Some((1, -1)));
+    }
+
+    #[test]
+    fn a_pull_back_goes_in_its_players_news() {
+        let mut news = vec![News { viewer: 1, gone: vec![9], ..News::default() }];
+        let pull_back = PullBack { number: 3, position: [0.5, 1.0, 0.5], rotation: [0.0; 3] };
+        with_pull_backs(&mut news, HashMap::from([(1, pull_back), (2, pull_back)]));
+        assert_eq!(news.iter().find(|one| one.viewer == 1).and_then(|one| one.pull_back), Some(pull_back));
+        assert_eq!(news.iter().find(|one| one.viewer == 2).and_then(|one| one.pull_back), Some(pull_back));
     }
 
     #[test]

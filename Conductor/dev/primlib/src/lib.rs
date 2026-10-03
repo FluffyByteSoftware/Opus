@@ -29,8 +29,8 @@ pub mod world;
 // Rust note: these `pub use` lines let the rest of Conductor write
 // `conductor_primlib::World` instead of `conductor_primlib::world::World`.
 pub use components::{
-    Animator, Component, Kind, LongName, Model, PlayerCharacter, Pool, PrimitiveShape, ShortName, Titles, Transform,
-    Vector3,
+    Animator, Collider, Component, Kind, LongName, Model, PlayerCharacter, Pool, PrimitiveShape, ShortName, Titles,
+    Transform, Vector3,
 };
 pub use entity::Entity;
 pub use save::{Fields, Save, Value};
