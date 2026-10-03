@@ -60,6 +60,9 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 |                                                  | client; the player waits until the nearest are drawn   |
 | The ground on screen in Ensemble                 | Built and tested: a mesh a chunk; the distance to come |
 | Spawn points: on top of the highest block        | Built and tested: new characters and RESET HOME        |
+| Characters seen in the world, the server's say   | Built and tested (protocol 14): everybody in view as a |
+|                                                  | capsule with their name over it, the camera on yours   |
+| A character saved inside the ground              | Built and tested: stood on top of its column at PLAY   |
 | Soundcheck, the launcher                         | Built and tested on Linux: the login over TLS 1.3,     |
 |                                                  | Remember Me, PLAY and the way back, debug mode, admin  |
 |                                                  | mode's PUBLISH, the check at start, the patch          |

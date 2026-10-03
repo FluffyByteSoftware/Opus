@@ -101,7 +101,7 @@ server's spawn at y 1 with the drawing as it is; and which the server's own idea
 **His answer**: the drawing stays as it is: "actually I'll jsut set characters to stand on top of 0 that
 seems easier".  So a block at y fills y to y+1, and a character standing on the ground at 0 is at y 1.
 
-## The player in the world (session 9, 2026-10-03; being talked through)
+## The player in the world (session 9, 2026-10-03; built and tested)
 
 Jacob, opening it: "we're gonna be preparing both the server (Conductor) and Ensemble (client) with
 representing the player in the world.  This will be necessary to get movement set up next session."  And
@@ -178,7 +178,7 @@ an Actor is on the client; how a model's name finds a model.
   anything Living.
 - **The OK** (session 9): round one, Conductor and the test client, then Ensemble.
 
-### As written, round one: Conductor and the test client (session 9; not yet built)
+### As written, round one: Conductor and the test client (session 9; built and tested)
 
 Protocol version 14.  PROTOCOL.md's "The world's objects" has the packets byte for byte; `design/gameclock.md`
 ("The view") and `design/conductor-networking.md` ("The world's objects") the server's half.  In short:
@@ -197,7 +197,7 @@ Protocol version 14.  PROTOCOL.md's "The world's objects" has the packets byte f
 
 Built and tested: every check passed (session 9).
 
-### As written, round two: Ensemble (session 9; not yet built)
+### As written, round two: Ensemble (session 9; built and tested)
 
 - **`Code/World/WorldObjects.cs`**: what the client knows, by number (`WorldObject`, `ObjectMotion`).  A Hydrate
   is `Put()`, ObjectsMoved `Move()`, ObjectsGone `Remove()`; `RollCallPiece()` puts a roll call's pieces
@@ -218,4 +218,8 @@ Built and tested: every check passed (session 9).
   keeps it: never drawn (its renderers off for good), at CharacterEnteredWorld's spot at first and then on the
   player's own object every frame, its middle as high over the feet as before, so the Cinemachine camera
   frames the same.
+
+Built and tested (session 9): Tester, Chatter and Asdf seen as capsules with their names over them, coming
+and going; the names read well in the Game window ("they look fine actually :D"; the Scene window shows
+them tilted, since they face the game's camera).
 

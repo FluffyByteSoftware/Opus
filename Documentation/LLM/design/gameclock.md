@@ -20,7 +20,8 @@ Built and tested on Linux: no warnings, its tests pass, and every run check pass
 Services tab at about 240 cycles a minute, its thread near nothing on the CPU, a login leaving the late
 count at 0, and a clean STOP SERVER and START SERVER).  Housekeeping takes in the chunks GameWorld sends and
 saves the world; input brings players' characters in and out of the world through the mailbox; broadcast
-sends out the chat (2026-10-02, "Chat" below); AI and movement are empty, since nothing in the world moves.
+sends out the chat (2026-10-02, "Chat" below), answers `/who` and, since session 9, tells each player what
+they see of the world ("The view" below); AI and movement are empty, since nothing in the world moves.
 
 **Ready for the spawn** (2026-10-01, built and tested, every check passed): the mailbox, the players' list,
 and the world save.  See "Players and the world save" below.

@@ -336,7 +336,7 @@ highest voxel."
 - **The limit**: once blocks change, GameWorld knows a chunk as of the last world save, so a column dug or
   built on since then gives the height it had then (TODO.md).
 
-### A saved character inside the ground (session 9, 2026-10-03; being talked through)
+### A saved character inside the ground (session 9, 2026-10-03; built and tested)
 
 Found when Asdf, saved at 0, 0, 0 before spawn points and never sent home, came in half inside the GOLD and
 its feet a block into the ground.  RESET HOME fixed Asdf by hand; Jacob wants it automatic: **"whenever a
@@ -355,7 +355,8 @@ height, then it puts them at reset position or a spawn point again".**  Put to h
   for Asdf at x 0 would have left it half inside the block beside).  Too high to stand on inside the world
   (the world ends at y 319): the spawn point instead.
 - **The player is told** (his "Yes"): a line in their chat when they come in, "You were inside the ground,
-  and have been moved on top of it."
+  and have been moved on top of it."  Sent to the spawn point instead: "...and have been moved to the
+  spawn point." (his "Yes" too).
 - **GameWorld not answering in time** (10 s, as RESET HOME): "refused and reset home".  RESET HOME needs
   GameWorld's answer too, so, put to him, his "b": **PLAY is refused, and the server moves the character to
   the spawn point at the last height it knew there and saves it to its row**; the next PLAY checks again.
@@ -366,7 +367,7 @@ height, then it puts them at reset position or a spawn point again".**  Put to h
   spawn point, written in the code, so there's no next one and nothing to delete yet: TODO.md, for when spawn
   points are generated with the world.
 
-**As written** (session 9; not yet built): `gameworld/src/spawn.rs` has `footing()` (GameWorld's `Footing` job:
+**As written** (session 9; built and tested, Asdf sunk by hand and stood back on top, with its chat line): `gameworld/src/spawn.rs` has `footing()` (GameWorld's `Footing` job:
 the blocks at the character's feet and head, in the block its saved spot is in, and the column's top if
 either isn't AIR; above the world counts as air, below it as floor) and `last_known()` (every spawn point's
 place, worked out once as GameWorld starts and again on every `place_at()`).  Protogame's `load()` asks at

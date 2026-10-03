@@ -28,7 +28,10 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   chunks inside its edges kept.  The chunks outside them need a call: deleted, or kept aside.
 - **A character saved outside a smaller world** (2026-10-01).  A smaller `world_size` can leave a
   character's last saved spot past the edge.  Everybody stands at 0,0,0 today, so it can't happen yet;
-  it can once there's movement.  Where it goes then (0,0,0, the nearest edge) is Jacob's call.
+  it can once there's movement.  Where it goes then (0,0,0, the nearest edge) is Jacob's call.  As built
+  in session 9, GameWorld can't read a column past the edge, so PLAY's ground check fails and the
+  character goes to the spawn point's last known place with "The server couldn't check where your
+  character stands..." (`design/world.md`), which may be answer enough; his to say.
 - **Chat's rest** (chat, `/who` and the anti-flood are built: `design/conductor-networking.md`, "Chat",
   "/who" and "Commands and the anti-flood"; the chat window is `design/ensemble-hud.md`):
   - **A line without a `/`** (Jacob, 2026-10-02): "anything typed will default to being said -- something
@@ -36,7 +39,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
     a `/` is refused.
   - **Nearby chat**, once there are positions.
   - **Whether the web admin sees the chat.**
-  - **Who may see positions.**  Everybody sees everybody's today ("thats fine for now").
+  - **Who may see positions.**  `/who` shows everybody's today ("thats fine for now"); the world's objects
+    go only to players whose view they're in (session 9).
   - **Kicking a player who keeps flooding** (2026-10-02): today a command too soon is only refused.
     Whether enough of them in a row (say 20 in 10 seconds) gets a Kicked, and with what reason, is Jacob's
     call.
@@ -130,8 +134,8 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
 - **Protogame's rest** (character select and the spawn are built, `networking/src/protogame.rs`;
   `design/conductor-networking.md`, `design/conductor-accounts.md` and `design/primlib.md` have Jacob's
   answers):
-  - **What the client is sent after CharacterEnteredWorld**: the chat, and nothing else yet.  The world
-    around it, other players and movement are the game's packets, to come.
+  - **What the client is sent after CharacterEnteredWorld**: the chat, the chunks it asks for, and since
+    session 9 the world's objects in its view (protocol version 14).  Movement's input packet is to come.
   - **The long name is the player's to capitalize, later** (Jacob: "there will be a way to set your
     _LONG_ to be capitalized how you want in game but when creating its this way").  `LongName` is where
     "McKay" goes; it's left empty until then.

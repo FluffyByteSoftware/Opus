@@ -62,7 +62,8 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 | Lua and the sandbox                          | `design/lua-parser.md`                                    |
 | The game library: entities, components, templates, saving | `design/primlib.md`                          |
 | The world: blocks, chunks, regions, its files| `design/world.md`                                         |
-| The GameClock: the beat, the checks, the mailbox, the world save | `design/gameclock.md`                  |
+| The GameClock: the beat, the checks, the mailbox, the world save, the view | `design/gameclock.md`        |
+| The world on the client: the ground, the objects, the camera | `design/ensemble-world.md`                 |
 | Ensemble's screens, widgets, the chat window | `design/ensemble-hud.md`                                  |
 | Ensemble's net code, the ticket, the start screen | `design/ensemble-networking.md`                      |
 | Soundcheck: the check, the login, PLAY, admin and debug modes | `design/soundcheck.md`                   |
@@ -204,7 +205,10 @@ every folder and file.
   Do not run `cargo check`, `cargo build`, `cargo test`, `dotnet`, the
   server, or the client.  Stick to writing the code.  When it's written, tell
   me exactly which commands to run, with your questions at the bottom of the
-  reply.  Conductor is run from a terminal, not from inside RustRover (its
+  reply.  A Conductor round's commands are `cargo build` and `cargo test`
+  both, every time (an `accounts` test sat broken, unseen, from session 6
+  to session 9: the build doesn't compile the tests).  Conductor is run from a
+  terminal, not from inside RustRover (its
   code analysis beside the server once locked the machine up).  When a key
   does nothing in my terminal, ask me to try it on something plain
   (`sleep 30`, Ctrl-C) before changing code.
@@ -434,14 +438,19 @@ When I say we're wrapping up:
   session ends, for any reason, the player is gone and the client starts
   over at the login.  Nothing is kept for a reconnect, and there's no way
   back to character select from the world.  **The server decides what each
-  client sees**: nothing is sent for the client to hide.  **A player's
+  client sees**: nothing is sent for the client to hide.  **And where
+  everything is** (Jacob, 2026-10-03: "The server will be the authority,
+  always on where the object actually is in the world.  The client is
+  just a dumb renderer."): the client draws an object where it was last
+  told, its own character included, and never decides a place of its own.  **A player's
   character comes into the world through the GameClock's mailbox** and
   every way a player leaves the book takes it out and saves it.
 - **A crate that leans on one that calls it gets a slot.**  Rust won't
   build two crates that name each other, so the lower one keeps the types
   both need and a `set_*()` for a plain function, and the launcher fills it:
   `conductor_player_commands::wire()` fills networking's runner and the
-  GameClock's chat and `/who` senders.  **What a player types is
+  GameClock's chat and `/who` senders; networking fills the GameClock's
+  view sender itself as it starts, since it leans on the GameClock already.  **What a player types is
   `conductor-player-commands`**: a table of commands, one file each, with
   the anti-flood in the one lookup; a new command is a new file and a new
   line.  Admin commands, when they come, are "a permissions difference but
@@ -592,6 +601,11 @@ When I say we're wrapping up:
   `.meta`s.  **A rename needs no round**: the session `git mv`s the file
   and its `.meta` together, so the GUID stays and Unity sees a move
   (session 8, `WhoBox.cs` to `WhoLines.cs`).
+- **Every object the client draws carries a FluffyGameObject** (Jacob,
+  2026-10-03: "every single drawn object to the client is going to need a
+  FluffyGameObject now"), with an Actor on top for anything Living.  They're
+  made by WorldObjectsView from what the server sends, never placed by hand
+  in the scene.  `design/ensemble-world.md` has it.
 - **Ensemble never logs in and never sees a password** (2026-10-02; the
   login is Soundcheck's).  It has no TCP and no TLS: it reads the ticket
   from its environment (`OPUS_SERVER`, `OPUS_UDP_PORT`, `OPUS_TOKEN`,

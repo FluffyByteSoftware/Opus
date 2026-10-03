@@ -24,7 +24,7 @@ ends it starts Soundcheck again with why, and closes; with no ticket (started by
 shows the start screen, which in the editor is dev mode, watching for the ticket Soundcheck's `--debug`
 SUBMIT writes.  Admin mode (`--admin`) publishes a platform's build into the web folder.  Conductor has no
 part in the patcher.  **The game's name is Forgotten Legends**; the project, its folders and code stay Opus.
-**Everything speaks protocol version 13** (session 8, `/who` a line a character; 12 was session 3).
+**Everything speaks protocol version 14** (session 9, the world's objects; 13 was session 8, `/who`).
 CLAUDE.md's "Client rules" and "Launcher rules" have the detail.  **The built game in
 `Ensemble/build/Linux/0.0.12/` still speaks 12**, so Soundcheck without `--debug` can't play it against
 today's Conductor: a fresh build first, or the editor with `--debug`.
@@ -52,6 +52,18 @@ start, and it's all kept in `<character>_hud_layout.json` (HUD_FORMATS.md's layo
 `Chatter is at [0, 0, 0] [16 days, 12 minutes online]`, the one in the world longest at the top, a blank
 line, "There are 2 Legends online." and the time it ran.  `/who list` went into `/who`; every `/who` is
 answered from the GameClock, which notes when each character came in.
+
+**The player in the world** (session 9, `design/ensemble-world.md`, "The player in the world"; PROTOCOL.md,
+"The world's objects"): Jacob's rule, **"The server will be the authority, always on where the object
+actually is in the world.  The client is just a dumb renderer."**  Every object in a player's view (the
+chunks' square, `view_chunks` each way) is sent whole as a **Hydrate** when it comes into view, then only
+what changes (ObjectsMoved, ObjectsGone), with a **RollCall** once a second to mend lost packets; the
+client asks about a number it doesn't know (ObjectAsk).  Each object has a number for the session;
+CharacterEnteredWorld carries the player's own.  Ensemble draws each as its fallback shape (a character is
+a capsule) under a **FluffyGameObject**, with an **Actor** on top for anything Living (its short name over
+its head); `CameraAnchor` (the old stand-in Cube) keeps the Cinemachine camera on the player's own.
+Velocity is in the packets and always 0 until movement; models come with the model draw.  **A character
+saved inside the ground** is stood on top of its column at PLAY, and told so in its chat (`design/world.md`).
 
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
@@ -122,14 +134,16 @@ At session 6's hand-off (2026-10-03): **"wrap it up bro!  We're good"**, no pick
 on one he'd forgotten and then found: "Resizable chat window".  Done.
 
 At session 7's hand-off (2026-10-03): **"next session we're gonna try to get a character loaded into the
-world as a rep for the player"**.  His to change.  Session 8 opened on a quick change instead (`/who`), so
-this one still stands.
+world as a rep for the player"**.  Done in session 9 (Jacob opening it: "This will be necessary to get
+movement set up next session").
 
 At session 8's hand-off (2026-10-03): **"next session gonna be hard I think"**, no pick named.
 
-In session 9 (2026-10-03), on the player in the world: **"we'll do the model draw next session"**: the
-plugin that numbers the prefabs he builds in Unity (FluffyGameObject), the file the server reads, and the
-models drawn in place of the fallback shapes.  His to change.
+In session 9 (2026-10-03), on the player in the world: **"we'll do the model draw next session"**: "I will
+build an actor in the client and then we'll make a plug in to dump it into some sort of data that the
+server can take in and use", tracked "with a living document and by clicking the prefab in Unity and
+looking at its script for "FluffyGameObject"", and "we may want to store this animation data in the
+database and not on a catalog file on disk?" (open).  His to change.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -175,46 +189,67 @@ have no number.
   stands and its time online, the one in longest first, the count in digits and the time under it;
   `/who list` gone into `/who`, every `/who` through the GameClock; Ensemble's `WhoBox.cs` became
   `WhoLines.cs`.  Built and tested, every check.  `/who <character name>` is for later (TODO.md).
+- **Session 9, 2026-10-03**: the player in the world, protocol version 14: the GameClock's view (Hydrate,
+  ObjectsMoved, ObjectsGone, the roll call, ObjectAsk), object numbers, CharacterEnteredWorld with the
+  player's own; Ensemble's `WorldObjects`, `WorldObjectsView`, `FluffyGameObject`, `Actor` (the name over
+  the head), `CharacterStandIn` renamed `CameraAnchor`; a character saved inside the ground stood on top at
+  PLAY, told in its chat.  A stale `accounts` test fixed.  Built and tested, every check (the view: 24.28 ms
+  for 500 players all in sight, every one moved).
 
-## Last session -- session 8, 2026-10-03, /who a line a character
+## Last session -- session 9, 2026-10-03, the player in the world
 
-A fresh chat, opened on a quick change: **"since the chat window is "scaleable" we need to redesign it to I
-think more of an EverQUest style but we're gonna sort in single file by time since log on"**, with his
-example, then "sorry": `Chatter is at [0, 0, 0] [16 days, 12 minutes online]`.  Six questions, his answers
-(each in `design/conductor-networking.md`, "/who", in his words), then built, and every check passed:
+Session 7's pick, opened by Jacob: **"we're gonna be preparing both the server (Conductor) and Ensemble
+(client) with representing the player in the world.  This will be necessary to get movement set up next
+session.  The server will be the authority, always on where the object actually is in the world.  The
+client is just a dumb renderer."**  Talked through in rounds (every answer in `design/ensemble-world.md`,
+"The player in the world", in his words), then built in two rounds, every check passed:
 
-- **The shape**: "just mutate them into who" (`/who list` gone; anything after `/who` gets "Try /who.");
-  "Oldest log in goes at the top, newest at the bottom"; log on is "When character _entered_ the world";
-  days, hours and minutes with "no zeros"; "Capital L Legends", "there is 1 Legend online", a blank line
-  above it; "Put a stamp at the bottom with the time".
-- **Built**: protocol version 13, WhoDelivery without its list byte and each character with x, y, z and
-  its seconds online.  The GameClock's `Players` notes the `Instant` each character spawns and
-  `standing()` hands them back in that order, so every `/who` goes through its mailbox (`who()`) and
-  networking's `names_in_world()` is gone.  `player-commands/src/who.rs` has `send()`.  Ensemble:
-  `WhoLines.cs` in place of `WhoBox.cs` (its `.meta` moved with `git mv`, so no `.meta` round), the chat
-  window's hidden ruler gone with the box.  The test client draws the same lines; both `Protocol.cs` at 13.
-- **Later**: "eventually we're gonna make who able to do /who <character name> but not yet" (TODO.md).
-- **The checklist**: session 8's four checks passed and are out; only the three Parked are left.
-- The session's clone opened with a local `unstable` off `origin/unstable` again (51 ahead, 50 behind, a
-  shallow clone's doing); it was set to `origin/unstable`.
+- **The answers**: every character in the world within your view ("if they're within your visible
+  range"), the chunks' square; **only what changed**, with a roll call once a second to mend a lost packet
+  ("or we could consider redesigning the UDP service to have "reliable ordered" packets?": TODO.md); WASD,
+  so a velocity; "full rotation"; the short name over the head; "define an Actor in the client as well"
+  and "a simple datagram that the client can use to hydrate an actor with or an inanimate game object".
+- **Models went round**: a path can't load a model in a built game, so "UUID matched", then "a backwards
+  way": he builds an Actor prefab in Unity and a plugin dumps it into data the server takes in, tracked in
+  a living document and by the prefab's FluffyGameObject; maybe in the database.  "We'll do the model draw
+  next session."  The Hydrate carries a model's uuid as a string, empty for none, so the packet won't change.
+- **Round one, Conductor** (protocol version 14): `gameclock/src/view.rs` (numbers from `enter()`, the view
+  every cycle in the broadcast check, the roll call every 4th, `ask_about()`), `networking/src/view.rs`
+  (the packets, sent through the slot networking fills itself), PROTOCOL.md's "The world's objects", the
+  test client (`--miss-first-hydrate`, `--show-roll-calls`), Soundcheck at 14.  Timed: 24.28 ms for 500
+  players in sight of each other, every one moved, half the broadcast's 50 ms (a cheaper shape is in
+  TODO.md, "The view by column").
+- **Round two, Ensemble**: `Code/World/WorldObjects.cs`; `Scripts/World/WorldObjectsView.cs`,
+  `FluffyGameObject.cs`, `Actor.cs` (a TextMesh name, "they look fine actually :D"); `CameraAnchor.cs`
+  (`CharacterStandIn.cs` renamed with its `.meta`).  In the scene: an empty "World Objects" with World
+  Objects View on it.
+- **Asdf in the GOLD**: saved at 0, 0, 0 before spawn points, it came in half inside the GOLD.  Jacob:
+  "whenever a player is spawned into the world if the space they were in is now occupied with impassable
+  voxel (IE: not air) it should move them on top of it".  Built (`design/world.md`, "A saved character
+  inside the ground"): both blocks it fills checked at PLAY, stood on top of its column in the middle, the
+  spawn point if that's too high, told in chat; GameWorld not answering sends it to the spawn point's last
+  known place, saved, and PLAY refused (his "b").  "An unreachable spawn point... moves them to the next
+  spawn point and deletes the invalid one": TODO.md, there being one spawn point.
+- **Along the way**: an `accounts` test broken since session 6 (`create()` gained a position, the test
+  didn't) found by this session's `cargo test` and fixed; "Spans for real" taken off Parked on his say.
+- The session's clone opened with a local `unstable` off `origin/unstable` again (a shallow clone's
+  doing); it was set to `origin/unstable`.
 
 ## Where the next session starts
 
-No new pick at session 8's hand-off ("next session gonna be hard I think"); session 7's still stands.
+**Jacob's pick: "we'll do the model draw next session".**  Read `design/ensemble-world.md` ("The player in
+the world", the model bullets) first.  What he's said: he builds an Actor prefab in Unity from his purchased
+art; a plugin (Tools > Opus) dumps it into data the server takes in, the server never assigning the model
+its name ("the client does and we'll just start with 0000001 and work up"); he keeps track by a living
+document the session keeps and by the prefab's FluffyGameObject in the Inspector; and "we may want to store
+this animation data in the database and not on a catalog file on disk?".  **Open, to ask before building**:
+the file or the database (a table has an `id` and a `uuid`, and the game names a model by its uuid, which
+the Hydrate already carries as text); what the plugin writes and where Conductor reads it; how the client
+finds a prefab by it at runtime (a list the plugin fills, in a slot or an asset); the living document's
+name and place.  Purchased art never goes in our four folders.
 
-**Jacob's pick: "try to get a character loaded into the world as a rep for the player"**.  Read
-`design/ensemble-world.md` (the stand-in Cube, `CharacterStandIn`, the Cinemachine camera) and
-CLAUDE.md's Client rules on purchased art first.  **Ask before building** which he means; the
-two readings land in different places:
-- **The player's own character on screen**: a model from his purchased art (`Assets/Purchased/`, with the
-  animations he copied out under `Assets/Art/`) in place of the stand-in Cube, where the server says the
-  character stands.  Ensemble only, no packet change; the model is a slot or a prefab in the scene, never
-  committed.  It clears the Parked check of a character seen standing on the GOLD.
-- **Other players seen in the world**: the server telling each client who else is near and where, and
-  Ensemble drawing them.  That's a protocol bump (a "came into view" and a "left" packet, the server
-  deciding who's near), the start of 0.0.2's "synchronized with other clients".
-
-Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy).
+Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy); `testuser` /
+`Testpass123!` (Asdf), for a second player beside the first.
 
 ## What's waiting
 
@@ -240,7 +275,10 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
   client**: TODO.md.
 - **The Remember Me file is readable by other users on the same Linux machine.**  TODO.md.
 - **Ensemble**: the HUD's Phases 2 and 3; its project files in git (Packages/, LFS for scenes): TODO.md.
-- **Movement** (0.0.2 on WAYPOINTS.md), and what the client is sent after CharacterEnteredWorld.
+- **Movement** (0.0.2 on WAYPOINTS.md): the input packet, where velocity lives on the server, the
+  client smoothing between moves; characters standing in each other.
+- **The world's objects' rest** (TODO.md): reliable ordered UDP, the view by column, an unreachable
+  spawn point.
 - **Editing characters and NPCs** from GAME MANAGEMENT.  TODO.md.
 - **The world's part two**: saving changed chunks, a `world_size` change that keeps the digging, loading
   around players who move, an all-air chunk that costs nothing, a mountain.

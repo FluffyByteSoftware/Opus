@@ -78,14 +78,18 @@ Opus/
 │       │   │                          #   select (--create, --delete, --reset-home), --play, --type lines (chat,
 │       │   │                          #   /who, drawn in the box), keeps alive; Ctrl-C says Goodbye anywhere;
 │       │   │                          #   --play fetches the map first (--save-map, --wrong-map-hash), and
-│       │   │                          #   with --chunks the chunks around the character (--chunk-outside)
+│       │   │                          #   with --chunks the chunks around the character (--chunk-outside);
+│       │   │                          #   the world's objects it's told about (--miss-first-hydrate,
+│       │   │                          #   --show-roll-calls)
 │       │   └── src/
 │       │       ├── lib.rs             # start(), stop(), status(); the two helpers both sides share
 │       │       ├── settings.rs        # networking.cfg as networking reads it; the file itself is Constellations'
 │       │       ├── tls.rs             # reads the certificate and key, builds rustls's server settings
-│       │       ├── protocol.rs        # the packets, byte for byte (version 12); PROTOCOL.md is the other half
+│       │       ├── protocol.rs        # the packets, byte for byte (version 14); PROTOCOL.md is the other half
 │       │       ├── overworld.rs       # the simple overworld map as players are sent it at PLAY: its SHA-256, the
 │       │       │                      #   offer, every piece built once as its packet
+│       │       ├── view.rs            # what each player sees of the world, sent: fills the GameClock's view
+│       │       │                      #   sender; an ObjectAsk to the GameClock's mailbox
 │       │       ├── chunks.rs          # the chunks around a player: may_see(), the one place that says what a
 │       │       │                      #   player may be sent; each chunk's pieces from GameWorld, or refused
 │       │       ├── sessions.rs        # the book: tickets by token, players by address (and their character in
@@ -102,8 +106,9 @@ Opus/
 │       │       ├── dns/windows.rs     # getnameinfo from ws2_32
 │       │       ├── dns/other.rs       # macOS and the rest: no names yet
 │       │       ├── protogame.rs       # Protogame: character select's asks, on their own thread, answered over UDP;
-│       │       │                      #   PLAY loads a character and offers the map (or refuses inside the
-│       │       │                      #   cooldown); PlayerReady brings it into the world through the GameClock
+│       │       │                      #   PLAY loads a character (stood on top if it was saved inside the
+│       │       │                      #   ground) and offers the map (or refuses inside the cooldown);
+│       │       │                      #   PlayerReady brings it into the world through the GameClock
 │       │       └── udp.rs             # the one UDP thread: Connect, KeepAlive, Goodbye, the sweep; hands asks on;
 │       │                              #   answers a typed line; an answer too big goes in Spans; the map's pieces;
 │       │                              #   the chunks a player asks for
@@ -143,7 +148,8 @@ Opus/
 │       │       ├── overworld.rs       # simple_overworld.map: the world's rough shape for the client's distance
 │       │       │                      #   (SIMPLE_OVERWORLD_MAP.md is its contract)
 │       │       ├── squeeze.rs         # a chunk squeezed for sending (runs) and back; PROTOCOL.md has the layout
-│       │       ├── spawn.rs           # spawn points (columns), and the top of one's column to stand on
+│       │       ├── spawn.rs           # spawn points (columns), the top of one's column to stand on, the last
+│       │       │                      #   known place of each; footing(), a saved character inside the ground
 │       │       ├── terrain.rs         # Terrain: the chunks in memory, held by the GameClock's thread
 │       │       └── bytes.rs           # reading the binary files a number at a time, little-endian
 │       ├── gameclock/                 # lib, conductor-gameclock -- the GameClock, the game loop; a server piece
@@ -153,7 +159,10 @@ Opus/
 │       │       ├── checks.rs          # the five checks in order; only housekeeping runs until the ground is in
 │       │       ├── chat.rs            # the chat's mailbox; the broadcast check sends it through networking
 │       │       ├── who.rs             # /who's mailbox; the broadcast check answers it through networking
-│       │       ├── players.rs         # the mailbox (enter(), leave()) and the players' characters in the world
+│       │       ├── players.rs         # the mailbox (enter(), leave()) and the players' characters in the world,
+│       │       │                      #   each with its object number and uuid
+│       │       ├── view.rs            # what each player sees (protocol 14): object numbers, the Hydrates, the
+│       │       │                      #   moves, the gone, the roll call; ask_about(); set_view_sender()
 │       │       └── saving.rs          # the world save every world_save_seconds; the saves on their way
 │       ├── player-commands/           # lib, conductor-player-commands -- what a player types in the world
 │       │   ├── Cargo.toml             # depends on conductor-tools, -networking and -gameclock; networking never
