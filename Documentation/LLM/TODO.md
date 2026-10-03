@@ -89,6 +89,9 @@ Things that wait on a piece that doesn't exist yet, or on Jacob wanting them.
   **Built** (session 7; it compiles, and saves, locks, drags and the font size all wrote the file): `design/ensemble-hud.md`, "Moving, resizing and
   locking"; HUD_FORMATS.md's layout version 2.  Left: a lock/unlock icon on a widget's title bar (Jacob's,
   to replace the flashing), Reset HUD To Default somewhere a player can reach it, and the pointers on Windows.
+  **A bug being looked at** (Jacob, test 3): "the windows remain the right location and size between
+  logouts but they start unlocked when they were locked on logout.  They only start unlocked on a fresh
+  character not all the time on login".
 - **More than one chat window** (2026-10-02, from EverQuest): Enter or `/` goes to "the chat window I
   last used".  With one window that's it; with several, the chat widgets share one remembered "last used"
   (the one last typed in or clicked), and Enter and `/` go there.  A few lines when a second window comes;

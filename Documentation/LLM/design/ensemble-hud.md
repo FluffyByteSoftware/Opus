@@ -274,7 +274,8 @@ screen space and resize it."  TODO.md's entry has each of his answers in his wor
   own docs don't reach the session), so the 64 x 64s, Linux first.  If Windows cuts them down,
   `CursorMode.ForceSoftware` draws any size a frame behind the mouse.  **Tried** (session 7): both show, but "the cursor is way to large compared to the normal one like 2.5
   times the size", so Jacob's normal pointer is about 26 px; Unity hands the picture over at its own size
-  and never scales it to the system's.
+  and never scales it to the system's.  **Fixed by hand, no code** (Jacob): each picture's Max Size set to
+  32 in the Inspector, so Unity shrinks it on import, and both hotspots at 2, 2: "now it feels perfect".
 - **Remembered, a layout a character** ("we can do this even better playername_hud_layout.json"): every
   change (a drag let go, LOCK, UNLOCK, and the slider half a second after it stops) writes the HUD as it is
   to `<character>_hud_layout.json` in the player's folder, through a `.new` file and a replace.  The name is
