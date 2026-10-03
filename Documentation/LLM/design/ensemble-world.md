@@ -290,3 +290,24 @@ characters bumping on the screen but not on the server; how forgiving the server
 - **How forgiving**: "we're gonna make this configurable in game.cfg I think...
   MOVEMENT_TOLERANCE_BLOCK_THRESHHOLD or something... for now let's default it to 16 until we get a feel".
   (The other shape was a quarter over 4 blocks a second and up to a second of allowance saved up.)
+
+Then put to him: whether the input check runs once a cycle or every 50 ms; which side `player.cfg` is on
+and whether the walk speed goes in it; how often a check-in comes while walking straight; whether
+characters block each other on the server; the character's capsule's size.
+
+**His answers** (session 10, the third round):
+- **Blocking**: a character standing still blocks others on the server too, a moving one only on the
+  screens ("a").  "It would also force NPCs to recalculate how to walk somewhere."  (The other shape was
+  always blocking on the server, with two players walking into each other each pulled back.)
+- **The input check**: "I don't know what do professional games do for input cycles?  50 might be more
+  aggressive than the human can respond... maybe every second 50 ms check?"  Answered in the reply that
+  followed (below, "The input check").
+- **`player.cfg` is the server's**: "server player.cfg file that holds the turn speed in it.  Clients
+  should never determine this.  They can cheat by hacking it but the server will force them back."
+- **Warnings for the admin**: "if your rotation is more than 90 deg off that should flag a warning to the
+  sys admin along with the being 1-16 blocks past a point expected to be at."
+- **Check-ins**: "we'll start at half a second.  This is probably going to be hard coded so we'll see
+  when we get passed my own client."
+- **The capsule**: "no, our current shape", 1 block wide and 2 tall.  (Put to him: Minecraft's 0.6 by
+  1.8, since 1 wide fills a one-block doorway and 2 tall only just fits a two-block gap.)
+- **The plan for round one**: "Let me know if you need more help".
