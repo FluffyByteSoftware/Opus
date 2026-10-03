@@ -41,6 +41,11 @@ waits until the nearest 99 are drawn** (session 6), 10 s at most, so nobody come
 screen.  **The distance from the simple overworld map isn't drawn yet.**  New characters and RESET HOME
 stand on top of a **spawn point**'s highest block (session 6, `design/world.md`), 0.5, 1, 0.5 today.
 
+**The HUD is the player's** (session 7, `design/ensemble-hud.md`, "Moving, resizing and locking"): every
+widget moves, chat resizes by its edges and corners, a right-click gives LOCK / UNLOCK and chat's FONT SIZE
+(18 to 42), unlocked widgets flash, Jacob's two pointers from his purchased pack show where a drag can
+start, and it's all kept in `<character>_hud_layout.json` (HUD_FORMATS.md's layout version 2).
+
 **Conductor and the server are two things.**  The program (DiskMan, Scribe, Constellations, the web admin)
 is up from the moment the launcher runs.  The server (Fingerprinter, Security, Archivist, the account desk,
 Lua, GameWorld, the GameClock, the monitor, and networking last) only runs between START SERVER and STOP
@@ -48,19 +53,19 @@ SERVER on the web admin's Server tab.  **Networking opens only once the ground a
 
 **The branches**: **0.0.1 is released** (2026-10-02): the tag `0.0.1` is at `bc7009e`, with the two packages on
 the GitHub Release.  `main` is two docs commits past the tag; `testing` and `unstable` are level with each
-other, sessions 0 to 6 past `main`.  `main` moves when Jacob says.
+other, sessions 0 to 7 past `main`.  `main` moves when Jacob says.
 
-**Built and tested on Linux**: all of Conductor as released, and sessions 0 to 6 since; Soundcheck through
+**Built and tested on Linux**: all of Conductor as released, and sessions 0 to 7 since; Soundcheck through
 PLAY and the way back, the check at start and the patch against the real web folder; Ensemble through the
-start screen, dev mode, the launcher's ticket, the map at PLAY, the chunks and the ground on screen.
+start screen, dev mode, the launcher's ticket, the map at PLAY, the chunks and the ground on screen, the
+HUD moved, resized and locked.
 **Session 3, everything**: the build and the tests, the squeezed sizes, the test client pulling the whole
 view, the refusal past the edge, the Services tab's line, Soundcheck and the editor at version 12.
 **Measured**: the map takes 0.08 to 0.16 s on the LAN (16.8 MB at `world_size` 32), a guess of some 13 s over
 the internet at a 50 ms ping; **a whole view of chunks at `view_chunks` 8 is 3,179 chunks, 88,746 bytes
 squeezed, 0.04 s on the LAN**, the biggest chunk 693 bytes, every chunk one packet; squeezing is 13 to 14 us a
 chunk; hashing the 655 MB build takes 1.3 s at Soundcheck's start.  **Session 5's meshing**: 437 chunks in
-0.46 to 0.51 s, all on the worker, 302 drawn.  TEST_CHECKLIST.html has two open checks from session 6 (the
-bar's three stages, too fast to see; GroundView switched off sends the player back after 10 s) and three
+0.46 to 0.51 s, all on the worker, 302 drawn.  TEST_CHECKLIST.html has no open checks, only three
 Parked: seeing a character stand on the GOLD (no player model yet), the launcher's own restart after a patch,
 and Spans for real.  **On Windows**: Conductor builds and runs, START SERVER included, without a database;
 nothing since the world has been tried there (GitHub issue #10), and neither Soundcheck nor the new Ensemble
@@ -69,7 +74,9 @@ has been built there at all.
 **Jacob's settings worth knowing**: `world_size = 32`, `view_chunks = 8` ("keeping as 8", session 3; the
 code's default stays 4), `world_save_seconds = 1800`, `map_cooldown_seconds = 5`, `bind_address =
 10.0.0.84`.  In Unity: GroundView on a GameObject with five material slots (grass in GOLD's for now), the
-stand-in Cube with CharacterStandIn, a Cinemachine camera on it; the scene isn't committed.
+stand-in Cube with CharacterStandIn, a Cinemachine camera on it; ScreenRoot's Move Pointer and Grip Pointer
+are Move_PremiumCursor and Hand2_PremiumCursor, each imported at Max Size 32 with its hotspot at 2, 2; the
+scene isn't committed.
 
 ## Jacob's map (2026-09-30, and on)
 
@@ -104,7 +111,11 @@ At session 3's hand-off (2026-10-03): **"prepare next conversation for wiring up
 streams and the map and the hardest part - rendering it"**.  Receiving and the chunks drawn: sessions 4 and
 5 ("THE GROUND WORKED"); the distance from the map, not yet.
 
-At session 6's hand-off (2026-10-03): **"wrap it up bro!  We're good"**, no pick for next.  His to make.
+At session 6's hand-off (2026-10-03): **"wrap it up bro!  We're good"**, no pick for next.  Session 7 opened
+on one he'd forgotten and then found: "Resizable chat window".  Done.
+
+At session 7's hand-off (2026-10-03): **"next session we're gonna try to get a character loaded into the
+world as a rep for the player"**.  His to change.
 
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
@@ -142,51 +153,61 @@ have no number.
 - **Session 6, 2026-10-03** (session 1's chat, reopened): the map's cooldown down to 5 s; Soundcheck's
   window fits itself, 5 % bigger, and keeps that size; PlayerReady once the nearest 99 are drawn, 10 s at
   most; spawn points, a new character and RESET HOME on top of the highest block.  All built and tested
-  but two Unity checks.
+  (its last two Unity checks passed in session 7).
+- **Session 7, 2026-10-03**: Jacob's forgotten pick, found: the HUD moved, resized (chat) and locked by the
+  player, a right-click menu with chat's font size, his own two pointers, a layout file a character
+  (layout version 2).  Built and tested, every check.
 
-## Last session -- session 6, 2026-10-03, the afternoon after the ground
+## Last session -- session 7, 2026-10-03, the HUD the player's own
 
-Session 1's chat, reopened after sessions 4 and 5 had run in chats of their own and left no hand-off (both
-are written into the rolling day above from their commits).  Jacob came back to "THE GROUND WORKED" and
-asked for a run of small things, each planned, OKed, built and checked on its own:
+A fresh chat.  Jacob came in with a pick he'd forgotten ("It was something to do with the client and the
+streams"); a run through what's open before movement (seeing other players, ground loaded around players
+who move, a body for the stand-in, the 250 ms tick and the client filling the gaps, a second computer) jogged
+nothing, and then: **"OH I REMEMBER  Resizable chat window"**.  Talked through a question at a time, every
+answer pushed to TODO.md as it came, then built, and every check passed:
 
-- **The `.meta` round** for sessions 4 and 5's files (Jacob's `git meta`), and the scene set up: GroundView
-  wasn't on a GameObject at first, so nothing was drawn and nothing was said.  **Measured**: 437 chunks
-  meshed, 246,903 faces, in 0.51 s on the worker, 302 drawn (`design/ensemble-world.md`).
-- **The map's cooldown, 300 s to 5** ("well our DDOS protection works xD"): the default and the committed
-  `networking.cfg`.
-- **Soundcheck's window fits itself** ("is there any way to rely on avalonia to make the window the right
-  size?"): `SizeToContent`, then 5 % of that added round the edges and the size fixed; the pieces that come
-  and go keep their room (`Screens/Reserved.cs`), the status box four lines and scrolling
-  (`design/soundcheck.md`, "The window's size").
-- **PlayerReady once the nearest 99 are drawn**, not only in ("I just don't want a situation where a player
-  walks forward and 'falls' until the server catches up"): GroundView says each chunk it's done with, the
-  bar says "Drawing the ground...", and 10 s without it sends the player back with his words.  No packet
-  change.
-- **The ground stays where it's drawn** (a block at y fills y to y+1); characters stand on top of it.
-- **Spawn points** (turned round from "start at Y=1" to "a designated spawn point ... put the player on top
-  of the highest voxel"): a column, `SPAWN_POINTS` in `gameworld/src/spawn.rs`, its top worked out on
-  GameWorld's thread from the chunk files or the region's ground, so any column in the world will do;
-  only new characters and RESET HOME use it; the middle of the block.  **Tested**: Poopy (new) and Tester
-  (reset) at 0.5, 1, 0.5; Asdf and Chatter still at 0, 0, 0, as saved.
-- Earlier in the same chat (session 1, the morning): a web admin login that "kicks you to a random web
-  page" couldn't be made to happen again; nothing in `page.html` or the server navigates anywhere.  If it
-  comes back: the URL it lands on, the browser, a private window.
+- **The shape** (his words, TODO.md has each): "right click it and lock it or unlock it and when unlocked if
+  you go to the border of the chat box you can drag its edges out"; every edge "like windows window";
+  unlocked by default, with "a flashing orange/red/yellow border" ("its gonna be annoying but yes until I get
+  a lock/unlock icon in to draw on the title bar"); **all widgets movable, only chat resizable**; moved by
+  grabbing the inside; the font size of chat's contents, not its header, 18 to 42; remembered in
+  **`playername_hud_layout.json`**, the character's name ("we can do this even better").
+- **Built**: `WidgetFrame.cs` (lock, move, resize, the flashing), `WidgetMenu.cs` (the right-click menu, ours,
+  since Unity's own is editor-only), `HudPointer.cs`; HudBuilder frames every box on the HUD; the layout's
+  version 2 (`locked`, `fontSize`, rule 8 in HUD_FORMATS.md); LayoutLoader writes the character's file
+  through a `.new` and a replace; health and the minimap not resizable.
+- **The pointers**: Unity's docs, forums and issue tracker are blocked from the session; its C# source on
+  raw.githubusercontent.com (UnityCsReference) showed UI Toolkit's `cursor` calling `Cursor.SetCursor` with
+  `CursorMode.Auto`.  Jacob's are a purchased pack (the PremiumCursors), so two slots on ScreenRoot.  The
+  64 x 64s were "like 2.5 times the size" of the normal pointer: **Max Size 32 in the Inspector and hotspots
+  at 2, 2**, "now it feels perfect".  No code.
+- **What's kept**: a character with no file starts unlocked; with one, everything resumes as last saved
+  (Jacob's rule).  A lock that seemed lost on Chatter wasn't, on a second look.
+- **The checklist**: session 6's two Unity checks and session 7's ten passed and are out; only the three
+  Parked are left.
+- The session's clone opened with a local `unstable` 51 commits off `origin/unstable`; it was set to
+  `origin/unstable`, the old one kept as a local branch only.
 
 ## Where the next session starts
 
-**No pick from Jacob** ("We're good").  What's open, for him to choose from:
-- **0.0.13's last piece, the distance**: the simple overworld map drawn as coarse ground past the chunks
-  (16 by 16 blocks a patch, coloured by its top block; a million patches at `world_size` 32, so tiles or a
-  coarser cut further out).  Whether 0.0.13 needs it before it's released is his call (WAYPOINTS.md).
-- **0.0.2, movement**, the next waypoint: the GameClock loading around players who move, chunks forgotten
-  when nobody's near, the client pulling more as it walks.
-- The two open checks in TEST_CHECKLIST.html (session 6).
+**Jacob's pick: "try to get a character loaded into the world as a rep for the player"**.  Read
+`design/ensemble-world.md` (the stand-in Cube, `CharacterStandIn`, the Cinemachine camera) and
+CLAUDE.md's Client rules on purchased art first.  **Ask before building** which he means; the
+two readings land in different places:
+- **The player's own character on screen**: a model from his purchased art (`Assets/Purchased/`, with the
+  animations he copied out under `Assets/Art/`) in place of the stand-in Cube, where the server says the
+  character stands.  Ensemble only, no packet change; the model is a slot or a prefab in the scene, never
+  committed.  It clears the Parked check of a character seen standing on the GOLD.
+- **Other players seen in the world**: the server telling each client who else is near and where, and
+  Ensemble drawing them.  That's a protocol bump (a "came into view" and a "left" packet, the server
+  deciding who's near), the start of 0.0.2's "synchronized with other clients".
 
 Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy).
 
 ## What's waiting
 
+- **The HUD's rest** (TODO.md, "A resizable chat window"): a lock/unlock icon on a widget's title bar
+  in place of the flashing, Reset HUD To Default where a player can reach it, the pointers on Windows.
 - **The world to the client's rest**: the distance from the simple overworld map, drawn.  Conductor's
   leftovers (TODO.md, "The chunks streamed"): a stamp on a chunk's pieces once blocks change, forgetting
   chunks nobody's near once players move, the GameClock loading around a player who isn't at 0,0,0, a faked
@@ -195,7 +216,9 @@ Accounts to log in with: `testuser123` / `Testpass123!` (Tester, Chatter, Poopy)
   and the certificate for every client (LONGTERM_TODO.md).
 - **Spawn points' rest** (TODO.md): which one a character gets once there are many; the height from a
   column changed since the last world save, once blocks change.
-- **A web admin login that went to "a random web page"**, once, not seen again (above).
+- **A web admin login that went to "a random web page"**, once (session 1's morning), not seen again; nothing in
+  `page.html` or the server navigates anywhere.  If it comes back: the URL it lands on, the browser, a private
+  window.
 - **The simple overworld map's rest** (TODO.md, "The world's dump"): writing it again at the world save
   once blocks change, a timing over the internet, the stuck PLAY (LOG OUT is the way out).
 - **The 0.0.1 code review's rest** (`CODE_REVIEW_0.0.1.md`): R8 onward, the inefficiencies and the stale

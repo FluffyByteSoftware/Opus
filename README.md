@@ -15,7 +15,8 @@ It is early.  The server has its foundations, a login, a web page to run it from
 game loop ticking over it, and a player can pick a character, stand in that world and chat with whoever
 else is there, though nothing moves yet.  Ensemble has an editor tool for the art, and screens built from
 layout files: it starts with the launcher's ticket, makes, deletes and picks a character at character select,
-and puts it in the world with a chat window over the scene, though there's no world on screen yet.
+and puts it in the world on the ground drawn around it, with a HUD the player can move, lock and (the chat
+window) resize.
 Soundcheck checks the game's files against the manifest its admin mode published to a web folder (1.3 s
 for 655 MB), fetches whatever's off a file at a time, logs in over TLS 1.3 with the password turned into a
 key before it's sent or kept, and starts Ensemble with the ticket; all of it built and tested on Linux,
@@ -48,6 +49,8 @@ The next is 0.0.13, the world served up to the client; the versions ahead are in
 | Ensemble                                         | An editor tool; the screens and the HUD, from layouts  |
 | Ensemble's character select and PLAY             | Built and tested; the HUD comes up over the scene      |
 | Ensemble's chat window, `/who`'s box, `/camp`    | Built and tested, EverQuest's keys included            |
+| The HUD moved, locked, chat resized, by a player | Built and tested: right-click LOCK, chat's font size,  |
+|                                                  | a layout file a character                              |
 | The password's key, made on the client           | Both halves built and tested (protocol version 7)      |
 | Ensemble starting from the launcher's ticket     | Built and tested: the start screen, dev mode           |
 | A pick inside the character's lock waits         | Built and tested (PleaseWait, protocol version 10)     |

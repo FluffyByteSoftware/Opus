@@ -193,7 +193,10 @@ every folder and file.
   comment that guessed wrong gets corrected.  A library's tracker and source
   (raw.githubusercontent.com reaches the session) are read before a third
   guess.  **A package version is looked up, never remembered** (one pinned
-  from memory was two years stale).
+  from memory was two years stale).  Unity's docs, forums and issue
+  tracker don't reach the session; its C# source does
+  (`Unity-Technologies/UnityCsReference` on raw.githubusercontent.com), and
+  a web search's summaries of the rest are said as that.
 - **I'm hands-off on the files in `Opus/`.** You make every edit, CLAUDE.md
   included.  Don't hand me a list of changes to make by hand; make them and
   tell me what changed.
@@ -608,8 +611,11 @@ When I say we're wrapping up:
   `WidgetRegistry`, placed by a JSON layout in `Assets/Data/Layouts/`
   (HUD_FORMATS.md is the contract).  **ScreenRoot** owns every screen and
   which one is showing; a new screen gets its slots there, and each screen
-  carries its own style sheet.  Only the HUD's layout is ever the player's;
-  every other screen's is shipped.  `design/ensemble-hud.md` has the HUD,
+  carries its own style sheet.  Only the HUD's layout is ever the player's,
+  one a character (`<character>_hud_layout.json`), written by the game
+  whenever they move, resize or lock a widget (session 7); every other
+  screen's is shipped.  A widget never moves or sizes its own box: on the
+  HUD, `WidgetFrame` does.  `design/ensemble-hud.md` has the HUD,
   the chat window and its keys (EverQuest's: Enter or `/` to the field,
   Enter, Escape or a click away back to `GameFocus`, the game's
   place-holder for the focus, never to nothing).
