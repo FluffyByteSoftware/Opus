@@ -186,6 +186,14 @@ Windows.  What's left, a step each:
   stream (64 KB a chunk, 4 KB a packet), run-length by hand, no crate.  **When it's written**: "When the world
   saves I think" (which save, below).  Asked how Minecraft draws the distance (the answer is in the session's
   reply: it doesn't, past what the server sent).
+  **Then** (Jacob): each 16 by 16 patch carries **its average height and its most common top block** ("we can
+  take the average with the highest occurence (if its dirt) and put dirt to color the whole thing"), the
+  client colouring the distance by the kind, Minecraft's map colours' idea.  **Written when the world is made
+  and at the terrain save** (every 15 minutes and on STOP SERVER, part two, not built: "We may have to turn
+  that save rate down").  On the size: "It can be larger file...".  **It goes to the web folder**: "should
+  copy it to /opt/storage/WWW/download/map/<somename>".  Open: the name; what "turn the save rate down" means;
+  how the patcher learns the dump's hash, since the platform manifests are PUBLISH's and the dump changes on
+  its own clock.
 - **The world's files on the client** go in `Assets/StreamingAssets/World/`, a fifth folder of ours under
   `Assets/`, into the `.gitignore` with its `.meta` (Jacob, 2026-10-02: out of that pass).  A Unity build
   packs everything under `Assets/` into its own archives; `StreamingAssets/` is the one folder it copies as
