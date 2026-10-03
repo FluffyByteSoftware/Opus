@@ -146,6 +146,9 @@ server can take in and use", tracked "with a living document and by clicking the
 looking at its script for "FluffyGameObject"", and "we may want to store this animation data in the
 database and not on a catalog file on disk?" (open).  His to change.
 
+At session 9's end (2026-10-03), asked whether `main` catching up was a release: **"not yet... we're gonna
+get movement then release"**.  So no tag or packages until movement is in.  His to change.
+
 The game is built into **`Ensemble/build/Linux/0.0.12/`** ("yeah we'll build a 0.0.12").
 
 ## The last day
