@@ -70,3 +70,12 @@ runs after, so the character can be put in the world, and the stand-in shown, be
 is on screen.  The server already waits for PlayerReady before it puts the character in, with no deadline
 but the UDP timeout.  Open: what "ready" is (the nearest 99 drawn, or the whole view), whether the server
 needs more than PlayerReady at a later moment, and what the loading bar says meanwhile.
+
+## Where the ground sits in Unity (asked 2026-10-03, session 1; being talked through)
+
+Jacob, after the ground worked: "it loaded the whole damn world with the split perfectly" (Alpha flat to
+the west, Omega's hills to the east; a grass material in place of GOLD for now), and "we need to origin
+this at -1 on Y I think so characters I put down at 0 are on top of it".  Today a block at y fills y to
+y+1, so the ground's top at 0 is at Unity's y 1, and anything stood at 0 is a block deep in it.  Open: a
+client-only shift (the whole ground drawn a block lower, so a block's top face is at its own y) or the
+server's spawn at y 1 with the drawing as it is; and which the server's own idea of "standing on" follows.
