@@ -208,3 +208,22 @@ three chunk packets have names in `Protocol.cs`, and `GameConnection` reads the 
 it, just after the hash.  Asking for the chunks, holding them and drawing them are Ensemble's own sessions
 (Jacob: "to bring it in line with these server changes"); STATUS.md lists what's to settle first.  The test
 client's `fetch_chunks()` is a working pull to copy.
+
+## The chunks, Ensemble's half (2026-10-03, session 4)
+
+Jacob: "the Ensemble half first ... its ability to stream in the terrain data... then next session we're
+gonna put it all together and try to render the world around our player".  The map's half was already
+there (session 2); this is the chunks, received and held, nothing drawn.
+
+### Settled (Jacob, 2026-10-03)
+
+- **Map, then chunks**: the map comes in whole first, as now, then the chunks are asked for.
+- **The red bar**: the map as now, then "Loading the ground", counted in chunks (by bytes the chunks
+  would hardly move it: 88 KB against the map's 16 MB).
+- **Held**: a chunk all of one kind (most of a view is air) is kept as just that kind; any other is
+  unsqueezed to its 32,768 blocks.  About 37 MB for a view at 8 on Omega's hills, where every chunk as
+  blocks would be 199 MB.  Drawing (next session) reads the blocks straight out.
+- **Trouble**: no new chunk in 10 seconds gives up and goes back to the launcher ("Couldn't get the
+  ground around you"), the same as the map.  A chunk the server calls unavailable stays empty, a warning
+  in the log, and the game goes on.
+- **Open**: when PlayerReady goes, all of the view or the nearest chunks with the rest coming after.
