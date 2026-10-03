@@ -77,6 +77,9 @@ Ensemble/dev/**/[Uu]ser[Ss]ettings/
 .vscode/
 *.swp
 .DS_Store
+# A file some coding tool on Jacob's machine left at the top (session 12,
+# 2026-10-03: "AGENTS.md isn't mine").  Only the one at the top.
+/AGENTS.md
 
 # Soundcheck's build output: what dotnet makes beside the project, and
 # the packages folder like the other two components'.
