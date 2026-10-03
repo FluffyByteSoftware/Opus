@@ -269,7 +269,13 @@ Windows.  What's left, a step each:
   on the fly on top would make a difference (talked through below); **Ensemble gets its own sessions
   later** "to bring it in line with these server changes", so this session is Conductor and the test
   client.  He asked how far a player sees with `view_chunks` 4: 128 to 159 blocks ahead, by where in its
-  chunk the player stands, every row up and down.
+  chunk the player stands, every row up and down.  **Then** (Jacob): "runs only for now, keep view_chunks
+  4, build it".  So no zip crate; each squeezed chunk starts with a byte saying how it's squeezed (1, runs),
+  so zipping can come as a second kind without new packets.  The plan OKed: protocol version 12,
+  ChunkRequest (`0x43`, up to 64 chunks), ChunkPiece (`0x44`) and ChunkRefused (`0x45`); GameWorld's thread
+  squeezes each chunk as it loads it, into a cache networking sends from; a player waiting on the map or in
+  the world may ask, for chunks within `view_chunks` of where their character stands; the test client's
+  `--chunks`.
 - **The world's files on the client**, overtaken (session 1): it was `Assets/StreamingAssets/World/`, a
   fifth folder of ours, for files the patcher would ship (Jacob, 2026-10-02).  The simple overworld map
   comes from Conductor at PLAY into `Application.persistentDataPath` instead, so nothing of the world ships
