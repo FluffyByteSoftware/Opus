@@ -53,8 +53,10 @@ the spawn, chat, Soundcheck's login and patcher) are in the design files with th
 
 **The 0.0.1 goal**: "get a player spawned in the world and able to chat."  **Done and released** (2026-10-02).
 
-On the milestones (2026-10-02): **"If we can get it where people can log in and chat with each other...
-that's release 0.0.1 then movement is 0.0.12"**, and then, asked: movement is **"0.0.0.12"**.  His to change.
+On the versions ahead (2026-10-03): WAYPOINTS.md, his flow chart: 0.0.2 is "movement working and
+synchronzied over the network with other clients", 0.0.3 "primitive NPCs in the game", 0.0.4 "more
+complex world generation", "then I'm not sure from there".  (On 2026-10-02 movement was "0.0.0.12"; the
+chart's numbers are the ones now.)
 
 On the world (2026-10-01): "we will test a mountain out after we get the client up".
 

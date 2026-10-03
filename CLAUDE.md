@@ -24,8 +24,8 @@ unless I explicitly ask. Their *workflow* carried over; their code did not.
 Project root: `/opt/storage/Coding/Opus`
 
 **0.0.1 is released** (2026-10-02): a player logs in, picks a character and
-chats.  The next milestone is movement, 0.0.0.12 (Jacob's number).  His map
-is in STATUS.md.
+chats.  The versions ahead are `Documentation/LLM/WAYPOINTS.md` (0.0.2 is
+movement); his map for the next one is in STATUS.md.
 
 **This file is the rules and where to look.**  It holds what applies in every
 session (how we work, git, the code rules, and the rules a piece can't be
@@ -41,6 +41,7 @@ inside one piece goes in that piece's design file, not here (2026-10-03).
 | The concern                                  | Read                                                      |
 |----------------------------------------------|-----------------------------------------------------------|
 | Where things stand, what's waiting, his map  | `Documentation/LLM/STATUS.md`                             |
+| The versions ahead, what each is for         | `Documentation/LLM/WAYPOINTS.md`                          |
 | What's deferred, ideas, the clean-up list    | `Documentation/LLM/TODO.md`; big ones, `LONGTERM_TODO.md` |
 | Every folder and file, the named pieces      | `Documentation/LLM/PROJECT_OPUS.md`                       |
 | The front page, building and running it      | `README.md`; `Documentation/HowTo/` to install, release, Windows|

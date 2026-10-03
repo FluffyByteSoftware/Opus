@@ -279,6 +279,7 @@ Opus/
     │   └── INSTALLATION_INSTRUCTIONS.md # installing a released package, server and client
     └── LLM/
         ├── STATUS.md                  # the bridge between sessions
+        ├── WAYPOINTS.md               # the versions ahead, a flow chart: what each is for
         ├── TODO.md                    # deferred work and ideas
         ├── LONGTERM_TODO.md           # the big features: a run of sessions each, added as they come up
         ├── PROJECT_OPUS.md            # this file
